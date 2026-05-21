@@ -8,6 +8,12 @@ export type GenerationStage =
   | 'completed'
   | 'failed';
 
+export interface GenerationQueuedPayload {
+  assignmentId: string;
+  jobId: string;
+  position: number;
+}
+
 export interface GenerationProgressPayload {
   assignmentId: string;
   progress: number;

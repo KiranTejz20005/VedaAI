@@ -1,4 +1,4 @@
-import { apiClient } from './api.client';
+import { apiClient, deduplicateRequest } from './api.client';
 import type { Assignment } from '../types/assignment.types';
 import type { CreateAssignmentFormValues } from '../schemas/create-assignment.schema';
 
@@ -19,17 +19,18 @@ export async function fetchAssignments(
 }
 
 export async function fetchAssignment(id: string): Promise<Assignment> {
-  const res = await apiClient.get<{ data: Assignment }>(`/assignments/${id}`);
-  return res.data.data;
+  return deduplicateRequest(`fetch-assignment-${id}`, async () => {
+    const res = await apiClient.get<{ data: { assignment: Assignment } }>(`/assignments/${id}`);
+    return res.data.data.assignment;
+  });
 }
 
 export async function createAssignment(
-  data: CreateAssignmentFormValues,
+  data: CreateAssignmentFormValues & { typeBreakdown?: string },
   files: File[]
 ): Promise<{ assignment: Assignment; jobId: string }> {
   const formData = new FormData();
 
-  // Append form fields
   formData.append('title', data.title);
   formData.append('subject', data.subject);
   formData.append('description', data.description ?? '');
@@ -38,6 +39,9 @@ export async function createAssignment(
   formData.append('totalMarks', String(data.totalMarks));
   formData.append('questionConfig', JSON.stringify(data.questionConfig));
   formData.append('additionalInstructions', data.additionalInstructions ?? '');
+  if (data.typeBreakdown) {
+    formData.append('typeBreakdown', data.typeBreakdown);
+  }
 
   files.forEach((file) => formData.append('files', file));
 
@@ -51,4 +55,22 @@ export async function createAssignment(
 
 export async function deleteAssignment(id: string): Promise<void> {
   await apiClient.delete(`/assignments/${id}`);
+}
+
+export async function generateAssignment(id: string): Promise<{ jobId: string; position: number }> {
+  const res = await apiClient.post<{ data: { jobId: string; position: number } }>(`/assignments/${id}/generate`);
+  return res.data.data;
+}
+
+export interface JobStatusResponse {
+  status: string;
+  progress: number;
+  error?: string | null;
+}
+
+export async function fetchJobStatus(id: string): Promise<JobStatusResponse | null> {
+  return deduplicateRequest(`job-status-${id}`, async () => {
+    const res = await apiClient.get<{ success: boolean; data: JobStatusResponse }>(`/papers/job/${id}`);
+    return res.data.data;
+  });
 }

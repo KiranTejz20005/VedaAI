@@ -1,9 +1,10 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 import {
   ArrowLeft,
   Brain,
@@ -16,7 +17,7 @@ import {
   RefreshCw,
   Star,
 } from 'lucide-react';
-import { fetchAssignment } from '@/services/assignment.service';
+import { fetchAssignment, generateAssignment, fetchJobStatus } from '@/services/assignment.service';
 import { useGenerationSocket } from '@/hooks/useSocket';
 import { useGenerationStore } from '@/store/generation.store';
 import type { Assignment } from '@/types/assignment.types';
@@ -150,7 +151,11 @@ export default function AssignmentDetailPage({
   const router = useRouter();
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [loading, setLoading] = useState(true);
-  const { stage, progress, message, paperId, error, reset } = useGenerationStore();
+  const [isRetrying, setIsRetrying] = useState(false);
+  const hasAutoQueuedRef = useRef(false);
+  const retryCooldownRef = useRef(false);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { stage, progress, message, paperId, error, warning, reset, setQueued, setWarning } = useGenerationStore();
 
   useGenerationSocket(id);
 
@@ -163,13 +168,83 @@ export default function AssignmentDetailPage({
 
   useEffect(() => {
     if (paperId) {
-      setTimeout(() => router.push(`/assignments/${id}/paper`), 1500);
+      const t = setTimeout(() => router.push(`/assignments/${id}/paper`), 1500);
+      return () => clearTimeout(t);
     }
   }, [paperId, id, router]);
 
   useEffect(() => {
     return () => { reset(); };
   }, [reset]);
+
+  useEffect(() => {
+    if (message?.includes('image references removed')) {
+      setWarning('Your uploaded content contained image references which were removed for text-only processing.');
+    }
+  }, [message, setWarning]);
+
+  const handleGenerate = useCallback(async () => {
+    if (retryCooldownRef.current) return;
+    retryCooldownRef.current = true;
+    setIsRetrying(true);
+    try {
+      await generateAssignment(id);
+      setQueued();
+      setAssignment((prev) => (prev ? { ...prev, status: 'queued' } : prev));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to queue generation';
+      if (msg.toLowerCase().includes('already in progress')) {
+        setQueued();
+        setAssignment((prev) => (prev ? { ...prev, status: 'queued' } : prev));
+        return;
+      }
+      toast.error(msg);
+    } finally {
+      setIsRetrying(false);
+      setTimeout(() => { retryCooldownRef.current = false; }, 3000);
+    }
+  }, [id, setQueued]);
+
+  useEffect(() => {
+    if (!assignment || assignment.status !== 'draft' || hasAutoQueuedRef.current) return;
+    hasAutoQueuedRef.current = true;
+    handleGenerate();
+  }, [assignment, id, handleGenerate]);
+
+  useEffect(() => {
+    if (!['queued', 'generating'].includes(assignment?.status ?? '') && !stage) return;
+    pollingRef.current = setInterval(async () => {
+      try {
+        // Poll job status for intermediate progress
+        const jobStatus = await fetchJobStatus(id);
+        if (jobStatus) {
+          if (jobStatus.status === 'completed') {
+            useGenerationStore.getState().setCompleted(id);
+          } else if (jobStatus.status === 'failed') {
+            useGenerationStore.getState().setFailed(jobStatus.error ?? 'Generation failed');
+          } else if (['queued', 'processing', 'generating', 'parsing', 'saving', 'pdf-generating'].includes(jobStatus.status)) {
+            useGenerationStore.getState().setProgress(jobStatus.progress, jobStatus.status as GenerationStage);
+          }
+        }
+        // Also poll assignment to keep status in sync
+        const updated = await fetchAssignment(id);
+        setAssignment(updated);
+        if (updated.status === 'completed') {
+          useGenerationStore.getState().setCompleted(id);
+        } else if (updated.status === 'failed') {
+          useGenerationStore.getState().setFailed('Generation failed');
+        }
+      } catch {
+        // Polling failure is non-critical
+      }
+    }, 5000);
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [id, assignment?.status, stage, setQueued]);
 
   if (loading) {
     return (
@@ -206,6 +281,7 @@ export default function AssignmentDetailPage({
 
   const isActiveStage = stage && !['completed', 'failed'].includes(stage);
   const showGeneration = Boolean(stage) || ['queued', 'generating'].includes(assignment.status);
+  const questionCount = assignment.questionConfig?.count ?? 0;
 
   return (
     <div style={{ maxWidth: 720 }}>
@@ -299,7 +375,7 @@ export default function AssignmentDetailPage({
           {[
             { icon: Star, label: 'Total Marks', value: assignment.totalMarks },
             { icon: Clock, label: 'Duration', value: `${assignment.duration} min` },
-            { icon: FileText, label: 'Questions', value: assignment.questionConfig.count },
+            { icon: FileText, label: 'Questions', value: questionCount },
           ].map(({ icon: Icon, label, value }) => (
             <div key={label} style={{ textAlign: 'center' }}>
               <Icon size={16} color="var(--text-muted)" style={{ margin: '0 auto 4px', display: 'block' }} />
@@ -329,6 +405,34 @@ export default function AssignmentDetailPage({
         )}
       </AnimatePresence>
 
+      {/* Info banner for content sanitization */}
+      {warning && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          style={{
+            background: '#FFFBEB',
+            border: '1px solid #FDE68A',
+            borderRadius: 'var(--radius-lg)',
+            padding: '12px 16px',
+            marginBottom: 16,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 10,
+          }}
+        >
+          <div style={{ fontSize: 16, flexShrink: 0, lineHeight: 1.4 }}>i</div>
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: '#92400E', margin: 0 }}>
+              Content Notice
+            </p>
+            <p style={{ fontSize: 12, color: '#A16207', margin: '2px 0 0' }}>
+              {warning}
+            </p>
+          </div>
+        </motion.div>
+      )}
+
       {/* Error state */}
       {(stage === 'failed' || assignment.status === 'failed') && (
         <motion.div
@@ -356,11 +460,12 @@ export default function AssignmentDetailPage({
           </div>
           <button
             className="btn btn-secondary btn-sm"
-            onClick={() => window.location.reload()}
+            onClick={handleGenerate}
+            disabled={isRetrying}
             style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
           >
-            <RefreshCw size={12} />
-            Retry
+            <RefreshCw size={12} className={isRetrying ? 'animate-spin' : ''} />
+            {isRetrying ? 'Retrying…' : 'Retry'}
           </button>
         </motion.div>
       )}

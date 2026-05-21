@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 import { formatDistanceToNow, format } from 'date-fns';
 import {
   Plus,
@@ -22,6 +24,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useAssignments } from '@/hooks/useAssignments';
+import { deleteAssignment as deleteAssignmentRequest } from '@/services/assignment.service';
 import type { Assignment } from '@/types/assignment.types';
 
 // ─── Status badge ──────────────────────────────────────────
@@ -39,7 +42,17 @@ function StatusBadge({ status }: { status: Assignment['status'] }) {
 }
 
 // ─── 3-dot context menu ─────────────────────────────────────
-function CardMenu({ assignment }: { assignment: Assignment }) {
+function CardMenu({
+  assignment,
+  onView,
+  onDelete,
+  isDeleting,
+}: {
+  assignment: Assignment;
+  onView: (assignmentId: string) => void;
+  onDelete: (assignmentId: string) => Promise<void>;
+  isDeleting: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -55,7 +68,11 @@ function CardMenu({ assignment }: { assignment: Assignment }) {
     <div ref={ref} style={{ position: 'relative' }}>
       <button
         className="menu-btn"
-        onClick={() => setOpen((o) => !o)}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
         aria-label="Card options"
         aria-expanded={open}
       >
@@ -71,17 +88,32 @@ function CardMenu({ assignment }: { assignment: Assignment }) {
             exit={{ opacity: 0, scale: 0.95, y: -4 }}
             transition={{ duration: 0.12 }}
           >
-            <Link
-              href={`/assignments/${assignment._id}`}
+            <button
+              type="button"
               className="dropdown-item"
-              onClick={() => setOpen(false)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setOpen(false);
+                onView(assignment._id);
+              }}
             >
               <Eye size={14} />
               View Assignment
-            </Link>
-            <button className="dropdown-item danger">
+            </button>
+            <button
+              type="button"
+              className="dropdown-item danger"
+              onClick={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setOpen(false);
+                await onDelete(assignment._id);
+              }}
+              disabled={isDeleting}
+            >
               <Trash2 size={14} />
-              Delete
+              {isDeleting ? 'Deleting...' : 'Delete'}
             </button>
           </motion.div>
         )}
@@ -91,7 +123,19 @@ function CardMenu({ assignment }: { assignment: Assignment }) {
 }
 
 // ─── Assignment card ─────────────────────────────────────────
-function AssignmentCard({ assignment, index }: { assignment: Assignment; index: number }) {
+function AssignmentCard({
+  assignment,
+  index,
+  onView,
+  onDelete,
+  isDeleting,
+}: {
+  assignment: Assignment;
+  index: number;
+  onView: (assignmentId: string) => void;
+  onDelete: (assignmentId: string) => Promise<void>;
+  isDeleting: boolean;
+}) {
   const isLive = assignment.status === 'generating' || assignment.status === 'queued';
   const assignedDate = format(new Date(assignment.createdAt), 'dd-MM-yyyy');
   const dueDate = format(new Date(assignment.dueDate), 'dd-MM-yyyy');
@@ -104,6 +148,7 @@ function AssignmentCard({ assignment, index }: { assignment: Assignment; index: 
       exit={{ opacity: 0, y: -8 }}
       transition={{ delay: index * 0.04 }}
       className="assignment-card"
+      style={{ overflow: 'visible' }}
     >
       {/* Live pulse border */}
       {isLive && (
@@ -129,7 +174,12 @@ function AssignmentCard({ assignment, index }: { assignment: Assignment; index: 
           </h3>
           <StatusBadge status={assignment.status} />
         </div>
-        <CardMenu assignment={assignment} />
+        <CardMenu
+          assignment={assignment}
+          onView={onView}
+          onDelete={onDelete}
+          isDeleting={isDeleting}
+        />
       </div>
 
       {/* Meta row */}
@@ -275,8 +325,30 @@ function StatsBar({ assignments }: { assignments: Assignment[] }) {
 // ─── Main page ───────────────────────────────────────────────
 export default function DashboardPage() {
   const { assignments, isLoading, error, reload } = useAssignments();
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleView = (assignmentId: string) => {
+    void router.push(`/assignments/${assignmentId}`);
+  };
+
+  const handleDelete = async (assignmentId: string) => {
+    const confirmed = window.confirm('Delete this assignment? This action cannot be undone.');
+    if (!confirmed) return;
+
+    try {
+      setDeletingId(assignmentId);
+      await deleteAssignmentRequest(assignmentId);
+      toast.success('Assignment deleted');
+      await reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to delete assignment');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const filtered = assignments.filter((a) => {
     const matchSearch =
@@ -367,7 +439,14 @@ export default function DashboardPage() {
         <AnimatePresence mode="popLayout">
           <div className="assignment-grid">
             {filtered.map((assignment, i) => (
-              <AssignmentCard key={assignment._id} assignment={assignment} index={i} />
+              <AssignmentCard
+                key={assignment._id}
+                assignment={assignment}
+                index={i}
+                onView={handleView}
+                onDelete={handleDelete}
+                isDeleting={deletingId === assignment._id}
+              />
             ))}
           </div>
         </AnimatePresence>

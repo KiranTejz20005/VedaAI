@@ -18,6 +18,7 @@ import {
 import { createAssignment } from '@/services/assignment.service';
 import { useAssignmentStore } from '@/store/assignment.store';
 import { useGenerationStore } from '@/store/generation.store';
+import type { QuestionType } from '@/types/assignment.types';
 
 // ─── Types ─────────────────────────────────────────────────
 type QuestionTypeOption =
@@ -109,8 +110,7 @@ function FileUploadZone({
       const dropped = Array.from(e.dataTransfer.files).filter(
         (f) =>
           f.type === 'application/pdf' ||
-          f.type === 'text/plain' ||
-          f.type.startsWith('image/')
+          f.type === 'text/plain'
       );
       onAdd(dropped);
     },
@@ -154,7 +154,7 @@ function FileUploadZone({
           </svg>
           <p className="upload-zone-title">Choose a file or drag &amp; drop it here</p>
           <p className="upload-zone-sub" style={{ marginBottom: 12 }}>
-            PDF, PNG, upto 10mb
+            PDF, TXT, up to 10mb
           </p>
           <span
             style={{
@@ -174,7 +174,7 @@ function FileUploadZone({
           <input
             id="file-upload"
             type="file"
-            accept=".pdf,.txt,.png,.jpg,.jpeg"
+            accept=".pdf,.txt"
             multiple
             style={{ display: 'none' }}
             onChange={(e) => { if (e.target.files) onAdd(Array.from(e.target.files)); }}
@@ -191,7 +191,7 @@ function FileUploadZone({
           marginTop: 8,
         }}
       >
-        Upload images of your preferred document/image
+        Upload study guides, syllabus documents, or reading notes
       </p>
 
       {/* Uploaded files list */}
@@ -358,6 +358,16 @@ export default function CreateAssignmentPage() {
 
   const progressPct = (step / TOTAL_STEPS) * 100;
 
+  const typeMapping: Record<string, string> = {
+    'Multiple Choice Questions': 'mcq',
+    'Short Questions': 'short-answer',
+    'Long Questions': 'long-answer',
+    'Diagram/Graph-Based Questions': 'long-answer',
+    'Numerical Problems': 'short-answer',
+    'True / False': 'true-false',
+    'Fill in the Blank': 'fill-blank',
+  };
+
   const handleSubmit = async () => {
     if (!formData.dueDate) {
       toast.error('Please set a due date');
@@ -366,6 +376,13 @@ export default function CreateAssignmentPage() {
 
     setIsSubmitting(true);
     try {
+      const uniqueTypes = [...new Set(questionRows.map((r) => typeMapping[r.type] || r.type))] as QuestionType[];
+      const typeBreakdown = questionRows.map((r) => ({
+        type: typeMapping[r.type] || r.type,
+        count: r.count,
+        marksPerQuestion: r.marks,
+      }));
+
       const payload = {
         title: formData.title || 'Assignment',
         subject: formData.subject || 'General',
@@ -374,11 +391,12 @@ export default function CreateAssignmentPage() {
         duration: 60,
         totalMarks,
         questionConfig: {
-          types: ['mcq', 'short-answer'] as ('mcq' | 'short-answer')[],
+          types: uniqueTypes,
           count: totalQuestions,
           difficulty: { easy: 34, medium: 33, hard: 33 },
         },
         additionalInstructions: formData.additionalInfo,
+        typeBreakdown: JSON.stringify(typeBreakdown),
       };
 
       const { assignment } = await createAssignment(payload, files);
@@ -404,305 +422,379 @@ export default function CreateAssignmentPage() {
         <p className="page-subtitle">Set up a new assignment for your students.</p>
       </div>
 
-      {/* Card wrapper */}
-      <div className="create-form-card">
-        {/* Progress bar */}
-        <div className="step-progress" role="progressbar" aria-valuenow={step} aria-valuemax={TOTAL_STEPS}>
-          <div className="step-progress-fill" style={{ width: `${progressPct}%` }} />
-        </div>
+      {/* Full-width two-column layout */}
+      <div className="create-form-layout">
 
-        <AnimatePresence mode="wait">
-          {step === 1 ? (
-            <motion.div
-              key="step1"
-              initial={{ opacity: 0, x: 16 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -16 }}
-              transition={{ duration: 0.2 }}
-            >
-              <h2
-                style={{
-                  fontSize: 16,
-                  fontWeight: 700,
-                  color: 'var(--text-primary)',
-                  marginBottom: 4,
-                }}
+        {/* ── Left: Form ── */}
+        <div className="create-form-main">
+          {/* Progress bar */}
+          <div className="step-progress" role="progressbar" aria-valuenow={step} aria-valuemax={TOTAL_STEPS}>
+            <div className="step-progress-fill" style={{ width: `${progressPct}%` }} />
+          </div>
+
+          <AnimatePresence mode="wait">
+            {step === 1 ? (
+              <motion.div
+                key="step1"
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }}
+                transition={{ duration: 0.2 }}
               >
-                Assignment Details
-              </h2>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
-                Basic information about your assignment
-              </p>
-
-              {/* File upload */}
-              <FileUploadZone
-                files={files}
-                onAdd={(newFiles) => setFiles((prev) => [...prev, ...newFiles])}
-                onRemove={(i) => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
-              />
-
-              {/* Due Date */}
-              <div className="input-group" style={{ marginBottom: 20 }}>
-                <label className="label" htmlFor="dueDate">Due Date</label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    id="dueDate"
-                    type="date"
-                    value={formData.dueDate}
-                    onChange={(e) => setFormData((d) => ({ ...d, dueDate: e.target.value }))}
-                    className="input"
-                    placeholder="DD-MM-YYYY"
-                    style={{ colorScheme: 'light' }}
-                    aria-describedby="dueDate-hint"
-                  />
-                </div>
-              </div>
-
-              {/* Question Type section */}
-              <div style={{ marginBottom: 20 }}>
-                <label className="label" style={{ marginBottom: 10, display: 'block' }}>
-                  Question Type
-                </label>
-
-                {/* Header row labels */}
-                <div
+                <h2
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '4px 0 8px',
-                    borderBottom: '1px solid var(--border)',
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: 'var(--text-primary)',
                     marginBottom: 4,
                   }}
                 >
-                  <div style={{ flex: 1, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Type
-                  </div>
-                  <div style={{ minWidth: 90, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    No. of Questions
-                  </div>
-                  <div style={{ width: 28, flexShrink: 0 }} />
-                  <div style={{ minWidth: 90, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Marks
+                  Assignment Details
+                </h2>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
+                  Basic information about your assignment
+                </p>
+
+                {/* File upload */}
+                <FileUploadZone
+                  files={files}
+                  onAdd={(newFiles) => setFiles((prev) => [...prev, ...newFiles])}
+                  onRemove={(i) => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                />
+
+                {/* Due Date */}
+                <div className="input-group" style={{ marginBottom: 20 }}>
+                  <label className="label" htmlFor="dueDate">Due Date</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      id="dueDate"
+                      type="date"
+                      value={formData.dueDate}
+                      onChange={(e) => setFormData((d) => ({ ...d, dueDate: e.target.value }))}
+                      className="input"
+                      placeholder="DD-MM-YYYY"
+                      style={{ colorScheme: 'light' }}
+                      aria-describedby="dueDate-hint"
+                    />
                   </div>
                 </div>
 
-                {questionRows.map((row) => (
-                  <QuestionTypeRow
-                    key={row.id}
-                    row={row}
-                    onChange={(updated) => updateRow(row.id, updated)}
-                    onRemove={() => removeRow(row.id)}
-                    isOnly={questionRows.length === 1}
-                  />
-                ))}
+                {/* Question Type section */}
+                <div style={{ marginBottom: 20 }}>
+                  <label className="label" style={{ marginBottom: 10, display: 'block' }}>
+                    Question Type
+                  </label>
 
-                {/* Add row */}
-                <button
-                  type="button"
-                  onClick={addRow}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: 'var(--brand)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: '10px 0 0',
-                  }}
-                >
-                  <Plus size={15} />
-                  Add Question Type
-                </button>
-
-                {/* Totals */}
-                <div
-                  style={{
-                    marginTop: 14,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-end',
-                    gap: 3,
-                    fontSize: 13,
-                    color: 'var(--text-secondary)',
-                  }}
-                >
-                  <span>Total Questions : <strong>{totalQuestions}</strong></span>
-                  <span>Total Marks : <strong>{totalMarks}</strong></span>
-                </div>
-              </div>
-
-              {/* Additional info */}
-              <div className="input-group">
-                <label className="label" htmlFor="additionalInfo">
-                  Additional Information <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(For better output)</span>
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <textarea
-                    id="additionalInfo"
-                    value={formData.additionalInfo}
-                    onChange={(e) => setFormData((d) => ({ ...d, additionalInfo: e.target.value }))}
-                    rows={3}
-                    placeholder="e.g. Generate a question paper for 3 hour exam duration..."
-                    className="input"
-                    style={{ resize: 'none', paddingRight: 36 }}
-                  />
-                  <button
-                    type="button"
+                  {/* Header row labels */}
+                  <div
                     style={{
-                      position: 'absolute',
-                      right: 10,
-                      bottom: 10,
-                      width: 28,
-                      height: 28,
-                      border: 'none',
-                      background: 'none',
-                      cursor: 'pointer',
-                      color: 'var(--text-muted)',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
+                      gap: 10,
+                      padding: '4px 0 8px',
+                      borderBottom: '1px solid var(--border)',
+                      marginBottom: 4,
                     }}
-                    aria-label="Voice input"
                   >
-                    <Mic size={15} />
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="step2"
-              initial={{ opacity: 0, x: 16 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -16 }}
-              transition={{ duration: 0.2 }}
-            >
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
-                Assignment Info
-              </h2>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
-                Give your assignment a title and subject
-              </p>
+                    <div style={{ flex: 1, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Type
+                    </div>
+                    <div style={{ minWidth: 90, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      No. of Questions
+                    </div>
+                    <div style={{ width: 28, flexShrink: 0 }} />
+                    <div style={{ minWidth: 90, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Marks
+                    </div>
+                  </div>
 
-              <div className="input-group" style={{ marginBottom: 16 }}>
-                <label className="label" htmlFor="title">Assignment Title</label>
-                <input
-                  id="title"
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData((d) => ({ ...d, title: e.target.value }))}
-                  placeholder="e.g. Mid-term Physics Exam"
-                  className="input"
-                />
-              </div>
-
-              <div className="input-group">
-                <label className="label" htmlFor="subject">Subject</label>
-                <select
-                  id="subject"
-                  value={formData.subject}
-                  onChange={(e) => setFormData((d) => ({ ...d, subject: e.target.value }))}
-                  className="input"
-                >
-                  <option value="">Select a subject…</option>
-                  {['Mathematics', 'Physics', 'Chemistry', 'Biology', 'Computer Science', 'English', 'History', 'Geography', 'Economics'].map((s) => (
-                    <option key={s} value={s}>{s}</option>
+                  {questionRows.map((row) => (
+                    <QuestionTypeRow
+                      key={row.id}
+                      row={row}
+                      onChange={(updated) => updateRow(row.id, updated)}
+                      onRemove={() => removeRow(row.id)}
+                      isOnly={questionRows.length === 1}
+                    />
                   ))}
-                </select>
-              </div>
 
-              {/* Review summary */}
-              <div
-                style={{
-                  marginTop: 24,
-                  background: 'var(--bg-page)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '16px 20px',
-                }}
-              >
-                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 10 }}>Summary</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--text-secondary)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Total Questions</span><strong style={{ color: 'var(--text-primary)' }}>{totalQuestions}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Total Marks</span><strong style={{ color: 'var(--text-primary)' }}>{totalMarks}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Files Uploaded</span><strong style={{ color: 'var(--text-primary)' }}>{files.length}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Due Date</span><strong style={{ color: 'var(--text-primary)' }}>{formData.dueDate || '—'}</strong>
+                  {/* Add row */}
+                  <button
+                    type="button"
+                    onClick={addRow}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: 'var(--brand)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '10px 0 0',
+                    }}
+                  >
+                    <Plus size={15} />
+                    Add Question Type
+                  </button>
+
+                  {/* Totals */}
+                  <div
+                    style={{
+                      marginTop: 14,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-end',
+                      gap: 3,
+                      fontSize: 13,
+                      color: 'var(--text-secondary)',
+                    }}
+                  >
+                    <span>Total Questions : <strong>{totalQuestions}</strong></span>
+                    <span>Total Marks : <strong>{totalMarks}</strong></span>
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
-        {/* Navigation footer */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginTop: 28,
-            paddingTop: 20,
-            borderTop: '1px solid var(--border)',
-          }}
-        >
-          {step > 1 ? (
-            <button
-              type="button"
-              onClick={() => setStep((s) => s - 1)}
-              className="btn btn-secondary btn-sm"
-              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-            >
-              <ChevronLeft size={15} />
-              Previous
-            </button>
-          ) : (
-            <div />
-          )}
+                {/* Additional info */}
+                <div className="input-group">
+                  <label className="label" htmlFor="additionalInfo">
+                    Additional Information <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(For better output)</span>
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <textarea
+                      id="additionalInfo"
+                      value={formData.additionalInfo}
+                      onChange={(e) => setFormData((d) => ({ ...d, additionalInfo: e.target.value }))}
+                      rows={3}
+                      placeholder="e.g. Generate a question paper for 3 hour exam duration..."
+                      className="input"
+                      style={{ resize: 'none', paddingRight: 36 }}
+                    />
+                    <button
+                      type="button"
+                      style={{
+                        position: 'absolute',
+                        right: 10,
+                        bottom: 10,
+                        width: 28,
+                        height: 28,
+                        border: 'none',
+                        background: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--text-muted)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      aria-label="Voice input"
+                    >
+                      <Mic size={15} />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="step2"
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }}
+                transition={{ duration: 0.2 }}
+              >
+                <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
+                  Assignment Info
+                </h2>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
+                  Give your assignment a title and subject
+                </p>
 
-          {step < TOTAL_STEPS ? (
-            <button
-              type="button"
-              onClick={() => setStep((s) => s + 1)}
-              className="btn btn-dark btn-sm"
-              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-            >
-              Next
-              <ChevronRight size={15} />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => void handleSubmit()}
-              disabled={isSubmitting}
-              className="btn btn-primary btn-sm"
-              style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 120, justifyContent: 'center' }}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" />
-                  Creating…
-                </>
-              ) : (
-                <>
-                  Generate
-                  <ChevronRight size={15} />
-                </>
-              )}
-            </button>
-          )}
+                <div className="input-group" style={{ marginBottom: 16 }}>
+                  <label className="label" htmlFor="title">Assignment Title</label>
+                  <input
+                    id="title"
+                    type="text"
+                    value={formData.title}
+                    onChange={(e) => setFormData((d) => ({ ...d, title: e.target.value }))}
+                    placeholder="e.g. Mid-term Physics Exam"
+                    className="input"
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label className="label" htmlFor="subject">Subject</label>
+                  <select
+                    id="subject"
+                    value={formData.subject}
+                    onChange={(e) => setFormData((d) => ({ ...d, subject: e.target.value }))}
+                    className="input"
+                  >
+                    <option value="">Select a subject…</option>
+                    {['Mathematics', 'Physics', 'Chemistry', 'Biology', 'Computer Science', 'English', 'History', 'Geography', 'Economics'].map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Review summary inline (step 2 only) */}
+                <div
+                  style={{
+                    marginTop: 24,
+                    background: 'var(--bg-page)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '16px 20px',
+                  }}
+                >
+                  <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 10 }}>Summary</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--text-secondary)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Total Questions</span><strong style={{ color: 'var(--text-primary)' }}>{totalQuestions}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Total Marks</span><strong style={{ color: 'var(--text-primary)' }}>{totalMarks}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Files Uploaded</span><strong style={{ color: 'var(--text-primary)' }}>{files.length}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Due Date</span><strong style={{ color: 'var(--text-primary)' }}>{formData.dueDate || '—'}</strong>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Navigation footer */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginTop: 28,
+              paddingTop: 20,
+              borderTop: '1px solid var(--border)',
+            }}
+          >
+            {step > 1 ? (
+              <button
+                type="button"
+                onClick={() => setStep((s) => s - 1)}
+                className="btn btn-secondary btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <ChevronLeft size={15} />
+                Previous
+              </button>
+            ) : (
+              <div />
+            )}
+
+            {step < TOTAL_STEPS ? (
+              <button
+                type="button"
+                onClick={() => setStep((s) => s + 1)}
+                className="btn btn-dark btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                Next
+                <ChevronRight size={15} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void handleSubmit()}
+                disabled={isSubmitting}
+                className="btn btn-primary btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 120, justifyContent: 'center' }}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Creating…
+                  </>
+                ) : (
+                  <>
+                    Generate
+                    <ChevronRight size={15} />
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* ── Right: Live Summary Sidebar ── */}
+        <div className="create-form-sidebar">
+          <p className="create-sidebar-title">Assignment Preview</p>
+
+          {/* Core stats */}
+          <div className="create-sidebar-row">
+            <span>Total Questions</span>
+            <strong>{totalQuestions}</strong>
+          </div>
+          <div className="create-sidebar-row">
+            <span>Total Marks</span>
+            <strong>{totalMarks}</strong>
+          </div>
+          <div className="create-sidebar-row">
+            <span>Files Uploaded</span>
+            <strong>{files.length}</strong>
+          </div>
+          <div className="create-sidebar-row">
+            <span>Due Date</span>
+            <strong>{formData.dueDate || '—'}</strong>
+          </div>
+          {formData.subject && (
+            <div className="create-sidebar-row">
+              <span>Subject</span>
+              <strong>{formData.subject}</strong>
+            </div>
+          )}
+
+          {/* Question type breakdown */}
+          <div className="create-sidebar-section">
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Breakdown
+            </p>
+            {questionRows.map((row) => (
+              <div key={row.id} className="create-sidebar-breakdown-item">
+                <span style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {row.type}
+                </span>
+                <span>{row.count}q × {row.marks}m</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Tips */}
+          <div className="create-sidebar-tip">
+            💡 Upload relevant study material for better AI-generated questions.
+          </div>
+
+          {/* Step indicator */}
+          <div style={{ marginTop: 20, display: 'flex', gap: 6 }}>
+            {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  flex: 1,
+                  height: 4,
+                  borderRadius: 99,
+                  background: i < step ? 'var(--brand)' : 'var(--border)',
+                  transition: 'background 0.3s',
+                }}
+              />
+            ))}
+          </div>
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, textAlign: 'center' }}>
+            Step {step} of {TOTAL_STEPS}
+          </p>
+        </div>
+
       </div>
     </>
   );
 }
+

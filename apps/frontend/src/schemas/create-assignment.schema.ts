@@ -38,6 +38,7 @@ export const createAssignmentSchema = z.object({
     difficulty: difficultySchema,
   }),
   additionalInstructions: z.string().max(2000),
+  typeBreakdown: z.string().optional(),
 });
 
 export type CreateAssignmentFormValues = z.infer<typeof createAssignmentSchema>;
