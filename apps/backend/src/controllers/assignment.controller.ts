@@ -10,22 +10,41 @@ import {
 import { sendSuccess, sendError } from '../utils/api-response';
 import { emitToAssignment } from '../sockets/socket.server';
 import type { FileRef } from '../types/assignment.types';
+import { GenerationJob } from '../models/GenerationJob.model';
 import { logger } from '../utils/logger';
 
 export async function createAssignmentHandler(req: Request, res: Response): Promise<void> {
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+
+  const rawQuestionConfig = typeof body.questionConfig === 'string'
+    ? body.questionConfig
+    : JSON.stringify(body.questionConfig);
+
+  let questionConfig: Record<string, any> = {};
+  if (rawQuestionConfig) {
+    try {
+      questionConfig = typeof rawQuestionConfig === 'string' ? JSON.parse(rawQuestionConfig) : rawQuestionConfig;
+    } catch {
+      res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: { questionConfig: ['Invalid questionConfig JSON'] },
+      });
+      return;
+    }
+  }
 
   const parsed = createAssignmentSchema.safeParse({
     ...body,
     duration: Number(body.duration),
     totalMarks: Number(body.totalMarks),
     questionConfig: {
-      ...body.questionConfig,
-      count: Number(body.questionConfig?.count),
+      types: questionConfig.types ?? [],
+      count: Number(questionConfig.count) || 0,
       difficulty: {
-        easy: Number(body.questionConfig?.difficulty?.easy),
-        medium: Number(body.questionConfig?.difficulty?.medium),
-        hard: Number(body.questionConfig?.difficulty?.hard),
+        easy: Number(questionConfig.difficulty?.easy) || 34,
+        medium: Number(questionConfig.difficulty?.medium) || 33,
+        hard: Number(questionConfig.difficulty?.hard) || 33,
       },
     },
   });
@@ -48,7 +67,16 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
   }));
 
   const assignment = await createAssignment(parsed.data, files);
-  sendSuccess(res, { assignment }, 201, 'Assignment created successfully');
+  const { jobId, position } = await enqueueGeneration(assignment._id.toString());
+  assignment.status = 'queued';
+
+  emitToAssignment(assignment._id.toString(), 'generation:queued', {
+    assignmentId: assignment._id.toString(),
+    jobId,
+    position,
+  });
+
+  sendSuccess(res, { assignment, jobId, position }, 201, 'Assignment created and queued successfully');
 }
 
 export async function generateAssignmentHandler(req: Request, res: Response): Promise<void> {
@@ -61,6 +89,16 @@ export async function generateAssignmentHandler(req: Request, res: Response): Pr
   }
 
   if (['queued', 'generating'].includes(assignment.status)) {
+    sendError(res, 'Generation already in progress', 409);
+    return;
+  }
+
+  // Check for existing incomplete generation jobs
+  const existingJob = await GenerationJob.findOne({
+    assignmentId: id,
+    status: { $in: ['queued', 'processing', 'generating', 'parsing', 'saving'] },
+  });
+  if (existingJob) {
     sendError(res, 'Generation already in progress', 409);
     return;
   }

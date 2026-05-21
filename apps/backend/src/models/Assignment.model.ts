@@ -20,6 +20,7 @@ export interface IAssignment extends Document {
   };
   uploadedFiles: FileRef[];
   additionalInstructions: string;
+  typeBreakdown?: string;
   status: AssignmentStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -50,6 +51,7 @@ const AssignmentSchema = new Schema<IAssignment>(
       path: String,
     }],
     additionalInstructions: { type: String, default: '', maxlength: 2000 },
+    typeBreakdown: { type: String, default: undefined },
     status: {
       type: String,
       enum: ['draft', 'queued', 'generating', 'completed', 'failed'],

@@ -34,6 +34,12 @@ export interface FileRef {
   path: string;
 }
 
+export interface TypeBreakdownItem {
+  type: string;
+  count: number;
+  marksPerQuestion: number;
+}
+
 export interface CreateAssignmentDTO {
   title: string;
   subject: string;
@@ -43,4 +49,5 @@ export interface CreateAssignmentDTO {
   totalMarks: number;
   questionConfig: QuestionConfig;
   additionalInstructions?: string;
+  typeBreakdown?: string;
 }

@@ -9,10 +9,10 @@ export function getGenerationQueue(): Queue<GenerationJobData> {
     generationQueue = new Queue<GenerationJobData>('generation', {
       connection: getRedisClient(),
       defaultJobOptions: {
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 2000 },
-        removeOnComplete: { count: 50 },
-        removeOnFail: { count: 100 },
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: { count: 100 },
+        removeOnFail: { count: 50 },
       },
     });
   }

@@ -5,6 +5,7 @@ export interface IGeneratedPaper extends Document {
   assignmentId: mongoose.Types.ObjectId;
   title: string;
   totalMarks: number;
+  duration: number;
   sections: Section[];
   pdfPath: string | null;
   pdfUrl: string | null;
@@ -42,6 +43,7 @@ const GeneratedPaperSchema = new Schema<IGeneratedPaper>(
     assignmentId: { type: Schema.Types.ObjectId, ref: 'Assignment', required: true, index: true },
     title: { type: String, required: true },
     totalMarks: { type: Number, required: true },
+    duration: { type: Number, default: 45 },
     sections: [SectionSchema],
     pdfPath: { type: String, default: null },
     pdfUrl: { type: String, default: null },
@@ -49,5 +51,7 @@ const GeneratedPaperSchema = new Schema<IGeneratedPaper>(
   },
   { timestamps: true }
 );
+
+GeneratedPaperSchema.index({ assignmentId: 1, generatedAt: -1 });
 
 export const GeneratedPaper = mongoose.model<IGeneratedPaper>('GeneratedPaper', GeneratedPaperSchema);

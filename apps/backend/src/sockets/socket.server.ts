@@ -9,6 +9,11 @@ let io: SocketIOServer<ClientToServerEvents, ServerToClientEvents> | null = null
 export function initializeSocketServer(
   httpServer: HTTPServer
 ): SocketIOServer<ClientToServerEvents, ServerToClientEvents> {
+  if (io) {
+    logger.warn('Socket.IO already initialized — returning existing instance');
+    return io;
+  }
+
   io = new SocketIOServer<ClientToServerEvents, ServerToClientEvents>(httpServer, {
     cors: {
       origin: env.FRONTEND_URL,
@@ -16,18 +21,23 @@ export function initializeSocketServer(
     },
     pingTimeout: 60000,
     pingInterval: 25000,
+    transports: ['polling', 'websocket'],
+    maxHttpBufferSize: 1e6,
   });
 
   io.on('connection', (socket) => {
     logger.debug(`Socket connected: ${socket.id}`);
 
     socket.on('subscribe:assignment', ({ assignmentId }) => {
-      void socket.join(`assignment:${assignmentId}`);
-      logger.debug(`Socket ${socket.id} subscribed to assignment:${assignmentId}`);
+      if (assignmentId && typeof assignmentId === 'string') {
+        socket.join(`assignment:${assignmentId}`);
+      }
     });
 
     socket.on('unsubscribe:assignment', ({ assignmentId }) => {
-      void socket.leave(`assignment:${assignmentId}`);
+      if (assignmentId && typeof assignmentId === 'string') {
+        socket.leave(`assignment:${assignmentId}`);
+      }
     });
 
     socket.on('disconnect', (reason) => {

@@ -20,7 +20,7 @@ export async function generatePdf(paper: IGeneratedPaper): Promise<{ pdfPath: st
     // Try to use system Chrome, fall back to puppeteer-bundled
     const executablePath = process.env.CHROMIUM_PATH ||
       (process.env.NODE_ENV === 'production'
-        ? (await import('@sparticuz/chromium')).then((m) => m.default.executablePath())
+        ? await import('@sparticuz/chromium').then((m) => m.default.executablePath())
         : undefined);
 
     browser = await puppeteer.default.launch({

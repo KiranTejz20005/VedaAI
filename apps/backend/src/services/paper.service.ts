@@ -4,11 +4,11 @@ import mongoose from 'mongoose';
 
 export async function savePaper(
   assignmentId: string,
-  paper: ValidatedPaper
+  paper: ValidatedPaper,
+  duration?: number
 ): Promise<IGeneratedPaper> {
   const existing = await GeneratedPaper.findOneAndDelete({ assignmentId: new mongoose.Types.ObjectId(assignmentId) });
   if (existing?.pdfPath) {
-    // Clean up old PDF file asynchronously
     const fs = await import('fs/promises');
     fs.unlink(existing.pdfPath).catch(() => undefined);
   }
@@ -17,6 +17,7 @@ export async function savePaper(
     assignmentId: new mongoose.Types.ObjectId(assignmentId),
     title: paper.title,
     totalMarks: paper.totalMarks,
+    duration: duration ?? 45,
     sections: paper.sections,
     generatedAt: new Date(),
   });

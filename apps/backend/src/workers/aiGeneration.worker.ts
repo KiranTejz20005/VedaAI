@@ -11,23 +11,49 @@ import { emitToAssignment } from '../sockets/socket.server';
 import type { GenerationJobData } from '../types/queue.types';
 import { logger } from '../utils/logger';
 
-async function extractUploadedContent(files: Array<{ path: string; mimeType: string }>): Promise<string> {
+const GENERATION_TIMEOUT_MS = 120_000;
+
+function sanitizeText(text: string): string {
+  return text
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
+    .replace(/[^\x20-\x7E\x0A\x0D\x80-\xFF\n\t]/g, '')
+    .replace(/\b(?:data:image\/[a-z]+;base64[^\s]+)\b/gi, '[BINARY REMOVED]')
+    .replace(/\b(?:https?:\/\/\S+\.(?:png|jpg|jpeg|gif|webp|svg))\b/gi, '[URL REMOVED]')
+    .replace(/\S*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '[IMAGE REMOVED]')
+    .replace(/[\w\-./\\()]+\/(?:[\w\-./() ]+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?))/gi, '[PATH REMOVED]')
+    .replace(/\bimage\s*\.\s*(png|jpg|jpeg|gif|webp)\b/gi, '[REF REMOVED]')
+    .replace(/\(\s*(?:png|jpg|jpeg|gif|webp|svg|bmp|ico)\s*\)/gi, '[FORMAT REMOVED]')
+    .slice(0, 8000);
+}
+
+async function extractUploadedContent(files: Array<{ path: string; mimeType: string }>): Promise<{ content: string; wasSanitized: boolean }> {
   const texts: string[] = [];
+  let wasSanitized = false;
   for (const file of files) {
     try {
       if (file.mimeType === 'application/pdf') {
         const buffer = await fs.readFile(file.path);
         const parsed = await pdfParse(buffer);
-        texts.push(parsed.text);
+        if (parsed.text && parsed.text.trim().length > 0) {
+          const raw = parsed.text;
+          const clean = sanitizeText(raw);
+          if (clean !== raw) wasSanitized = true;
+          texts.push(clean);
+        }
       } else if (file.mimeType === 'text/plain') {
-        const text = await fs.readFile(file.path, 'utf-8');
-        texts.push(text);
+        const raw = await fs.readFile(file.path, 'utf-8');
+        if (raw && raw.trim().length > 0) {
+          const clean = sanitizeText(raw);
+          if (clean !== raw) wasSanitized = true;
+          texts.push(clean);
+        }
       }
     } catch (e) {
       logger.warn(`Failed to read uploaded file: ${file.path}`, e);
     }
   }
-  return texts.join('\n\n');
+  const combined = texts.join('\n\n').trim();
+  return { content: combined || '', wasSanitized };
 }
 
 export function createAiGenerationWorker() {
@@ -36,38 +62,59 @@ export function createAiGenerationWorker() {
     async (job) => {
       const { assignmentId, jobRecordId } = job.data;
 
-      const emit = (stage: string, progress: number, message?: string) => {
+      const jobRecord = await GenerationJob.findById(jobRecordId).lean();
+      if (!jobRecord || jobRecord.status === 'failed') {
+        throw new Error('Generation job timed out in queue');
+      }
+
+      const emit = async (stage: string, progress: number, message?: string) => {
         emitToAssignment(assignmentId, 'generation:progress', {
           assignmentId,
           progress,
           stage,
           message,
         });
-        GenerationJob.findByIdAndUpdate(jobRecordId, { status: stage, progress }).exec();
+        try {
+          await GenerationJob.findByIdAndUpdate(jobRecordId, { status: stage, progress }).exec();
+        } catch {
+          // Fire-and-forget progress updates should not crash the worker
+        }
       };
 
       try {
-        emit('processing', 5, 'Starting generation...');
+        // Emit initial progress before any async work
+        emitToAssignment(assignmentId, 'generation:progress', {
+          assignmentId, progress: 0, stage: 'queued', message: 'Job started...',
+        });
 
-        const assignment = await Assignment.findById(assignmentId);
+        await emit('processing', 5, 'Starting generation...');
+
+        const assignment = await Assignment.findById(assignmentId).lean();
         if (!assignment) throw new Error(`Assignment ${assignmentId} not found`);
 
         await Assignment.findByIdAndUpdate(assignmentId, { status: 'generating' });
-        emit('generating', 20, 'Preparing AI prompt...');
 
-        // Extract content from uploaded files
-        const uploadedContent = await extractUploadedContent(
-          assignment.uploadedFiles.map((f) => ({ path: f.path, mimeType: f.mimeType }))
+        const { content: uploadedContent, wasSanitized } = await extractUploadedContent(
+          (assignment.uploadedFiles ?? []).map((f: { path: string; mimeType: string }) => ({ path: f.path, mimeType: f.mimeType }))
         );
 
-        emit('generating', 40, 'Generating questions with AI...');
-        const paper = await generatePaper(assignment, uploadedContent || undefined);
+        const sanitizeMsg = wasSanitized ? ' (image references removed from upload)' : '';
+        await emit('generating', 40, `Generating questions with AI...${sanitizeMsg}`);
 
-        emit('parsing', 70, 'Validating AI output...');
-        // paper is already validated at this point
+        let typeBreakdown: any[] | undefined;
+        if ((assignment as any).typeBreakdown) {
+          try { typeBreakdown = JSON.parse((assignment as any).typeBreakdown); } catch { /* ignore */ }
+        }
 
-        emit('saving', 85, 'Saving to database...');
-        const savedPaper = await savePaper(assignmentId, paper);
+        const paper = await withTimeout(
+          generatePaper(assignment as any, uploadedContent || undefined, typeBreakdown),
+          GENERATION_TIMEOUT_MS
+        );
+
+        await emit('parsing', 70, 'Validating AI output...');
+
+        await emit('saving', 85, 'Saving to database...');
+        const savedPaper = await savePaper(assignmentId, paper, assignment.duration);
 
         await Assignment.findByIdAndUpdate(assignmentId, { status: 'completed' });
         await GenerationJob.findByIdAndUpdate(jobRecordId, {
@@ -81,7 +128,6 @@ export function createAiGenerationWorker() {
           paperId: savedPaper._id.toString(),
         });
 
-        // Enqueue PDF generation
         const pdfQueue = getPdfQueue();
         await pdfQueue.add('generate-pdf', {
           assignmentId,
@@ -92,28 +138,44 @@ export function createAiGenerationWorker() {
         logger.info(`Generation completed for assignment ${assignmentId}`);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
-        logger.error(`Generation failed for assignment ${assignmentId}:`, error);
+        const isFinalAttempt = job.attemptsMade >= (job.opts.attempts ?? 2) - 1;
+        logger.error(`Generation failed for assignment ${assignmentId} (attempt ${job.attemptsMade + 1}): ${message}`);
 
-        await Assignment.findByIdAndUpdate(assignmentId, { status: 'failed' });
-        await GenerationJob.findByIdAndUpdate(jobRecordId, {
-          status: 'failed',
-          error: message,
-          completedAt: new Date(),
-        });
-
-        emitToAssignment(assignmentId, 'generation:failed', {
-          assignmentId,
-          error: message,
-          retryable: job.attemptsMade < (job.opts.attempts ?? 3) - 1,
-        });
+        if (isFinalAttempt) {
+          await Assignment.findByIdAndUpdate(assignmentId, { status: 'failed' });
+          await GenerationJob.findByIdAndUpdate(jobRecordId, {
+            status: 'failed',
+            error: message,
+            completedAt: new Date(),
+          });
+          emitToAssignment(assignmentId, 'generation:failed', {
+            assignmentId,
+            error: message,
+            retryable: false,
+          });
+        } else {
+          await GenerationJob.findByIdAndUpdate(jobRecordId, {
+            status: 'queued',
+            error: message,
+          });
+        }
 
         throw error;
       }
     },
     {
       connection: getRedisClient(),
-      concurrency: 3,
-      limiter: { max: 10, duration: 60000 },
+      concurrency: 2,
+      limiter: { max: 5, duration: 60000 },
     }
   );
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Generation timed out after ${ms}ms`)), ms)
+    ),
+  ]);
 }

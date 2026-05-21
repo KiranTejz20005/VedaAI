@@ -32,6 +32,7 @@ export const createAssignmentSchema = z.object({
   totalMarks: z.number().int().min(1).max(1000),
   questionConfig: questionConfigSchema,
   additionalInstructions: z.string().max(2000).optional().default(''),
+  typeBreakdown: z.string().optional(),
 });
 
 export type CreateAssignmentInput = z.infer<typeof createAssignmentSchema>;

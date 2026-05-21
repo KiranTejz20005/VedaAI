@@ -28,4 +28,7 @@ const GenerationJobSchema = new Schema<IGenerationJob>(
   { timestamps: true }
 );
 
+GenerationJobSchema.index({ assignmentId: 1, status: 1 });
+GenerationJobSchema.index({ status: 1, createdAt: -1 });
+
 export const GenerationJob = mongoose.model<IGenerationJob>('GenerationJob', GenerationJobSchema);

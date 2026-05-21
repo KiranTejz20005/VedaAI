@@ -16,8 +16,10 @@ export async function createAssignment(
   input: CreateAssignmentInput,
   files: FileRef[]
 ): Promise<IAssignment> {
+  const { typeBreakdown, ...rest } = input;
   const assignment = await Assignment.create({
-    ...input,
+    ...rest,
+    ...(typeBreakdown ? { typeBreakdown } : {}),
     dueDate: new Date(input.dueDate),
     uploadedFiles: files,
     status: 'draft',
