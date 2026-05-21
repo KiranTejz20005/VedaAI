@@ -1,0 +1,14 @@
+# VedaAI Monorepo
+node_modules/
+dist/
+build/
+.next/
+.turbo/
+*.log
+.env
+.env.local
+.env.production
+uploads/
+*.pdf
+coverage/
+.nyc_output/
