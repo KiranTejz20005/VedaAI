@@ -1,0 +1,122 @@
+import type { Request, Response } from 'express';
+import { createAssignmentSchema } from '../validators/assignment.validator';
+import {
+  createAssignment,
+  enqueueGeneration,
+  listAssignments,
+  getAssignment,
+  deleteAssignment,
+} from '../services/assignment.service';
+import { sendSuccess, sendError } from '../utils/api-response';
+import { emitToAssignment } from '../sockets/socket.server';
+import type { FileRef } from '../types/assignment.types';
+import { logger } from '../utils/logger';
+
+export async function createAssignmentHandler(req: Request, res: Response): Promise<void> {
+  const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+
+  const parsed = createAssignmentSchema.safeParse({
+    ...body,
+    duration: Number(body.duration),
+    totalMarks: Number(body.totalMarks),
+    questionConfig: {
+      ...body.questionConfig,
+      count: Number(body.questionConfig?.count),
+      difficulty: {
+        easy: Number(body.questionConfig?.difficulty?.easy),
+        medium: Number(body.questionConfig?.difficulty?.medium),
+        hard: Number(body.questionConfig?.difficulty?.hard),
+      },
+    },
+  });
+
+  if (!parsed.success) {
+    res.status(400).json({
+      success: false,
+      error: 'Validation failed',
+      details: parsed.error.flatten().fieldErrors,
+    });
+    return;
+  }
+
+  const files: FileRef[] = (req.files as Express.Multer.File[] ?? []).map((f) => ({
+    originalName: f.originalname,
+    storedName: f.filename,
+    mimeType: f.mimetype,
+    size: f.size,
+    path: f.path,
+  }));
+
+  const assignment = await createAssignment(parsed.data, files);
+  sendSuccess(res, { assignment }, 201, 'Assignment created successfully');
+}
+
+export async function generateAssignmentHandler(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+
+  const assignment = await getAssignment(id);
+  if (!assignment) {
+    sendError(res, 'Assignment not found', 404);
+    return;
+  }
+
+  if (['queued', 'generating'].includes(assignment.status)) {
+    sendError(res, 'Generation already in progress', 409);
+    return;
+  }
+
+  const { jobId, position } = await enqueueGeneration(id);
+
+  emitToAssignment(id, 'generation:queued', {
+    assignmentId: id,
+    jobId,
+    position,
+  });
+
+  sendSuccess(res, { jobId, position }, 202, 'Generation queued successfully');
+}
+
+export async function listAssignmentsHandler(req: Request, res: Response): Promise<void> {
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
+  const status = req.query.status as string | undefined;
+
+  const result = await listAssignments(page, limit, status);
+
+  res.status(200).json({
+    success: true,
+    data: result.assignments,
+    pagination: {
+      page: result.page,
+      limit,
+      total: result.total,
+      pages: Math.ceil(result.total / limit),
+    },
+  });
+}
+
+export async function getAssignmentHandler(req: Request, res: Response): Promise<void> {
+  const assignment = await getAssignment(req.params.id);
+  if (!assignment) {
+    sendError(res, 'Assignment not found', 404);
+    return;
+  }
+  sendSuccess(res, { assignment });
+}
+
+export async function deleteAssignmentHandler(req: Request, res: Response): Promise<void> {
+  const assignment = await getAssignment(req.params.id);
+  if (!assignment) {
+    sendError(res, 'Assignment not found', 404);
+    return;
+  }
+
+  if (['queued', 'generating'].includes(assignment.status)) {
+    sendError(res, 'Cannot delete assignment while generation is in progress', 409);
+    return;
+  }
+
+  await deleteAssignment(req.params.id);
+  logger.info(`Assignment deleted: ${req.params.id}`);
+  sendSuccess(res, null, 200, 'Assignment deleted successfully');
+}

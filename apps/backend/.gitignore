@@ -1,0 +1,6 @@
+logs/
+dist/
+node_modules/
+uploads/pdfs/
+*.env
+.env
