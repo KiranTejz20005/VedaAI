@@ -1,0 +1,28 @@
+'use client';
+import { useEffect, useCallback } from 'react';
+import { useAssignmentStore } from '../store/assignment.store';
+import { fetchAssignments } from '../services/assignment.service';
+
+export function useAssignments(page = 1, status?: string) {
+  const { assignments, totalCount, isLoading, error, setAssignments, setLoading, setError } =
+    useAssignmentStore();
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await fetchAssignments(page, 10, status);
+      setAssignments(result.data, result.pagination.total);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load assignments');
+    } finally {
+      setLoading(false);
+    }
+  }, [page, status, setAssignments, setLoading, setError]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return { assignments, totalCount, isLoading, error, reload: load };
+}
