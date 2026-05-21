@@ -12,3 +12,5 @@ uploads/
 *.pdf
 coverage/
 .nyc_output/
+.agent/
+.github/
