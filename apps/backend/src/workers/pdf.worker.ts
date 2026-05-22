@@ -1,4 +1,5 @@
 import { Worker } from 'bullmq';
+import { env } from '../config/env';
 import { getBullRedisClient } from '../config/redis';
 import { GeneratedPaper } from '../models/GeneratedPaper.model';
 import { generatePdf } from '../services/pdf.service';
@@ -30,10 +31,10 @@ export function createPdfWorker() {
     {
       connection: getBullRedisClient(),
       skipVersionCheck: true,
-      concurrency: 2,
+      concurrency: env.PDF_WORKER_CONCURRENCY,
       lockDuration: 120_000,
       stalledInterval: 60_000,
-      drainDelay: 1000,
+      drainDelay: 5000,
     }
   );
 

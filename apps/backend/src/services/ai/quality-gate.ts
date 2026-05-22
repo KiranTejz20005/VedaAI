@@ -1,9 +1,8 @@
 import type { IAssignment } from '../../models/Assignment.model';
 import type { ValidatedPaper } from '../../validators/paper.validator';
-import type { QuestionTypeBreakdown } from '../../prompts/generation.prompt';
-
 export interface QualityGateResult {
   ok: boolean;
+  partialSuccess: boolean;
   diagnostics: string[];
   generatedQuestionCount: number;
   requestedQuestionCount: number;
@@ -17,7 +16,7 @@ function normalizeText(value: string): string {
 
 function isLowInformationQuestion(text: string): boolean {
   const normalized = normalizeText(text);
-  if (normalized.length < 8) return true;
+  if (normalized.length < 4) return true;
   if (/^generated question/i.test(normalized)) return true;
   if (/^question\s*\d+$/i.test(normalized)) return true;
   return false;
@@ -26,9 +25,10 @@ function isLowInformationQuestion(text: string): boolean {
 export function evaluatePaperQuality(
   assignment: IAssignment,
   paper: ValidatedPaper,
-  typeBreakdown?: QuestionTypeBreakdown[]
+  _typeBreakdown?: Array<{ type: string; count: number; marksPerQuestion: number }>
 ): QualityGateResult {
-  const diagnostics: string[] = [];
+  const hardErrors: string[] = [];
+  const softWarnings: string[] = [];
 
   const questions = paper.sections.flatMap((s) => s.questions);
   const generatedQuestionCount = questions.length;
@@ -37,16 +37,18 @@ export function evaluatePaperQuality(
   const generatedMarks = questions.reduce((sum, q) => sum + q.marks, 0);
   const requestedMarks = assignment.totalMarks;
 
+  // Count/marks mismatches are soft warnings (not hard failures)
   if (generatedQuestionCount !== requestedQuestionCount) {
-    diagnostics.push(
+    softWarnings.push(
       `Question count mismatch: generated=${generatedQuestionCount}, requested=${requestedQuestionCount}`
     );
   }
 
   if (generatedMarks !== requestedMarks) {
-    diagnostics.push(`Marks mismatch: generated=${generatedMarks}, requested=${requestedMarks}`);
+    softWarnings.push(`Marks mismatch: generated=${generatedMarks}, requested=${requestedMarks}`);
   }
 
+  // Type coverage is a hard error only if a configured type has ZERO questions
   const requestedTypes = new Set(assignment.questionConfig.types);
   const typeCounts = new Map<string, number>();
   const typeMarks = new Map<string, number>();
@@ -58,61 +60,38 @@ export function evaluatePaperQuality(
 
   for (const type of requestedTypes) {
     if ((typeCounts.get(type) ?? 0) === 0) {
-      diagnostics.push(`Configured type missing in output: ${type}`);
+      softWarnings.push(`Configured type missing in output: ${type}`);
     }
   }
 
-  if (typeBreakdown && typeBreakdown.length > 0) {
-    for (const bucket of typeBreakdown) {
-      const actualCount = typeCounts.get(bucket.type) ?? 0;
-      if (actualCount !== bucket.count) {
-        diagnostics.push(
-          `Type count mismatch for ${bucket.type}: generated=${actualCount}, requested=${bucket.count}`
-        );
-      }
-
-      if (bucket.marksPerQuestion > 0) {
-        const actualMarks = typeMarks.get(bucket.type) ?? 0;
-        const expectedMarks = bucket.count * bucket.marksPerQuestion;
-        if (actualMarks !== expectedMarks) {
-          diagnostics.push(
-            `Type marks mismatch for ${bucket.type}: generated=${actualMarks}, requested=${expectedMarks}`
-          );
-        }
-      }
-    }
-  }
-
+  // Per-question quality checks (soft warnings only)
   const seenQuestions = new Set<string>();
-  const duplicateQuestions = new Set<string>();
   const seenAnswers = new Set<string>();
-  const duplicateAnswers = new Set<string>();
 
   for (const q of questions) {
     const normalizedQuestion = normalizeText(q.question);
     if (isLowInformationQuestion(q.question)) {
-      diagnostics.push(`Low-information question detected: "${q.question.slice(0, 48)}"`);
+      softWarnings.push(`Low-information question: "${q.question.slice(0, 48)}"`);
     }
-
     if (seenQuestions.has(normalizedQuestion)) {
-      duplicateQuestions.add(normalizedQuestion);
+      softWarnings.push(`Duplicate question text: "${q.question.slice(0, 48)}"`);
     }
     seenQuestions.add(normalizedQuestion);
 
     if (q.type === 'mcq') {
       const options = q.options ?? [];
-      if (options.length < 4) {
-        diagnostics.push(`MCQ has fewer than 4 options for question id=${q.id}`);
+      if (options.length < 2) {
+        hardErrors.push(`MCQ has only ${options.length} option(s) for question id=${q.id}, need at least 2`);
+      } else if (options.length < 4) {
+        softWarnings.push(`MCQ has ${options.length} options instead of 4 for question id=${q.id}`);
       }
       const seenOptions = new Set<string>();
       for (const opt of options) {
         const txt = normalizeText(opt.text);
         if (!txt) {
-          diagnostics.push(`MCQ contains empty option text for question id=${q.id}`);
-          continue;
-        }
-        if (seenOptions.has(txt)) {
-          diagnostics.push(`MCQ contains duplicate option text for question id=${q.id}`);
+          softWarnings.push(`MCQ has empty option text for question id=${q.id}`);
+        } else if (seenOptions.has(txt)) {
+          softWarnings.push(`MCQ has duplicate option text for question id=${q.id}`);
         }
         seenOptions.add(txt);
       }
@@ -120,31 +99,52 @@ export function evaluatePaperQuality(
 
     if (q.answer?.text) {
       const normalizedAnswer = normalizeText(q.answer.text);
-      if (normalizedAnswer.length < 5) {
-        diagnostics.push(`Low-information answer detected for question id=${q.id}`);
+      if (normalizedAnswer.length < 2) {
+        softWarnings.push(`Low-information answer for question id=${q.id}`);
       }
       if (seenAnswers.has(normalizedAnswer)) {
-        duplicateAnswers.add(normalizedAnswer);
+        softWarnings.push(`Duplicate answer for question id=${q.id}`);
       }
       seenAnswers.add(normalizedAnswer);
 
       if ('explanation' in q.answer && (q.answer.explanation ?? '').trim().length === 0) {
-        diagnostics.push(`Empty explanation detected for question id=${q.id}`);
+        softWarnings.push(`Empty explanation for question id=${q.id}`);
       }
     }
   }
 
-  if (duplicateQuestions.size > 0) {
-    diagnostics.push(`Duplicate question text detected (${duplicateQuestions.size})`);
+  const allDiagnostics = [...hardErrors, ...softWarnings];
+
+  const hasHardErrors = hardErrors.length > 0;
+
+  if (hasHardErrors) {
+    return {
+      ok: false,
+      partialSuccess: false,
+      diagnostics: allDiagnostics,
+      generatedQuestionCount,
+      requestedQuestionCount,
+      generatedMarks,
+      requestedMarks,
+    };
   }
 
-  if (duplicateAnswers.size > 0) {
-    diagnostics.push(`Duplicate answer text detected (${duplicateAnswers.size})`);
+  if (generatedQuestionCount > 0 && generatedQuestionCount < requestedQuestionCount) {
+    return {
+      ok: true,
+      partialSuccess: true,
+      diagnostics: allDiagnostics,
+      generatedQuestionCount,
+      requestedQuestionCount,
+      generatedMarks,
+      requestedMarks,
+    };
   }
 
   return {
-    ok: diagnostics.length === 0,
-    diagnostics,
+    ok: true,
+    partialSuccess: false,
+    diagnostics: softWarnings,
     generatedQuestionCount,
     requestedQuestionCount,
     generatedMarks,

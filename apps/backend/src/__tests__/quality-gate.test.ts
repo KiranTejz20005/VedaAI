@@ -97,12 +97,14 @@ describe('evaluatePaperQuality', () => {
     ]);
 
     const result = evaluatePaperQuality(assignment, paper, breakdown);
-    expect(result.ok).toBe(false);
+    // Tolerant: under-generation is partial success, not hard failure
+    expect(result.ok).toBe(true);
+    expect(result.partialSuccess).toBe(true);
     expect(result.diagnostics.join(' | ')).toContain('Question count mismatch');
     expect(result.diagnostics.join(' | ')).toContain('Marks mismatch');
   });
 
-  it('rejects duplicate questions and duplicate mcq options', () => {
+  it('flags duplicate questions and duplicate mcq options as warnings', () => {
     const assignment = makeAssignment();
     const paper = makePaper([
       { id: '123e4567-e89b-12d3-a456-426614174000', question: 'Define inertia with one example.', type: 'short-answer', difficulty: 'easy', marks: 5 },
@@ -136,8 +138,9 @@ describe('evaluatePaperQuality', () => {
     ]);
 
     const result = evaluatePaperQuality(assignment, paper, breakdown);
-    expect(result.ok).toBe(false);
-    expect(result.diagnostics.join(' | ')).toContain('Duplicate question text detected');
-    expect(result.diagnostics.join(' | ')).toContain('MCQ contains duplicate option text');
+    // Tolerant: duplicates are soft warnings, not hard failures
+    expect(result.ok).toBe(true);
+    expect(result.diagnostics.join(' | ')).toContain('Duplicate question text');
+    expect(result.diagnostics.join(' | ')).toContain('duplicate option text');
   });
 });

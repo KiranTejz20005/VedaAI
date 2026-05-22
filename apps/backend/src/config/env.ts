@@ -86,6 +86,16 @@ const envSchema = z.object({
   // Upload
   MAX_FILE_SIZE_MB: z.string().default('10').transform(Number),
   UPLOAD_DIR: z.string().default('./uploads'),
+
+  // Local development resource controls
+  ENABLE_BACKGROUND_WORKERS: z
+    .string()
+    .default('true')
+    .transform((value) => value.toLowerCase() !== 'false'),
+  AI_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(4).default(1),
+  PDF_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(2).default(1),
+  QUEUE_SWEEP_INTERVAL_MS: z.coerce.number().int().min(30_000).default(120_000),
+  STALL_MONITOR_INTERVAL_MS: z.coerce.number().int().min(60_000).default(300_000),
 });
 
 const parsed = envSchema.safeParse(process.env);

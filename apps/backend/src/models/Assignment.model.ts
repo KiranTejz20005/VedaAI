@@ -5,6 +5,7 @@ import type {
   DifficultyDistribution,
   FileRef,
 } from '../types/assignment.types';
+import type { GenerationMeta } from '../types/generation.types';
 
 export interface IAssignment extends Document {
   title: string;
@@ -22,6 +23,7 @@ export interface IAssignment extends Document {
   additionalInstructions: string;
   typeBreakdown?: string;
   status: AssignmentStatus;
+  generationMeta?: GenerationMeta;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -54,8 +56,12 @@ const AssignmentSchema = new Schema<IAssignment>(
     typeBreakdown: { type: String, default: undefined },
     status: {
       type: String,
-      enum: ['draft', 'queued', 'generating', 'completed', 'failed'],
+      enum: ['draft', 'queued', 'generating', 'completed', 'failed', 'partially_generated'],
       default: 'draft',
+    },
+    generationMeta: {
+      type: Schema.Types.Mixed,
+      default: undefined,
     },
   },
   { timestamps: true }

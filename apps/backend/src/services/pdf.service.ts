@@ -47,74 +47,90 @@ export async function generatePdf(paper: IGeneratedPaper): Promise<{ pdfPath: st
 }
 
 function buildPaperHtml(paper: IGeneratedPaper): string {
+  const totalQuestions = paper.sections.reduce((sum, section) => sum + section.questions.length, 0);
   const sectionsHtml = paper.sections
     .map(
       (section, sIdx) => `
-      <div class="section">
-        <h2>${section.title}</h2>
-        <p class="instruction">${section.instruction}</p>
+      <section class="section">
+        <h2>${escapeHtml(section.title)}</h2>
+        ${section.instruction ? `<p class="instruction">${escapeHtml(section.instruction)}</p>` : ''}
         <ol class="questions" start="${getStartNumber(paper, sIdx)}">
           ${section.questions
             .map(
               (q) => `
             <li class="question">
               <div class="q-header">
-                <span class="q-text">${q.question}</span>
-                <span class="q-marks">[${q.marks} marks]</span>
+                <span class="q-text"><span class="difficulty">[${formatDifficulty(q.difficulty)}]</span> ${escapeHtml(q.question)}</span>
+                <span class="q-marks">[${formatMarks(q.marks)}]</span>
               </div>
               ${q.type === 'mcq' && q.options
-                ? `<ul class="options">${q.options.map((o) => `<li><strong>${o.key}.</strong> ${o.text}</li>`).join('')}</ul>`
+                ? `<ul class="options">${q.options.map((o) => `<li><strong>${escapeHtml(o.key)}.</strong> ${escapeHtml(o.text)}</li>`).join('')}</ul>`
                 : ''}
             </li>`
             )
             .join('')}
         </ol>
-      </div>`
+      </section>`
     )
     .join('');
+
+  const answerHtml = buildAnswerKeyHtml(paper);
 
   return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <style>
-  body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #000; margin: 0; padding: 0; }
-  .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 20px; }
-  .school { font-size: 18pt; font-weight: bold; }
-  .exam-title { font-size: 14pt; font-weight: bold; margin-top: 6px; }
-  .meta { display: flex; justify-content: space-between; margin-top: 8px; font-size: 11pt; }
-  .student-info { display: flex; gap: 30px; margin: 16px 0; border: 1px solid #ccc; padding: 10px; }
-  .student-field { flex: 1; border-bottom: 1px solid #333; padding-bottom: 4px; }
-  .section { margin-top: 24px; }
-  h2 { font-size: 13pt; border-bottom: 1px solid #333; padding-bottom: 4px; }
-  .instruction { font-style: italic; font-size: 11pt; margin-bottom: 12px; }
-  .questions { padding-left: 20px; }
-  .question { margin-bottom: 16px; }
-  .q-header { display: flex; justify-content: space-between; }
-  .q-text { flex: 1; }
-  .q-marks { font-weight: bold; white-space: nowrap; margin-left: 10px; }
-  .options { list-style: none; padding-left: 20px; margin-top: 6px; }
-  .options li { margin-bottom: 4px; }
-  .footer { position: fixed; bottom: 10mm; left: 0; right: 0; text-align: center; font-size: 9pt; color: #666; }
-  @media print { .footer { position: fixed; } }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 11.5pt; color: #222; margin: 0; padding: 0; line-height: 1.45; }
+  .paper { width: 100%; }
+  .school { text-align: center; font-size: 19pt; font-weight: 800; margin-bottom: 4px; }
+  .exam-title { text-align: center; font-size: 14pt; font-weight: 700; margin-bottom: 2px; }
+  .class-line { text-align: center; font-size: 12.5pt; font-weight: 700; margin-bottom: 22px; }
+  .meta-row { display: flex; justify-content: space-between; font-size: 11.5pt; font-weight: 700; margin: 0 0 18px; }
+  .instruction-top { font-size: 11pt; font-weight: 700; margin: 0 0 18px; }
+  .student-info { display: grid; grid-template-columns: 1.7fr 1fr 1.1fr; gap: 18px; margin: 0 0 28px; font-weight: 700; }
+  .line { display: inline-block; min-width: 120px; border-bottom: 1px solid #222; height: 14px; vertical-align: baseline; }
+  .section { margin-top: 26px; break-inside: auto; }
+  .section h2 { text-align: center; font-size: 14pt; margin: 0 0 22px; font-weight: 800; break-after: avoid; page-break-after: avoid; }
+  .instruction { font-size: 11pt; font-style: italic; margin: -8px 0 16px; break-after: avoid; page-break-after: avoid; }
+  .questions { padding-left: 22px; margin: 0; }
+  .question { margin-bottom: 13px; padding-left: 4px; break-inside: avoid; page-break-inside: avoid; }
+  .q-header { display: flex; align-items: flex-start; gap: 12px; }
+  .q-text { flex: 1; min-width: 0; }
+  .difficulty { font-weight: 400; color: #333; }
+  .q-marks { font-weight: 400; white-space: nowrap; margin-left: 10px; }
+  .options { list-style: none; padding-left: 18px; margin: 7px 0 0; display: grid; gap: 4px; }
+  .options li { break-inside: avoid; }
+  .end-note { font-weight: 800; margin-top: 20px; }
+  .answer-key { margin-top: 34px; padding-top: 20px; border-top: 1px solid #bbb; break-before: auto; }
+  .answer-key h2 { font-size: 14pt; margin: 0 0 14px; }
+  .answer-key ol { margin: 0; padding-left: 22px; }
+  .answer-key li { margin-bottom: 10px; }
+  .footer { position: fixed; bottom: 8mm; left: 0; right: 0; text-align: center; font-size: 8.5pt; color: #777; }
+  @page { size: A4; margin: 18mm 15mm 18mm; }
 </style>
 </head>
 <body>
-  <div class="header">
-    <div class="school">VedaAI School</div>
-    <div class="exam-title">${paper.title}</div>
-    <div class="meta">
-      <span>Total Marks: ${paper.totalMarks}</span>
-      <span>Date: ${new Date(paper.generatedAt).toLocaleDateString()}</span>
+  <main class="paper">
+    <div class="school">Delhi Public School</div>
+    <div class="exam-title">Subject: ${escapeHtml(paper.title)}</div>
+    <div class="class-line">Question Paper</div>
+    <div class="meta-row">
+      <span>Time Allowed: ${paper.duration ?? 45} minutes</span>
+      <span>Maximum Marks: ${paper.totalMarks}</span>
     </div>
-  </div>
-  <div class="student-info">
-    <div class="student-field">Name: ___________________________</div>
-    <div class="student-field">Roll Number: __________</div>
-    <div class="student-field">Section: __________</div>
-  </div>
-  ${sectionsHtml}
-  <div class="footer">Generated by VedaAI | Page <span class="pageNumber"></span> of <span class="totalPages"></span></div>
+    <p class="instruction-top">All questions are compulsory unless stated otherwise.</p>
+    <div class="student-info">
+      <div>Name: <span class="line"></span></div>
+      <div>Roll Number: <span class="line"></span></div>
+      <div>Section: <span class="line"></span></div>
+    </div>
+    ${sectionsHtml}
+    <p class="end-note">End of Question Paper</p>
+    ${answerHtml}
+  </main>
+  <div class="footer">${totalQuestions} Questions | ${paper.totalMarks} Marks</div>
 </body>
 </html>`;
 }
@@ -125,4 +141,42 @@ function getStartNumber(paper: IGeneratedPaper, sectionIndex: number): number {
     total += paper.sections[i]?.questions.length ?? 0;
   }
   return total;
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatMarks(marks: number): string {
+  return `${marks} ${marks === 1 ? 'Mark' : 'Marks'}`;
+}
+
+function formatDifficulty(value: string): string {
+  if (value === 'hard') return 'Challenging';
+  if (value === 'medium') return 'Moderate';
+  return 'Easy';
+}
+
+function buildAnswerKeyHtml(paper: IGeneratedPaper): string {
+  const answers = paper.sections
+    .flatMap((section) => section.questions)
+    .map((question, index) => ({ number: index + 1, answer: question.answer }))
+    .filter((item) => item.answer?.text);
+
+  if (answers.length === 0) return '';
+
+  return `
+    <section class="answer-key">
+      <h2>Answer Key</h2>
+      <ol>
+        ${answers
+          .map(({ answer }) => `<li>${escapeHtml(answer?.text)}${answer?.explanation ? `<br><span>${escapeHtml(answer.explanation)}</span>` : ''}</li>`)
+          .join('')}
+      </ol>
+    </section>`;
 }

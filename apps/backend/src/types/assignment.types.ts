@@ -12,7 +12,8 @@ export type AssignmentStatus =
   | 'queued'
   | 'generating'
   | 'completed'
-  | 'failed';
+  | 'failed'
+  | 'partially_generated';
 
 export interface DifficultyDistribution {
   easy: number;

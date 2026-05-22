@@ -1,14 +1,18 @@
 import { Worker } from 'bullmq';
 import fs from 'fs/promises';
 import pdfParse from 'pdf-parse';
+import { env } from '../config/env';
 import { getBullRedisClient } from '../config/redis';
 import { Assignment } from '../models/Assignment.model';
 import { GenerationJob } from '../models/GenerationJob.model';
+import { GeneratedPaper } from '../models/GeneratedPaper.model';
 import { generatePaper, generateAnswersForPaper } from '../services/ai.service';
 import { savePaper } from '../services/paper.service';
 import { getPdfQueue } from '../queues/pdf.queue';
 import { emitToAssignment } from '../sockets/socket.server';
+import { classifyError } from '../services/quality-gate';
 import type { GenerationJobData } from '../types/queue.types';
+import type { GenerationMeta } from '../types/generation.types';
 import { logger } from '../utils/logger';
 import { withTimeout } from '../utils/timeout';
 
@@ -95,6 +99,7 @@ export function createAiGenerationWorker() {
       const jobStartTime = Date.now();
       logger.info(`[WORKER:START] Job ${job.id} | assignment=${assignmentId} | attempt=${job.attemptsMade + 1} | activeJobs=${activeJobCount}`);
 
+      let assignment: any = null;
       try {
         // ── STEP 0: Validate job record ──
         logger.debug(`[STEP 0] Fetching GenerationJob: ${jobRecordId}`);
@@ -134,7 +139,7 @@ export function createAiGenerationWorker() {
         // ── STEP 3: Fetch assignment ──
         logger.debug(`[STEP 3] Fetching Assignment: ${assignmentId}`);
         const t3 = Date.now();
-        const assignment = await Assignment.findById(assignmentId).lean();
+        assignment = await Assignment.findById(assignmentId).lean();
         logger.debug(`[STEP 3] Assignment fetched in ${Date.now() - t3}ms | title="${assignment?.title}" status=${assignment?.status}`);
         if (!assignment) {
           logger.error(`[STEP 3] Assignment ${assignmentId} not found`);
@@ -228,11 +233,39 @@ export function createAiGenerationWorker() {
         logger.debug(`[STEP 10] Emitting saving (85%)`);
         await emit('saving', 85, 'Saving to database...');
 
-        // ── STEP 11: Update assignment to completed ──
-        logger.debug(`[STEP 11] Setting assignment status to 'completed'`);
+        // ── STEP 11: Check for partial vs complete generation ──
+        const requestedQty = assignment.questionConfig.count;
+        const generatedQty = paper.sections.reduce((s: number, sec: any) => s + sec.questions.length, 0);
+        const generatedMarks = paper.sections.reduce((s: number, sec: any) =>
+          s + sec.questions.reduce((ms: number, q: any) => ms + (q.marks || 0), 0), 0);
+        const isPartial = generatedQty < requestedQty;
+
+        logger.debug(`[STEP 11] Generated ${generatedQty}/${requestedQty} questions (${generatedMarks}/${assignment.totalMarks} marks)`);
         const t11 = Date.now();
-        await Assignment.findByIdAndUpdate(assignmentId, { status: 'completed' });
-        logger.debug(`[STEP 11] Assignment status updated in ${Date.now() - t11}ms`);
+
+        if (isPartial) {
+          const genMeta: GenerationMeta = {
+            status: 'partially_generated',
+            generatedQuestionCount: generatedQty,
+            requestedQuestionCount: requestedQty,
+            generatedMarks,
+            requestedMarks: assignment.totalMarks,
+            completedBatches: 1,
+            failedBatches: 0,
+            providerName: null,
+            failureCategory: 'under_generation',
+            failureReason: `Generated ${generatedQty}/${requestedQty} questions. The AI provider returned fewer questions than requested.`,
+            diagnostics: null,
+            partialPaper: null,
+            completedAt: new Date(),
+          };
+          await Assignment.findByIdAndUpdate(assignmentId, { status: 'partially_generated', generationMeta: genMeta });
+          logger.info(`[STEP 11] Assignment marked as partially_generated (${generatedQty}/${requestedQty})`);
+        } else {
+          await Assignment.findByIdAndUpdate(assignmentId, { status: 'completed' });
+          logger.debug(`[STEP 11] Assignment status updated to 'completed' in ${Date.now() - t11}ms`);
+        }
+        await job.updateProgress(98);
 
         // ── STEP 12: Update GenerationJob to completed ──
         logger.debug(`[STEP 12] Updating GenerationJob to completed`);
@@ -280,23 +313,56 @@ export function createAiGenerationWorker() {
         }
 
         if (isFinalAttempt) {
-          logger.debug(`[WORKER FAIL] Final attempt — updating assignment & job to 'failed'`);
+          const { category, userMessage } = classifyError(error instanceof Error ? error : new Error(message));
+          logger.debug(`[WORKER FAIL] Final attempt — checking for partial paper`);
           const f0 = Date.now();
+          const existingPaper = await GeneratedPaper.findOne({ assignmentId } as any).lean().catch(() => null);
+          const hasPartial = !!existingPaper;
+
+          const a = assignment as any;
+          const genMeta: GenerationMeta = {
+            status: hasPartial ? 'partially_generated' : 'failed',
+            generatedQuestionCount: 0,
+            requestedQuestionCount: a?.questionConfig?.count ?? 0,
+            generatedMarks: 0,
+            requestedMarks: a?.totalMarks ?? 0,
+            completedBatches: 0,
+            failedBatches: 1,
+            providerName: null,
+            failureCategory: category,
+            failureReason: userMessage,
+            diagnostics: null,
+            partialPaper: existingPaper ? (existingPaper as any).sections : null,
+            completedAt: new Date(),
+          };
+          if (hasPartial) {
+            const paperSections = (existingPaper as any).sections || [];
+            const pqty = paperSections.reduce((s: number, sec: any) => s + (sec.questions?.length || 0), 0);
+            genMeta.generatedQuestionCount = pqty;
+            genMeta.generatedMarks = paperSections.reduce((s: number, sec: any) =>
+              s + (sec.questions || []).reduce((ms: number, q: any) => ms + (q.marks || 0), 0), 0);
+          }
+
           await Promise.allSettled([
-            Assignment.findByIdAndUpdate(assignmentId, { status: 'failed' }),
+            Assignment.findByIdAndUpdate(assignmentId, {
+              status: hasPartial ? 'partially_generated' : 'failed',
+              generationMeta: genMeta,
+            }),
             GenerationJob.findByIdAndUpdate(jobRecordId, {
               status: 'failed',
               error: message,
               completedAt: new Date(),
             }),
           ]);
-          logger.debug(`[WORKER FAIL] DB updates done in ${Date.now() - f0}ms`);
-          emitToAssignment(assignmentId, 'generation:failed', {
+          logger.debug(`[WORKER FAIL] DB updates done in ${Date.now() - f0}ms | finalStatus=${hasPartial ? 'partially_generated' : 'failed'}`);
+          emitToAssignment(assignmentId, hasPartial ? 'generation:completed' : 'generation:failed', {
             assignmentId,
-            error: message,
+            error: hasPartial ? undefined : userMessage,
+            partial: hasPartial,
             retryable: false,
+            failureReason: hasPartial ? `Partial: ${userMessage}` : userMessage,
           });
-          logger.debug(`[WORKER FAIL] WebSocket generation:failed emitted`);
+          logger.debug(`[WORKER FAIL] WebSocket ${hasPartial ? 'generation:completed (partial)' : 'generation:failed'} emitted`);
         } else {
           logger.debug(`[WORKER FAIL] Non-final attempt — requeueing job`);
           await Promise.allSettled([
@@ -317,7 +383,7 @@ export function createAiGenerationWorker() {
     {
       connection: getBullRedisClient(),
       skipVersionCheck: true,
-      concurrency: 2,
+      concurrency: env.AI_WORKER_CONCURRENCY,
       limiter: { max: 5, duration: 60000 },
       // lockDuration MUST exceed the maximum AI generation time.
       // Default is 30s — our AI generation can take up to 120s.
@@ -329,7 +395,7 @@ export function createAiGenerationWorker() {
       stalledInterval: 120_000,
       // drainDelay: delay before checking for new jobs when queue is empty.
       // Default is 5s. Lower = faster pickup, higher = less Redis polling.
-      drainDelay: 1000,
+      drainDelay: 5000,
     }
   );
 

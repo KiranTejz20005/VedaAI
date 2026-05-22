@@ -11,7 +11,7 @@ const mcqOptionSchema = z.object({
 });
 
 const questionSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().uuid({ message: 'id must be a valid UUID v1-5' }),
   question: z.string().min(5),
   type: z.enum(['short-answer', 'long-answer', 'mcq', 'true-false', 'fill-blank']),
   difficulty: z.enum(['easy', 'medium', 'hard']),

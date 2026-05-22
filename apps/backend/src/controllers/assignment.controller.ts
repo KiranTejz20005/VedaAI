@@ -96,6 +96,9 @@ export async function generateAssignmentHandler(req: Request, res: Response): Pr
     sendError(res, 'Generation already in progress', 409);
     return;
   }
+  if (assignment.status === 'partially_generated') {
+    logger.debug(`[generateHandler] Assignment has partial generation — allowing regeneration`);
+  }
 
   // Check for existing incomplete generation jobs
   const existingJob = await GenerationJob.findOne({
@@ -159,7 +162,7 @@ export async function deleteAssignmentHandler(req: Request, res: Response): Prom
     return;
   }
 
-  if (['queued', 'generating'].includes(assignment.status)) {
+  if (['queued', 'generating', 'partially_generated'].includes(assignment.status)) {
     const activeJob = await GenerationJob.findOne({
       assignmentId: req.params.id,
       status: { $in: ['queued', 'processing', 'generating', 'parsing', 'saving'] },

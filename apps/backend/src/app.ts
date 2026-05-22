@@ -30,8 +30,9 @@ let generationQueueEvents: QueueEvents | null = null;
 let pdfQueueEvents: QueueEvents | null = null;
 
 const QUEUE_TIMEOUT_MS = 2 * 60 * 1000;
-const QUEUE_SWEEP_INTERVAL_MS = 30 * 1000;
+const QUEUE_SWEEP_INTERVAL_MS = env.QUEUE_SWEEP_INTERVAL_MS;
 const IN_PROGRESS_STUCK_TIMEOUT_MS = 10 * 60 * 1000;
+const STALL_MONITOR_INTERVAL_MS = env.STALL_MONITOR_INTERVAL_MS;
 
 function logBoot(phase: string, message: string) {
   bootstrapPhase = phase;
@@ -238,6 +239,12 @@ async function bootstrap() {
   // ── Step 5: Initialize BullMQ/Redis/Workers in background (non-blocking) ──
   logBoot('bullmq', 'Initializing BullMQ workers and queues...');
   (async () => {
+    if (!env.ENABLE_BACKGROUND_WORKERS) {
+      healthState.bullmqRedis = 'disabled';
+      console.log('[BOOT:bullmq] Background workers disabled by ENABLE_BACKGROUND_WORKERS=false');
+      return;
+    }
+
     try {
       healthState.bullmqRedis = 'connecting';
       createAiGenerationWorker();
@@ -285,7 +292,7 @@ async function bootstrap() {
       console.log(
         `[STALL] redis=${diag.status} connects=${diag.connectCount} reconnects=${diag.reconnectCount} errors=${diag.errorCount} stalled=${getStalledAiJobCount()} active=${getActiveAiJobCount()}`
       );
-    }, 60_000);
+    }, STALL_MONITOR_INTERVAL_MS);
 
     console.log('[BOOT:bullmq] Background initialization complete');
   })();
