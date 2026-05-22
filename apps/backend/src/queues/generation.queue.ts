@@ -1,5 +1,5 @@
 import { Queue } from 'bullmq';
-import { getRedisClient } from '../config/redis';
+import { getBullRedisClient } from '../config/redis';
 import type { GenerationJobData } from '../types/queue.types';
 
 let generationQueue: Queue<GenerationJobData> | null = null;
@@ -7,7 +7,9 @@ let generationQueue: Queue<GenerationJobData> | null = null;
 export function getGenerationQueue(): Queue<GenerationJobData> {
   if (!generationQueue) {
     generationQueue = new Queue<GenerationJobData>('generation', {
-      connection: getRedisClient(),
+      // Uses BullMQ-dedicated Redis connection (maxRetriesPerRequest: null).
+      // Prefer local Redis for production — see REDIS_BULLMQ_URL in .env.
+      connection: getBullRedisClient(),
       defaultJobOptions: {
         attempts: 2,
         backoff: { type: 'exponential', delay: 5000 },

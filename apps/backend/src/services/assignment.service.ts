@@ -44,12 +44,12 @@ export async function enqueueGeneration(assignmentId: string): Promise<{ jobId: 
   // Update assignment status
   await Assignment.findByIdAndUpdate(assignmentId, { status: 'queued' });
 
-  // Add to BullMQ
+  // Add to BullMQ with unique jobId to avoid BullMQ's silent dedup rejection
   const queue = getGenerationQueue();
   const job = await queue.add(
     'generate-paper',
     { assignmentId, jobRecordId: jobRecord._id.toString() },
-    { jobId: `gen-${assignmentId}` }
+    { jobId: `gen-${assignmentId}-${Date.now()}` }
   );
 
   // Update job record with bullmq job id

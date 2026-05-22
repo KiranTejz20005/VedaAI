@@ -44,26 +44,38 @@ const envSchema = z.object({
   // Database
   MONGODB_URI: mongoUriSchema,
 
-  // Redis
+  // Redis (general — used for caching, sessions)
   REDIS_URL: redisUrlSchema,
+  // Redis for BullMQ (MUST be local Redis — Upstash kills BullMQ)
+  // Upstash serverless Redis does NOT support blocking commands (BLPOP, etc.)
+  // that BullMQ workers require. Using Upstash for BullMQ causes silent job
+  // stalls, heartbeat failures, lock corruption, and infinite frontend polling.
+  REDIS_BULLMQ_URL: z
+    .string()
+    .default('redis://localhost:6379')
+    .refine(
+      (url) => !url.includes('upstash'),
+      'REDIS_BULLMQ_URL must NOT be an Upstash URL — Upstash does not support BullMQ blocking commands. Use a local Redis instance (redis://localhost:6379)'
+    ),
 
   // AI Providers (all optional — system degrades gracefully without them)
+  // IMPORTANT: .transform trims whitespace AND drops keys shorter than 5 chars
   OPENAI_API_KEY: z
     .string()
     .optional()
-    .transform((v) => (v && v.length > 5 ? v : undefined)),
+    .transform((v) => (v && v.trim().length > 5 ? v.trim() : undefined)),
   ANTHROPIC_API_KEY: z
     .string()
     .optional()
-    .transform((v) => (v && v.length > 5 ? v : undefined)),
+    .transform((v) => (v && v.trim().length > 5 ? v.trim() : undefined)),
   GEMINI_API_KEY: z
     .string()
     .optional()
-    .transform((v) => (v && v.length > 5 ? v : undefined)),
+    .transform((v) => (v && v.trim().length > 5 ? v.trim() : undefined)),
   NVIDIA_API_KEY: z
     .string()
     .optional()
-    .transform((v) => (v && v.length > 5 ? v : undefined)),
+    .transform((v) => (v && v.trim().length > 5 ? v.trim() : undefined)),
 
   // Security
   JWT_SECRET: z.string().min(16).default('veda-ai-dev-secret-change-in-production'),
