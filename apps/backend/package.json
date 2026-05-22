@@ -4,7 +4,7 @@
   "description": "VedaAI Backend API Server",
   "main": "dist/app.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
+    "dev": "node --max-old-space-size=512 ../../node_modules/ts-node-dev/lib/bin.js --respawn --transpile-only --ignore-watch node_modules --ignore-watch dist --ignore-watch uploads src/app.ts",
     "build": "tsc",
     "start": "node dist/app.js",
     "test": "vitest run",
