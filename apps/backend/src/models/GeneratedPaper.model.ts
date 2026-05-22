@@ -1,5 +1,6 @@
 import mongoose, { type Document, Schema } from 'mongoose';
 import type { Question, Section } from '../types/paper.types';
+import type { CanonicalPaperMetadata } from '../types/canonical.types';
 
 export interface IGeneratedPaper extends Document {
   assignmentId: mongoose.Types.ObjectId;
@@ -7,6 +8,7 @@ export interface IGeneratedPaper extends Document {
   totalMarks: number;
   duration: number;
   sections: Section[];
+  canonicalMetadata?: CanonicalPaperMetadata;
   pdfPath: string | null;
   pdfUrl: string | null;
   generatedAt: Date;
@@ -51,6 +53,7 @@ const GeneratedPaperSchema = new Schema<IGeneratedPaper>(
     totalMarks: { type: Number, required: true },
     duration: { type: Number, default: 45 },
     sections: [SectionSchema],
+    canonicalMetadata: { type: Schema.Types.Mixed, default: undefined },
     pdfPath: { type: String, default: null },
     pdfUrl: { type: String, default: null },
     generatedAt: { type: Date, default: Date.now },

@@ -47,6 +47,12 @@ export async function generatePdf(paper: IGeneratedPaper): Promise<{ pdfPath: st
 }
 
 function buildPaperHtml(paper: IGeneratedPaper): string {
+  const meta = paper.canonicalMetadata;
+  const schoolName = meta?.schoolName ?? 'School';
+  const subject = meta?.subject ?? paper.title;
+  const className = meta?.className ?? 'Not Specified';
+  const duration = meta?.durationMinutes ?? paper.duration ?? 45;
+  const maxMarks = meta?.generatedMarks ?? paper.totalMarks;
   const totalQuestions = paper.sections.reduce((sum, section) => sum + section.questions.length, 0);
   const sectionsHtml = paper.sections
     .map(
@@ -103,7 +109,7 @@ function buildPaperHtml(paper: IGeneratedPaper): string {
   .options { list-style: none; padding-left: 18px; margin: 7px 0 0; display: grid; gap: 4px; }
   .options li { break-inside: avoid; }
   .end-note { font-weight: 800; margin-top: 20px; }
-  .answer-key { margin-top: 34px; padding-top: 20px; border-top: 1px solid #bbb; break-before: auto; }
+  .answer-key { margin-top: 34px; padding-top: 20px; border-top: 1px solid #bbb; break-before: page; page-break-before: always; }
   .answer-key h2 { font-size: 14pt; margin: 0 0 14px; }
   .answer-key ol { margin: 0; padding-left: 22px; }
   .answer-key li { margin-bottom: 10px; }
@@ -113,12 +119,12 @@ function buildPaperHtml(paper: IGeneratedPaper): string {
 </head>
 <body>
   <main class="paper">
-    <div class="school">Delhi Public School</div>
-    <div class="exam-title">Subject: ${escapeHtml(paper.title)}</div>
-    <div class="class-line">Question Paper</div>
+    <div class="school">${escapeHtml(schoolName)}</div>
+    <div class="exam-title">${escapeHtml(subject)}</div>
+    <div class="class-line">Class: ${escapeHtml(className)}</div>
     <div class="meta-row">
-      <span>Time Allowed: ${paper.duration ?? 45} minutes</span>
-      <span>Maximum Marks: ${paper.totalMarks}</span>
+      <span>Time Allowed: ${duration} minutes</span>
+      <span>Maximum Marks: ${maxMarks}</span>
     </div>
     <p class="instruction-top">All questions are compulsory unless stated otherwise.</p>
     <div class="student-info">

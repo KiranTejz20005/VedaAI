@@ -24,6 +24,12 @@ export interface IAssignment extends Document {
   typeBreakdown?: string;
   status: AssignmentStatus;
   generationMeta?: GenerationMeta;
+  // Monotonic generation sequence. Incremented every time we enqueue a new generation run.
+  generationSeq: number;
+  // The GenerationJob currently allowed to mutate this assignment's generation state.
+  activeGenerationJobId?: mongoose.Types.ObjectId;
+  // Once completed, we treat the result as immutable unless a new generationSeq is started explicitly.
+  finalizedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -63,11 +69,15 @@ const AssignmentSchema = new Schema<IAssignment>(
       type: Schema.Types.Mixed,
       default: undefined,
     },
+    generationSeq: { type: Number, default: 0, min: 0 },
+    activeGenerationJobId: { type: Schema.Types.ObjectId, ref: 'GenerationJob', default: undefined, index: true },
+    finalizedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
 
 AssignmentSchema.index({ status: 1, createdAt: -1 });
 AssignmentSchema.index({ subject: 1 });
+AssignmentSchema.index({ _id: 1, generationSeq: -1 });
 
 export const Assignment = mongoose.model<IAssignment>('Assignment', AssignmentSchema);

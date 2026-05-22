@@ -57,6 +57,35 @@ export interface GenerationMeta {
   partialPaper: object | null;
 }
 
+export interface CanonicalPaperMetadata {
+  title: string;
+  subject: string;
+  className: string;
+  durationMinutes: number;
+  requestedMarks: number;
+  generatedMarks: number;
+  requestedQuestionCount: number;
+  generatedQuestionCount: number;
+  schoolName: string;
+  sections: Array<{ title: string; questionCount: number; marks: number }>;
+  answerKeyReady: boolean;
+  pdfReady: boolean;
+}
+
+export interface CanonicalGenerationState {
+  canonicalMetadata: CanonicalPaperMetadata;
+  progress: number;
+  stage: import('./socket.types').GenerationStage;
+  generatedQuestions: number;
+  requestedQuestions: number;
+  generatedMarks: number;
+  requestedMarks: number;
+  completionPercentage: number;
+  answerKeyReady: boolean;
+  pdfReady: boolean;
+  generationStatus: string;
+}
+
 export interface Assignment {
   _id: string;
   title: string;
@@ -70,6 +99,7 @@ export interface Assignment {
   additionalInstructions: string;
   status: AssignmentStatus;
   generationMeta?: GenerationMeta;
+  generationState?: CanonicalGenerationState;
   createdAt: string;
   updatedAt: string;
 }

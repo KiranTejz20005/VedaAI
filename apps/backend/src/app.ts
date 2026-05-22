@@ -115,7 +115,7 @@ async function failStaleQueuedJobs(): Promise<void> {
 async function failStaleInProgressJobs(): Promise<void> {
   const cutoff = new Date(Date.now() - IN_PROGRESS_STUCK_TIMEOUT_MS);
   const staleJobs = await GenerationJob.find({
-    status: { $in: ['processing', 'generating', 'parsing', 'saving'] },
+    status: { $in: ['extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'] },
     updatedAt: { $lte: cutoff },
   }).sort({ updatedAt: 1 }).limit(25).lean();
 

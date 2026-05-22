@@ -12,8 +12,11 @@ export function useGenerationSocket(assignmentId: string | null) {
   const setQueued = useGenerationStore((s) => s.setQueued);
   const updateAssignmentStatus = useAssignmentStore((s) => s.updateAssignmentStatus);
   const callbacksRef = useRef({ setProgress, setCompleted, setFailed, setQueued, updateAssignmentStatus });
-  callbacksRef.current = { setProgress, setCompleted, setFailed, setQueued, updateAssignmentStatus };
   const subscribedRef = useRef(false);
+
+  useEffect(() => {
+    callbacksRef.current = { setProgress, setCompleted, setFailed, setQueued, updateAssignmentStatus };
+  }, [setProgress, setCompleted, setFailed, setQueued, updateAssignmentStatus]);
 
   useEffect(() => {
     if (!assignmentId) return;
@@ -27,24 +30,24 @@ export function useGenerationSocket(assignmentId: string | null) {
 
     const onQueued = (payload: GenerationQueuedPayload) => {
       if (payload.assignmentId !== assignmentId) return;
-      callbacksRef.current.setQueued();
+      callbacksRef.current.setQueued(payload.jobRecordId, payload.generationSeq, payload.ts);
       callbacksRef.current.updateAssignmentStatus(assignmentId, 'queued');
     };
 
     const onProgress = (payload: GenerationProgressPayload) => {
       if (payload.assignmentId !== assignmentId) return;
-      callbacksRef.current.setProgress(payload.progress, payload.stage, payload.message);
+      callbacksRef.current.setProgress(payload.jobRecordId, payload.generationSeq, payload.ts, payload.progress, payload.stage, payload.message);
     };
 
     const onCompleted = (payload: GenerationCompletedPayload) => {
       if (payload.assignmentId !== assignmentId) return;
-      callbacksRef.current.setCompleted(payload.paperId);
+      callbacksRef.current.setCompleted(payload.jobRecordId, payload.generationSeq, payload.ts, payload.paperId);
       callbacksRef.current.updateAssignmentStatus(assignmentId, 'completed');
     };
 
     const onFailed = (payload: GenerationFailedPayload) => {
       if (payload.assignmentId !== assignmentId) return;
-      callbacksRef.current.setFailed(payload.error);
+      callbacksRef.current.setFailed(payload.jobRecordId, payload.generationSeq, payload.ts, payload.error);
       callbacksRef.current.updateAssignmentStatus(assignmentId, 'failed');
     };
 

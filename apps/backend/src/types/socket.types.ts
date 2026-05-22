@@ -1,9 +1,13 @@
 export type GenerationStage =
   | 'queued'
-  | 'processing'
-  | 'generating'
-  | 'parsing'
-  | 'saving'
+  | 'extracting_content'
+  | 'topic_preprocessing'
+  | 'generation_planning'
+  | 'batch_generating'
+  | 'validating'
+  | 'answer_key_generating'
+  | 'pdf_composing'
+  | 'persisting'
   | 'pdf-generating'
   | 'completed'
   | 'failed';
@@ -11,7 +15,10 @@ export type GenerationStage =
 export interface GenerationQueuedPayload {
   assignmentId: string;
   jobId: string;
+  jobRecordId: string;
+  generationSeq: number;
   position: number;
+  ts: number;
 }
 
 export interface GenerationProgressPayload {
@@ -19,17 +26,26 @@ export interface GenerationProgressPayload {
   progress: number;
   stage: GenerationStage;
   message?: string;
+  jobRecordId: string;
+  generationSeq: number;
+  ts: number;
 }
 
 export interface GenerationCompletedPayload {
   assignmentId: string;
   paperId: string;
+  jobRecordId: string;
+  generationSeq: number;
+  ts: number;
 }
 
 export interface GenerationFailedPayload {
   assignmentId: string;
   error: string;
   retryable: boolean;
+  jobRecordId: string;
+  generationSeq: number;
+  ts: number;
 }
 
 export interface ServerToClientEvents {

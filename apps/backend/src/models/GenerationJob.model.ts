@@ -4,6 +4,8 @@ import type { GenerationStage } from '../types/socket.types';
 export interface IGenerationJob extends Document {
   assignmentId: mongoose.Types.ObjectId;
   bullmqJobId: string;
+  // Monotonic generation sequence copied from Assignment at enqueue time.
+  generationSeq: number;
   status: GenerationStage;
   progress: number;
   error: string | null;
@@ -15,9 +17,10 @@ const GenerationJobSchema = new Schema<IGenerationJob>(
   {
     assignmentId: { type: Schema.Types.ObjectId, ref: 'Assignment', required: true, index: true },
     bullmqJobId: { type: String, default: '' },
+    generationSeq: { type: Number, default: 0, min: 0, index: true },
     status: {
       type: String,
-      enum: ['queued', 'processing', 'generating', 'parsing', 'saving', 'pdf-generating', 'completed', 'failed'],
+      enum: ['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating', 'completed', 'failed'],
       default: 'queued',
     },
     progress: { type: Number, default: 0, min: 0, max: 100 },
@@ -29,6 +32,7 @@ const GenerationJobSchema = new Schema<IGenerationJob>(
 );
 
 GenerationJobSchema.index({ assignmentId: 1, status: 1 });
+GenerationJobSchema.index({ assignmentId: 1, generationSeq: -1, createdAt: -1 });
 GenerationJobSchema.index({ status: 1, createdAt: -1 });
 
 export const GenerationJob = mongoose.model<IGenerationJob>('GenerationJob', GenerationJobSchema);

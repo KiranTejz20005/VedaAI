@@ -29,27 +29,37 @@ export async function createAssignment(
   return assignment;
 }
 
-export async function enqueueGeneration(assignmentId: string): Promise<{ jobId: string; position: number }> {
+export async function enqueueGeneration(assignmentId: string): Promise<{ jobId: string; position: number; jobRecordId: string; generationSeq: number }> {
   const assignment = await Assignment.findById(assignmentId);
   if (!assignment) throw new Error(`Assignment ${assignmentId} not found`);
+
+  // If a run has already finalized successfully, do not allow a stale enqueue path
+  // to mutate it implicitly. The controller layer decides when regeneration is allowed.
+  const nextSeq = (assignment.generationSeq ?? 0) + 1;
+  await Assignment.findByIdAndUpdate(assignmentId, {
+    generationSeq: nextSeq,
+    status: 'queued',
+    finalizedAt: null,
+  });
 
   // Create job record in DB
   const jobRecord = await GenerationJob.create({
     assignmentId: assignment._id,
+    generationSeq: nextSeq,
     status: 'queued',
     progress: 0,
     startedAt: new Date(),
   });
 
-  // Update assignment status
-  await Assignment.findByIdAndUpdate(assignmentId, { status: 'queued' });
+  // Mark this job as the ONLY job allowed to mutate assignment generation state.
+  await Assignment.findByIdAndUpdate(assignmentId, { activeGenerationJobId: jobRecord._id });
 
   // Add to BullMQ with unique jobId to avoid BullMQ's silent dedup rejection
   const queue = getGenerationQueue();
   const job = await queue.add(
     'generate-paper',
     { assignmentId, jobRecordId: jobRecord._id.toString() },
-    { jobId: `gen-${assignmentId}-${Date.now()}` }
+    { jobId: `gen-${assignmentId}-seq-${nextSeq}` }
   );
 
   // Update job record with bullmq job id
@@ -58,7 +68,7 @@ export async function enqueueGeneration(assignmentId: string): Promise<{ jobId: 
   const waiting = await queue.getWaitingCount();
   logger.info(`Enqueued generation job ${job.id} for assignment ${assignmentId}`);
 
-  return { jobId: job.id ?? '', position: waiting };
+  return { jobId: job.id ?? '', position: waiting, jobRecordId: jobRecord._id.toString(), generationSeq: nextSeq };
 }
 
 export async function listAssignments(

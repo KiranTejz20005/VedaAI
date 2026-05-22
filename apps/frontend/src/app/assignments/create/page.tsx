@@ -399,9 +399,12 @@ export default function CreateAssignmentPage() {
         typeBreakdown: JSON.stringify(typeBreakdown),
       };
 
-      const { assignment } = await createAssignment(payload, files);
+      const created = await createAssignment(payload, files);
+      const { assignment } = created;
       addAssignment(assignment);
-      setQueued();
+      if (created.jobRecordId && typeof created.generationSeq === 'number') {
+        setQueued(created.jobRecordId, created.generationSeq, Date.now());
+      }
       toast.success('Assignment created! Generation started…', { duration: 4000 });
       router.push(`/assignments/${assignment._id}`);
     } catch (e) {

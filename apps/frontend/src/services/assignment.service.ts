@@ -1,5 +1,5 @@
 import { apiClient, deduplicateRequest } from './api.client';
-import type { Assignment } from '../types/assignment.types';
+import type { Assignment, CanonicalGenerationState } from '../types/assignment.types';
 import type { CreateAssignmentFormValues } from '../schemas/create-assignment.schema';
 
 export interface AssignmentListResponse {
@@ -20,7 +20,8 @@ export async function fetchAssignments(
 
 export async function fetchAssignment(id: string): Promise<Assignment> {
   return deduplicateRequest(`fetch-assignment-${id}`, async () => {
-    const res = await apiClient.get<{ data: { assignment: Assignment } }>(`/assignments/${id}`);
+    const res = await apiClient.get<{ data: { assignment: Assignment; generationState?: CanonicalGenerationState } }>(`/assignments/${id}`);
+    (res.data.data.assignment as Assignment & { generationState?: CanonicalGenerationState }).generationState = res.data.data.generationState;
     return res.data.data.assignment;
   });
 }
@@ -28,7 +29,7 @@ export async function fetchAssignment(id: string): Promise<Assignment> {
 export async function createAssignment(
   data: CreateAssignmentFormValues & { typeBreakdown?: string },
   files: File[]
-): Promise<{ assignment: Assignment; jobId: string }> {
+): Promise<{ assignment: Assignment; jobId: string; position?: number; jobRecordId?: string; generationSeq?: number }> {
   const formData = new FormData();
 
   formData.append('title', data.title);
@@ -45,7 +46,7 @@ export async function createAssignment(
 
   files.forEach((file) => formData.append('files', file));
 
-  const res = await apiClient.post<{ data: { assignment: Assignment; jobId: string } }>(
+  const res = await apiClient.post<{ data: { assignment: Assignment; jobId: string; position?: number; jobRecordId?: string; generationSeq?: number } }>(
     '/assignments',
     formData,
     { headers: { 'Content-Type': null as unknown as string } }
@@ -57,8 +58,8 @@ export async function deleteAssignment(id: string): Promise<void> {
   await apiClient.delete(`/assignments/${id}`);
 }
 
-export async function generateAssignment(id: string): Promise<{ jobId: string; position: number }> {
-  const res = await apiClient.post<{ data: { jobId: string; position: number } }>(`/assignments/${id}/generate`);
+export async function generateAssignment(id: string): Promise<{ jobId: string; position: number; jobRecordId: string; generationSeq: number }> {
+  const res = await apiClient.post<{ data: { jobId: string; position: number; jobRecordId: string; generationSeq: number } }>(`/assignments/${id}/generate`);
   return res.data.data;
 }
 
@@ -66,6 +67,19 @@ export interface JobStatusResponse {
   status: string;
   progress: number;
   error?: string | null;
+  jobRecordId?: string | null;
+  generationSeq?: number;
+  paperId?: string | null;
+  ts?: number;
+  stage?: string;
+  generatedQuestions?: number;
+  requestedQuestions?: number;
+  generatedMarks?: number;
+  requestedMarks?: number;
+  completionPercentage?: number;
+  answerKeyReady?: boolean;
+  pdfReady?: boolean;
+  generationStatus?: string;
 }
 
 export async function fetchJobStatus(id: string): Promise<JobStatusResponse | null> {

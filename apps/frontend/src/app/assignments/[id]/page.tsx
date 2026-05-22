@@ -28,10 +28,14 @@ import type { GenerationStage } from '@/types/socket.types';
 
 const STAGE_STEPS: { stage: GenerationStage; label: string }[] = [
   { stage: 'queued', label: 'Queued' },
-  { stage: 'processing', label: 'Processing' },
-  { stage: 'generating', label: 'Generating' },
-  { stage: 'parsing', label: 'Validating' },
-  { stage: 'saving', label: 'Saving' },
+  { stage: 'extracting_content', label: 'Extraction' },
+  { stage: 'topic_preprocessing', label: 'Preprocess' },
+  { stage: 'generation_planning', label: 'Planning' },
+  { stage: 'batch_generating', label: 'Generation' },
+  { stage: 'validating', label: 'Validation' },
+  { stage: 'answer_key_generating', label: 'Answer Key' },
+  { stage: 'pdf_composing', label: 'PDF' },
+  { stage: 'persisting', label: 'Persisting' },
   { stage: 'completed', label: 'Complete' },
 ];
 
@@ -171,14 +175,8 @@ export default function AssignmentDetailPage({
   }, [id]);
 
   useEffect(() => {
-    if (!assignment || (assignment.status !== 'completed' && assignment.status !== 'partially_generated')) {
-      setPaper(null);
-      return;
-    }
-
-    fetchPaper(id)
-      .then(setPaper)
-      .catch(() => setPaper(null));
+    if (!assignment || (assignment.status !== 'completed' && assignment.status !== 'partially_generated')) return;
+    fetchPaper(id).then(setPaper).catch(() => undefined);
   }, [assignment, id]);
 
   useEffect(() => {
@@ -203,13 +201,13 @@ export default function AssignmentDetailPage({
     retryCooldownRef.current = true;
     setIsRetrying(true);
     try {
-      await generateAssignment(id);
-      setQueued();
+      const queued = await generateAssignment(id);
+      setQueued(queued.jobRecordId, queued.generationSeq, Date.now());
       setAssignment((prev) => (prev ? { ...prev, status: 'queued' } : prev));
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to queue generation';
       if (msg.toLowerCase().includes('already in progress')) {
-        setQueued();
+        // If a job is already in progress, the socket/polling loop will reconcile.
         setAssignment((prev) => (prev ? { ...prev, status: 'queued' } : prev));
         return;
       }
@@ -233,22 +231,20 @@ export default function AssignmentDetailPage({
         // Poll job status for intermediate progress
         const jobStatus = await fetchJobStatus(id);
         if (jobStatus) {
-          if (jobStatus.status === 'completed') {
-            useGenerationStore.getState().setCompleted(id);
+          const jobRecordId = jobStatus.jobRecordId ?? 'polling-unknown';
+          const genSeq = jobStatus.generationSeq ?? 0;
+          const ts = jobStatus.ts ?? Date.now();
+          if (jobStatus.status === 'completed' && jobStatus.paperId) {
+            useGenerationStore.getState().setCompleted(jobRecordId, genSeq, ts, jobStatus.paperId);
           } else if (jobStatus.status === 'failed') {
-            useGenerationStore.getState().setFailed(jobStatus.error ?? 'Generation failed');
-          } else if (['queued', 'processing', 'generating', 'parsing', 'saving', 'pdf-generating'].includes(jobStatus.status)) {
-            useGenerationStore.getState().setProgress(jobStatus.progress, jobStatus.status as GenerationStage);
+            useGenerationStore.getState().setFailed(jobRecordId, genSeq, ts, jobStatus.error ?? 'Generation failed');
+          } else if (['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'].includes(jobStatus.status)) {
+            useGenerationStore.getState().setProgress(jobRecordId, genSeq, ts, jobStatus.progress, jobStatus.status as GenerationStage);
           }
         }
         // Also poll assignment to keep status in sync
         const updated = await fetchAssignment(id);
         setAssignment(updated);
-        if (updated.status === 'completed' || updated.status === 'partially_generated') {
-          useGenerationStore.getState().setCompleted(id);
-        } else if (updated.status === 'failed') {
-          useGenerationStore.getState().setFailed(updated.generationMeta?.failureReason ?? 'Generation failed');
-        }
       } catch {
         // Polling failure is non-critical
       }
@@ -294,21 +290,14 @@ export default function AssignmentDetailPage({
     );
   }
 
-  const isActiveStage = stage && !['completed', 'failed'].includes(stage);
   const showGeneration = Boolean(stage) || ['queued', 'generating'].includes(assignment.status);
   const genMeta = assignment.generationMeta;
-  const requestedQuestionCount = assignment.questionConfig?.count ?? 0;
-  const generatedQuestionCount = genMeta?.generatedQuestionCount ?? (paper ? paper.sections.reduce((sum, section) => sum + section.questions.length, 0) : null);
-  const generatedMarks = genMeta?.generatedMarks ?? (paper
-    ? paper.sections.reduce((sectionSum, section) => sectionSum + section.questions.reduce((qSum, q) => qSum + q.marks, 0), 0)
-    : null);
-
-  const questionMismatch =
-    generatedQuestionCount !== null && generatedQuestionCount !== requestedQuestionCount;
-  const marksMismatch = generatedMarks !== null && generatedMarks !== assignment.totalMarks;
-  const hasMismatch = questionMismatch || marksMismatch;
-
-  const isPartial = assignment.status === 'partially_generated' || (assignment.status === 'completed' && hasMismatch);
+  const canonical = assignment.generationState?.canonicalMetadata ?? paper?.canonicalMetadata;
+  const requestedQuestionCount = canonical?.requestedQuestionCount ?? assignment.questionConfig?.count ?? 0;
+  const generatedQuestionCount = canonical?.generatedQuestionCount ?? genMeta?.generatedQuestionCount ?? null;
+  const generatedMarks = canonical?.generatedMarks ?? genMeta?.generatedMarks ?? null;
+  const requestedMarks = canonical?.requestedMarks ?? assignment.totalMarks;
+  const isPartial = assignment.status === 'partially_generated';
   const failureReason = genMeta?.failureReason || error || null;
 
   const qualityStatus = assignment.status === 'failed'
@@ -418,8 +407,8 @@ export default function AssignmentDetailPage({
               label: 'Marks',
               value:
                 generatedMarks !== null
-                  ? `${generatedMarks}/${assignment.totalMarks}`
-                  : assignment.totalMarks,
+                  ? `${generatedMarks}/${requestedMarks}`
+                  : requestedMarks,
             },
             { icon: Clock, label: 'Duration', value: `${assignment.duration} min` },
             {
@@ -452,7 +441,7 @@ export default function AssignmentDetailPage({
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
-                Generated: {generatedQuestionCount}/{requestedQuestionCount} Questions, {generatedMarks ?? 0}/{assignment.totalMarks} Marks
+                Generated: {generatedQuestionCount}/{requestedQuestionCount} Questions, {generatedMarks ?? 0}/{requestedMarks} Marks
               </p>
               {isPartial && (
                 <span className="badge badge-warning" style={{ fontSize: 11 }}>

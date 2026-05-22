@@ -13,6 +13,8 @@ import { emitToAssignment } from '../sockets/socket.server';
 import { classifyError } from '../services/quality-gate';
 import type { GenerationJobData } from '../types/queue.types';
 import type { GenerationMeta } from '../types/generation.types';
+import type { GenerationStage } from '../types/socket.types';
+import { buildCanonicalPaperMetadata } from '../services/canonical-metadata.service';
 import { logger } from '../utils/logger';
 import { withTimeout } from '../utils/timeout';
 
@@ -100,24 +102,44 @@ export function createAiGenerationWorker() {
       logger.info(`[WORKER:START] Job ${job.id} | assignment=${assignmentId} | attempt=${job.attemptsMade + 1} | activeJobs=${activeJobCount}`);
 
       let assignment: any = null;
+      let generationSeq = 0;
       try {
         // ── STEP 0: Validate job record ──
         logger.debug(`[STEP 0] Fetching GenerationJob: ${jobRecordId}`);
         const t0 = Date.now();
         const jobRecord = await GenerationJob.findById(jobRecordId).lean();
+        generationSeq = Number((jobRecord as any)?.generationSeq ?? 0);
         logger.debug(`[STEP 0] GenerationJob fetched in ${Date.now() - t0}ms | status=${jobRecord?.status}`);
         if (!jobRecord || jobRecord.status === 'failed') {
           logger.error(`[STEP 0] Job record not found or already failed`);
           throw new Error('Generation job timed out in queue');
         }
 
-        const emit = async (stage: string, progress: number, message?: string) => {
+        // Hard guard: only the Assignment's activeGenerationJobId is allowed to mutate state.
+        // This prevents stale retries / duplicate jobs from overwriting a newer successful run.
+        const ownerCheck = await Assignment.findById(assignmentId).select({ activeGenerationJobId: 1, generationSeq: 1, status: 1 }).lean();
+        const activeJobId = ownerCheck?.activeGenerationJobId ? String(ownerCheck.activeGenerationJobId) : '';
+        const activeSeq = Number((ownerCheck as any)?.generationSeq ?? 0);
+        const jobSeq = generationSeq;
+        if (!ownerCheck || activeJobId !== String(jobRecordId) || activeSeq !== jobSeq) {
+          logger.warn(
+            `[STALE JOB] Ignoring jobRecord=${jobRecordId} (seq=${jobSeq}) for assignment=${assignmentId}. ` +
+            `Active jobRecord=${activeJobId || 'none'} (seq=${activeSeq}), status=${ownerCheck?.status}`
+          );
+          // Do not throw: throwing can trigger BullMQ retries and additional stale writes.
+          return;
+        }
+
+        const emit = async (stage: GenerationStage, progress: number, message?: string) => {
           const e0 = Date.now();
           emitToAssignment(assignmentId, 'generation:progress', {
             assignmentId,
             progress,
             stage,
             message,
+            jobRecordId,
+            generationSeq,
+            ts: Date.now(),
           });
           try {
             await GenerationJob.findByIdAndUpdate(jobRecordId, { status: stage, progress }).exec();
@@ -131,10 +153,13 @@ export function createAiGenerationWorker() {
         logger.debug(`[STEP 1] Emitting initial progress (queued, 0%)`);
         emitToAssignment(assignmentId, 'generation:progress', {
           assignmentId, progress: 0, stage: 'queued', message: 'Job started...',
+          jobRecordId,
+          generationSeq,
+          ts: Date.now(),
         });
 
         logger.debug(`[STEP 2] Emitting processing (5%)`);
-        await emit('processing', 5, 'Starting generation...');
+        await emit('extracting_content', 5, 'Queue initialized...');
 
         // ── STEP 3: Fetch assignment ──
         logger.debug(`[STEP 3] Fetching Assignment: ${assignmentId}`);
@@ -150,7 +175,10 @@ export function createAiGenerationWorker() {
         // ── STEP 4: Update status to generating ──
         logger.debug(`[STEP 4] Setting assignment status to 'generating'`);
         const t4 = Date.now();
-        await Assignment.findByIdAndUpdate(assignmentId, { status: 'generating' });
+        await Assignment.findOneAndUpdate(
+          { _id: assignmentId, activeGenerationJobId: jobRecordId },
+          { status: 'generating' }
+        );
         await job.updateProgress(5);
         logger.debug(`[STEP 4] Status updated in ${Date.now() - t4}ms`);
 
@@ -164,8 +192,7 @@ export function createAiGenerationWorker() {
         logger.debug(`[STEP 5] Content extracted in ${Date.now() - t5}ms | ${uploadedContent.length} chars`);
 
         const sanitizeMsg = wasSanitized ? ' (image references removed from upload)' : '';
-        logger.debug(`[STEP 5] Sanitized=${wasSanitized}, emitting generating (40%)`);
-        await emit('generating', 40, `Generating questions with AI...${sanitizeMsg}`);
+        await emit('topic_preprocessing', 15, `Syllabus extraction complete${sanitizeMsg}`);
 
         // ── STEP 6: Parse typeBreakdown ──
         let typeBreakdown: any[] | undefined;
@@ -180,13 +207,17 @@ export function createAiGenerationWorker() {
           logger.debug(`[STEP 6] No typeBreakdown`);
         }
 
+        await emit('generation_planning', 30, 'Building generation plan...');
+
         // ── STEP 7: AI generation (THE CRITICAL STEP) ──
         logger.info(`[STEP 7] Calling generatePaper() at ${Date.now() - jobStartTime}ms elapsed`);
         const t7 = Date.now();
         let paper: any;
         try {
           paper = await withTimeout(
-            generatePaper(assignment as any, uploadedContent || undefined, typeBreakdown, job),
+            generatePaper(assignment as any, uploadedContent || undefined, typeBreakdown, job, async (stage, progress, stageMessage) => {
+              await emit(stage, progress, stageMessage);
+            }),
             GENERATION_TIMEOUT_MS,
             'Generation'
           );
@@ -204,24 +235,32 @@ export function createAiGenerationWorker() {
         logger.info(`[STEP 7b] Generating answers for ${paper.sections.reduce((s: number, sec: any) => s + sec.questions.length, 0)} questions`);
         const t7b = Date.now();
         try {
+          await emit('answer_key_generating', 87, 'Generating answer key...');
           paper = await generateAnswersForPaper(paper);
           await job.updateProgress(90);
           logger.info(`[STEP 7b] Answers generated in ${Date.now() - t7b}ms`);
         } catch (answerErr) {
-          logger.warn(`[STEP 7b] Answer generation failed (non-fatal): ${answerErr instanceof Error ? answerErr.message : String(answerErr)}`);
-          logger.warn(`[STEP 7b] Continuing with paper without answers`);
+          logger.error(`[STEP 7b] Answer generation failed: ${answerErr instanceof Error ? answerErr.message : String(answerErr)}`);
+          throw answerErr;
         }
 
-        // ── STEP 8: Emit parsing ──
-        logger.debug(`[STEP 8] AI output received, emitting parsing (70%)`);
-        await emit('parsing', 70, 'Validating AI output...');
+        // ── STEP 8: Emit validating ──
+        logger.debug(`[STEP 8] AI output received, emitting validating`);
+        await emit('validating', 80, 'Validating generated paper...');
 
         // ── STEP 9: Save paper ──
         logger.debug(`[STEP 9] Saving GeneratedPaper...`);
         const t9 = Date.now();
         let savedPaper: any;
         try {
-          savedPaper = await savePaper(assignmentId, paper, assignment.duration);
+          // Re-check ownership right before destructive paper write.
+          const owner = await Assignment.findById(assignmentId).select({ activeGenerationJobId: 1, generationSeq: 1 }).lean();
+          if (!owner || String(owner.activeGenerationJobId ?? '') !== String(jobRecordId)) {
+            logger.warn(`[STALE JOB] Skipping savePaper for non-owner jobRecord=${jobRecordId} assignment=${assignmentId}`);
+            return;
+          }
+          const provisionalMetadata = buildCanonicalPaperMetadata(assignment as any, paper as any);
+          savedPaper = await savePaper(assignmentId, paper, assignment.duration, provisionalMetadata);
           await job.updateProgress(95);
           logger.info(`[STEP 9] GeneratedPaper saved in ${Date.now() - t9}ms | id=${savedPaper._id}`);
         } catch (saveErr) {
@@ -231,7 +270,7 @@ export function createAiGenerationWorker() {
 
         // ── STEP 10: Emit saving ──
         logger.debug(`[STEP 10] Emitting saving (85%)`);
-        await emit('saving', 85, 'Saving to database...');
+        await emit('persisting', 97, 'Persisting metadata...');
 
         // ── STEP 11: Check for partial vs complete generation ──
         const requestedQty = assignment.questionConfig.count;
@@ -239,9 +278,14 @@ export function createAiGenerationWorker() {
         const generatedMarks = paper.sections.reduce((s: number, sec: any) =>
           s + sec.questions.reduce((ms: number, q: any) => ms + (q.marks || 0), 0), 0);
         const isPartial = generatedQty < requestedQty;
+        const isFinalAttempt = job.attemptsMade >= (job.opts.attempts ?? 2) - 1;
 
         logger.debug(`[STEP 11] Generated ${generatedQty}/${requestedQty} questions (${generatedMarks}/${assignment.totalMarks} marks)`);
         const t11 = Date.now();
+
+        if (isPartial && !isFinalAttempt) {
+          throw new Error(`Incomplete generation (${generatedQty}/${requestedQty}); retrying before finalize`);
+        }
 
         if (isPartial) {
           const genMeta: GenerationMeta = {
@@ -259,13 +303,19 @@ export function createAiGenerationWorker() {
             partialPaper: null,
             completedAt: new Date(),
           };
-          await Assignment.findByIdAndUpdate(assignmentId, { status: 'partially_generated', generationMeta: genMeta });
+          await Assignment.findOneAndUpdate(
+            { _id: assignmentId, activeGenerationJobId: jobRecordId, status: { $ne: 'completed' } },
+            { status: 'partially_generated', generationMeta: genMeta }
+          );
           logger.info(`[STEP 11] Assignment marked as partially_generated (${generatedQty}/${requestedQty})`);
         } else {
-          await Assignment.findByIdAndUpdate(assignmentId, { status: 'completed' });
+          await Assignment.findOneAndUpdate(
+            { _id: assignmentId, activeGenerationJobId: jobRecordId },
+            { status: 'completed', finalizedAt: new Date() }
+          );
           logger.debug(`[STEP 11] Assignment status updated to 'completed' in ${Date.now() - t11}ms`);
         }
-        await job.updateProgress(98);
+        await job.updateProgress(99);
 
         // ── STEP 12: Update GenerationJob to completed ──
         logger.debug(`[STEP 12] Updating GenerationJob to completed`);
@@ -283,6 +333,9 @@ export function createAiGenerationWorker() {
         emitToAssignment(assignmentId, 'generation:completed', {
           assignmentId,
           paperId: savedPaper._id.toString(),
+          jobRecordId,
+          generationSeq,
+          ts: Date.now(),
         });
         logger.debug(`[STEP 13] WebSocket emit done in ${Date.now() - t13}ms`);
 
@@ -290,6 +343,7 @@ export function createAiGenerationWorker() {
         logger.debug(`[STEP 14] Enqueuing PDF generation job`);
         const t14 = Date.now();
         try {
+          await emit('pdf_composing', 92, 'Composing professional PDF...');
           const pdfQueue = getPdfQueue();
           await pdfQueue.add('generate-pdf', {
             assignmentId,
@@ -310,6 +364,20 @@ export function createAiGenerationWorker() {
         logger.error(`[WORKER FAIL] Job ${job.id} failed at ${elapsed}ms (attempt ${job.attemptsMade + 1}, final=${isFinalAttempt}): ${message}`);
         if (error instanceof Error && error.stack) {
           logger.error(`[WORKER FAIL STACK] ${error.stack.split('\n').slice(0, 8).join('\n')}`);
+        }
+
+        // Only the active job may mark failure/partial. This prevents late retries from
+        // downgrading a completed assignment.
+        const owner = await Assignment.findById(assignmentId).select({ activeGenerationJobId: 1, status: 1 }).lean().catch(() => null);
+        const isOwner = !!owner && String(owner.activeGenerationJobId ?? '') === String(jobRecordId);
+        const isFinalized = owner?.status === 'completed';
+
+        if (!isOwner || isFinalized) {
+          logger.warn(
+            `[STALE FAIL] Ignoring failure update for assignment=${assignmentId} jobRecord=${jobRecordId} ` +
+            `(isOwner=${isOwner}, currentStatus=${owner?.status})`
+          );
+          throw error;
         }
 
         if (isFinalAttempt) {
@@ -344,7 +412,7 @@ export function createAiGenerationWorker() {
           }
 
           await Promise.allSettled([
-            Assignment.findByIdAndUpdate(assignmentId, {
+            Assignment.findOneAndUpdate({ _id: assignmentId, activeGenerationJobId: jobRecordId, status: { $ne: 'completed' } }, {
               status: hasPartial ? 'partially_generated' : 'failed',
               generationMeta: genMeta,
             }),
@@ -361,12 +429,18 @@ export function createAiGenerationWorker() {
             partial: hasPartial,
             retryable: false,
             failureReason: hasPartial ? `Partial: ${userMessage}` : userMessage,
+            jobRecordId,
+            generationSeq,
+            ts: Date.now(),
           });
           logger.debug(`[WORKER FAIL] WebSocket ${hasPartial ? 'generation:completed (partial)' : 'generation:failed'} emitted`);
         } else {
           logger.debug(`[WORKER FAIL] Non-final attempt — requeueing job`);
           await Promise.allSettled([
-            Assignment.findByIdAndUpdate(assignmentId, { status: 'queued' }),
+            Assignment.findOneAndUpdate(
+              { _id: assignmentId, activeGenerationJobId: jobRecordId, status: { $ne: 'completed' } },
+              { status: 'queued' }
+            ),
             GenerationJob.findByIdAndUpdate(jobRecordId, {
               status: 'queued',
               error: message,
@@ -428,14 +502,17 @@ export function createAiGenerationWorker() {
     try {
       const jobRecord = await GenerationJob.findOne({
         bullmqJobId: key,
-        status: { $in: ['queued', 'processing', 'generating', 'parsing', 'saving'] },
+        status: { $in: ['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'] },
       }).lean();
 
       if (!jobRecord) return;
 
       const assignmentId = jobRecord.assignmentId.toString();
       await Promise.allSettled([
-        Assignment.findByIdAndUpdate(assignmentId, { status: 'failed' }),
+        Assignment.findOneAndUpdate(
+          { _id: assignmentId, activeGenerationJobId: (jobRecord as any)._id, status: { $ne: 'completed' } },
+          { status: 'failed' }
+        ),
         GenerationJob.findByIdAndUpdate(jobRecord._id, {
           status: 'failed',
           error: `BullMQ stalled ${perJobCount} times (auto-failed)` ,
@@ -447,6 +524,9 @@ export function createAiGenerationWorker() {
         assignmentId,
         error: `Generation stalled ${perJobCount} times and was auto-failed`,
         retryable: true,
+        jobRecordId: String((jobRecord as any)._id ?? ''),
+        generationSeq: Number((jobRecord as any).generationSeq ?? 0),
+        ts: Date.now(),
       });
 
       logger.error(`[WORKER:STALL:FAILED] Job ${jobId} auto-failed after repeated stalls`);

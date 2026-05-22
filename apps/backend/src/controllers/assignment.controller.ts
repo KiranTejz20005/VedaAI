@@ -12,6 +12,8 @@ import { emitToAssignment } from '../sockets/socket.server';
 import type { FileRef } from '../types/assignment.types';
 import { GenerationJob } from '../models/GenerationJob.model';
 import { logger } from '../utils/logger';
+import { getPaper } from '../services/paper.service';
+import { buildCanonicalGenerationState } from '../services/canonical-metadata.service';
 
 export async function createAssignmentHandler(req: Request, res: Response): Promise<void> {
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -67,16 +69,19 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
   }));
 
   const assignment = await createAssignment(parsed.data, files);
-  const { jobId, position } = await enqueueGeneration(assignment._id.toString());
+  const { jobId, position, jobRecordId, generationSeq } = await enqueueGeneration(assignment._id.toString());
   assignment.status = 'queued';
 
   emitToAssignment(assignment._id.toString(), 'generation:queued', {
     assignmentId: assignment._id.toString(),
     jobId,
+    jobRecordId,
+    generationSeq,
     position,
+    ts: Date.now(),
   });
 
-  sendSuccess(res, { assignment, jobId, position }, 201, 'Assignment created and queued successfully');
+  sendSuccess(res, { assignment, jobId, position, jobRecordId, generationSeq }, 201, 'Assignment created and queued successfully');
 }
 
 export async function generateAssignmentHandler(req: Request, res: Response): Promise<void> {
@@ -100,31 +105,35 @@ export async function generateAssignmentHandler(req: Request, res: Response): Pr
     logger.debug(`[generateHandler] Assignment has partial generation — allowing regeneration`);
   }
 
-  // Check for existing incomplete generation jobs
-  const existingJob = await GenerationJob.findOne({
-    assignmentId: id,
-    status: { $in: ['queued', 'processing', 'generating', 'parsing', 'saving'] },
-  });
-  if (existingJob) {
-    logger.warn(`[generateHandler] Found existing active GenerationJob (${existingJob._id}, status=${existingJob.status}) — returning 409`);
-    sendError(res, 'Generation already in progress', 409);
-    return;
+  // Only the Assignment's activeGenerationJobId counts as "in progress". This avoids stale
+  // GenerationJob rows from older runs blocking regeneration.
+  const activeId = (assignment as any).activeGenerationJobId ? String((assignment as any).activeGenerationJobId) : '';
+  if (activeId) {
+    const activeJob = await GenerationJob.findById(activeId).lean();
+    if (activeJob && ['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'].includes(activeJob.status)) {
+      logger.warn(`[generateHandler] Active GenerationJob in progress (${activeJob._id}, status=${activeJob.status}) — returning 409`);
+      sendError(res, 'Generation already in progress', 409);
+      return;
+    }
   }
 
   logger.debug(`[generateHandler] Enqueuing generation...`);
   const t0 = Date.now();
-  const { jobId, position } = await enqueueGeneration(id);
+  const { jobId, position, jobRecordId, generationSeq } = await enqueueGeneration(id);
   logger.debug(`[generateHandler] Enqueued in ${Date.now() - t0}ms | jobId=${jobId} position=${position}`);
 
   logger.debug(`[generateHandler] Emitting generation:queued via WebSocket`);
   emitToAssignment(id, 'generation:queued', {
     assignmentId: id,
     jobId,
+    jobRecordId,
+    generationSeq,
     position,
+    ts: Date.now(),
   });
 
   logger.info(`[generateHandler] COMPLETE — returning 202`);
-  sendSuccess(res, { jobId, position }, 202, 'Generation queued successfully');
+  sendSuccess(res, { jobId, position, jobRecordId, generationSeq }, 202, 'Generation queued successfully');
 }
 
 export async function listAssignmentsHandler(req: Request, res: Response): Promise<void> {
@@ -152,7 +161,16 @@ export async function getAssignmentHandler(req: Request, res: Response): Promise
     sendError(res, 'Assignment not found', 404);
     return;
   }
-  sendSuccess(res, { assignment });
+  const [job, paper] = await Promise.all([
+    GenerationJob.findOne({ assignmentId: req.params.id }).sort({ generationSeq: -1, createdAt: -1 }),
+    getPaper(req.params.id),
+  ]);
+  const generationState = buildCanonicalGenerationState({
+    assignment: assignment as any,
+    job: (job as any) ?? null,
+    paper: (paper as any) ?? null,
+  });
+  sendSuccess(res, { assignment, generationState });
 }
 
 export async function deleteAssignmentHandler(req: Request, res: Response): Promise<void> {
@@ -163,12 +181,10 @@ export async function deleteAssignmentHandler(req: Request, res: Response): Prom
   }
 
   if (['queued', 'generating', 'partially_generated'].includes(assignment.status)) {
-    const activeJob = await GenerationJob.findOne({
-      assignmentId: req.params.id,
-      status: { $in: ['queued', 'processing', 'generating', 'parsing', 'saving'] },
-    }).lean();
+    const activeId = (assignment as any).activeGenerationJobId ? String((assignment as any).activeGenerationJobId) : '';
+    const activeJob = activeId ? await GenerationJob.findById(activeId).lean() : null;
 
-    if (activeJob) {
+    if (activeJob && ['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'].includes(activeJob.status)) {
       sendError(res, 'Cannot delete assignment while generation is in progress', 409);
       return;
     }

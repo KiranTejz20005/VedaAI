@@ -26,6 +26,7 @@ import { createGenerationPlan, type PlannedBatch } from './ai/generation-planner
 import { buildCompactSyllabusContext } from './ai/syllabus-preprocessor';
 import { validateBatchResponse, type BatchQuestion } from './ai/batch-validator';
 import { assemblePaperFromBatches } from './ai/paper-assembler';
+import type { GenerationStage } from '../types/socket.types';
 
 const MAX_RETRIES = 2;
 
@@ -350,7 +351,8 @@ export async function generatePaper(
   assignment: IAssignment,
   uploadedContent?: string,
   typeBreakdown?: QuestionTypeBreakdown[],
-  job?: Job<GenerationJobData>
+  job?: Job<GenerationJobData>,
+  onStage?: (stage: GenerationStage, progress: number, message: string) => Promise<void>
 ): Promise<ValidatedPaper> {
   const started = Date.now();
   const correlationId = correlationIdFor(assignment);
@@ -364,7 +366,14 @@ export async function generatePaper(
     }
   };
 
-  await progress(10);
+  const stage = async (stageName: GenerationStage, value: number, message: string) => {
+    await progress(value);
+    if (onStage) {
+      await onStage(stageName, value, message);
+    }
+  };
+
+  await stage('extracting_content', 10, 'Extracting and parsing source content...');
   const syllabusContext = buildCompactSyllabusContext(uploadedContent);
   const providers = health
     .orderedProviders(enabledProviders())
@@ -382,7 +391,7 @@ export async function generatePaper(
     `[GENERATION_PLAN] correlationId=${correlationId} batches=${plan.batches.length} ` +
     `maxBatchQuestions=${plan.maxBatchQuestions} contextChars=${syllabusContext.length}`
   );
-  await progress(20);
+  await stage('generation_planning', 28, 'Preparing generation batches...');
 
   const completedBatches: Array<{ plan: PlannedBatch; questions: BatchQuestion[] }> = [];
   const batchErrors: string[] = [];
@@ -394,8 +403,8 @@ export async function generatePaper(
     const batch = plan.batches[batchIndex]!;
     totalRequested += batch.count;
     const batchStart = Date.now();
-    const progressBase = 20 + Math.floor((batchIndex / Math.max(1, plan.batches.length)) * 60);
-    await progress(progressBase);
+    const progressBase = 40 + Math.floor((batchIndex / Math.max(1, plan.batches.length)) * 35);
+    await stage('batch_generating', progressBase, `Generating batch ${batchIndex + 1}/${plan.batches.length}...`);
     logger.info(
       `[BATCH_START] correlationId=${correlationId} batch=${batch.id} type=${batch.type} count=${batch.count} marks=${batch.totalMarks}`
     );
@@ -481,7 +490,44 @@ export async function generatePaper(
       logger.warn(`[BATCH_EXHAUSTED] correlationId=${correlationId} batch=${batch.id} no valid questions from any provider`);
     }
 
-    await progress(20 + Math.floor(((batchIndex + 1) / Math.max(1, plan.batches.length)) * 60));
+    await stage(
+      'batch_generating',
+      40 + Math.floor(((batchIndex + 1) / Math.max(1, plan.batches.length)) * 35),
+      `Batch ${batchIndex + 1}/${plan.batches.length} complete`
+    );
+  }
+
+  if (totalRecovered < plan.totalQuestions) {
+    let rescueAttempts = 0;
+    const maxRescueAttempts = Math.min(6, Math.max(2, plan.totalQuestions - totalRecovered));
+
+    while (totalRecovered < plan.totalQuestions && rescueAttempts < maxRescueAttempts) {
+      const remaining = plan.totalQuestions - totalRecovered;
+      rescueAttempts += 1;
+      await stage('batch_generating', 75, `Recovering missing questions (${remaining} remaining)...`);
+
+      const fallbackBatch: PlannedBatch = {
+        id: `rescue-${rescueAttempts}`,
+        type: (assignment.questionConfig.types[0] ?? 'short-answer') as PlannedBatch['type'],
+        count: remaining,
+        marksPerQuestion: Math.max(1, Math.round(assignment.totalMarks / Math.max(1, assignment.questionConfig.count))),
+        totalMarks: Math.max(1, Math.round(assignment.totalMarks / Math.max(1, assignment.questionConfig.count))) * remaining,
+        allowedTypes: assignment.questionConfig.types,
+        sectionTitle: 'Recovery Questions',
+        difficultyHint: 'medium',
+      };
+
+      for (const provider of providers) {
+        const rescue = await runBatchWithRetry(provider, assignment, fallbackBatch, syllabusContext, `${correlationId}-rescue-${rescueAttempts}`);
+        if (!rescue.questions || rescue.questions.length === 0) continue;
+
+        const rescuedQuestions = rescue.questions.slice(0, remaining);
+        completedBatches.push({ plan: fallbackBatch, questions: rescuedQuestions });
+        totalRecovered += rescuedQuestions.length;
+        totalDiscarded += rescue.discardCount ?? 0;
+        break;
+      }
+    }
   }
 
   if (totalRecovered === 0) {
@@ -514,7 +560,7 @@ export async function generatePaper(
     );
   }
 
-  await progress(85);
+  await stage('validating', 84, 'Validating generated paper quality...');
   return paper;
 }
 
@@ -549,8 +595,11 @@ export async function generateAnswersForPaper(paper: ValidatedPaper): Promise<Va
 
   const prompt = buildAnswersPrompt(paper);
   const providers = health.orderedProviders(enabledProviders()).filter((provider) => health.canAttempt(provider));
-  if (providers.length === 0) return paper;
+  if (providers.length === 0) {
+    throw new Error('No provider available for answer-key generation');
+  }
 
+  let lastError: Error | null = null;
   for (const provider of providers) {
     try {
       const rawOutput = await callProvider({
@@ -570,12 +619,12 @@ export async function generateAnswersForPaper(paper: ValidatedPaper): Promise<Va
         }
       }
       return paperObj;
-    } catch {
-      // Non-fatal for answer generation; continue to next provider.
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
     }
   }
 
-  return paper;
+  throw lastError ?? new Error('Answer-key generation failed');
 }
 
 export function getProviderHealthSnapshot() {

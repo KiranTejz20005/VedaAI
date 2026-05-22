@@ -2,11 +2,13 @@ import { GeneratedPaper, type IGeneratedPaper } from '../models/GeneratedPaper.m
 import type { ValidatedPaper } from '../validators/paper.validator';
 import mongoose from 'mongoose';
 import { logger } from '../utils/logger';
+import type { CanonicalPaperMetadata } from '../types/canonical.types';
 
 export async function savePaper(
   assignmentId: string,
   paper: ValidatedPaper,
-  duration?: number
+  duration?: number,
+  canonicalMetadata?: CanonicalPaperMetadata
 ): Promise<IGeneratedPaper> {
   const t0 = Date.now();
   logger.debug(`[savePaper] START | assignmentId=${assignmentId} title="${paper.title}" sections=${paper.sections.length}`);
@@ -31,6 +33,7 @@ export async function savePaper(
     totalMarks: paper.totalMarks,
     duration: duration ?? 45,
     sections: paper.sections,
+    canonicalMetadata,
     generatedAt: new Date(),
   });
   logger.info(`[savePaper] COMPLETE in ${Date.now() - t0}ms | id=${saved._id} sections=${saved.sections.length}`);

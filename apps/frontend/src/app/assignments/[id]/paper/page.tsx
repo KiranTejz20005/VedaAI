@@ -1,31 +1,11 @@
 'use client';
 
-import { use, useEffect, useState, useRef } from 'react';
+import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import {
-  ArrowLeft,
-  Download,
-  Printer,
-  AlertCircle,
-  Loader2,
-} from 'lucide-react';
+import { ArrowLeft, Download, Printer, AlertCircle, Loader2 } from 'lucide-react';
 import { fetchPaper } from '@/services/paper.service';
 import type { GeneratedPaper, Question, Section } from '@/types/paper.types';
-import type { QuestionType, DifficultyLevel } from '@/types/assignment.types';
-
-const TYPE_LABELS: Record<QuestionType, string> = {
-  'short-answer': 'Short Answer',
-  'long-answer': 'Long Answer',
-  mcq: 'MCQ',
-  'true-false': 'True / False',
-  'fill-blank': 'Fill in Blank',
-};
-
-const DIFF_COLORS: Record<DifficultyLevel, string> = {
-  easy: 'badge-completed',
-  medium: 'badge-queued',
-  hard: 'badge-failed',
-};
+import type { DifficultyLevel } from '@/types/assignment.types';
 
 const DIFFICULTY_LABELS: Record<DifficultyLevel, string> = {
   easy: 'Easy',
@@ -240,10 +220,20 @@ export default function PaperViewPage({
     );
   }
 
-  let questionNumber = 1;
-
-  const allQuestions = paper.sections.flatMap((s) => s.questions);
-  const totalQs = allQuestions.length;
+  const meta = paper.canonicalMetadata;
+  const schoolName = meta?.schoolName ?? 'School';
+  const subject = meta?.subject ?? paper.title;
+  const className = meta?.className ?? 'Not Specified';
+  const duration = meta?.durationMinutes ?? paper.duration ?? 45;
+  const totalMarks = meta?.generatedMarks ?? paper.totalMarks;
+  const sectionStarts = paper.sections.reduce<Array<{ title: string; start: number }>>((acc, section) => {
+    const start =
+      acc.length === 0
+        ? 1
+        : acc[acc.length - 1]!.start + paper.sections[acc.length - 1]!.questions.length;
+    acc.push({ title: section.title, start });
+    return acc;
+  }, []);
 
   return (
     <>
@@ -268,17 +258,13 @@ export default function PaperViewPage({
         </div>
       </div>
 
-      <div style={{ maxWidth: 760 }}>
-        {/* AI banner (blue) */}
-        <div className="paper-banner" role="status">
-          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
-            Certainly, here are customized Question Paper for your CBSE Grade 8 Science classes.
-          </p>
+      <div style={{ maxWidth: 820 }}>
+        <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }} className="print:hidden">
           <button
             onClick={() => void handleDownload()}
             disabled={downloading}
             className="btn btn-secondary btn-sm"
-            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
           >
             {downloading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
             Download as PDF
@@ -288,29 +274,14 @@ export default function PaperViewPage({
         {/* Actual paper */}
         <div className="paper-page" style={{ fontFamily: '"Times New Roman", Times, serif' }}>
           {/* School header */}
-          <div className="paper-school">Delhi Public School, Sector-4, Bokaro</div>
+          <div className="paper-school">{schoolName}</div>
           <div className="paper-meta">
-            <div>Subject: {paper.title}</div>
+            <div>{subject}</div>
             <div style={{ fontSize: 13, marginTop: 2 }}>
-              Time Allowed: {paper.duration ?? 45} minutes &nbsp;&nbsp;|&nbsp;&nbsp;
-              Maximum Marks: {paper.totalMarks}
+              Class: {className} &nbsp;&nbsp;|&nbsp;&nbsp;
+              Time Allowed: {duration} minutes &nbsp;&nbsp;|&nbsp;&nbsp;
+              Maximum Marks: {totalMarks}
             </div>
-          </div>
-
-          <div
-            style={{
-              borderTop: '2px solid #111',
-              borderBottom: '1px solid #111',
-              padding: '6px 0',
-              marginBottom: 20,
-              fontSize: 13,
-              color: '#333',
-              display: 'flex',
-              justifyContent: 'space-between',
-            }}
-          >
-            <span>Time Allowed: {paper.duration ?? 45} minutes</span>
-            <span>Maximum Marks: {paper.totalMarks}</span>
           </div>
 
           <p style={{ fontSize: 13, fontStyle: 'italic', marginBottom: 16, color: '#444' }}>
@@ -319,7 +290,7 @@ export default function PaperViewPage({
 
           {/* Student fields */}
           <div style={{ display: 'flex', gap: 32, marginBottom: 24 }}>
-            {['Name', 'Roll Number', 'Class: _th Section'].map((f) => (
+            {['Name', 'Roll Number', 'Section'].map((f) => (
               <div key={f} style={{ fontSize: 13, color: '#333' }}>
                 {f}: <span style={{ borderBottom: '1px solid #333', display: 'inline-block', minWidth: 120 }}>&nbsp;</span>
               </div>
@@ -327,13 +298,13 @@ export default function PaperViewPage({
           </div>
 
           {/* Sections + questions */}
-          {paper.sections.map((section) => {
-            const startNum = questionNumber;
-            questionNumber += section.questions.length;
-            return (
-              <SectionBlock key={section.title} section={section} startNumber={startNum} />
-            );
-          })}
+          {paper.sections.map((section, index) => (
+            <SectionBlock
+              key={section.title}
+              section={section}
+              startNumber={sectionStarts[index]?.start ?? 1}
+            />
+          ))}
 
           {/* End note */}
           <p style={{ fontSize: 13, fontWeight: 700, textAlign: 'center', marginTop: 24, color: '#111' }}>

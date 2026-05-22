@@ -33,4 +33,5 @@ export interface GeneratedPaper {
   sections: Section[];
   pdfUrl: string | null;
   generatedAt: string;
+  canonicalMetadata?: import('./assignment.types').CanonicalPaperMetadata;
 }
