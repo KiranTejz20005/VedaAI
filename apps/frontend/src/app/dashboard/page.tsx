@@ -33,13 +33,14 @@ import type { Assignment } from '@/types/assignment.types';
 
 // ─── Status badge ──────────────────────────────────────────
 function StatusBadge({ status }: { status: Assignment['status'] }) {
-  const config = {
-    draft:      { cls: 'badge-draft',      label: 'Draft' },
-    queued:     { cls: 'badge-queued',     label: 'Queued' },
-    generating: { cls: 'badge-generating', label: 'Generating' },
-    completed:  { cls: 'badge-completed',  label: 'Completed' },
-    failed:     { cls: 'badge-failed',     label: 'Failed' },
-  } as const;
+  const config: Record<string, { cls: string; label: string }> = {
+    draft:               { cls: 'badge-draft',      label: 'Draft' },
+    queued:              { cls: 'badge-queued',     label: 'Queued' },
+    generating:          { cls: 'badge-generating', label: 'Generating' },
+    completed:           { cls: 'badge-completed',  label: 'Completed' },
+    failed:              { cls: 'badge-failed',     label: 'Failed' },
+    partially_generated: { cls: 'badge-warning',    label: 'Partially Generated' },
+  };
 
   const { cls, label } = config[status] ?? config.draft;
   return <span className={`badge ${cls}`}>{label}</span>;
@@ -159,6 +160,8 @@ function AssignmentCard({
   isDeleting: boolean;
 }) {
   const isLive = assignment.status === 'generating' || assignment.status === 'queued';
+  const isPartial = assignment.status === 'partially_generated';
+  const genMeta = assignment.generationMeta;
   const assignedDate = format(new Date(assignment.createdAt), 'dd-MM-yyyy');
   const dueDate = format(new Date(assignment.dueDate), 'dd-MM-yyyy');
 
@@ -205,13 +208,55 @@ function AssignmentCard({
         />
       </div>
 
+      {/* Generated counts row (for completed & partial) */}
+      {(assignment.status === 'completed' || isPartial) && genMeta && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            marginTop: 10,
+            fontSize: 12,
+          }}
+        >
+          <span style={{ color: 'var(--text-muted)' }}>
+            Generated:{' '}
+            <strong style={{ color: isPartial ? '#EA580C' : '#065F46' }}>
+              {genMeta.generatedQuestionCount}/{genMeta.requestedQuestionCount}
+            </strong>{' '}
+            questions ·{' '}
+            <strong style={{ color: isPartial ? '#EA580C' : '#065F46' }}>
+              {genMeta.generatedMarks}/{genMeta.requestedMarks}
+            </strong>{' '}
+            marks
+          </span>
+        </div>
+      )}
+
+      {/* Failure reason for partial */}
+      {isPartial && genMeta?.failureReason && (
+        <div
+          style={{
+            marginTop: 8,
+            padding: '6px 10px',
+            background: '#FED7AA',
+            borderRadius: 6,
+            fontSize: 11,
+            color: '#9A3412',
+            lineHeight: 1.4,
+          }}
+        >
+          {genMeta.failureReason}
+        </div>
+      )}
+
       {/* Meta row */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginTop: 14,
+          marginTop: isPartial || assignment.status === 'completed' ? 10 : 14,
           paddingTop: 12,
           borderTop: '1px solid var(--border)',
         }}
@@ -323,6 +368,7 @@ function EmptyState({ isFiltered }: { isFiltered: boolean }) {
 function StatsBar({ assignments }: { assignments: Assignment[] }) {
   const total = assignments.length;
   const completed = assignments.filter((a) => a.status === 'completed').length;
+  const partial = assignments.filter((a) => a.status === 'partially_generated').length;
   const inProgress = assignments.filter((a) => a.status === 'generating' || a.status === 'queued').length;
   const failed = assignments.filter((a) => a.status === 'failed').length;
 
@@ -330,6 +376,7 @@ function StatsBar({ assignments }: { assignments: Assignment[] }) {
     { label: 'Total', value: total, color: '#6366F1' },
     { label: 'Completed', value: completed, color: '#10B981' },
     { label: 'In Progress', value: inProgress, color: '#F59E0B' },
+    { label: 'Partial', value: partial, color: '#EA580C' },
     { label: 'Failed', value: failed, color: '#EF4444' },
   ];
 
@@ -456,6 +503,7 @@ export default function DashboardPage() {
             <option value="queued">Queued</option>
             <option value="generating">Generating</option>
             <option value="completed">Completed</option>
+            <option value="partially_generated">Partial</option>
             <option value="failed">Failed</option>
           </select>
           <ChevronDown size={13} />

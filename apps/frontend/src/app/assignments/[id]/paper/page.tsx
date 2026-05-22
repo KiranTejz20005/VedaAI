@@ -27,6 +27,16 @@ const DIFF_COLORS: Record<DifficultyLevel, string> = {
   hard: 'badge-failed',
 };
 
+const DIFFICULTY_LABELS: Record<DifficultyLevel, string> = {
+  easy: 'Easy',
+  medium: 'Moderate',
+  hard: 'Challenging',
+};
+
+function formatMarks(marks: number) {
+  return `${marks} ${marks === 1 ? 'Mark' : 'Marks'}`;
+}
+
 // ─── Single question ───────────────────────────────────────
 function QuestionItem({ question, number }: { question: Question; number: number }) {
   return (
@@ -45,7 +55,7 @@ function QuestionItem({ question, number }: { question: Question; number: number
               borderRadius: 4,
             }}
           >
-            [{question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1)}]
+            [{DIFFICULTY_LABELS[question.difficulty]}]
           </span>
           {question.question}
         </p>
@@ -91,7 +101,7 @@ function QuestionItem({ question, number }: { question: Question; number: number
           whiteSpace: 'nowrap',
         }}
       >
-        [{question.marks} Marks]
+        [{formatMarks(question.marks)}]
       </span>
     </div>
   );
@@ -106,9 +116,8 @@ function SectionBlock({ section, startNumber }: { section: Section; startNumber:
           fontSize: 15,
           fontWeight: 700,
           color: '#111',
-          borderBottom: '2px solid #e5e7eb',
-          paddingBottom: 6,
-          marginBottom: 14,
+          textAlign: 'center',
+          marginBottom: 16,
         }}
       >
         {section.title}
@@ -137,7 +146,11 @@ function AnswerKey({ sections }: { sections: Section[] }) {
   const answers = sections
     .flatMap((s) => s.questions)
     .filter((q) => q.answer)
-    .map((q, i) => ({ number: i + 1, answer: q.answer! }));
+    .map((q, i) => ({
+      number: i + 1,
+      answer: typeof q.answer === 'string' ? q.answer : q.answer?.text,
+    }))
+    .filter((item) => item.answer);
 
   if (answers.length === 0) return null;
 

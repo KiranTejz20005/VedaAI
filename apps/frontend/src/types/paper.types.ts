@@ -13,7 +13,7 @@ export interface Question {
   marks: number;
   options?: MCQOption[];
   blanks?: number;
-  answer?: string;
+  answer?: string | { text: string; explanation?: string };
 }
 
 

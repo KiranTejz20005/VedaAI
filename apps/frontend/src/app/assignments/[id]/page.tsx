@@ -10,6 +10,7 @@ import {
   Brain,
   CheckCircle2,
   XCircle,
+  AlertCircle,
   Clock,
   Loader2,
   FileText,
@@ -170,7 +171,7 @@ export default function AssignmentDetailPage({
   }, [id]);
 
   useEffect(() => {
-    if (!assignment || assignment.status !== 'completed') {
+    if (!assignment || (assignment.status !== 'completed' && assignment.status !== 'partially_generated')) {
       setPaper(null);
       return;
     }
@@ -243,10 +244,10 @@ export default function AssignmentDetailPage({
         // Also poll assignment to keep status in sync
         const updated = await fetchAssignment(id);
         setAssignment(updated);
-        if (updated.status === 'completed') {
+        if (updated.status === 'completed' || updated.status === 'partially_generated') {
           useGenerationStore.getState().setCompleted(id);
         } else if (updated.status === 'failed') {
-          useGenerationStore.getState().setFailed('Generation failed');
+          useGenerationStore.getState().setFailed(updated.generationMeta?.failureReason ?? 'Generation failed');
         }
       } catch {
         // Polling failure is non-critical
@@ -295,25 +296,29 @@ export default function AssignmentDetailPage({
 
   const isActiveStage = stage && !['completed', 'failed'].includes(stage);
   const showGeneration = Boolean(stage) || ['queued', 'generating'].includes(assignment.status);
+  const genMeta = assignment.generationMeta;
   const requestedQuestionCount = assignment.questionConfig?.count ?? 0;
-  const generatedQuestionCount = paper ? paper.sections.reduce((sum, section) => sum + section.questions.length, 0) : null;
-  const generatedMarks = paper
+  const generatedQuestionCount = genMeta?.generatedQuestionCount ?? (paper ? paper.sections.reduce((sum, section) => sum + section.questions.length, 0) : null);
+  const generatedMarks = genMeta?.generatedMarks ?? (paper
     ? paper.sections.reduce((sectionSum, section) => sectionSum + section.questions.reduce((qSum, q) => qSum + q.marks, 0), 0)
-    : null;
+    : null);
 
   const questionMismatch =
     generatedQuestionCount !== null && generatedQuestionCount !== requestedQuestionCount;
   const marksMismatch = generatedMarks !== null && generatedMarks !== assignment.totalMarks;
   const hasMismatch = questionMismatch || marksMismatch;
 
+  const isPartial = assignment.status === 'partially_generated' || (assignment.status === 'completed' && hasMismatch);
+  const failureReason = genMeta?.failureReason || error || null;
+
   const qualityStatus = assignment.status === 'failed'
-    ? 'Failed Validation'
-    : paper
-    ? hasMismatch
-      ? 'Partial'
-      : 'Complete'
+    ? 'Generation Failed'
+    : isPartial
+    ? 'Partially Generated'
     : assignment.status === 'completed'
     ? 'Complete'
+    : assignment.status === 'partially_generated'
+    ? 'Partially Generated'
     : 'In Progress';
 
   return (
@@ -381,11 +386,11 @@ export default function AssignmentDetailPage({
           </div>
           <span
             className={`badge ${
-              qualityStatus === 'Partial'
-                ? 'badge-failed'
-                : assignment.status === 'completed'
+              isPartial
+                ? 'badge-warning'
+                : qualityStatus === 'Complete'
                 ? 'badge-completed'
-                : assignment.status === 'failed'
+                : qualityStatus === 'Generation Failed' || assignment.status === 'failed'
                 ? 'badge-failed'
                 : assignment.status === 'generating' || assignment.status === 'queued'
                 ? 'badge-generating'
@@ -434,25 +439,31 @@ export default function AssignmentDetailPage({
           ))}
         </div>
 
-        {assignment.status === 'completed' && generatedQuestionCount !== null && (
+        {(assignment.status === 'completed' || isPartial) && generatedQuestionCount !== null && (
           <div
             style={{
               marginTop: 12,
               paddingTop: 12,
               borderTop: '1px solid var(--border)',
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 8,
+              flexDirection: 'column',
+              gap: 6,
             }}
           >
-            <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
-              Generated: {generatedQuestionCount}/{requestedQuestionCount} Questions, {generatedMarks ?? 0}/{assignment.totalMarks} Marks
-            </p>
-            {hasMismatch && (
-              <span className="badge badge-failed" style={{ fontSize: 11 }}>
-                Mismatch Detected
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
+                Generated: {generatedQuestionCount}/{requestedQuestionCount} Questions, {generatedMarks ?? 0}/{assignment.totalMarks} Marks
+              </p>
+              {isPartial && (
+                <span className="badge badge-warning" style={{ fontSize: 11 }}>
+                  Partial Generation
+                </span>
+              )}
+            </div>
+            {failureReason && (
+              <p style={{ margin: 0, fontSize: 11, color: '#9A3412', lineHeight: 1.4 }}>
+                {failureReason}
+              </p>
             )}
           </div>
         )}
@@ -505,14 +516,14 @@ export default function AssignmentDetailPage({
         </motion.div>
       )}
 
-      {/* Error state */}
-      {(stage === 'failed' || assignment.status === 'failed') && (
+      {/* Error/Partial state */}
+      {(stage === 'failed' || assignment.status === 'failed' || isPartial) && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           style={{
-            background: '#FEF2F2',
-            border: '1px solid #FECACA',
+            background: isPartial ? '#FFFBEB' : '#FEF2F2',
+            border: isPartial ? '1px solid #FDE68A' : '1px solid #FECACA',
             borderRadius: 'var(--radius-lg)',
             padding: '16px 20px',
             marginBottom: 16,
@@ -521,13 +532,17 @@ export default function AssignmentDetailPage({
             gap: 12,
           }}
         >
-          <XCircle size={20} color="#DC2626" style={{ flexShrink: 0 }} />
+          {isPartial ? (
+            <AlertCircle size={20} color="#D97706" style={{ flexShrink: 0 }} />
+          ) : (
+            <XCircle size={20} color="#DC2626" style={{ flexShrink: 0 }} />
+          )}
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 14, fontWeight: 600, color: '#991B1B', margin: 0 }}>
-              Generation failed
+            <p style={{ fontSize: 14, fontWeight: 600, color: isPartial ? '#92400E' : '#991B1B', margin: 0 }}>
+              {isPartial ? `Partially Generated (${generatedQuestionCount}/${requestedQuestionCount} questions)` : 'Generation Failed'}
             </p>
-            <p style={{ fontSize: 12, color: '#9CA3AF', margin: '2px 0 0' }}>
-              {error ?? 'An unexpected error occurred'}
+            <p style={{ fontSize: 12, color: isPartial ? '#A16207' : '#9CA3AF', margin: '2px 0 0' }}>
+              {failureReason || (isPartial ? 'Some questions could not be generated.' : error ?? 'An unexpected error occurred')}
             </p>
           </div>
           <button
@@ -537,34 +552,40 @@ export default function AssignmentDetailPage({
             style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
           >
             <RefreshCw size={12} className={isRetrying ? 'animate-spin' : ''} />
-            {isRetrying ? 'Retrying…' : 'Retry'}
+            {isRetrying ? 'Retrying…' : isPartial ? 'Resume Generation' : 'Retry'}
           </button>
         </motion.div>
       )}
 
       {/* Completed CTA */}
-      {(stage === 'completed' || assignment.status === 'completed') && (
+      {(stage === 'completed' || assignment.status === 'completed' || assignment.status === 'partially_generated') && paper && (
         <motion.div
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           style={{
-            background: '#F0FDF4',
-            border: '1px solid #BBF7D0',
+            background: isPartial ? '#FFFBEB' : '#F0FDF4',
+            border: isPartial ? '1px solid #FDE68A' : '1px solid #BBF7D0',
             borderRadius: 'var(--radius-lg)',
             padding: '24px',
             textAlign: 'center',
           }}
         >
-          <CheckCircle2 size={36} color="#059669" style={{ margin: '0 auto 12px', display: 'block' }} />
+          {isPartial ? (
+            <AlertCircle size={36} color="#D97706" style={{ margin: '0 auto 12px', display: 'block' }} />
+          ) : (
+            <CheckCircle2 size={36} color="#059669" style={{ margin: '0 auto 12px', display: 'block' }} />
+          )}
           <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
-            Paper Ready!
+            {isPartial ? 'Paper Partially Generated' : 'Paper Ready!'}
           </h3>
           <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 16 }}>
-            Your assessment has been generated and validated successfully.
+            {isPartial
+              ? `Generated ${generatedQuestionCount}/${requestedQuestionCount} questions. View partial results below.`
+              : 'Your assessment has been generated and validated successfully.'}
           </p>
           <Link href={`/assignments/${id}/paper`} className="btn btn-primary">
             <Zap size={16} />
-            View Generated Paper
+            {isPartial ? 'View Partial Results' : 'View Generated Paper'}
           </Link>
         </motion.div>
       )}

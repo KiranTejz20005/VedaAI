@@ -12,7 +12,8 @@ export type AssignmentStatus =
   | 'queued'
   | 'generating'
   | 'completed'
-  | 'failed';
+  | 'failed'
+  | 'partially_generated';
 
 export interface DifficultyDistribution {
   easy: number;
@@ -33,6 +34,29 @@ export interface FileRef {
   size: number;
 }
 
+export interface GenerationDiagnostics {
+  providerName: string;
+  latencyMs: number;
+  promptChars: number;
+  responseChars: number;
+  attemptCount: number;
+}
+
+export interface GenerationMeta {
+  status: string;
+  generatedQuestionCount: number;
+  requestedQuestionCount: number;
+  generatedMarks: number;
+  requestedMarks: number;
+  completedBatches: number;
+  failedBatches: number;
+  providerName: string | null;
+  failureCategory: string | null;
+  failureReason: string | null;
+  completedAt: string | null;
+  partialPaper: object | null;
+}
+
 export interface Assignment {
   _id: string;
   title: string;
@@ -45,6 +69,7 @@ export interface Assignment {
   uploadedFiles: FileRef[];
   additionalInstructions: string;
   status: AssignmentStatus;
+  generationMeta?: GenerationMeta;
   createdAt: string;
   updatedAt: string;
 }

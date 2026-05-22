@@ -672,6 +672,11 @@ body {
   color: #374151;
 }
 
+.badge-warning {
+  background: #FED7AA;
+  color: #9A3412;
+}
+
 /* ── 3-dot menu ── */
 .menu-btn {
   width: 32px;
