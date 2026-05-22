@@ -202,7 +202,7 @@ export default function AssignmentDetailPage({
     setIsRetrying(true);
     try {
       const queued = await generateAssignment(id);
-      setQueued(queued.jobRecordId, queued.generationSeq, Date.now());
+      setQueued(queued.jobRecordId, queued.generationSeq, 0, Date.now());
       setAssignment((prev) => (prev ? { ...prev, status: 'queued' } : prev));
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to queue generation';
@@ -234,12 +234,13 @@ export default function AssignmentDetailPage({
           const jobRecordId = jobStatus.jobRecordId ?? 'polling-unknown';
           const genSeq = jobStatus.generationSeq ?? 0;
           const ts = jobStatus.ts ?? Date.now();
+          const version = jobStatus.version ?? 0;
           if (jobStatus.status === 'completed' && jobStatus.paperId) {
-            useGenerationStore.getState().setCompleted(jobRecordId, genSeq, ts, jobStatus.paperId);
+            useGenerationStore.getState().setCompleted(jobRecordId, genSeq, version, ts, jobStatus.paperId);
           } else if (jobStatus.status === 'failed') {
-            useGenerationStore.getState().setFailed(jobRecordId, genSeq, ts, jobStatus.error ?? 'Generation failed');
+            useGenerationStore.getState().setFailed(jobRecordId, genSeq, version, ts, jobStatus.error ?? 'Generation failed');
           } else if (['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'].includes(jobStatus.status)) {
-            useGenerationStore.getState().setProgress(jobRecordId, genSeq, ts, jobStatus.progress, jobStatus.status as GenerationStage);
+            useGenerationStore.getState().setProgress(jobRecordId, genSeq, version, ts, jobStatus.progress, jobStatus.status as GenerationStage);
           }
         }
         // Also poll assignment to keep status in sync

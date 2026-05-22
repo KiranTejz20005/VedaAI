@@ -6,6 +6,10 @@ export interface IGenerationJob extends Document {
   bullmqJobId: string;
   // Monotonic generation sequence copied from Assignment at enqueue time.
   generationSeq: number;
+  // Monotonic progress event sequence for this job. Used to order websocket/poll updates.
+  progressVersion: number;
+  // Monotonic stage index (numeric) to prevent stage regression.
+  stageIndex: number;
   status: GenerationStage;
   progress: number;
   error: string | null;
@@ -18,6 +22,8 @@ const GenerationJobSchema = new Schema<IGenerationJob>(
     assignmentId: { type: Schema.Types.ObjectId, ref: 'Assignment', required: true, index: true },
     bullmqJobId: { type: String, default: '' },
     generationSeq: { type: Number, default: 0, min: 0, index: true },
+    progressVersion: { type: Number, default: 0, min: 0, index: true },
+    stageIndex: { type: Number, default: 0, min: 0, index: true },
     status: {
       type: String,
       enum: ['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating', 'completed', 'failed'],

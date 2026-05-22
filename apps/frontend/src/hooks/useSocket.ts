@@ -30,24 +30,24 @@ export function useGenerationSocket(assignmentId: string | null) {
 
     const onQueued = (payload: GenerationQueuedPayload) => {
       if (payload.assignmentId !== assignmentId) return;
-      callbacksRef.current.setQueued(payload.jobRecordId, payload.generationSeq, payload.ts);
+      callbacksRef.current.setQueued(payload.jobRecordId, payload.generationSeq, payload.version, payload.ts);
       callbacksRef.current.updateAssignmentStatus(assignmentId, 'queued');
     };
 
     const onProgress = (payload: GenerationProgressPayload) => {
       if (payload.assignmentId !== assignmentId) return;
-      callbacksRef.current.setProgress(payload.jobRecordId, payload.generationSeq, payload.ts, payload.progress, payload.stage, payload.message);
+      callbacksRef.current.setProgress(payload.jobRecordId, payload.generationSeq, payload.version, payload.ts, payload.progress, payload.stage, payload.message);
     };
 
     const onCompleted = (payload: GenerationCompletedPayload) => {
       if (payload.assignmentId !== assignmentId) return;
-      callbacksRef.current.setCompleted(payload.jobRecordId, payload.generationSeq, payload.ts, payload.paperId);
+      callbacksRef.current.setCompleted(payload.jobRecordId, payload.generationSeq, payload.version, payload.ts, payload.paperId);
       callbacksRef.current.updateAssignmentStatus(assignmentId, 'completed');
     };
 
     const onFailed = (payload: GenerationFailedPayload) => {
       if (payload.assignmentId !== assignmentId) return;
-      callbacksRef.current.setFailed(payload.jobRecordId, payload.generationSeq, payload.ts, payload.error);
+      callbacksRef.current.setFailed(payload.jobRecordId, payload.generationSeq, payload.version, payload.ts, payload.error);
       callbacksRef.current.updateAssignmentStatus(assignmentId, 'failed');
     };
 

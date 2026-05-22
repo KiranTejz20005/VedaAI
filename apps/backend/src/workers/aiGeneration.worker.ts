@@ -20,6 +20,21 @@ import { withTimeout } from '../utils/timeout';
 
 const GENERATION_TIMEOUT_MS = 120_000;
 
+const STAGE_ORDER: Record<GenerationStage, number> = {
+  queued: 0,
+  extracting_content: 10,
+  topic_preprocessing: 20,
+  generation_planning: 30,
+  batch_generating: 40,
+  validating: 60,
+  answer_key_generating: 75,
+  pdf_composing: 85,
+  persisting: 90,
+  'pdf-generating': 92,
+  completed: 100,
+  failed: 100,
+};
+
 function sanitizeText(text: string): string {
   const before = text.length;
   const result = text
@@ -103,12 +118,18 @@ export function createAiGenerationWorker() {
 
       let assignment: any = null;
       let generationSeq = 0;
+      let progressVersion = 0;
+      let lastStageIndex = 0;
+      let lastProgress = 0;
       try {
         // ── STEP 0: Validate job record ──
         logger.debug(`[STEP 0] Fetching GenerationJob: ${jobRecordId}`);
         const t0 = Date.now();
         const jobRecord = await GenerationJob.findById(jobRecordId).lean();
         generationSeq = Number((jobRecord as any)?.generationSeq ?? 0);
+        progressVersion = Number((jobRecord as any)?.progressVersion ?? 0);
+        lastStageIndex = Number((jobRecord as any)?.stageIndex ?? 0);
+        lastProgress = Number((jobRecord as any)?.progress ?? 0);
         logger.debug(`[STEP 0] GenerationJob fetched in ${Date.now() - t0}ms | status=${jobRecord?.status}`);
         if (!jobRecord || jobRecord.status === 'failed') {
           logger.error(`[STEP 0] Job record not found or already failed`);
@@ -131,18 +152,38 @@ export function createAiGenerationWorker() {
         }
 
         const emit = async (stage: GenerationStage, progress: number, message?: string) => {
+          // Monotonic guard (local): never emit regressive stage/progress.
+          const prevStageIndex = lastStageIndex;
+          const prevProgress = lastProgress;
+          const nextStageIndex = STAGE_ORDER[stage] ?? 0;
+          const guardedStageIndex = Math.max(prevStageIndex, nextStageIndex);
+          const guardedProgress = Math.max(prevProgress, Math.round(progress));
+          lastStageIndex = guardedStageIndex;
+          lastProgress = guardedProgress;
+          progressVersion += 1;
+
           const e0 = Date.now();
           emitToAssignment(assignmentId, 'generation:progress', {
             assignmentId,
-            progress,
+            progress: guardedProgress,
             stage,
             message,
             jobRecordId,
             generationSeq,
+            version: progressVersion,
             ts: Date.now(),
           });
           try {
-            await GenerationJob.findByIdAndUpdate(jobRecordId, { status: stage, progress }).exec();
+            // DB monotonic guard: progressVersion always increases, progress never decreases,
+            // and stageIndex never decreases. Status changes only when moving forward.
+            await GenerationJob.findOneAndUpdate(
+              { _id: jobRecordId, generationSeq },
+              {
+                $inc: { progressVersion: 1 },
+                $max: { progress: guardedProgress, stageIndex: guardedStageIndex },
+                ...(nextStageIndex >= prevStageIndex ? { $set: { status: stage } } : {}),
+              } as any
+            ).exec();
             logger.debug(`[EMIT] ${stage} ${progress}% "${message}" in ${Date.now() - e0}ms`);
           } catch (emitErr) {
             logger.warn(`[EMIT] DB update failed for ${stage}: ${emitErr}`);
@@ -151,12 +192,7 @@ export function createAiGenerationWorker() {
 
         // ── STEP 1: Emit initial progress ──
         logger.debug(`[STEP 1] Emitting initial progress (queued, 0%)`);
-        emitToAssignment(assignmentId, 'generation:progress', {
-          assignmentId, progress: 0, stage: 'queued', message: 'Job started...',
-          jobRecordId,
-          generationSeq,
-          ts: Date.now(),
-        });
+        await emit('queued', 0, 'Job started...');
 
         logger.debug(`[STEP 2] Emitting processing (5%)`);
         await emit('extracting_content', 5, 'Queue initialized...');
@@ -320,11 +356,17 @@ export function createAiGenerationWorker() {
         // ── STEP 12: Update GenerationJob to completed ──
         logger.debug(`[STEP 12] Updating GenerationJob to completed`);
         const t12 = Date.now();
-        await GenerationJob.findByIdAndUpdate(jobRecordId, {
-          status: 'completed',
-          progress: 100,
-          completedAt: new Date(),
-        });
+        progressVersion += 1;
+        lastStageIndex = Math.max(lastStageIndex, STAGE_ORDER.completed);
+        lastProgress = Math.max(lastProgress, 100);
+        await GenerationJob.findOneAndUpdate(
+          { _id: jobRecordId, generationSeq },
+          {
+            $set: { status: 'completed', completedAt: new Date() },
+            $inc: { progressVersion: 1 },
+            $max: { progress: 100, stageIndex: STAGE_ORDER.completed },
+          } as any
+        );
         logger.debug(`[STEP 12] GenerationJob updated in ${Date.now() - t12}ms`);
 
         // ── STEP 13: Emit generation:completed via WebSocket ──
@@ -335,6 +377,7 @@ export function createAiGenerationWorker() {
           paperId: savedPaper._id.toString(),
           jobRecordId,
           generationSeq,
+          version: progressVersion,
           ts: Date.now(),
         });
         logger.debug(`[STEP 13] WebSocket emit done in ${Date.now() - t13}ms`);
@@ -416,13 +459,17 @@ export function createAiGenerationWorker() {
               status: hasPartial ? 'partially_generated' : 'failed',
               generationMeta: genMeta,
             }),
-            GenerationJob.findByIdAndUpdate(jobRecordId, {
-              status: 'failed',
-              error: message,
-              completedAt: new Date(),
-            }),
+            GenerationJob.findOneAndUpdate(
+              { _id: jobRecordId, generationSeq },
+              {
+                $set: { status: 'failed', error: message, completedAt: new Date() },
+                $inc: { progressVersion: 1 },
+                $max: { progress: lastProgress, stageIndex: STAGE_ORDER.failed },
+              } as any
+            ),
           ]);
           logger.debug(`[WORKER FAIL] DB updates done in ${Date.now() - f0}ms | finalStatus=${hasPartial ? 'partially_generated' : 'failed'}`);
+          progressVersion += 1;
           emitToAssignment(assignmentId, hasPartial ? 'generation:completed' : 'generation:failed', {
             assignmentId,
             error: hasPartial ? undefined : userMessage,
@@ -431,22 +478,19 @@ export function createAiGenerationWorker() {
             failureReason: hasPartial ? `Partial: ${userMessage}` : userMessage,
             jobRecordId,
             generationSeq,
+            version: progressVersion,
             ts: Date.now(),
           });
           logger.debug(`[WORKER FAIL] WebSocket ${hasPartial ? 'generation:completed (partial)' : 'generation:failed'} emitted`);
         } else {
           logger.debug(`[WORKER FAIL] Non-final attempt — requeueing job`);
           await Promise.allSettled([
-            Assignment.findOneAndUpdate(
-              { _id: assignmentId, activeGenerationJobId: jobRecordId, status: { $ne: 'completed' } },
-              { status: 'queued' }
+            GenerationJob.findOneAndUpdate(
+              { _id: jobRecordId, generationSeq },
+              { $set: { error: message }, $inc: { progressVersion: 1 } } as any
             ),
-            GenerationJob.findByIdAndUpdate(jobRecordId, {
-              status: 'queued',
-              error: message,
-            }),
           ]);
-          logger.debug(`[WORKER FAIL] Assignment and GenerationJob reset to 'queued' for retry`);
+          progressVersion += 1;
         }
 
         throw error;
@@ -513,19 +557,24 @@ export function createAiGenerationWorker() {
           { _id: assignmentId, activeGenerationJobId: (jobRecord as any)._id, status: { $ne: 'completed' } },
           { status: 'failed' }
         ),
-        GenerationJob.findByIdAndUpdate(jobRecord._id, {
-          status: 'failed',
-          error: `BullMQ stalled ${perJobCount} times (auto-failed)` ,
-          completedAt: new Date(),
-        }),
+        GenerationJob.findOneAndUpdate(
+          { _id: jobRecord._id, generationSeq: Number((jobRecord as any).generationSeq ?? 0) },
+          {
+            $set: { status: 'failed', error: `BullMQ stalled ${perJobCount} times (auto-failed)`, completedAt: new Date() },
+            $inc: { progressVersion: 1 },
+            $max: { stageIndex: STAGE_ORDER.failed },
+          } as any
+        ),
       ]);
 
+      const nextVersion = Number((jobRecord as any).progressVersion ?? 0) + 1;
       emitToAssignment(assignmentId, 'generation:failed', {
         assignmentId,
         error: `Generation stalled ${perJobCount} times and was auto-failed`,
         retryable: true,
         jobRecordId: String((jobRecord as any)._id ?? ''),
         generationSeq: Number((jobRecord as any).generationSeq ?? 0),
+        version: nextVersion,
         ts: Date.now(),
       });
 

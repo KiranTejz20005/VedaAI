@@ -69,6 +69,7 @@ export interface JobStatusResponse {
   error?: string | null;
   jobRecordId?: string | null;
   generationSeq?: number;
+  version?: number;
   paperId?: string | null;
   ts?: number;
   stage?: string;

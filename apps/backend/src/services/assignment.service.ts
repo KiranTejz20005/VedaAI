@@ -46,6 +46,8 @@ export async function enqueueGeneration(assignmentId: string): Promise<{ jobId: 
   const jobRecord = await GenerationJob.create({
     assignmentId: assignment._id,
     generationSeq: nextSeq,
+    progressVersion: 0,
+    stageIndex: 0,
     status: 'queued',
     progress: 0,
     startedAt: new Date(),

@@ -78,6 +78,7 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
     jobRecordId,
     generationSeq,
     position,
+    version: 0,
     ts: Date.now(),
   });
 
@@ -129,6 +130,7 @@ export async function generateAssignmentHandler(req: Request, res: Response): Pr
     jobRecordId,
     generationSeq,
     position,
+    version: 0,
     ts: Date.now(),
   });
 

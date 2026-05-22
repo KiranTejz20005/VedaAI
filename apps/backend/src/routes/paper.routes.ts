@@ -35,8 +35,9 @@ router.get('/job/:assignmentId', asyncHandler(async (req, res) => {
       error: job?.error ?? null,
       jobRecordId: job?._id?.toString() ?? null,
       generationSeq: (job as any)?.generationSeq ?? (assignment as any)?.generationSeq ?? 0,
+      version: (job as any)?.progressVersion ?? 0,
       paperId: paper?._id?.toString() ?? null,
-      ts: Date.now(),
+      ts: (job as any)?.updatedAt ? new Date((job as any).updatedAt).getTime() : Date.now(),
       ...state,
     },
   });

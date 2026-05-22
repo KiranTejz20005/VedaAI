@@ -1,16 +1,9 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'react-hot-toast';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: 'VedaAI — AI-Powered Assessment Creator',
@@ -30,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
         <div className="app-shell">
           {/* Fixed sidebar */}
@@ -55,7 +48,7 @@ export default function RootLayout({
               border: '1px solid #E5E7EB',
               borderRadius: '12px',
               fontSize: '14px',
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
               boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
             },
             success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },

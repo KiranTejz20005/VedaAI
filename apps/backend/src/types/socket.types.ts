@@ -18,6 +18,7 @@ export interface GenerationQueuedPayload {
   jobRecordId: string;
   generationSeq: number;
   position: number;
+  version: number;
   ts: number;
 }
 
@@ -28,6 +29,7 @@ export interface GenerationProgressPayload {
   message?: string;
   jobRecordId: string;
   generationSeq: number;
+  version: number;
   ts: number;
 }
 
@@ -36,6 +38,7 @@ export interface GenerationCompletedPayload {
   paperId: string;
   jobRecordId: string;
   generationSeq: number;
+  version: number;
   ts: number;
 }
 
@@ -45,6 +48,7 @@ export interface GenerationFailedPayload {
   retryable: boolean;
   jobRecordId: string;
   generationSeq: number;
+  version: number;
   ts: number;
 }
 

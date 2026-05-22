@@ -403,7 +403,7 @@ export default function CreateAssignmentPage() {
       const { assignment } = created;
       addAssignment(assignment);
       if (created.jobRecordId && typeof created.generationSeq === 'number') {
-        setQueued(created.jobRecordId, created.generationSeq, Date.now());
+        setQueued(created.jobRecordId, created.generationSeq, 0, Date.now());
       }
       toast.success('Assignment created! Generation started…', { duration: 4000 });
       router.push(`/assignments/${assignment._id}`);
