@@ -1,10 +1,10 @@
 import { Worker } from 'bullmq';
 import fs from 'fs/promises';
 import pdfParse from 'pdf-parse';
-import { getRedisClient } from '../config/redis';
+import { getBullRedisClient } from '../config/redis';
 import { Assignment } from '../models/Assignment.model';
 import { GenerationJob } from '../models/GenerationJob.model';
-import { generatePaper } from '../services/ai.service';
+import { generatePaper, generateAnswersForPaper } from '../services/ai.service';
 import { savePaper } from '../services/paper.service';
 import { getPdfQueue } from '../queues/pdf.queue';
 import { emitToAssignment } from '../sockets/socket.server';
@@ -14,7 +14,8 @@ import { logger } from '../utils/logger';
 const GENERATION_TIMEOUT_MS = 120_000;
 
 function sanitizeText(text: string): string {
-  return text
+  const before = text.length;
+  const result = text
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
     .replace(/[^\x20-\x7E\x0A\x0D\x80-\xFF\n\t]/g, '')
     .replace(/\b(?:data:image\/[a-z]+;base64[^\s]+)\b/gi, '[BINARY REMOVED]')
@@ -24,24 +25,36 @@ function sanitizeText(text: string): string {
     .replace(/\bimage\s*\.\s*(png|jpg|jpeg|gif|webp)\b/gi, '[REF REMOVED]')
     .replace(/\(\s*(?:png|jpg|jpeg|gif|webp|svg|bmp|ico)\s*\)/gi, '[FORMAT REMOVED]')
     .slice(0, 8000);
+  const after = result.length;
+  if (before !== after) logger.debug(`sanitizeText: ${before}→${after} chars (${before - after} removed)`);
+  return result;
 }
 
 async function extractUploadedContent(files: Array<{ path: string; mimeType: string }>): Promise<{ content: string; wasSanitized: boolean }> {
+  logger.debug(`[TRACE] extractUploadedContent: ${files.length} files`);
   const texts: string[] = [];
   let wasSanitized = false;
   for (const file of files) {
     try {
+      const t0 = Date.now();
       if (file.mimeType === 'application/pdf') {
+        logger.debug(`[TRACE] Reading PDF: ${file.path}`);
         const buffer = await fs.readFile(file.path);
+        logger.debug(`[TRACE] PDF buffer: ${buffer.length} bytes, parsing...`);
         const parsed = await pdfParse(buffer);
+        logger.debug(`[TRACE] PDF parsed: ${parsed.text?.length ?? 0} chars in ${Date.now() - t0}ms`);
         if (parsed.text && parsed.text.trim().length > 0) {
           const raw = parsed.text;
           const clean = sanitizeText(raw);
           if (clean !== raw) wasSanitized = true;
           texts.push(clean);
+        } else {
+          logger.warn(`[TRACE] PDF extracted no text: ${file.path}`);
         }
       } else if (file.mimeType === 'text/plain') {
+        logger.debug(`[TRACE] Reading TXT: ${file.path}`);
         const raw = await fs.readFile(file.path, 'utf-8');
+        logger.debug(`[TRACE] TXT read: ${raw.length} chars in ${Date.now() - t0}ms`);
         if (raw && raw.trim().length > 0) {
           const clean = sanitizeText(raw);
           if (clean !== raw) wasSanitized = true;
@@ -49,126 +62,301 @@ async function extractUploadedContent(files: Array<{ path: string; mimeType: str
         }
       }
     } catch (e) {
-      logger.warn(`Failed to read uploaded file: ${file.path}`, e);
+      logger.warn(`[TRACE] Failed to read uploaded file: ${file.path}`, e);
     }
   }
   const combined = texts.join('\n\n').trim();
+  logger.debug(`[TRACE] extractUploadedContent result: ${combined.length} chars, wasSanitized=${wasSanitized}`);
   return { content: combined || '', wasSanitized };
 }
 
+let aiWorker: Worker<GenerationJobData> | null = null;
+let activeJobCount = 0;
+let stalledJobCount = 0;
+
+export function getActiveAiJobCount(): number {
+  return activeJobCount;
+}
+
+export function getStalledAiJobCount(): number {
+  return stalledJobCount;
+}
+
 export function createAiGenerationWorker() {
-  return new Worker<GenerationJobData>(
+  if (aiWorker) return aiWorker;
+
+  aiWorker = new Worker<GenerationJobData>(
     'generation',
     async (job) => {
+      activeJobCount++;
       const { assignmentId, jobRecordId } = job.data;
-
-      const jobRecord = await GenerationJob.findById(jobRecordId).lean();
-      if (!jobRecord || jobRecord.status === 'failed') {
-        throw new Error('Generation job timed out in queue');
-      }
-
-      const emit = async (stage: string, progress: number, message?: string) => {
-        emitToAssignment(assignmentId, 'generation:progress', {
-          assignmentId,
-          progress,
-          stage,
-          message,
-        });
-        try {
-          await GenerationJob.findByIdAndUpdate(jobRecordId, { status: stage, progress }).exec();
-        } catch {
-          // Fire-and-forget progress updates should not crash the worker
-        }
-      };
+      const jobStartTime = Date.now();
+      logger.info(`[WORKER:START] Job ${job.id} | assignment=${assignmentId} | attempt=${job.attemptsMade + 1} | activeJobs=${activeJobCount}`);
 
       try {
-        // Emit initial progress before any async work
+        // ── STEP 0: Validate job record ──
+        logger.debug(`[STEP 0] Fetching GenerationJob: ${jobRecordId}`);
+        const t0 = Date.now();
+        const jobRecord = await GenerationJob.findById(jobRecordId).lean();
+        logger.debug(`[STEP 0] GenerationJob fetched in ${Date.now() - t0}ms | status=${jobRecord?.status}`);
+        if (!jobRecord || jobRecord.status === 'failed') {
+          logger.error(`[STEP 0] Job record not found or already failed`);
+          throw new Error('Generation job timed out in queue');
+        }
+
+        const emit = async (stage: string, progress: number, message?: string) => {
+          const e0 = Date.now();
+          emitToAssignment(assignmentId, 'generation:progress', {
+            assignmentId,
+            progress,
+            stage,
+            message,
+          });
+          try {
+            await GenerationJob.findByIdAndUpdate(jobRecordId, { status: stage, progress }).exec();
+            logger.debug(`[EMIT] ${stage} ${progress}% "${message}" in ${Date.now() - e0}ms`);
+          } catch (emitErr) {
+            logger.warn(`[EMIT] DB update failed for ${stage}: ${emitErr}`);
+          }
+        };
+
+        // ── STEP 1: Emit initial progress ──
+        logger.debug(`[STEP 1] Emitting initial progress (queued, 0%)`);
         emitToAssignment(assignmentId, 'generation:progress', {
           assignmentId, progress: 0, stage: 'queued', message: 'Job started...',
         });
 
+        logger.debug(`[STEP 2] Emitting processing (5%)`);
         await emit('processing', 5, 'Starting generation...');
 
+        // ── STEP 3: Fetch assignment ──
+        logger.debug(`[STEP 3] Fetching Assignment: ${assignmentId}`);
+        const t3 = Date.now();
         const assignment = await Assignment.findById(assignmentId).lean();
-        if (!assignment) throw new Error(`Assignment ${assignmentId} not found`);
+        logger.debug(`[STEP 3] Assignment fetched in ${Date.now() - t3}ms | title="${assignment?.title}" status=${assignment?.status}`);
+        if (!assignment) {
+          logger.error(`[STEP 3] Assignment ${assignmentId} not found`);
+          throw new Error(`Assignment ${assignmentId} not found`);
+        }
+        logger.debug(`[STEP 3] Assignment has ${assignment.uploadedFiles?.length ?? 0} uploaded files, totalMarks=${assignment.totalMarks}`);
 
+        // ── STEP 4: Update status to generating ──
+        logger.debug(`[STEP 4] Setting assignment status to 'generating'`);
+        const t4 = Date.now();
         await Assignment.findByIdAndUpdate(assignmentId, { status: 'generating' });
+        logger.debug(`[STEP 4] Status updated in ${Date.now() - t4}ms`);
 
+        // ── STEP 5: Extract uploaded content ──
+        logger.debug(`[STEP 5] Extracting uploaded content from ${assignment.uploadedFiles?.length ?? 0} files`);
+        const t5 = Date.now();
         const { content: uploadedContent, wasSanitized } = await extractUploadedContent(
           (assignment.uploadedFiles ?? []).map((f: { path: string; mimeType: string }) => ({ path: f.path, mimeType: f.mimeType }))
         );
+        logger.debug(`[STEP 5] Content extracted in ${Date.now() - t5}ms | ${uploadedContent.length} chars`);
 
         const sanitizeMsg = wasSanitized ? ' (image references removed from upload)' : '';
+        logger.debug(`[STEP 5] Sanitized=${wasSanitized}, emitting generating (40%)`);
         await emit('generating', 40, `Generating questions with AI...${sanitizeMsg}`);
 
+        // ── STEP 6: Parse typeBreakdown ──
         let typeBreakdown: any[] | undefined;
         if ((assignment as any).typeBreakdown) {
-          try { typeBreakdown = JSON.parse((assignment as any).typeBreakdown); } catch { /* ignore */ }
+          try {
+            typeBreakdown = JSON.parse((assignment as any).typeBreakdown);
+            logger.debug(`[STEP 6] typeBreakdown parsed: ${typeBreakdown?.length} items`);
+          } catch (parseErr) {
+            logger.warn(`[STEP 6] typeBreakdown JSON parse failed: ${parseErr}`);
+          }
+        } else {
+          logger.debug(`[STEP 6] No typeBreakdown`);
         }
 
-        const paper = await withTimeout(
-          generatePaper(assignment as any, uploadedContent || undefined, typeBreakdown),
-          GENERATION_TIMEOUT_MS
-        );
+        // ── STEP 7: AI generation (THE CRITICAL STEP) ──
+        logger.info(`[STEP 7] Calling generatePaper() at ${Date.now() - jobStartTime}ms elapsed`);
+        const t7 = Date.now();
+        let paper: any;
+        try {
+          paper = await withTimeout(
+            generatePaper(assignment as any, uploadedContent || undefined, typeBreakdown),
+            GENERATION_TIMEOUT_MS
+          );
+          logger.info(`[STEP 7] generatePaper() completed in ${Date.now() - t7}ms | title="${paper?.title}" sections=${paper?.sections?.length}`);
+        } catch (genErr) {
+          logger.error(`[STEP 7 FAILED] generatePaper() threw after ${Date.now() - t7}ms: ${genErr instanceof Error ? genErr.message : String(genErr)}`);
+          if (genErr instanceof Error && genErr.stack) {
+            logger.error(`[STEP 7 STACK] ${genErr.stack.split('\n').slice(0, 6).join('\n')}`);
+          }
+          throw genErr;
+        }
 
+        // ── STEP 7b: Generate answers separately (split pipeline) ──
+        logger.info(`[STEP 7b] Generating answers for ${paper.sections.reduce((s: number, sec: any) => s + sec.questions.length, 0)} questions`);
+        const t7b = Date.now();
+        try {
+          paper = await generateAnswersForPaper(paper);
+          logger.info(`[STEP 7b] Answers generated in ${Date.now() - t7b}ms`);
+        } catch (answerErr) {
+          logger.warn(`[STEP 7b] Answer generation failed (non-fatal): ${answerErr instanceof Error ? answerErr.message : String(answerErr)}`);
+          logger.warn(`[STEP 7b] Continuing with paper without answers`);
+        }
+
+        // ── STEP 8: Emit parsing ──
+        logger.debug(`[STEP 8] AI output received, emitting parsing (70%)`);
         await emit('parsing', 70, 'Validating AI output...');
 
-        await emit('saving', 85, 'Saving to database...');
-        const savedPaper = await savePaper(assignmentId, paper, assignment.duration);
+        // ── STEP 9: Save paper ──
+        logger.debug(`[STEP 9] Saving GeneratedPaper...`);
+        const t9 = Date.now();
+        let savedPaper: any;
+        try {
+          savedPaper = await savePaper(assignmentId, paper, assignment.duration);
+          logger.info(`[STEP 9] GeneratedPaper saved in ${Date.now() - t9}ms | id=${savedPaper._id}`);
+        } catch (saveErr) {
+          logger.error(`[STEP 9 FAILED] savePaper() threw after ${Date.now() - t9}ms: ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`);
+          throw saveErr;
+        }
 
+        // ── STEP 10: Emit saving ──
+        logger.debug(`[STEP 10] Emitting saving (85%)`);
+        await emit('saving', 85, 'Saving to database...');
+
+        // ── STEP 11: Update assignment to completed ──
+        logger.debug(`[STEP 11] Setting assignment status to 'completed'`);
+        const t11 = Date.now();
         await Assignment.findByIdAndUpdate(assignmentId, { status: 'completed' });
+        logger.debug(`[STEP 11] Assignment status updated in ${Date.now() - t11}ms`);
+
+        // ── STEP 12: Update GenerationJob to completed ──
+        logger.debug(`[STEP 12] Updating GenerationJob to completed`);
+        const t12 = Date.now();
         await GenerationJob.findByIdAndUpdate(jobRecordId, {
           status: 'completed',
           progress: 100,
           completedAt: new Date(),
         });
+        logger.debug(`[STEP 12] GenerationJob updated in ${Date.now() - t12}ms`);
 
+        // ── STEP 13: Emit generation:completed via WebSocket ──
+        logger.debug(`[STEP 13] Emitting generation:completed via WebSocket`);
+        const t13 = Date.now();
         emitToAssignment(assignmentId, 'generation:completed', {
           assignmentId,
           paperId: savedPaper._id.toString(),
         });
+        logger.debug(`[STEP 13] WebSocket emit done in ${Date.now() - t13}ms`);
 
-        const pdfQueue = getPdfQueue();
-        await pdfQueue.add('generate-pdf', {
-          assignmentId,
-          paperId: savedPaper._id.toString(),
-          jobRecordId,
-        });
+        // ── STEP 14: Enqueue PDF generation ──
+        logger.debug(`[STEP 14] Enqueuing PDF generation job`);
+        const t14 = Date.now();
+        try {
+          const pdfQueue = getPdfQueue();
+          await pdfQueue.add('generate-pdf', {
+            assignmentId,
+            paperId: savedPaper._id.toString(),
+            jobRecordId,
+          });
+          logger.debug(`[STEP 14] PDF job enqueued in ${Date.now() - t14}ms`);
+        } catch (pdfErr) {
+          logger.warn(`[STEP 14] PDF queue add failed (non-fatal): ${pdfErr}`);
+        }
 
-        logger.info(`Generation completed for assignment ${assignmentId}`);
+        activeJobCount--;
+        const totalTime = Date.now() - jobStartTime;
+        logger.info(`[WORKER:COMPLETE] Job ${job.id} finished in ${totalTime}ms | assignment=${assignmentId} | activeJobs=${activeJobCount}`);
       } catch (error) {
+        activeJobCount--;
+        const elapsed = Date.now() - jobStartTime;
         const message = error instanceof Error ? error.message : 'Unknown error';
         const isFinalAttempt = job.attemptsMade >= (job.opts.attempts ?? 2) - 1;
-        logger.error(`Generation failed for assignment ${assignmentId} (attempt ${job.attemptsMade + 1}): ${message}`);
+        logger.error(`[WORKER FAIL] Job ${job.id} failed at ${elapsed}ms (attempt ${job.attemptsMade + 1}, final=${isFinalAttempt}): ${message}`);
+        if (error instanceof Error && error.stack) {
+          logger.error(`[WORKER FAIL STACK] ${error.stack.split('\n').slice(0, 8).join('\n')}`);
+        }
 
         if (isFinalAttempt) {
-          await Assignment.findByIdAndUpdate(assignmentId, { status: 'failed' });
-          await GenerationJob.findByIdAndUpdate(jobRecordId, {
-            status: 'failed',
-            error: message,
-            completedAt: new Date(),
-          });
+          logger.debug(`[WORKER FAIL] Final attempt — updating assignment & job to 'failed'`);
+          const f0 = Date.now();
+          await Promise.allSettled([
+            Assignment.findByIdAndUpdate(assignmentId, { status: 'failed' }),
+            GenerationJob.findByIdAndUpdate(jobRecordId, {
+              status: 'failed',
+              error: message,
+              completedAt: new Date(),
+            }),
+          ]);
+          logger.debug(`[WORKER FAIL] DB updates done in ${Date.now() - f0}ms`);
           emitToAssignment(assignmentId, 'generation:failed', {
             assignmentId,
             error: message,
             retryable: false,
           });
+          logger.debug(`[WORKER FAIL] WebSocket generation:failed emitted`);
         } else {
+          logger.debug(`[WORKER FAIL] Non-final attempt — requeueing job`);
           await GenerationJob.findByIdAndUpdate(jobRecordId, {
             status: 'queued',
             error: message,
           });
+          logger.debug(`[WORKER FAIL] GenerationJob reset to 'queued' for retry`);
         }
 
         throw error;
       }
     },
     {
-      connection: getRedisClient(),
+      connection: getBullRedisClient(),
       concurrency: 2,
       limiter: { max: 5, duration: 60000 },
+      // lockDuration MUST exceed the maximum AI generation time.
+      // Default is 30s — our AI generation can take up to 120s.
+      // Without this, BullMQ's stalled job detector kicks in during
+      // legitimate long-running AI calls and corrupts the job state.
+      lockDuration: 180_000,
+      // stalledInterval: how often BullMQ checks for stalled jobs (ms).
+      // Default is 30s. Set high to avoid false positives during AI calls.
+      stalledInterval: 120_000,
+      // drainDelay: delay before checking for new jobs when queue is empty.
+      // Default is 5s. Lower = faster pickup, higher = less Redis polling.
+      drainDelay: 1000,
     }
   );
+
+  // ── Worker event handlers for diagnostics ──
+  aiWorker.on('active', (job) => {
+    logger.debug(`[WORKER:EVENT] active | job=${job.id}`);
+  });
+
+  aiWorker.on('completed', (job) => {
+    logger.info(`[WORKER:EVENT] completed | job=${job.id}`);
+  });
+
+  aiWorker.on('failed', (job, err) => {
+    logger.error(`[WORKER:EVENT] failed | job=${job?.id} | error=${err.message}`);
+  });
+
+  aiWorker.on('error', (err) => {
+    logger.error(`[WORKER:EVENT] error | ${err.message}`);
+  });
+
+  aiWorker.on('stalled', (jobId) => {
+    stalledJobCount++;
+    logger.error(`[WORKER:STALL] Job ${jobId} stalled! stalledCount=${stalledJobCount}`);
+  });
+
+  aiWorker.on('closing', (msg) => {
+    logger.info(`[WORKER:EVENT] closing | ${msg}`);
+  });
+
+  aiWorker.on('paused', () => {
+    logger.warn('[WORKER:EVENT] paused — no jobs will be processed');
+  });
+
+  aiWorker.on('resumed', () => {
+    logger.info('[WORKER:EVENT] resumed — job processing continuing');
+  });
+
+  logger.info('[WORKER] AI generation worker created with LOCAL Redis (BullMQ stable)');
+  return aiWorker;
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {

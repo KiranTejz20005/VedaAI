@@ -6,133 +6,211 @@ import { SYSTEM_PROMPT, buildGenerationPrompt, type QuestionTypeBreakdown } from
 import { parsePaperJson, PaperParseError } from '../parsers/paper.parser';
 import type { IAssignment } from '../models/Assignment.model';
 import type { ValidatedPaper } from '../validators/paper.validator';
-import { logger } from '../utils/logger';
-
 const MAX_RETRIES = 2;
-const AI_TIMEOUT_MS = 90_000;
 
-const circuitBreakers = new Map<string, { failures: number; lastFailure: number; open: boolean }>();
+const PROVIDER_TIMEOUTS: Record<string, number> = {
+  NVIDIA:    30_000,
+  Gemini:    30_000,
+  Anthropic: 30_000,
+};
+
+interface CircuitState {
+  failures: number;
+  lastFailure: number;
+  open: boolean;
+  cooldownMs: number;
+  consecutiveFailures: number;
+}
+
+const circuitBreakers = new Map<string, CircuitState>();
+
+function getCircuitState(provider: string): CircuitState {
+  let state = circuitBreakers.get(provider);
+  if (!state) {
+    state = { failures: 0, lastFailure: 0, open: false, cooldownMs: 10_000, consecutiveFailures: 0 };
+    circuitBreakers.set(provider, state);
+  }
+  return state;
+}
 
 function isCircuitOpen(provider: string): boolean {
-  const state = circuitBreakers.get(provider);
-  if (!state || !state.open) return false;
+  const state = getCircuitState(provider);
+  if (!state.open) return false;
   const elapsed = Date.now() - state.lastFailure;
-  if (elapsed > 60_000) {
-    circuitBreakers.set(provider, { failures: 0, lastFailure: 0, open: false });
+  if (elapsed > state.cooldownMs) {
+    console.log(`[CIRCUIT_BREAKER] ${provider} cooldown ${state.cooldownMs}ms elapsed — resetting`);
+    state.open = false;
+    state.cooldownMs = Math.min(state.cooldownMs * 2, 120_000);
+    state.failures = 0;
+    state.consecutiveFailures = 0;
     return false;
   }
+  console.log(`[CIRCUIT_BREAKER] ${provider} open (${elapsed}ms / ${state.cooldownMs}ms cooldown)`);
   return true;
 }
 
 function recordFailure(provider: string): void {
-  const state = circuitBreakers.get(provider) || { failures: 0, lastFailure: 0, open: false };
+  const state = getCircuitState(provider);
   state.failures++;
   state.lastFailure = Date.now();
-  if (state.failures >= 3) state.open = true;
-  circuitBreakers.set(provider, state);
+  state.consecutiveFailures++;
+  if (state.consecutiveFailures >= 3) {
+    state.open = true;
+    console.log(`[CIRCUIT_BREAKER] ${provider} OPEN after ${state.consecutiveFailures} consecutive failures (cooldown=${state.cooldownMs}ms)`);
+  }
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+function recordSuccess(provider: string): void {
+  const state = getCircuitState(provider);
+  state.consecutiveFailures = 0;
+  state.failures = 0;
+  if (state.cooldownMs > 10_000) {
+    state.cooldownMs = Math.max(10_000, state.cooldownMs / 2);
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
     promise,
     new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`AI request timed out after ${ms}ms`)), ms)
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
     ),
   ]);
 }
 
-let _openai: OpenAI | null = null;
-function getOpenAI(): OpenAI {
-  if (!_openai) _openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: AI_TIMEOUT_MS });
-  return _openai;
+let _nvidia: OpenAI | null = null;
+let _anthropic: Anthropic | null = null;
+let _gemini: GoogleGenerativeAI | null = null;
+
+const DISABLED_PROVIDERS = new Set<string>();
+
+function checkProviderStartup(): void {
+  if (env.OPENAI_API_KEY) {
+    DISABLED_PROVIDERS.add('OpenAI');
+    console.log(`[AI_PROVIDER] OpenAI key present but DISABLED — invalid API key. Remove OPENAI_API_KEY from .env or set a valid key.`);
+  }
+  if (env.NVIDIA_API_KEY) {
+    console.log(`[AI_PROVIDER] NVIDIA enabled`);
+  } else {
+    console.log(`[AI_PROVIDER] NVIDIA not configured — skipping`);
+  }
+  if (env.GEMINI_API_KEY) {
+    console.log(`[AI_PROVIDER] Gemini enabled`);
+  } else {
+    console.log(`[AI_PROVIDER] Gemini not configured — skipping`);
+  }
+  if (env.ANTHROPIC_API_KEY) {
+    console.log(`[AI_PROVIDER] Anthropic enabled`);
+  } else {
+    console.log(`[AI_PROVIDER] Anthropic not configured — skipping`);
+  }
+  const enabled = [env.NVIDIA_API_KEY, env.GEMINI_API_KEY, env.ANTHROPIC_API_KEY].filter(Boolean).length;
+  if (enabled === 0) {
+    console.error(`[AI_PROVIDER] NO AI PROVIDERS CONFIGURED. Set at least one of: NVIDIA_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY`);
+  }
 }
 
-let _anthropic: Anthropic | null = null;
+checkProviderStartup();
+
 function getAnthropic(): Anthropic {
-  if (!_anthropic) _anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+  if (!_anthropic) _anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 30_000 });
   return _anthropic;
 }
 
-let _gemini: GoogleGenerativeAI | null = null;
 function getGemini(): GoogleGenerativeAI {
   if (!_gemini) _gemini = new GoogleGenerativeAI(env.GEMINI_API_KEY!);
   return _gemini;
 }
 
-let _nvidia: OpenAI | null = null;
 function getNvidia(): OpenAI {
   if (!_nvidia) {
     _nvidia = new OpenAI({
       apiKey: env.NVIDIA_API_KEY,
       baseURL: 'https://integrate.api.nvidia.com/v1',
-      timeout: AI_TIMEOUT_MS,
+      timeout: PROVIDER_TIMEOUTS.NVIDIA,
     });
   }
   return _nvidia;
 }
 
-async function generateWithOpenAI(systemPrompt: string, userPrompt: string): Promise<string> {
-  if (!env.OPENAI_API_KEY) throw new Error('OpenAI API key not configured');
-  if (isCircuitOpen('OpenAI')) throw new Error('OpenAI circuit breaker open');
+async function generateWithNvidia(systemPrompt: string, userPrompt: string): Promise<string> {
+  if (!env.NVIDIA_API_KEY) throw new Error('NVIDIA API key not configured');
+  if (DISABLED_PROVIDERS.has('NVIDIA')) throw new Error('NVIDIA disabled by health check');
+  if (isCircuitOpen('NVIDIA')) throw new Error('NVIDIA circuit breaker open');
+  const t0 = Date.now();
+  console.log(`[AI_PROVIDER] NVIDIA request start | prompt=${userPrompt.length} chars | timeout=${PROVIDER_TIMEOUTS.NVIDIA}ms`);
   const response = await withTimeout(
-    getOpenAI().chat.completions.create({
-      model: 'gpt-4o',
+    getNvidia().chat.completions.create({
+      model: 'meta/llama-3.2-3b-instruct',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      response_format: { type: 'json_object' },
-      temperature: 0.3,
-      max_tokens: 4000,
+      temperature: 0.2,
+      max_tokens: 1024,
     }),
-    AI_TIMEOUT_MS
+    PROVIDER_TIMEOUTS.NVIDIA,
+    'NVIDIA'
   );
-  return response.choices[0]?.message?.content ?? '';
-}
-
-async function generateWithAnthropic(systemPrompt: string, userPrompt: string): Promise<string> {
-  if (!env.ANTHROPIC_API_KEY) throw new Error('Anthropic API key not configured');
-  if (isCircuitOpen('Anthropic')) throw new Error('Anthropic circuit breaker open');
-  const response = await withTimeout(
-    getAnthropic().messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: [{ type: 'text', text: userPrompt }] }],
-    }),
-    AI_TIMEOUT_MS
-  );
-  const block = response.content[0];
-  return block.type === 'text' ? block.text : '';
+  const text = response.choices[0]?.message?.content ?? '';
+  const elapsed = Date.now() - t0;
+  console.log(`[AI_PROVIDER] NVIDIA response in ${elapsed}ms | ${text.length} chars`);
+  if (elapsed > 20_000) console.log(`[AI_PROVIDER] NVIDIA SLOW RESPONSE: ${elapsed}ms`);
+  return text;
 }
 
 async function generateWithGemini(systemPrompt: string, userPrompt: string): Promise<string> {
   if (!env.GEMINI_API_KEY) throw new Error('Gemini API key not configured');
+  if (DISABLED_PROVIDERS.has('Gemini')) throw new Error('Gemini disabled by health check');
   if (isCircuitOpen('Gemini')) throw new Error('Gemini circuit breaker open');
-  const model = getGemini().getGenerativeModel({ model: 'gemini-1.5-pro' });
+  const t0 = Date.now();
+  const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
+  console.log(`[AI_PROVIDER] Gemini request start | prompt=${combinedPrompt.length} chars | timeout=${PROVIDER_TIMEOUTS.Gemini}ms`);
+  const model = getGemini().getGenerativeModel({ model: 'gemini-2.0-flash' });
   const result = await withTimeout(
-    model.generateContent(`${systemPrompt}\n\n${userPrompt}`),
-    AI_TIMEOUT_MS
+    model.generateContent(combinedPrompt),
+    PROVIDER_TIMEOUTS.Gemini,
+    'Gemini'
   );
-  return result.response.text();
+  const text = result.response.text();
+  const elapsed = Date.now() - t0;
+  console.log(`[AI_PROVIDER] Gemini response in ${elapsed}ms | ${text.length} chars`);
+  if (elapsed > 20_000) console.log(`[AI_PROVIDER] Gemini SLOW RESPONSE: ${elapsed}ms`);
+  return text;
 }
 
-async function generateWithNvidia(systemPrompt: string, userPrompt: string): Promise<string> {
-  if (!env.NVIDIA_API_KEY) throw new Error('NVIDIA API key not configured');
-  if (isCircuitOpen('NVIDIA')) throw new Error('NVIDIA circuit breaker open');
+async function generateWithAnthropic(systemPrompt: string, userPrompt: string): Promise<string> {
+  if (!env.ANTHROPIC_API_KEY) throw new Error('Anthropic API key not configured');
+  if (DISABLED_PROVIDERS.has('Anthropic')) throw new Error('Anthropic disabled by health check');
+  if (isCircuitOpen('Anthropic')) throw new Error('Anthropic circuit breaker open');
+  const t0 = Date.now();
+  console.log(`[AI_PROVIDER] Anthropic request start | prompt=${userPrompt.length} chars | timeout=${PROVIDER_TIMEOUTS.Anthropic}ms`);
   const response = await withTimeout(
-    getNvidia().chat.completions.create({
-      model: 'meta/llama-3.1-70b-instruct',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.3,
-      max_tokens: 4000,
+    getAnthropic().messages.create({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 2048,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: [{ type: 'text', text: userPrompt }] }],
     }),
-    AI_TIMEOUT_MS
+    PROVIDER_TIMEOUTS.Anthropic,
+    'Anthropic'
   );
-  return response.choices[0]?.message?.content ?? '';
+  const block = response.content[0];
+  const text = block.type === 'text' ? block.text : '';
+  const elapsed = Date.now() - t0;
+  console.log(`[AI_PROVIDER] Anthropic response in ${elapsed}ms | ${text.length} chars`);
+  if (elapsed > 20_000) console.log(`[AI_PROVIDER] Anthropic SLOW RESPONSE: ${elapsed}ms`);
+  return text;
+}
+
+function isRateLimitError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return lower.includes('rate limit') || lower.includes('429') || lower.includes('too many requests');
+}
+
+function isAuthError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return lower.includes('401') || lower.includes('unauthorized') || lower.includes('api key') || lower.includes('auth');
 }
 
 type ProviderFn = (system: string, user: string) => Promise<string>;
@@ -140,33 +218,14 @@ type ProviderFn = (system: string, user: string) => Promise<string>;
 function getProviderChain(): Array<{ name: string; fn: ProviderFn }> {
   const providers: Array<{ name: string; fn: ProviderFn; key: string | undefined }> = [
     { name: 'NVIDIA', fn: generateWithNvidia, key: env.NVIDIA_API_KEY },
-    { name: 'OpenAI', fn: generateWithOpenAI, key: env.OPENAI_API_KEY },
-    { name: 'Anthropic', fn: generateWithAnthropic, key: env.ANTHROPIC_API_KEY },
     { name: 'Gemini', fn: generateWithGemini, key: env.GEMINI_API_KEY },
+    { name: 'Anthropic', fn: generateWithAnthropic, key: env.ANTHROPIC_API_KEY },
   ];
-  return providers
-    .filter((p) => Boolean(p.key) && !isCircuitOpen(p.name))
+  const chain = providers
+    .filter((p) => Boolean(p.key) && !DISABLED_PROVIDERS.has(p.name) && !isCircuitOpen(p.name))
     .map(({ name, fn }) => ({ name, fn }));
-}
-
-const IMAGE_EXT_RE = /\S*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi;
-const IMAGE_PATH_RE = /[\w\-./\\()]+\/(?:[\w\-./() ]+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?))/gi;
-const IMAGE_DOT_RE = /\bimage\s*\.\s*(png|jpg|jpeg|gif|webp)\b/gi;
-const IMAGE_PAREN_RE = /\(\s*(?:png|jpg|jpeg|gif|webp|svg|bmp|ico)\s*\)/gi;
-
-function sanitizePrompt(text: string): string {
-  return text
-    .replace(IMAGE_EXT_RE, ' [FILE REFERENCE REMOVED] ')
-    .replace(IMAGE_PATH_RE, ' [FILE PATH REMOVED] ')
-    .replace(IMAGE_DOT_RE, ' [IMAGE REF REMOVED] ')
-    .replace(IMAGE_PAREN_RE, ' [IMAGE FORMAT REMOVED] ')
-    .replace(/\bbase64\b/gi, '[BINARY DATA REMOVED]');
-}
-
-function isImageInputError(msg: string): boolean {
-  const lower = msg.toLowerCase();
-  return (lower.includes('image') || lower.includes('file') || lower.includes('read')) &&
-    (lower.includes('not support') || lower.includes('cannot read') || lower.includes('file input') || lower.includes('image input') || lower.includes('base64'));
+  console.log(`[AI_PROVIDER] Provider chain: ${chain.map(p => p.name).join(' → ') || '(empty)'}`);
+  return chain;
 }
 
 export async function generatePaper(
@@ -174,60 +233,159 @@ export async function generatePaper(
   uploadedContent?: string,
   typeBreakdown?: QuestionTypeBreakdown[]
 ): Promise<ValidatedPaper> {
+  const genStart = Date.now();
+  console.log(`[REQUEST_START] assignment=${(assignment as any)._id} uploaded=${uploadedContent?.length ?? 0}chars`);
+
   let userPrompt = buildGenerationPrompt(assignment, uploadedContent, typeBreakdown);
-  // Always sanitize to prevent AI SDKs from misinterpreting text as file/image references
-  userPrompt = sanitizePrompt(userPrompt);
+  console.log(`[PROMPT_SIZE] ${userPrompt.length} chars`);
+
   const providers = getProviderChain();
 
   if (providers.length === 0) {
-    throw new Error('No AI provider configured or all circuit breakers open');
+    console.error(`[AI_PROVIDER] No providers available`);
+    throw new Error('All AI providers unavailable (not configured, disabled, or circuit breakers open)');
   }
 
   const errors: string[] = [];
 
   for (const { name, fn } of providers) {
+    console.log(`[AI_PROVIDER] Trying ${name}`);
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      const attemptStart = Date.now();
       try {
-        logger.info(`AI generation with ${name} (attempt ${attempt}/${MAX_RETRIES})`);
+        console.log(`[RETRY] ${name} attempt ${attempt}/${MAX_RETRIES}`);
         const rawOutput = await fn(SYSTEM_PROMPT, userPrompt);
+        console.log(`[REQUEST_END] ${name} attempt ${attempt} done in ${Date.now() - attemptStart}ms | response=${rawOutput.length} chars`);
+        console.log(`[PARSE] Validating ${name} output`);
         const paper = parsePaperJson(rawOutput);
-        logger.info(`Generation succeeded with ${name}`);
+        recordSuccess(name);
+        const totalQs = paper.sections.reduce((s, sec) => s + sec.questions.length, 0);
+        console.log(`[COMPLETE] ${name} success in ${Date.now() - genStart}ms | title="${paper.title}" sections=${paper.sections.length} questions=${totalQs}`);
         return paper;
       } catch (error) {
+        const elapsed = Date.now() - attemptStart;
         const msg = error instanceof Error ? error.message : String(error);
-
-        // If AI SDK rejected image-like content, re-sanitize and retry with same provider
-        if (isImageInputError(msg) && !errors.some((e) => e.includes('[sanitized]'))) {
-          logger.warn(`${name}: Image/file references detected. Re-sanitizing and retrying.`);
-          userPrompt = sanitizePrompt(userPrompt);
-          try {
-            const rawOutput = await fn(SYSTEM_PROMPT, userPrompt);
-            const paper = parsePaperJson(rawOutput);
-            logger.info(`Generation succeeded with ${name} after prompt sanitization`);
-            return paper;
-          } catch (retryErr) {
-            const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
-            logger.warn(`${name} still failed after sanitization: ${retryMsg}`);
-            errors.push(`${name}[sanitized]: ${retryMsg}`);
-            continue;
-          }
+        console.log(`[AI_PROVIDER] ${name} attempt ${attempt} FAILED at ${elapsed}ms: ${msg}`);
+        if (isAuthError(msg)) {
+          console.log(`[AI_PROVIDER] ${name} auth error — DISABLING provider`);
+          DISABLED_PROVIDERS.add(name);
+          errors.push(`${name}: Auth error — provider disabled`);
+          break;
         }
-
+        if (isRateLimitError(msg)) {
+          console.log(`[AI_PROVIDER] ${name} rate limited — backing off`);
+          const backoffMs = 10000 * attempt + Math.random() * 3000;
+          if (attempt >= MAX_RETRIES) {
+            console.log(`[AI_PROVIDER] ${name} max rate limit retries — skipping`);
+            errors.push(`${name}[${attempt}]: rate limited (max retries)`);
+            break;
+          }
+          console.log(`[AI_PROVIDER] ${name} waiting ${Math.round(backoffMs)}ms before retry`);
+          await new Promise((resolve) => setTimeout(resolve, backoffMs));
+          errors.push(`${name}[${attempt}]: rate limited`);
+          continue;
+        }
         if (error instanceof PaperParseError && !error.retryable) {
-          logger.error(`${name} non-retryable error: ${msg}`);
+          console.log(`[AI_PROVIDER] ${name} non-retryable parse error`);
           errors.push(`${name}: ${msg}`);
           break;
         }
-        logger.warn(`${name} attempt ${attempt} failed: ${msg}`);
+        if (elapsed >= PROVIDER_TIMEOUTS[name] - 1000) {
+          console.log(`[AI_PROVIDER] ${name} TIMEOUT — skipping retry, trying next provider`);
+          recordFailure(name);
+          errors.push(`${name}[${attempt}]: timeout after ${elapsed}ms`);
+          break;
+        }
         recordFailure(name);
-        errors.push(`${name}[${attempt}]: ${msg}`);
+        errors.push(`${name}[${attempt}]: ${msg} (${elapsed}ms)`);
         if (attempt < MAX_RETRIES) {
-          const delay = 1000 * attempt + Math.random() * 500;
+          const delay = Math.min(2000 * attempt, 8000) + Math.random() * 1000;
+          console.log(`[RETRY] ${name} retry ${attempt}→${attempt + 1} in ${Math.round(delay)}ms`);
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }
   }
 
-  throw new Error(`All AI providers failed: ${errors.join(' | ')}`);
+  const totalTime = Date.now() - genStart;
+  const errorMsg = `All AI providers failed (${totalTime}ms): ${errors.join(' | ')}`;
+  console.log(`[AI_PROVIDER] ${errorMsg}`);
+  throw new Error(errorMsg);
+}
+
+function buildAnswersPrompt(paper: ValidatedPaper): string {
+  let questionsList = '';
+  for (const section of paper.sections) {
+    for (const q of section.questions) {
+      const typeLabel = q.type === 'mcq' ? `(MCQ:${q.options?.map(o => `${o.key}.${o.text}`).join('|')})` : `(${q.type})`;
+      questionsList += `Q:${q.id}|${typeLabel}|${q.marks}m|${q.question}\n`;
+    }
+  }
+  return `Generate model answers for each question. Output JSON array: [{"questionId":"uuid","answer":{"text":"...","explanation":"..."}}]
+
+Questions:
+${questionsList}
+
+Rules: MCQ=correct option key, true-false=correct bool, short-answer=model answer, long-answer=detailed answer, fill-blank=fill word.`;
+}
+
+function parseAnswersJson(rawOutput: string): Array<{ questionId: string; answer: { text: string; explanation?: string } }> {
+  const cleaned = rawOutput
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+  const firstBracket = cleaned.indexOf('[');
+  const lastBracket = cleaned.lastIndexOf(']');
+  const jsonStr = firstBracket !== -1 && lastBracket > firstBracket ? cleaned.slice(firstBracket, lastBracket + 1) : cleaned;
+  const parsed = JSON.parse(jsonStr);
+  if (!Array.isArray(parsed)) throw new Error('Answers response is not an array');
+  return parsed;
+}
+
+export async function generateAnswersForPaper(paper: ValidatedPaper): Promise<ValidatedPaper> {
+  const questionsNeedingAnswers = paper.sections
+    .flatMap(s => s.questions)
+    .filter(q => !q.answer);
+  if (questionsNeedingAnswers.length === 0) {
+    console.log(`[ANSWERS] No questions need answers — skipping`);
+    return paper;
+  }
+  console.log(`[ANSWERS] Generating answers for ${questionsNeedingAnswers.length} questions`);
+  const prompt = buildAnswersPrompt(paper);
+  console.log(`[ANSWERS_PROMPT] ${prompt.length} chars`);
+  const providers = getProviderChain();
+  if (providers.length === 0) {
+    console.warn(`[ANSWERS] No providers available — returning paper without answers`);
+    return paper;
+  }
+  const errors: string[] = [];
+  for (const { name, fn } of providers) {
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const rawOutput = await fn(SYSTEM_PROMPT, prompt);
+        const answers = parseAnswersJson(rawOutput);
+        const answerMap = new Map(answers.map(a => [a.questionId, a.answer]));
+        const paperObj = JSON.parse(JSON.stringify(paper));
+        for (const section of paperObj.sections) {
+          for (const q of section.questions) {
+            const answer = answerMap.get(q.id);
+            if (answer) q.answer = answer;
+          }
+        }
+        const filled = questionsNeedingAnswers.length - answers.length;
+        console.log(`[ANSWERS] ${name} returned ${answers.length} answers (${filled} missing)`);
+        return paperObj as ValidatedPaper;
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.log(`[ANSWERS] ${name} attempt ${attempt} FAILED: ${msg}`);
+        errors.push(`${name}[${attempt}]: ${msg}`);
+        if (attempt < MAX_RETRIES) {
+          await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
+        }
+      }
+    }
+  }
+  console.warn(`[ANSWERS] All providers failed: ${errors.join(' | ')} — returning paper without answers`);
+  return paper;
 }

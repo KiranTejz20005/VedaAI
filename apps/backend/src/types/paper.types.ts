@@ -5,6 +5,11 @@ export interface MCQOption {
   text: string;
 }
 
+export interface Answer {
+  text: string;
+  explanation?: string;
+}
+
 export interface Question {
   id: string;
   question: string;
@@ -13,6 +18,7 @@ export interface Question {
   marks: number;
   options?: MCQOption[];
   blanks?: number;
+  answer?: Answer;
 }
 
 export interface Section {

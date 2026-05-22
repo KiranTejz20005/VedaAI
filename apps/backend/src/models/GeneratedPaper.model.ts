@@ -12,6 +12,11 @@ export interface IGeneratedPaper extends Document {
   generatedAt: Date;
 }
 
+const AnswerSchema = new Schema(
+  { text: { type: String, required: true }, explanation: String },
+  { _id: false }
+);
+
 const QuestionSchema = new Schema<Question>(
   {
     id: { type: String, required: true },
@@ -25,6 +30,7 @@ const QuestionSchema = new Schema<Question>(
     marks: { type: Number, required: true, min: 1 },
     options: [{ key: String, text: String }],
     blanks: Number,
+    answer: AnswerSchema,
   },
   { _id: false }
 );

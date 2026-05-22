@@ -42,9 +42,9 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
       types: questionConfig.types ?? [],
       count: Number(questionConfig.count) || 0,
       difficulty: {
-        easy: Number(questionConfig.difficulty?.easy) || 34,
-        medium: Number(questionConfig.difficulty?.medium) || 33,
-        hard: Number(questionConfig.difficulty?.hard) || 33,
+        easy: questionConfig.difficulty?.easy !== undefined ? Number(questionConfig.difficulty.easy) : 34,
+        medium: questionConfig.difficulty?.medium !== undefined ? Number(questionConfig.difficulty.medium) : 33,
+        hard: questionConfig.difficulty?.hard !== undefined ? Number(questionConfig.difficulty.hard) : 33,
       },
     },
   });
@@ -81,14 +81,18 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
 
 export async function generateAssignmentHandler(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
+  logger.debug(`[generateHandler] START | assignmentId=${id}`);
 
   const assignment = await getAssignment(id);
   if (!assignment) {
+    logger.warn(`[generateHandler] Assignment ${id} not found`);
     sendError(res, 'Assignment not found', 404);
     return;
   }
+  logger.debug(`[generateHandler] Assignment found: status=${assignment.status} title="${assignment.title}"`);
 
   if (['queued', 'generating'].includes(assignment.status)) {
+    logger.warn(`[generateHandler] Generation already in progress (status=${assignment.status}) — returning 409`);
     sendError(res, 'Generation already in progress', 409);
     return;
   }
@@ -99,18 +103,24 @@ export async function generateAssignmentHandler(req: Request, res: Response): Pr
     status: { $in: ['queued', 'processing', 'generating', 'parsing', 'saving'] },
   });
   if (existingJob) {
+    logger.warn(`[generateHandler] Found existing active GenerationJob (${existingJob._id}, status=${existingJob.status}) — returning 409`);
     sendError(res, 'Generation already in progress', 409);
     return;
   }
 
+  logger.debug(`[generateHandler] Enqueuing generation...`);
+  const t0 = Date.now();
   const { jobId, position } = await enqueueGeneration(id);
+  logger.debug(`[generateHandler] Enqueued in ${Date.now() - t0}ms | jobId=${jobId} position=${position}`);
 
+  logger.debug(`[generateHandler] Emitting generation:queued via WebSocket`);
   emitToAssignment(id, 'generation:queued', {
     assignmentId: id,
     jobId,
     position,
   });
 
+  logger.info(`[generateHandler] COMPLETE — returning 202`);
   sendSuccess(res, { jobId, position }, 202, 'Generation queued successfully');
 }
 
