@@ -1,332 +1,402 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import type { Job } from 'bullmq';
 import { env } from '../config/env';
-import { SYSTEM_PROMPT, buildGenerationPrompt, type QuestionTypeBreakdown } from '../prompts/generation.prompt';
-import { parsePaperJson, PaperParseError } from '../parsers/paper.parser';
 import type { IAssignment } from '../models/Assignment.model';
+import { SYSTEM_PROMPT, buildGenerationPrompt, type QuestionTypeBreakdown } from '../prompts/generation.prompt';
+import { PaperParseError, parsePaperJson } from '../parsers/paper.parser';
 import type { ValidatedPaper } from '../validators/paper.validator';
+import type { GenerationJobData } from '../types/queue.types';
+import { logger } from '../utils/logger';
+import { withTimeout } from '../utils/timeout';
+import {
+  ProviderParseError,
+  ProviderRateLimitError,
+  ProviderTimeoutError,
+  ProviderTransportError,
+  ProviderUnavailableError,
+  ProviderValidationError,
+  type ProviderName,
+  type ProviderError,
+} from './ai/provider-errors';
+import { ProviderHealthManager } from './ai/provider-health';
+import { buildAdaptiveRetryPrompt, retryDecision } from './ai/retry-manager';
+import { evaluatePaperQuality } from './ai/quality-gate';
+
 const MAX_RETRIES = 2;
 
-const PROVIDER_TIMEOUTS: Record<string, number> = {
-  NVIDIA:    30_000,
-  Gemini:    30_000,
-  Anthropic: 30_000,
+const PROVIDER_TIMEOUTS: Record<ProviderName, number> = {
+  Anthropic: 60_000,
+  Gemini: 60_000,
+  NVIDIA: 60_000,
 };
 
-interface CircuitState {
-  failures: number;
-  lastFailure: number;
-  open: boolean;
-  cooldownMs: number;
-  consecutiveFailures: number;
-}
+const health = new ProviderHealthManager();
 
-const circuitBreakers = new Map<string, CircuitState>();
+let nvidiaClient: OpenAI | null = null;
+let anthropicClient: Anthropic | null = null;
+let geminiClient: GoogleGenerativeAI | null = null;
 
-function getCircuitState(provider: string): CircuitState {
-  let state = circuitBreakers.get(provider);
-  if (!state) {
-    state = { failures: 0, lastFailure: 0, open: false, cooldownMs: 10_000, consecutiveFailures: 0 };
-    circuitBreakers.set(provider, state);
-  }
-  return state;
-}
-
-function isCircuitOpen(provider: string): boolean {
-  const state = getCircuitState(provider);
-  if (!state.open) return false;
-  const elapsed = Date.now() - state.lastFailure;
-  if (elapsed > state.cooldownMs) {
-    console.log(`[CIRCUIT_BREAKER] ${provider} cooldown ${state.cooldownMs}ms elapsed — resetting`);
-    state.open = false;
-    state.cooldownMs = Math.min(state.cooldownMs * 2, 120_000);
-    state.failures = 0;
-    state.consecutiveFailures = 0;
-    return false;
-  }
-  console.log(`[CIRCUIT_BREAKER] ${provider} open (${elapsed}ms / ${state.cooldownMs}ms cooldown)`);
-  return true;
-}
-
-function recordFailure(provider: string): void {
-  const state = getCircuitState(provider);
-  state.failures++;
-  state.lastFailure = Date.now();
-  state.consecutiveFailures++;
-  if (state.consecutiveFailures >= 3) {
-    state.open = true;
-    console.log(`[CIRCUIT_BREAKER] ${provider} OPEN after ${state.consecutiveFailures} consecutive failures (cooldown=${state.cooldownMs}ms)`);
-  }
-}
-
-function recordSuccess(provider: string): void {
-  const state = getCircuitState(provider);
-  state.consecutiveFailures = 0;
-  state.failures = 0;
-  if (state.cooldownMs > 10_000) {
-    state.cooldownMs = Math.max(10_000, state.cooldownMs / 2);
-  }
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-    ),
-  ]);
-}
-
-let _nvidia: OpenAI | null = null;
-let _anthropic: Anthropic | null = null;
-let _gemini: GoogleGenerativeAI | null = null;
-
-const DISABLED_PROVIDERS = new Set<string>();
-
-function checkProviderStartup(): void {
-  if (env.OPENAI_API_KEY) {
-    DISABLED_PROVIDERS.add('OpenAI');
-    console.log(`[AI_PROVIDER] OpenAI key present but DISABLED — invalid API key. Remove OPENAI_API_KEY from .env or set a valid key.`);
-  }
-  if (env.NVIDIA_API_KEY) {
-    console.log(`[AI_PROVIDER] NVIDIA enabled`);
-  } else {
-    console.log(`[AI_PROVIDER] NVIDIA not configured — skipping`);
-  }
-  if (env.GEMINI_API_KEY) {
-    console.log(`[AI_PROVIDER] Gemini enabled`);
-  } else {
-    console.log(`[AI_PROVIDER] Gemini not configured — skipping`);
-  }
-  if (env.ANTHROPIC_API_KEY) {
-    console.log(`[AI_PROVIDER] Anthropic enabled`);
-  } else {
-    console.log(`[AI_PROVIDER] Anthropic not configured — skipping`);
-  }
-  const enabled = [env.NVIDIA_API_KEY, env.GEMINI_API_KEY, env.ANTHROPIC_API_KEY].filter(Boolean).length;
-  if (enabled === 0) {
-    console.error(`[AI_PROVIDER] NO AI PROVIDERS CONFIGURED. Set at least one of: NVIDIA_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY`);
-  }
-}
-
-checkProviderStartup();
-
-function getAnthropic(): Anthropic {
-  if (!_anthropic) _anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 30_000 });
-  return _anthropic;
-}
-
-function getGemini(): GoogleGenerativeAI {
-  if (!_gemini) _gemini = new GoogleGenerativeAI(env.GEMINI_API_KEY!);
-  return _gemini;
+function correlationIdFor(assignment: IAssignment): string {
+  const rawId = (assignment as unknown as { _id?: { toString(): string } })._id?.toString() ?? 'unknown';
+  return `gen-${rawId}-${Date.now()}`;
 }
 
 function getNvidia(): OpenAI {
-  if (!_nvidia) {
-    _nvidia = new OpenAI({
+  if (!nvidiaClient) {
+    nvidiaClient = new OpenAI({
       apiKey: env.NVIDIA_API_KEY,
       baseURL: 'https://integrate.api.nvidia.com/v1',
       timeout: PROVIDER_TIMEOUTS.NVIDIA,
     });
   }
-  return _nvidia;
+  return nvidiaClient;
 }
 
-async function generateWithNvidia(systemPrompt: string, userPrompt: string): Promise<string> {
-  if (!env.NVIDIA_API_KEY) throw new Error('NVIDIA API key not configured');
-  if (DISABLED_PROVIDERS.has('NVIDIA')) throw new Error('NVIDIA disabled by health check');
-  if (isCircuitOpen('NVIDIA')) throw new Error('NVIDIA circuit breaker open');
-  const t0 = Date.now();
-  console.log(`[AI_PROVIDER] NVIDIA request start | prompt=${userPrompt.length} chars | timeout=${PROVIDER_TIMEOUTS.NVIDIA}ms`);
-  const response = await withTimeout(
-    getNvidia().chat.completions.create({
-      model: 'meta/llama-3.2-3b-instruct',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.2,
-      max_tokens: 1024,
-    }),
-    PROVIDER_TIMEOUTS.NVIDIA,
-    'NVIDIA'
+function getAnthropic(): Anthropic {
+  if (!anthropicClient) {
+    anthropicClient = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: PROVIDER_TIMEOUTS.Anthropic });
+  }
+  return anthropicClient;
+}
+
+function getGemini(): GoogleGenerativeAI {
+  if (!geminiClient) {
+    geminiClient = new GoogleGenerativeAI(env.GEMINI_API_KEY!);
+  }
+  return geminiClient;
+}
+
+function enabledProviders(): ProviderName[] {
+  const candidates: ProviderName[] = [];
+  if (env.ANTHROPIC_API_KEY) candidates.push('Anthropic');
+  if (env.GEMINI_API_KEY) candidates.push('Gemini');
+  if (env.NVIDIA_API_KEY) candidates.push('NVIDIA');
+  return candidates;
+}
+
+function isRateLimitMessage(message: string): boolean {
+  const lower = message.toLowerCase();
+  return lower.includes('429') || lower.includes('rate limit') || lower.includes('too many requests');
+}
+
+function isQuotaExceededMessage(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes('quota exceeded') ||
+    lower.includes('exceeded your current quota') ||
+    lower.includes('free_tier_requests') ||
+    lower.includes('insufficient quota')
   );
-  const text = response.choices[0]?.message?.content ?? '';
-  const elapsed = Date.now() - t0;
-  console.log(`[AI_PROVIDER] NVIDIA response in ${elapsed}ms | ${text.length} chars`);
-  if (elapsed > 20_000) console.log(`[AI_PROVIDER] NVIDIA SLOW RESPONSE: ${elapsed}ms`);
-  return text;
 }
 
-async function generateWithGemini(systemPrompt: string, userPrompt: string): Promise<string> {
-  if (!env.GEMINI_API_KEY) throw new Error('Gemini API key not configured');
-  if (DISABLED_PROVIDERS.has('Gemini')) throw new Error('Gemini disabled by health check');
-  if (isCircuitOpen('Gemini')) throw new Error('Gemini circuit breaker open');
+interface ProviderCallInput {
+  provider: ProviderName;
+  systemPrompt: string;
+  userPrompt: string;
+  temperature: number;
+  correlationId: string;
+}
+
+async function callProvider(input: ProviderCallInput): Promise<string> {
+  const { provider, systemPrompt, userPrompt, temperature, correlationId } = input;
+
+  if (!health.canAttempt(provider)) {
+    throw new ProviderUnavailableError(provider, `${provider} currently unhealthy (circuit/quarantine)`);
+  }
+
   const t0 = Date.now();
-  const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
-  console.log(`[AI_PROVIDER] Gemini request start | prompt=${combinedPrompt.length} chars | timeout=${PROVIDER_TIMEOUTS.Gemini}ms`);
-  const model = getGemini().getGenerativeModel({ model: 'gemini-2.0-flash' });
-  const result = await withTimeout(
-    model.generateContent(combinedPrompt),
-    PROVIDER_TIMEOUTS.Gemini,
-    'Gemini'
-  );
-  const text = result.response.text();
-  const elapsed = Date.now() - t0;
-  console.log(`[AI_PROVIDER] Gemini response in ${elapsed}ms | ${text.length} chars`);
-  if (elapsed > 20_000) console.log(`[AI_PROVIDER] Gemini SLOW RESPONSE: ${elapsed}ms`);
-  return text;
+  logger.info(`[AI_CALL] correlationId=${correlationId} provider=${provider} promptLen=${userPrompt.length} temp=${temperature}`);
+
+  try {
+    if (provider === 'NVIDIA') {
+      const timeoutMs = PROVIDER_TIMEOUTS.NVIDIA;
+      const controller = new AbortController();
+      const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await getNvidia().chat.completions.create(
+          {
+            model: 'meta/llama-3.2-3b-instruct',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            temperature,
+            max_tokens: 2048,
+          },
+          { signal: controller.signal } as unknown as undefined
+        );
+        const text = response.choices[0]?.message?.content ?? '';
+        logger.info(`[NVIDIA_RAW_RESPONSE] correlationId=${correlationId} ${text.replace(/\s+/g, ' ').slice(0, 1400)}`);
+        health.recordSuccess('NVIDIA', Date.now() - t0);
+        return text;
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          health.recordTimeoutFailure('NVIDIA');
+          throw new ProviderTimeoutError('NVIDIA', `NVIDIA timed out after ${timeoutMs}ms`);
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        if (isRateLimitMessage(message)) {
+          const quotaExceeded = isQuotaExceededMessage(message);
+          health.recordRateLimitFailure('NVIDIA', quotaExceeded);
+          throw new ProviderRateLimitError('NVIDIA', message, quotaExceeded);
+        }
+        health.recordTransportFailure('NVIDIA');
+        throw new ProviderTransportError('NVIDIA', message);
+      } finally {
+        clearTimeout(timeoutHandle);
+      }
+    }
+
+    if (provider === 'Gemini') {
+      const model = getGemini().getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const response = await withTimeout(
+        model.generateContent(`${systemPrompt}\n\n${userPrompt}`),
+        PROVIDER_TIMEOUTS.Gemini,
+        'Gemini'
+      );
+      const text = response.response.text();
+      health.recordSuccess('Gemini', Date.now() - t0);
+      return text;
+    }
+
+    const response = await withTimeout(
+      getAnthropic().messages.create({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: [{ type: 'text', text: userPrompt }] }],
+      }),
+      PROVIDER_TIMEOUTS.Anthropic,
+      'Anthropic'
+    );
+    const content = response.content[0];
+    const text = content.type === 'text' ? content.text : '';
+    health.recordSuccess('Anthropic', Date.now() - t0);
+    return text;
+  } catch (error) {
+    if (error instanceof ProviderTimeoutError || error instanceof ProviderRateLimitError || error instanceof ProviderTransportError) {
+      throw error;
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+
+    if (provider === 'Gemini') {
+      if (isRateLimitMessage(message)) {
+        const quotaExceeded = isQuotaExceededMessage(message);
+        health.recordRateLimitFailure('Gemini', quotaExceeded);
+        throw new ProviderRateLimitError('Gemini', message, quotaExceeded);
+      }
+      if (message.toLowerCase().includes('timed out')) {
+        health.recordTimeoutFailure('Gemini');
+        throw new ProviderTimeoutError('Gemini', message);
+      }
+      health.recordTransportFailure('Gemini');
+      throw new ProviderTransportError('Gemini', message);
+    }
+
+    if (isRateLimitMessage(message)) {
+      const quotaExceeded = isQuotaExceededMessage(message);
+      health.recordRateLimitFailure('Anthropic', quotaExceeded);
+      throw new ProviderRateLimitError('Anthropic', message, quotaExceeded);
+    }
+    if (message.toLowerCase().includes('timed out')) {
+      health.recordTimeoutFailure('Anthropic');
+      throw new ProviderTimeoutError('Anthropic', message);
+    }
+    health.recordTransportFailure('Anthropic');
+    throw new ProviderTransportError('Anthropic', message);
+  }
 }
 
-async function generateWithAnthropic(systemPrompt: string, userPrompt: string): Promise<string> {
-  if (!env.ANTHROPIC_API_KEY) throw new Error('Anthropic API key not configured');
-  if (DISABLED_PROVIDERS.has('Anthropic')) throw new Error('Anthropic disabled by health check');
-  if (isCircuitOpen('Anthropic')) throw new Error('Anthropic circuit breaker open');
-  const t0 = Date.now();
-  console.log(`[AI_PROVIDER] Anthropic request start | prompt=${userPrompt.length} chars | timeout=${PROVIDER_TIMEOUTS.Anthropic}ms`);
-  const response = await withTimeout(
-    getAnthropic().messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 2048,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: [{ type: 'text', text: userPrompt }] }],
-    }),
-    PROVIDER_TIMEOUTS.Anthropic,
-    'Anthropic'
-  );
-  const block = response.content[0];
-  const text = block.type === 'text' ? block.text : '';
-  const elapsed = Date.now() - t0;
-  console.log(`[AI_PROVIDER] Anthropic response in ${elapsed}ms | ${text.length} chars`);
-  if (elapsed > 20_000) console.log(`[AI_PROVIDER] Anthropic SLOW RESPONSE: ${elapsed}ms`);
-  return text;
+function parseProviderOutput(provider: ProviderName, rawOutput: string): ValidatedPaper {
+  try {
+    return parsePaperJson(rawOutput);
+  } catch (error) {
+    if (error instanceof PaperParseError) {
+      const onlyValidationErrors = error.diagnostics.length > 0 && error.diagnostics.every((d) => d.level === 'error');
+      if (onlyValidationErrors) {
+        health.recordValidationFailure(provider);
+        throw new ProviderValidationError(provider, error.message, error.diagnostics.map((d) => `${d.path}: ${d.message}`));
+      }
+      health.recordParseFailure(provider);
+      throw new ProviderParseError(provider, error.message);
+    }
+    throw error;
+  }
 }
 
-function isRateLimitError(msg: string): boolean {
-  const lower = msg.toLowerCase();
-  return lower.includes('rate limit') || lower.includes('429') || lower.includes('too many requests');
+function buildRepairPrompt(rawOutput: string): string {
+  return `Repair the following model output into strict valid JSON. Output only JSON.\n\n${rawOutput}`;
 }
 
-function isAuthError(msg: string): boolean {
-  const lower = msg.toLowerCase();
-  return lower.includes('401') || lower.includes('unauthorized') || lower.includes('api key') || lower.includes('auth');
+interface ProviderAttemptResult {
+  paper?: ValidatedPaper;
+  error?: ProviderError;
 }
 
-type ProviderFn = (system: string, user: string) => Promise<string>;
+async function runProviderWithRetry(
+  provider: ProviderName,
+  assignment: IAssignment,
+  typeBreakdown: QuestionTypeBreakdown[] | undefined,
+  initialPrompt: string,
+  correlationId: string
+): Promise<ProviderAttemptResult> {
+  let prompt = initialPrompt;
 
-function getProviderChain(): Array<{ name: string; fn: ProviderFn }> {
-  const providers: Array<{ name: string; fn: ProviderFn; key: string | undefined }> = [
-    { name: 'NVIDIA', fn: generateWithNvidia, key: env.NVIDIA_API_KEY },
-    { name: 'Gemini', fn: generateWithGemini, key: env.GEMINI_API_KEY },
-    { name: 'Anthropic', fn: generateWithAnthropic, key: env.ANTHROPIC_API_KEY },
-  ];
-  const chain = providers
-    .filter((p) => Boolean(p.key) && !DISABLED_PROVIDERS.has(p.name) && !isCircuitOpen(p.name))
-    .map(({ name, fn }) => ({ name, fn }));
-  console.log(`[AI_PROVIDER] Provider chain: ${chain.map(p => p.name).join(' → ') || '(empty)'}`);
-  return chain;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const temperature = attempt === 1 ? 0.2 : 0.05;
+
+    try {
+      const rawOutput = await callProvider({
+        provider,
+        systemPrompt: SYSTEM_PROMPT,
+        userPrompt: prompt,
+        temperature,
+        correlationId,
+      });
+      const paper = parseProviderOutput(provider, rawOutput);
+
+      const quality = evaluatePaperQuality(assignment, paper, typeBreakdown);
+      logger.info(
+        `[QUALITY_GATE] correlationId=${correlationId} provider=${provider} requestedQuestions=${quality.requestedQuestionCount} generatedQuestions=${quality.generatedQuestionCount} requestedMarks=${quality.requestedMarks} generatedMarks=${quality.generatedMarks} ok=${quality.ok}`
+      );
+      if (!quality.ok) {
+        health.recordValidationFailure(provider);
+        throw new ProviderValidationError(provider, 'Generated paper failed integrity quality gate', quality.diagnostics);
+      }
+
+      return { paper };
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        return { error: new ProviderTransportError(provider, String(error)) };
+      }
+
+      if (error instanceof ProviderValidationError || error instanceof ProviderParseError) {
+        try {
+          const repaired = await callProvider({
+            provider,
+            systemPrompt: 'You are a strict JSON normalizer. Return only valid JSON.',
+            userPrompt: `${buildRepairPrompt(prompt)}\n\nConstraint reminder: return EXACT requested question count and marks total.`,
+            temperature: 0,
+            correlationId,
+          });
+          const paper = parseProviderOutput(provider, repaired);
+
+          const quality = evaluatePaperQuality(assignment, paper, typeBreakdown);
+          logger.info(
+            `[QUALITY_GATE] correlationId=${correlationId} provider=${provider} mode=repair requestedQuestions=${quality.requestedQuestionCount} generatedQuestions=${quality.generatedQuestionCount} requestedMarks=${quality.requestedMarks} generatedMarks=${quality.generatedMarks} ok=${quality.ok}`
+          );
+          if (!quality.ok) {
+            health.recordValidationFailure(provider);
+            throw new ProviderValidationError(provider, 'Repaired output failed integrity quality gate', quality.diagnostics);
+          }
+
+          return { paper };
+        } catch (repairError) {
+          if (repairError instanceof ProviderValidationError) {
+            logger.warn(
+              `[QUALITY_GATE] correlationId=${correlationId} provider=${provider} validationFailure diagnostics=${repairError.diagnostics.join(' | ')}`
+            );
+          }
+          const decision = retryDecision(attempt, { provider, correlationId, maxAttempts: MAX_RETRIES }, true);
+          if (!decision.shouldRetry) {
+            return { error };
+          }
+          prompt = buildAdaptiveRetryPrompt(initialPrompt, error.message);
+          await new Promise((resolve) => setTimeout(resolve, decision.delayMs));
+          continue;
+        }
+      }
+
+      if (
+        error instanceof ProviderRateLimitError ||
+        error instanceof ProviderTimeoutError ||
+        error instanceof ProviderTransportError ||
+        error instanceof ProviderUnavailableError
+      ) {
+        const decision = retryDecision(attempt, { provider, correlationId, maxAttempts: MAX_RETRIES }, error.retryable);
+        if (!decision.shouldRetry) {
+          return { error };
+        }
+        await new Promise((resolve) => setTimeout(resolve, decision.delayMs));
+        continue;
+      }
+
+      return { error: new ProviderTransportError(provider, error.message) };
+    }
+  }
+
+  return { error: new ProviderTransportError(provider, `${provider} exhausted retry budget`) };
 }
 
 export async function generatePaper(
   assignment: IAssignment,
   uploadedContent?: string,
-  typeBreakdown?: QuestionTypeBreakdown[]
+  typeBreakdown?: QuestionTypeBreakdown[],
+  job?: Job<GenerationJobData>
 ): Promise<ValidatedPaper> {
-  const genStart = Date.now();
-  console.log(`[REQUEST_START] assignment=${(assignment as any)._id} uploaded=${uploadedContent?.length ?? 0}chars`);
+  const started = Date.now();
+  const correlationId = correlationIdFor(assignment);
 
-  let userPrompt = buildGenerationPrompt(assignment, uploadedContent, typeBreakdown);
-  console.log(`[PROMPT_SIZE] ${userPrompt.length} chars`);
+  const progress = async (value: number) => {
+    if (!job) return;
+    try {
+      await job.updateProgress(value);
+    } catch {
+      // ignore progress channel errors
+    }
+  };
 
-  const providers = getProviderChain();
+  await progress(10);
+  const prompt = buildGenerationPrompt(assignment, uploadedContent, typeBreakdown);
+  await progress(20);
+
+  const providers = health
+    .orderedProviders(enabledProviders())
+    .filter((provider) => health.canAttempt(provider));
+
+  logger.info(`[AI_ROUTER] correlationId=${correlationId} providers=${providers.join(' -> ') || '(none)'} score=${JSON.stringify(health.statsSnapshot())}`);
 
   if (providers.length === 0) {
-    console.error(`[AI_PROVIDER] No providers available`);
-    throw new Error('All AI providers unavailable (not configured, disabled, or circuit breakers open)');
+    throw new Error('All AI providers unavailable (not configured or unhealthy)');
   }
 
   const errors: string[] = [];
 
-  for (const { name, fn } of providers) {
-    console.log(`[AI_PROVIDER] Trying ${name}`);
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      const attemptStart = Date.now();
-      try {
-        console.log(`[RETRY] ${name} attempt ${attempt}/${MAX_RETRIES}`);
-        const rawOutput = await fn(SYSTEM_PROMPT, userPrompt);
-        console.log(`[REQUEST_END] ${name} attempt ${attempt} done in ${Date.now() - attemptStart}ms | response=${rawOutput.length} chars`);
-        console.log(`[PARSE] Validating ${name} output`);
-        const paper = parsePaperJson(rawOutput);
-        recordSuccess(name);
-        const totalQs = paper.sections.reduce((s, sec) => s + sec.questions.length, 0);
-        console.log(`[COMPLETE] ${name} success in ${Date.now() - genStart}ms | title="${paper.title}" sections=${paper.sections.length} questions=${totalQs}`);
-        return paper;
-      } catch (error) {
-        const elapsed = Date.now() - attemptStart;
-        const msg = error instanceof Error ? error.message : String(error);
-        console.log(`[AI_PROVIDER] ${name} attempt ${attempt} FAILED at ${elapsed}ms: ${msg}`);
-        if (isAuthError(msg)) {
-          console.log(`[AI_PROVIDER] ${name} auth error — DISABLING provider`);
-          DISABLED_PROVIDERS.add(name);
-          errors.push(`${name}: Auth error — provider disabled`);
-          break;
-        }
-        if (isRateLimitError(msg)) {
-          console.log(`[AI_PROVIDER] ${name} rate limited — backing off`);
-          const backoffMs = 10000 * attempt + Math.random() * 3000;
-          if (attempt >= MAX_RETRIES) {
-            console.log(`[AI_PROVIDER] ${name} max rate limit retries — skipping`);
-            errors.push(`${name}[${attempt}]: rate limited (max retries)`);
-            break;
-          }
-          console.log(`[AI_PROVIDER] ${name} waiting ${Math.round(backoffMs)}ms before retry`);
-          await new Promise((resolve) => setTimeout(resolve, backoffMs));
-          errors.push(`${name}[${attempt}]: rate limited`);
-          continue;
-        }
-        if (error instanceof PaperParseError && !error.retryable) {
-          console.log(`[AI_PROVIDER] ${name} non-retryable parse error`);
-          errors.push(`${name}: ${msg}`);
-          break;
-        }
-        if (elapsed >= PROVIDER_TIMEOUTS[name] - 1000) {
-          console.log(`[AI_PROVIDER] ${name} TIMEOUT — skipping retry, trying next provider`);
-          recordFailure(name);
-          errors.push(`${name}[${attempt}]: timeout after ${elapsed}ms`);
-          break;
-        }
-        recordFailure(name);
-        errors.push(`${name}[${attempt}]: ${msg} (${elapsed}ms)`);
-        if (attempt < MAX_RETRIES) {
-          const delay = Math.min(2000 * attempt, 8000) + Math.random() * 1000;
-          console.log(`[RETRY] ${name} retry ${attempt}→${attempt + 1} in ${Math.round(delay)}ms`);
-          await new Promise((resolve) => setTimeout(resolve, delay));
-        }
-      }
+  for (const provider of providers) {
+    await progress(30);
+    logger.info(`[GENERATE:30%] correlationId=${correlationId} provider=${provider} attemptStart`);
+
+    const result = await runProviderWithRetry(provider, assignment, typeBreakdown, prompt, correlationId);
+    if (result.paper) {
+      await progress(50);
+      logger.info(`[GENERATE:50%] correlationId=${correlationId} provider=${provider} raw->paper success`);
+      await progress(70);
+      await progress(85);
+      logger.info(`[GENERATE:COMPLETE] correlationId=${correlationId} provider=${provider} durationMs=${Date.now() - started}`);
+      return result.paper;
+    }
+
+    if (result.error) {
+      errors.push(`${provider}: ${result.error.message}`);
+      logger.warn(`[AI_ROUTER] correlationId=${correlationId} provider=${provider} failed reason=${result.error.message}`);
     }
   }
 
-  const totalTime = Date.now() - genStart;
-  const errorMsg = `All AI providers failed (${totalTime}ms): ${errors.join(' | ')}`;
-  console.log(`[AI_PROVIDER] ${errorMsg}`);
-  throw new Error(errorMsg);
+  throw new Error(`All AI providers failed (${Date.now() - started}ms): ${errors.join(' | ')}`);
 }
 
 function buildAnswersPrompt(paper: ValidatedPaper): string {
   let questionsList = '';
   for (const section of paper.sections) {
     for (const q of section.questions) {
-      const typeLabel = q.type === 'mcq' ? `(MCQ:${q.options?.map(o => `${o.key}.${o.text}`).join('|')})` : `(${q.type})`;
+      const typeLabel = q.type === 'mcq' ? `(MCQ:${q.options?.map((o) => `${o.key}.${o.text}`).join('|')})` : `(${q.type})`;
       questionsList += `Q:${q.id}|${typeLabel}|${q.marks}m|${q.question}\n`;
     }
   }
-  return `Generate model answers for each question. Output JSON array: [{"questionId":"uuid","answer":{"text":"...","explanation":"..."}}]
-
-Questions:
-${questionsList}
-
-Rules: MCQ=correct option key, true-false=correct bool, short-answer=model answer, long-answer=detailed answer, fill-blank=fill word.`;
+  return `Generate model answers for each question. Output JSON array: [{"questionId":"uuid","answer":{"text":"...","explanation":"..."}}]\n\nQuestions:\n${questionsList}`;
 }
 
 function parseAnswersJson(rawOutput: string): Array<{ questionId: string; answer: { text: string; explanation?: string } }> {
@@ -344,48 +414,40 @@ function parseAnswersJson(rawOutput: string): Array<{ questionId: string; answer
 }
 
 export async function generateAnswersForPaper(paper: ValidatedPaper): Promise<ValidatedPaper> {
-  const questionsNeedingAnswers = paper.sections
-    .flatMap(s => s.questions)
-    .filter(q => !q.answer);
-  if (questionsNeedingAnswers.length === 0) {
-    console.log(`[ANSWERS] No questions need answers — skipping`);
-    return paper;
-  }
-  console.log(`[ANSWERS] Generating answers for ${questionsNeedingAnswers.length} questions`);
+  const questionsNeedingAnswers = paper.sections.flatMap((s) => s.questions).filter((q) => !q.answer);
+  if (questionsNeedingAnswers.length === 0) return paper;
+
   const prompt = buildAnswersPrompt(paper);
-  console.log(`[ANSWERS_PROMPT] ${prompt.length} chars`);
-  const providers = getProviderChain();
-  if (providers.length === 0) {
-    console.warn(`[ANSWERS] No providers available — returning paper without answers`);
-    return paper;
-  }
-  const errors: string[] = [];
-  for (const { name, fn } of providers) {
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        const rawOutput = await fn(SYSTEM_PROMPT, prompt);
-        const answers = parseAnswersJson(rawOutput);
-        const answerMap = new Map(answers.map(a => [a.questionId, a.answer]));
-        const paperObj = JSON.parse(JSON.stringify(paper));
-        for (const section of paperObj.sections) {
-          for (const q of section.questions) {
-            const answer = answerMap.get(q.id);
-            if (answer) q.answer = answer;
-          }
-        }
-        const filled = questionsNeedingAnswers.length - answers.length;
-        console.log(`[ANSWERS] ${name} returned ${answers.length} answers (${filled} missing)`);
-        return paperObj as ValidatedPaper;
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        console.log(`[ANSWERS] ${name} attempt ${attempt} FAILED: ${msg}`);
-        errors.push(`${name}[${attempt}]: ${msg}`);
-        if (attempt < MAX_RETRIES) {
-          await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
+  const providers = health.orderedProviders(enabledProviders()).filter((provider) => health.canAttempt(provider));
+  if (providers.length === 0) return paper;
+
+  for (const provider of providers) {
+    try {
+      const rawOutput = await callProvider({
+        provider,
+        systemPrompt: SYSTEM_PROMPT,
+        userPrompt: prompt,
+        temperature: 0.1,
+        correlationId: `ans-${Date.now()}`,
+      });
+      const answers = parseAnswersJson(rawOutput);
+      const answerMap = new Map(answers.map((a) => [a.questionId, a.answer]));
+      const paperObj = JSON.parse(JSON.stringify(paper)) as ValidatedPaper;
+      for (const section of paperObj.sections) {
+        for (const q of section.questions) {
+          const answer = answerMap.get(q.id);
+          if (answer) q.answer = answer;
         }
       }
+      return paperObj;
+    } catch {
+      // Non-fatal for answer generation; continue to next provider.
     }
   }
-  console.warn(`[ANSWERS] All providers failed: ${errors.join(' | ')} — returning paper without answers`);
+
   return paper;
+}
+
+export function getProviderHealthSnapshot() {
+  return health.statsSnapshot();
 }

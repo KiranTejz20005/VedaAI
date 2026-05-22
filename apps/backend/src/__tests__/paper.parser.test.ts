@@ -52,10 +52,11 @@ describe('parsePaperJson', () => {
     expect(() => parsePaperJson(invalid)).toThrow(PaperParseError);
   });
 
-  it('should throw PaperParseError for invalid question uuid', () => {
+  it('should repair invalid question uuid', () => {
     const bad = { ...validPaper };
     const cloned = JSON.parse(JSON.stringify(bad));
     cloned.sections[0].questions[0].id = 'not-a-uuid';
-    expect(() => parsePaperJson(JSON.stringify(cloned))).toThrow(PaperParseError);
+    const repaired = parsePaperJson(JSON.stringify(cloned));
+    expect(repaired.sections[0]?.questions[0]?.id).toMatch(/^[0-9a-f-]{36}$/i);
   });
 });

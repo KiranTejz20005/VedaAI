@@ -10,6 +10,7 @@ import { getPdfQueue } from '../queues/pdf.queue';
 import { emitToAssignment } from '../sockets/socket.server';
 import type { GenerationJobData } from '../types/queue.types';
 import { logger } from '../utils/logger';
+import { withTimeout } from '../utils/timeout';
 
 const GENERATION_TIMEOUT_MS = 120_000;
 
@@ -73,6 +74,7 @@ async function extractUploadedContent(files: Array<{ path: string; mimeType: str
 let aiWorker: Worker<GenerationJobData> | null = null;
 let activeJobCount = 0;
 let stalledJobCount = 0;
+const stalledCounts = new Map<string, number>();
 
 export function getActiveAiJobCount(): number {
   return activeJobCount;
@@ -144,6 +146,7 @@ export function createAiGenerationWorker() {
         logger.debug(`[STEP 4] Setting assignment status to 'generating'`);
         const t4 = Date.now();
         await Assignment.findByIdAndUpdate(assignmentId, { status: 'generating' });
+        await job.updateProgress(5);
         logger.debug(`[STEP 4] Status updated in ${Date.now() - t4}ms`);
 
         // ── STEP 5: Extract uploaded content ──
@@ -152,6 +155,7 @@ export function createAiGenerationWorker() {
         const { content: uploadedContent, wasSanitized } = await extractUploadedContent(
           (assignment.uploadedFiles ?? []).map((f: { path: string; mimeType: string }) => ({ path: f.path, mimeType: f.mimeType }))
         );
+        await job.updateProgress(15);
         logger.debug(`[STEP 5] Content extracted in ${Date.now() - t5}ms | ${uploadedContent.length} chars`);
 
         const sanitizeMsg = wasSanitized ? ' (image references removed from upload)' : '';
@@ -177,9 +181,11 @@ export function createAiGenerationWorker() {
         let paper: any;
         try {
           paper = await withTimeout(
-            generatePaper(assignment as any, uploadedContent || undefined, typeBreakdown),
-            GENERATION_TIMEOUT_MS
+            generatePaper(assignment as any, uploadedContent || undefined, typeBreakdown, job),
+            GENERATION_TIMEOUT_MS,
+            'Generation'
           );
+          await job.updateProgress(80);
           logger.info(`[STEP 7] generatePaper() completed in ${Date.now() - t7}ms | title="${paper?.title}" sections=${paper?.sections?.length}`);
         } catch (genErr) {
           logger.error(`[STEP 7 FAILED] generatePaper() threw after ${Date.now() - t7}ms: ${genErr instanceof Error ? genErr.message : String(genErr)}`);
@@ -194,6 +200,7 @@ export function createAiGenerationWorker() {
         const t7b = Date.now();
         try {
           paper = await generateAnswersForPaper(paper);
+          await job.updateProgress(90);
           logger.info(`[STEP 7b] Answers generated in ${Date.now() - t7b}ms`);
         } catch (answerErr) {
           logger.warn(`[STEP 7b] Answer generation failed (non-fatal): ${answerErr instanceof Error ? answerErr.message : String(answerErr)}`);
@@ -210,6 +217,7 @@ export function createAiGenerationWorker() {
         let savedPaper: any;
         try {
           savedPaper = await savePaper(assignmentId, paper, assignment.duration);
+          await job.updateProgress(95);
           logger.info(`[STEP 9] GeneratedPaper saved in ${Date.now() - t9}ms | id=${savedPaper._id}`);
         } catch (saveErr) {
           logger.error(`[STEP 9 FAILED] savePaper() threw after ${Date.now() - t9}ms: ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`);
@@ -260,11 +268,9 @@ export function createAiGenerationWorker() {
           logger.warn(`[STEP 14] PDF queue add failed (non-fatal): ${pdfErr}`);
         }
 
-        activeJobCount--;
         const totalTime = Date.now() - jobStartTime;
         logger.info(`[WORKER:COMPLETE] Job ${job.id} finished in ${totalTime}ms | assignment=${assignmentId} | activeJobs=${activeJobCount}`);
       } catch (error) {
-        activeJobCount--;
         const elapsed = Date.now() - jobStartTime;
         const message = error instanceof Error ? error.message : 'Unknown error';
         const isFinalAttempt = job.attemptsMade >= (job.opts.attempts ?? 2) - 1;
@@ -293,18 +299,24 @@ export function createAiGenerationWorker() {
           logger.debug(`[WORKER FAIL] WebSocket generation:failed emitted`);
         } else {
           logger.debug(`[WORKER FAIL] Non-final attempt — requeueing job`);
-          await GenerationJob.findByIdAndUpdate(jobRecordId, {
-            status: 'queued',
-            error: message,
-          });
-          logger.debug(`[WORKER FAIL] GenerationJob reset to 'queued' for retry`);
+          await Promise.allSettled([
+            Assignment.findByIdAndUpdate(assignmentId, { status: 'queued' }),
+            GenerationJob.findByIdAndUpdate(jobRecordId, {
+              status: 'queued',
+              error: message,
+            }),
+          ]);
+          logger.debug(`[WORKER FAIL] Assignment and GenerationJob reset to 'queued' for retry`);
         }
 
         throw error;
+      } finally {
+        activeJobCount = Math.max(0, activeJobCount - 1);
       }
     },
     {
       connection: getBullRedisClient(),
+      skipVersionCheck: true,
       concurrency: 2,
       limiter: { max: 5, duration: 60000 },
       // lockDuration MUST exceed the maximum AI generation time.
@@ -338,9 +350,43 @@ export function createAiGenerationWorker() {
     logger.error(`[WORKER:EVENT] error | ${err.message}`);
   });
 
-  aiWorker.on('stalled', (jobId) => {
+  aiWorker.on('stalled', async (jobId) => {
     stalledJobCount++;
-    logger.error(`[WORKER:STALL] Job ${jobId} stalled! stalledCount=${stalledJobCount}`);
+    const key = String(jobId);
+    const perJobCount = (stalledCounts.get(key) ?? 0) + 1;
+    stalledCounts.set(key, perJobCount);
+    logger.error(`[WORKER:STALL] Job ${jobId} stalled! stalledCount=${stalledJobCount} jobStallCount=${perJobCount}`);
+
+    if (perJobCount < 2) return;
+
+    try {
+      const jobRecord = await GenerationJob.findOne({
+        bullmqJobId: key,
+        status: { $in: ['queued', 'processing', 'generating', 'parsing', 'saving'] },
+      }).lean();
+
+      if (!jobRecord) return;
+
+      const assignmentId = jobRecord.assignmentId.toString();
+      await Promise.allSettled([
+        Assignment.findByIdAndUpdate(assignmentId, { status: 'failed' }),
+        GenerationJob.findByIdAndUpdate(jobRecord._id, {
+          status: 'failed',
+          error: `BullMQ stalled ${perJobCount} times (auto-failed)` ,
+          completedAt: new Date(),
+        }),
+      ]);
+
+      emitToAssignment(assignmentId, 'generation:failed', {
+        assignmentId,
+        error: `Generation stalled ${perJobCount} times and was auto-failed`,
+        retryable: true,
+      });
+
+      logger.error(`[WORKER:STALL:FAILED] Job ${jobId} auto-failed after repeated stalls`);
+    } catch (stallErr) {
+      logger.error(`[WORKER:STALL:ERROR] Failed to mark stalled job ${jobId} as failed: ${stallErr}`);
+    }
   });
 
   aiWorker.on('closing', (msg) => {
@@ -357,13 +403,4 @@ export function createAiGenerationWorker() {
 
   logger.info('[WORKER] AI generation worker created with LOCAL Redis (BullMQ stable)');
   return aiWorker;
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`Generation timed out after ${ms}ms`)), ms)
-    ),
-  ]);
 }

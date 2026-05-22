@@ -29,6 +29,7 @@ export function createPdfWorker() {
     },
     {
       connection: getBullRedisClient(),
+      skipVersionCheck: true,
       concurrency: 2,
       lockDuration: 120_000,
       stalledInterval: 60_000,

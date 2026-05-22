@@ -62,7 +62,23 @@ export function buildGenerationPrompt(
 
   return `Subject=${subject} Title=${title} Desc=${description || 'N/A'} Total=${totalMarks} Qs=${count} Types=${typeList} Easy=${easyCount} Med=${mediumCount} Hard=${hardCount}${breakdownStr ? ' Breakdown=' + breakdownStr : ''} Instr=${additionalInstructions || 'None'}${sourceStr}
 
-Rules: uuid ids, Easy=1-3m Med=4-6m Hard=7-10m, MCQ=4 opts(A-D), fill-blank=___, group by type.
+Hard constraints (mandatory):
+- Return EXACTLY ${count} questions. NO MORE. NO LESS.
+- Return total marks EXACTLY ${totalMarks}.
+- Include only these question types: ${typeList}.
+- Difficulty targets: easy=${easyCount}, medium=${mediumCount}, hard=${hardCount}.
+${breakdownStr ? `- Type quotas and marks must match exactly: ${breakdownStr}.` : ''}
+- Every question must be substantive and unique.
+- MCQ must have exactly 4 distinct options (A-D).
+- fill-blank questions must use ___ placeholders.
+- IDs must be valid UUIDs.
 
-JSON: {"title":"","totalMarks":N,"sections":[{"title":"","instruction":"","questions":[{"id":"uuid","question":"","type":"short-answer|long-answer|mcq|true-false|fill-blank","difficulty":"easy|medium|hard","marks":N,"options":[{"key":"A","text":""}],"blanks":N}]}]}`;
+Validation reminder:
+Response will be rejected if question count, marks, or type quotas mismatch.
+
+Output contract:
+- Output ONLY strict JSON object.
+- Do not output markdown/code fences/explanations.
+- Use this exact shape:
+{"title":"","totalMarks":N,"sections":[{"title":"","instruction":"","questions":[{"id":"uuid","question":"","type":"short-answer|long-answer|mcq|true-false|fill-blank","difficulty":"easy|medium|hard","marks":N,"options":[{"key":"A","text":""}],"blanks":N}]}]}`;
 }

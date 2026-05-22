@@ -31,6 +31,7 @@ let pdfQueueEvents: QueueEvents | null = null;
 
 const QUEUE_TIMEOUT_MS = 2 * 60 * 1000;
 const QUEUE_SWEEP_INTERVAL_MS = 30 * 1000;
+const IN_PROGRESS_STUCK_TIMEOUT_MS = 10 * 60 * 1000;
 
 function logBoot(phase: string, message: string) {
   bootstrapPhase = phase;
@@ -107,6 +108,35 @@ async function failStaleQueuedJobs(): Promise<void> {
     });
 
     logger.warn(`Generation job ${job._id.toString()} timed out in queue and was marked failed`);
+  }
+}
+
+async function failStaleInProgressJobs(): Promise<void> {
+  const cutoff = new Date(Date.now() - IN_PROGRESS_STUCK_TIMEOUT_MS);
+  const staleJobs = await GenerationJob.find({
+    status: { $in: ['processing', 'generating', 'parsing', 'saving'] },
+    updatedAt: { $lte: cutoff },
+  }).sort({ updatedAt: 1 }).limit(25).lean();
+
+  for (const job of staleJobs) {
+    const assignmentId = job.assignmentId.toString();
+
+    await Promise.allSettled([
+      Assignment.findByIdAndUpdate(assignmentId, { status: 'failed' }),
+      GenerationJob.findByIdAndUpdate(job._id, {
+        status: 'failed',
+        error: 'Generation appears stuck and was automatically failed',
+        completedAt: new Date(),
+      }),
+    ]);
+
+    emitToAssignment(assignmentId, 'generation:failed', {
+      assignmentId,
+      error: 'Generation appears stuck and was automatically failed',
+      retryable: true,
+    });
+
+    logger.warn(`Generation job ${job._id.toString()} was stale in-progress and marked failed`);
   }
 }
 
@@ -216,8 +246,14 @@ async function bootstrap() {
       console.log('[BOOT:bullmq] Workers created (AI + PDF)');
 
       const bullConnection = getBullRedisClient();
-      generationQueueEvents = new QueueEvents('generation', { connection: bullConnection });
-      pdfQueueEvents = new QueueEvents('pdf', { connection: bullConnection });
+      generationQueueEvents = new QueueEvents('generation', {
+        connection: bullConnection,
+        skipVersionCheck: true,
+      });
+      pdfQueueEvents = new QueueEvents('pdf', {
+        connection: bullConnection,
+        skipVersionCheck: true,
+      });
 
       generationQueueEvents.on('completed', ({ jobId }) => console.log(`[QUEUE:generation] completed jobId=${jobId}`));
       generationQueueEvents.on('failed', ({ jobId, failedReason }) => console.warn(`[QUEUE:generation] failed jobId=${jobId} reason=${failedReason}`));
@@ -233,9 +269,15 @@ async function bootstrap() {
 
     // Start queue timeout watchdog
     queueTimeoutMonitor = setInterval(() => {
-      void failStaleQueuedJobs().catch((e) => console.error('[WATCHDOG] Sweep failed:', e));
+      void Promise.all([
+        failStaleQueuedJobs(),
+        failStaleInProgressJobs(),
+      ]).catch((e) => console.error('[WATCHDOG] Sweep failed:', e));
     }, QUEUE_SWEEP_INTERVAL_MS);
-    void failStaleQueuedJobs().catch((e) => console.error('[WATCHDOG] Initial sweep failed:', e));
+    void Promise.all([
+      failStaleQueuedJobs(),
+      failStaleInProgressJobs(),
+    ]).catch((e) => console.error('[WATCHDOG] Initial sweep failed:', e));
 
     // Start stall monitor
     stallMonitorInterval = setInterval(() => {

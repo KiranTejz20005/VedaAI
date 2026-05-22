@@ -18,9 +18,11 @@ import {
   Star,
 } from 'lucide-react';
 import { fetchAssignment, generateAssignment, fetchJobStatus } from '@/services/assignment.service';
+import { fetchPaper } from '@/services/paper.service';
 import { useGenerationSocket } from '@/hooks/useSocket';
 import { useGenerationStore } from '@/store/generation.store';
 import type { Assignment } from '@/types/assignment.types';
+import type { GeneratedPaper } from '@/types/paper.types';
 import type { GenerationStage } from '@/types/socket.types';
 
 const STAGE_STEPS: { stage: GenerationStage; label: string }[] = [
@@ -150,6 +152,7 @@ export default function AssignmentDetailPage({
   const { id } = use(params);
   const router = useRouter();
   const [assignment, setAssignment] = useState<Assignment | null>(null);
+  const [paper, setPaper] = useState<GeneratedPaper | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRetrying, setIsRetrying] = useState(false);
   const hasAutoQueuedRef = useRef(false);
@@ -165,6 +168,17 @@ export default function AssignmentDetailPage({
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!assignment || assignment.status !== 'completed') {
+      setPaper(null);
+      return;
+    }
+
+    fetchPaper(id)
+      .then(setPaper)
+      .catch(() => setPaper(null));
+  }, [assignment, id]);
 
   useEffect(() => {
     if (paperId) {
@@ -281,7 +295,26 @@ export default function AssignmentDetailPage({
 
   const isActiveStage = stage && !['completed', 'failed'].includes(stage);
   const showGeneration = Boolean(stage) || ['queued', 'generating'].includes(assignment.status);
-  const questionCount = assignment.questionConfig?.count ?? 0;
+  const requestedQuestionCount = assignment.questionConfig?.count ?? 0;
+  const generatedQuestionCount = paper ? paper.sections.reduce((sum, section) => sum + section.questions.length, 0) : null;
+  const generatedMarks = paper
+    ? paper.sections.reduce((sectionSum, section) => sectionSum + section.questions.reduce((qSum, q) => qSum + q.marks, 0), 0)
+    : null;
+
+  const questionMismatch =
+    generatedQuestionCount !== null && generatedQuestionCount !== requestedQuestionCount;
+  const marksMismatch = generatedMarks !== null && generatedMarks !== assignment.totalMarks;
+  const hasMismatch = questionMismatch || marksMismatch;
+
+  const qualityStatus = assignment.status === 'failed'
+    ? 'Failed Validation'
+    : paper
+    ? hasMismatch
+      ? 'Partial'
+      : 'Complete'
+    : assignment.status === 'completed'
+    ? 'Complete'
+    : 'In Progress';
 
   return (
     <div style={{ maxWidth: 720 }}>
@@ -348,7 +381,9 @@ export default function AssignmentDetailPage({
           </div>
           <span
             className={`badge ${
-              assignment.status === 'completed'
+              qualityStatus === 'Partial'
+                ? 'badge-failed'
+                : assignment.status === 'completed'
                 ? 'badge-completed'
                 : assignment.status === 'failed'
                 ? 'badge-failed'
@@ -357,7 +392,7 @@ export default function AssignmentDetailPage({
                 : 'badge-draft'
             }`}
           >
-            {assignment.status}
+            {qualityStatus}
           </span>
         </div>
 
@@ -373,9 +408,23 @@ export default function AssignmentDetailPage({
           }}
         >
           {[
-            { icon: Star, label: 'Total Marks', value: assignment.totalMarks },
+            {
+              icon: Star,
+              label: 'Marks',
+              value:
+                generatedMarks !== null
+                  ? `${generatedMarks}/${assignment.totalMarks}`
+                  : assignment.totalMarks,
+            },
             { icon: Clock, label: 'Duration', value: `${assignment.duration} min` },
-            { icon: FileText, label: 'Questions', value: questionCount },
+            {
+              icon: FileText,
+              label: 'Questions',
+              value:
+                generatedQuestionCount !== null
+                  ? `${generatedQuestionCount}/${requestedQuestionCount}`
+                  : requestedQuestionCount,
+            },
           ].map(({ icon: Icon, label, value }) => (
             <div key={label} style={{ textAlign: 'center' }}>
               <Icon size={16} color="var(--text-muted)" style={{ margin: '0 auto 4px', display: 'block' }} />
@@ -384,6 +433,29 @@ export default function AssignmentDetailPage({
             </div>
           ))}
         </div>
+
+        {assignment.status === 'completed' && generatedQuestionCount !== null && (
+          <div
+            style={{
+              marginTop: 12,
+              paddingTop: 12,
+              borderTop: '1px solid var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 8,
+            }}
+          >
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
+              Generated: {generatedQuestionCount}/{requestedQuestionCount} Questions, {generatedMarks ?? 0}/{assignment.totalMarks} Marks
+            </p>
+            {hasMismatch && (
+              <span className="badge badge-failed" style={{ fontSize: 11 }}>
+                Mismatch Detected
+              </span>
+            )}
+          </div>
+        )}
       </motion.div>
 
       {/* Generation progress */}

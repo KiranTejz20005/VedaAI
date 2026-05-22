@@ -10,6 +10,7 @@ export function getGenerationQueue(): Queue<GenerationJobData> {
       // Uses BullMQ-dedicated Redis connection (maxRetriesPerRequest: null).
       // Prefer local Redis for production — see REDIS_BULLMQ_URL in .env.
       connection: getBullRedisClient(),
+      skipVersionCheck: true,
       defaultJobOptions: {
         attempts: 2,
         backoff: { type: 'exponential', delay: 5000 },

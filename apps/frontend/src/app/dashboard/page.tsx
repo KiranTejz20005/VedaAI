@@ -19,12 +19,16 @@ import {
   CheckCircle2,
   XCircle,
   Zap,
+  RefreshCw,
   Clock,
   FileText,
   ChevronDown,
 } from 'lucide-react';
 import { useAssignments } from '@/hooks/useAssignments';
-import { deleteAssignment as deleteAssignmentRequest } from '@/services/assignment.service';
+import {
+  deleteAssignment as deleteAssignmentRequest,
+  generateAssignment as generateAssignmentRequest,
+} from '@/services/assignment.service';
 import type { Assignment } from '@/types/assignment.types';
 
 // ─── Status badge ──────────────────────────────────────────
@@ -45,11 +49,13 @@ function StatusBadge({ status }: { status: Assignment['status'] }) {
 function CardMenu({
   assignment,
   onView,
+  onRegenerate,
   onDelete,
   isDeleting,
 }: {
   assignment: Assignment;
   onView: (assignmentId: string) => void;
+  onRegenerate: (assignmentId: string) => Promise<void>;
   onDelete: (assignmentId: string) => Promise<void>;
   isDeleting: boolean;
 }) {
@@ -103,6 +109,20 @@ function CardMenu({
             </button>
             <button
               type="button"
+              className="dropdown-item"
+              onClick={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setOpen(false);
+                await onRegenerate(assignment._id);
+              }}
+              disabled={isDeleting || assignment.status === 'queued' || assignment.status === 'generating'}
+            >
+              <RefreshCw size={14} />
+              Regenerate
+            </button>
+            <button
+              type="button"
               className="dropdown-item danger"
               onClick={async (e) => {
                 e.preventDefault();
@@ -127,12 +147,14 @@ function AssignmentCard({
   assignment,
   index,
   onView,
+  onRegenerate,
   onDelete,
   isDeleting,
 }: {
   assignment: Assignment;
   index: number;
   onView: (assignmentId: string) => void;
+  onRegenerate: (assignmentId: string) => Promise<void>;
   onDelete: (assignmentId: string) => Promise<void>;
   isDeleting: boolean;
 }) {
@@ -177,6 +199,7 @@ function AssignmentCard({
         <CardMenu
           assignment={assignment}
           onView={onView}
+          onRegenerate={onRegenerate}
           onDelete={onDelete}
           isDeleting={isDeleting}
         />
@@ -324,10 +347,11 @@ function StatsBar({ assignments }: { assignments: Assignment[] }) {
 
 // ─── Main page ───────────────────────────────────────────────
 export default function DashboardPage() {
-  const { assignments, isLoading, error, reload } = useAssignments();
+  const [statusFilter, setStatusFilter] = useState('All');
+  const effectiveStatus = statusFilter === 'All' ? undefined : statusFilter;
+  const { assignments, isLoading, error, reload } = useAssignments(1, effectiveStatus);
   const router = useRouter();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleView = (assignmentId: string) => {
@@ -347,6 +371,16 @@ export default function DashboardPage() {
       toast.error(e instanceof Error ? e.message : 'Failed to delete assignment');
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleRegenerate = async (assignmentId: string) => {
+    try {
+      await generateAssignmentRequest(assignmentId);
+      toast.success('Regeneration queued');
+      await reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to queue regeneration');
     }
   };
 
@@ -388,12 +422,44 @@ export default function DashboardPage() {
           flexWrap: 'wrap',
         }}
       >
-        {/* Filter By pill */}
-        <button className="filter-btn" aria-label="Open filter options">
+        {/* Filter By */}
+        <div
+          className="filter-btn"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            paddingRight: 10,
+          }}
+        >
           <Filter size={14} />
-          Filter By
+          <label htmlFor="status-filter" style={{ fontSize: 14, fontWeight: 500 }}>
+            Filter By
+          </label>
+          <select
+            id="status-filter"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Filter assignments by status"
+            style={{
+              border: 'none',
+              outline: 'none',
+              background: 'transparent',
+              color: 'var(--text-primary)',
+              fontSize: 14,
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            <option value="All">All</option>
+            <option value="draft">Draft</option>
+            <option value="queued">Queued</option>
+            <option value="generating">Generating</option>
+            <option value="completed">Completed</option>
+            <option value="failed">Failed</option>
+          </select>
           <ChevronDown size={13} />
-        </button>
+        </div>
 
         {/* Search */}
         <div className="search-wrap" style={{ flex: 1, minWidth: 200 }}>
@@ -444,6 +510,7 @@ export default function DashboardPage() {
                 assignment={assignment}
                 index={i}
                 onView={handleView}
+                onRegenerate={handleRegenerate}
                 onDelete={handleDelete}
                 isDeleting={deletingId === assignment._id}
               />

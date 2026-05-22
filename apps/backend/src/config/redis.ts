@@ -178,7 +178,7 @@ export function getBullRedisClient(): Redis {
 
   bullRedisClient.on('connect', () => {
     bullRedisDiag.connectCount++;
-    logger.info('[REDIS:BullMQ] Connected to LOCAL Redis on localhost:6379');
+    logger.info(`[REDIS:BullMQ] Connected to BullMQ Redis at ${url}`);
   });
   bullRedisClient.on('ready', () => {
     logger.info('[REDIS:BullMQ] Client ready (blocking commands OK — BullMQ stable)');
@@ -187,7 +187,7 @@ export function getBullRedisClient(): Redis {
     bullRedisDiag.errorCount++;
     bullRedisDiag.lastError = err.message;
     if (err.message.includes('ECONNREFUSED')) {
-      logger.error('[REDIS:BullMQ] Connection REFUSED — is local Redis running on localhost:6379? Workers UNAVAILABLE.');
+      logger.error(`[REDIS:BullMQ] Connection REFUSED at ${url}. Workers UNAVAILABLE.`);
     } else {
       logger.error('[REDIS:BullMQ] Error:', err.message);
     }

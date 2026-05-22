@@ -160,8 +160,17 @@ export async function deleteAssignmentHandler(req: Request, res: Response): Prom
   }
 
   if (['queued', 'generating'].includes(assignment.status)) {
-    sendError(res, 'Cannot delete assignment while generation is in progress', 409);
-    return;
+    const activeJob = await GenerationJob.findOne({
+      assignmentId: req.params.id,
+      status: { $in: ['queued', 'processing', 'generating', 'parsing', 'saving'] },
+    }).lean();
+
+    if (activeJob) {
+      sendError(res, 'Cannot delete assignment while generation is in progress', 409);
+      return;
+    }
+
+    logger.warn(`Assignment ${req.params.id} had stale status=${assignment.status} with no active job; allowing delete`);
   }
 
   await deleteAssignment(req.params.id);

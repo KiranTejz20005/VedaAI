@@ -8,6 +8,7 @@ export function getPdfQueue(): Queue<PdfJobData> {
   if (!pdfQueue) {
     pdfQueue = new Queue<PdfJobData>('pdf', {
       connection: getBullRedisClient(),
+      skipVersionCheck: true,
       defaultJobOptions: {
         attempts: 2,
         backoff: { type: 'fixed', delay: 3000 },
