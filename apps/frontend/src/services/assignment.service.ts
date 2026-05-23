@@ -49,7 +49,6 @@ export async function createAssignment(
   const res = await apiClient.post<{ data: { assignment: Assignment; jobId: string; position?: number; jobRecordId?: string; generationSeq?: number } }>(
     '/assignments',
     formData,
-    { headers: { 'Content-Type': null as unknown as string } }
   );
   return res.data.data;
 }

@@ -23,8 +23,11 @@ function fileFilter(
   file: Express.Multer.File,
   cb: multer.FileFilterCallback
 ): void {
-  const allowed = ['application/pdf', 'text/plain'];
-  if (allowed.includes(file.mimetype)) {
+  const allowedMimes = ['application/pdf', 'text/plain', 'application/octet-stream'];
+  const allowedExts = ['.pdf', '.txt'];
+  const fileExt = path.extname(file.originalname).toLowerCase();
+
+  if (allowedMimes.includes(file.mimetype) || allowedExts.includes(fileExt)) {
     cb(null, true);
   } else {
     cb(new Error(`File type ${file.mimetype} is not allowed. Only PDF and TXT files accepted.`));
@@ -34,5 +37,8 @@ function fileFilter(
 export const uploadMiddleware = multer({
   storage,
   fileFilter,
-  limits: { fileSize: env.MAX_FILE_SIZE_MB * 1024 * 1024 },
+  limits: {
+    fileSize: env.MAX_FILE_SIZE_MB * 1024 * 1024,
+    files: 10,
+  },
 });
