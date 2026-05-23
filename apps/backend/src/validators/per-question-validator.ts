@@ -52,11 +52,8 @@ export function validateSingleQuestion(question: Record<string, unknown>, index:
     if (!Array.isArray(options)) {
       errors.push(`${qPath}.options: missing or not an array for MCQ type`);
     } else {
-      if (options.length < 2) {
-        errors.push(`${qPath}.options: only ${options.length} option(s), need at least 2`);
-      }
-      if (options.length < 4) {
-        warnings.push(`${qPath}.options: only ${options.length} option(s), expected 4`);
+      if (options.length !== 4) {
+        errors.push(`${qPath}.options: expected exactly 4 options, got ${options.length}`);
       }
       const seenKeys = new Set<string>();
       const seenTexts = new Set<string>();
@@ -83,12 +80,16 @@ export function validateSingleQuestion(question: Record<string, unknown>, index:
         }
       }
     }
+  } else if (Array.isArray(question.options)) {
+    errors.push(`${qPath}.options: not allowed for ${question.type} questions`);
   }
 
   if (question.type === 'fill-blank') {
     if (question.blanks !== undefined && (typeof question.blanks !== 'number' || !Number.isInteger(question.blanks) || question.blanks < 1)) {
       warnings.push(`${qPath}.blanks: invalid value ${question.blanks}, will be defaulted`);
     }
+  } else if (question.blanks !== undefined) {
+    errors.push(`${qPath}.blanks: not allowed for ${question.type} questions`);
   }
 
   if (question.answer && typeof question.answer === 'object') {
@@ -96,6 +97,10 @@ export function validateSingleQuestion(question: Record<string, unknown>, index:
     if (ans.text && typeof ans.text === 'string' && ans.text.toString().trim().length < 2) {
       warnings.push(`${qPath}.answer.text: very short`);
     }
+  }
+
+  if (question.type === 'mcq' && question.answer !== undefined) {
+    warnings.push(`${qPath}.answer: MCQ answers should be generated later, not embedded in the question payload`);
   }
 
   return {

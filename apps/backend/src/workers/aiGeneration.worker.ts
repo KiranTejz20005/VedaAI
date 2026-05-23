@@ -26,6 +26,9 @@ const STAGE_ORDER: Record<GenerationStage, number> = {
   topic_preprocessing: 20,
   generation_planning: 30,
   batch_generating: 40,
+  provider_retry: 45,
+  validation_retry: 50,
+  recovering_batches: 55,
   validating: 60,
   answer_key_generating: 75,
   pdf_composing: 85,
@@ -248,9 +251,9 @@ export function createAiGenerationWorker() {
         // ── STEP 7: AI generation (THE CRITICAL STEP) ──
         logger.info(`[STEP 7] Calling generatePaper() at ${Date.now() - jobStartTime}ms elapsed`);
         const t7 = Date.now();
-        let paper: any;
+        let generationResult: any;
         try {
-          paper = await withTimeout(
+          generationResult = await withTimeout(
             generatePaper(assignment as any, uploadedContent || undefined, typeBreakdown, job, async (stage, progress, stageMessage) => {
               await emit(stage, progress, stageMessage);
             }),
@@ -258,7 +261,7 @@ export function createAiGenerationWorker() {
             'Generation'
           );
           await job.updateProgress(80);
-          logger.info(`[STEP 7] generatePaper() completed in ${Date.now() - t7}ms | title="${paper?.title}" sections=${paper?.sections?.length}`);
+          logger.info(`[STEP 7] generatePaper() completed in ${Date.now() - t7}ms | title="${generationResult?.paper?.title}" sections=${generationResult?.paper?.sections?.length} status=${generationResult?.status}`);
         } catch (genErr) {
           logger.error(`[STEP 7 FAILED] generatePaper() threw after ${Date.now() - t7}ms: ${genErr instanceof Error ? genErr.message : String(genErr)}`);
           if (genErr instanceof Error && genErr.stack) {
@@ -266,6 +269,9 @@ export function createAiGenerationWorker() {
           }
           throw genErr;
         }
+
+        let paper: any = generationResult.paper;
+        const generationOutcome = generationResult.status;
 
         // ── STEP 7b: Generate answers separately (split pipeline) ──
         logger.info(`[STEP 7b] Generating answers for ${paper.sections.reduce((s: number, sec: any) => s + sec.questions.length, 0)} questions`);
@@ -313,15 +319,11 @@ export function createAiGenerationWorker() {
         const generatedQty = paper.sections.reduce((s: number, sec: any) => s + sec.questions.length, 0);
         const generatedMarks = paper.sections.reduce((s: number, sec: any) =>
           s + sec.questions.reduce((ms: number, q: any) => ms + (q.marks || 0), 0), 0);
-        const isPartial = generatedQty < requestedQty;
-        const isFinalAttempt = job.attemptsMade >= (job.opts.attempts ?? 2) - 1;
+        const isPartial = generationOutcome === 'partial_success';
+        const isFailed = generationOutcome === 'failed';
 
         logger.debug(`[STEP 11] Generated ${generatedQty}/${requestedQty} questions (${generatedMarks}/${assignment.totalMarks} marks)`);
         const t11 = Date.now();
-
-        if (isPartial && !isFinalAttempt) {
-          throw new Error(`Incomplete generation (${generatedQty}/${requestedQty}); retrying before finalize`);
-        }
 
         if (isPartial) {
           const genMeta: GenerationMeta = {
@@ -330,8 +332,8 @@ export function createAiGenerationWorker() {
             requestedQuestionCount: requestedQty,
             generatedMarks,
             requestedMarks: assignment.totalMarks,
-            completedBatches: 1,
-            failedBatches: 0,
+            completedBatches: generationResult.completedBatches ?? 0,
+            failedBatches: generationResult.failedBatches ?? 0,
             providerName: null,
             failureCategory: 'under_generation',
             failureReason: `Generated ${generatedQty}/${requestedQty} questions. The AI provider returned fewer questions than requested.`,
@@ -344,12 +346,33 @@ export function createAiGenerationWorker() {
             { status: 'partially_generated', generationMeta: genMeta }
           );
           logger.info(`[STEP 11] Assignment marked as partially_generated (${generatedQty}/${requestedQty})`);
-        } else {
+        } else if (!isFailed) {
           await Assignment.findOneAndUpdate(
             { _id: assignmentId, activeGenerationJobId: jobRecordId },
             { status: 'completed', finalizedAt: new Date() }
           );
           logger.debug(`[STEP 11] Assignment status updated to 'completed' in ${Date.now() - t11}ms`);
+        } else {
+          const genMeta: GenerationMeta = {
+            status: 'failed',
+            generatedQuestionCount: generatedQty,
+            requestedQuestionCount: requestedQty,
+            generatedMarks,
+            requestedMarks: assignment.totalMarks,
+            completedBatches: generationResult.completedBatches ?? 0,
+            failedBatches: generationResult.failedBatches ?? 0,
+            providerName: null,
+            failureCategory: 'partial_generation',
+            failureReason: `Generation completed with only ${generatedQty}/${requestedQty} valid questions`,
+            diagnostics: generationResult.quality?.diagnostics?.slice(0, 20) ?? null,
+            partialPaper: paper.sections,
+            completedAt: new Date(),
+          };
+          await Assignment.findOneAndUpdate(
+            { _id: assignmentId, activeGenerationJobId: jobRecordId, status: { $ne: 'completed' } },
+            { status: 'failed', generationMeta: genMeta }
+          );
+          logger.warn(`[STEP 11] Assignment marked failed with partial paper (${generatedQty}/${requestedQty})`);
         }
         await job.updateProgress(99);
 
@@ -362,24 +385,41 @@ export function createAiGenerationWorker() {
         await GenerationJob.findOneAndUpdate(
           { _id: jobRecordId, generationSeq },
           {
-            $set: { status: 'completed', completedAt: new Date() },
+            $set: { status: isFailed ? 'failed' : 'completed', completedAt: new Date() },
             $inc: { progressVersion: 1 },
-            $max: { progress: 100, stageIndex: STAGE_ORDER.completed },
+            $max: { progress: 100, stageIndex: isFailed ? STAGE_ORDER.failed : STAGE_ORDER.completed },
           } as any
         );
         logger.debug(`[STEP 12] GenerationJob updated in ${Date.now() - t12}ms`);
 
-        // ── STEP 13: Emit generation:completed via WebSocket ──
-        logger.debug(`[STEP 13] Emitting generation:completed via WebSocket`);
+        // ── STEP 13: Emit terminal WebSocket event ──
         const t13 = Date.now();
-        emitToAssignment(assignmentId, 'generation:completed', {
-          assignmentId,
-          paperId: savedPaper._id.toString(),
-          jobRecordId,
-          generationSeq,
-          version: progressVersion,
-          ts: Date.now(),
-        });
+        if (isFailed) {
+          emitToAssignment(assignmentId, 'generation:failed', {
+            assignmentId,
+            error: `Generation finished with partial content (${generatedQty}/${requestedQty})`,
+            retryable: false,
+            jobRecordId,
+            generationSeq,
+            version: progressVersion,
+            ts: Date.now(),
+          });
+        } else {
+          emitToAssignment(assignmentId, 'generation:completed', {
+            assignmentId,
+            paperId: savedPaper._id.toString(),
+            jobRecordId,
+            generationSeq,
+            partial: isPartial,
+            status: isPartial ? 'partial_success' : 'complete',
+            generatedQuestionCount: generatedQty,
+            requestedQuestionCount: requestedQty,
+            generatedMarks,
+            requestedMarks: assignment.totalMarks,
+            version: progressVersion,
+            ts: Date.now(),
+          } as any);
+        }
         logger.debug(`[STEP 13] WebSocket emit done in ${Date.now() - t13}ms`);
 
         // ── STEP 14: Enqueue PDF generation ──

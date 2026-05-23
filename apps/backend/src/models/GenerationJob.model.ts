@@ -26,7 +26,7 @@ const GenerationJobSchema = new Schema<IGenerationJob>(
     stageIndex: { type: Number, default: 0, min: 0, index: true },
     status: {
       type: String,
-      enum: ['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating', 'completed', 'failed'],
+      enum: ['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'provider_retry', 'validation_retry', 'recovering_batches', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating', 'completed', 'failed'],
       default: 'queued',
     },
     progress: { type: Number, default: 0, min: 0, max: 100 },

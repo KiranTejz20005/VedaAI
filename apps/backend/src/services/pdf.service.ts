@@ -2,12 +2,15 @@ import path from 'path';
 import fs from 'fs/promises';
 import type { IGeneratedPaper } from '../models/GeneratedPaper.model';
 import { logger } from '../utils/logger';
+import { validatePaperOrThrow } from '../validators/paper.validator';
 
 export async function generatePdf(paper: IGeneratedPaper): Promise<{ pdfPath: string; pdfUrl: string }> {
+  const validatedPaper = validatePaperOrThrow(paper);
+
   // Dynamic import to avoid loading Puppeteer at startup
   const puppeteer = await import('puppeteer-core');
 
-  const html = buildPaperHtml(paper);
+  const html = buildPaperHtml(validatedPaper as IGeneratedPaper);
 
   const pdfDir = path.join(process.cwd(), 'uploads', 'pdfs');
   await fs.mkdir(pdfDir, { recursive: true });

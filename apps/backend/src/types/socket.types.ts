@@ -4,6 +4,9 @@ export type GenerationStage =
   | 'topic_preprocessing'
   | 'generation_planning'
   | 'batch_generating'
+  | 'provider_retry'
+  | 'validation_retry'
+  | 'recovering_batches'
   | 'validating'
   | 'answer_key_generating'
   | 'pdf_composing'
@@ -38,6 +41,12 @@ export interface GenerationCompletedPayload {
   paperId: string;
   jobRecordId: string;
   generationSeq: number;
+  partial?: boolean;
+  status?: 'complete' | 'partial_success';
+  generatedQuestionCount?: number;
+  requestedQuestionCount?: number;
+  generatedMarks?: number;
+  requestedMarks?: number;
   version: number;
   ts: number;
 }

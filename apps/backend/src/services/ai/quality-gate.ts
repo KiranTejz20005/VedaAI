@@ -1,8 +1,10 @@
 import type { IAssignment } from '../../models/Assignment.model';
-import type { ValidatedPaper } from '../../validators/paper.validator';
+import { generatedPaperSchema, type ValidatedPaper } from '../../validators/paper.validator';
 export interface QualityGateResult {
+  status: 'complete' | 'partial_success' | 'failed';
   ok: boolean;
   partialSuccess: boolean;
+  completionRate: number;
   diagnostics: string[];
   generatedQuestionCount: number;
   requestedQuestionCount: number;
@@ -30,22 +32,45 @@ export function evaluatePaperQuality(
   const hardErrors: string[] = [];
   const softWarnings: string[] = [];
 
+  const schemaResult = generatedPaperSchema.safeParse(paper);
+  if (!schemaResult.success) {
+    return {
+      status: 'failed',
+      ok: false,
+      partialSuccess: false,
+      completionRate: 0,
+      diagnostics: [`Invalid generated paper schema: ${schemaResult.error.message}`],
+      generatedQuestionCount: 0,
+      requestedQuestionCount: assignment.questionConfig.count,
+      generatedMarks: 0,
+      requestedMarks: assignment.totalMarks,
+    };
+  }
+
   const questions = paper.sections.flatMap((s) => s.questions);
   const generatedQuestionCount = questions.length;
   const requestedQuestionCount = assignment.questionConfig.count;
 
   const generatedMarks = questions.reduce((sum, q) => sum + q.marks, 0);
   const requestedMarks = assignment.totalMarks;
+  const completionRate = requestedQuestionCount > 0 ? generatedQuestionCount / requestedQuestionCount : 0;
 
-  // Count/marks mismatches are soft warnings (not hard failures)
   if (generatedQuestionCount !== requestedQuestionCount) {
-    softWarnings.push(
-      `Question count mismatch: generated=${generatedQuestionCount}, requested=${requestedQuestionCount}`
-    );
+    if (completionRate < 0.7) {
+      hardErrors.push(
+        `Question count mismatch: generated=${generatedQuestionCount}, requested=${requestedQuestionCount}`
+      );
+    } else {
+      softWarnings.push(`Question count mismatch: generated=${generatedQuestionCount}, requested=${requestedQuestionCount}`);
+    }
   }
 
   if (generatedMarks !== requestedMarks) {
-    softWarnings.push(`Marks mismatch: generated=${generatedMarks}, requested=${requestedMarks}`);
+    if (completionRate < 0.7) {
+      hardErrors.push(`Marks mismatch: generated=${generatedMarks}, requested=${requestedMarks}`);
+    } else {
+      softWarnings.push(`Marks mismatch: generated=${generatedMarks}, requested=${requestedMarks}`);
+    }
   }
 
   // Type coverage is a hard error only if a configured type has ZERO questions
@@ -67,14 +92,20 @@ export function evaluatePaperQuality(
   // Per-question quality checks (soft warnings only)
   const seenQuestions = new Set<string>();
   const seenAnswers = new Set<string>();
+  const seenIds = new Set<string>();
 
   for (const q of questions) {
+    if (seenIds.has(q.id)) {
+      hardErrors.push(`Duplicate question id: ${q.id}`);
+    }
+    seenIds.add(q.id);
+
     const normalizedQuestion = normalizeText(q.question);
     if (isLowInformationQuestion(q.question)) {
       softWarnings.push(`Low-information question: "${q.question.slice(0, 48)}"`);
     }
     if (seenQuestions.has(normalizedQuestion)) {
-      softWarnings.push(`Duplicate question text: "${q.question.slice(0, 48)}"`);
+      hardErrors.push(`Duplicate question text: "${q.question.slice(0, 48)}"`);
     }
     seenQuestions.add(normalizedQuestion);
 
@@ -83,15 +114,15 @@ export function evaluatePaperQuality(
       if (options.length < 2) {
         hardErrors.push(`MCQ has only ${options.length} option(s) for question id=${q.id}, need at least 2`);
       } else if (options.length < 4) {
-        softWarnings.push(`MCQ has ${options.length} options instead of 4 for question id=${q.id}`);
+        hardErrors.push(`MCQ has ${options.length} options instead of 4 for question id=${q.id}`);
       }
       const seenOptions = new Set<string>();
       for (const opt of options) {
         const txt = normalizeText(opt.text);
         if (!txt) {
-          softWarnings.push(`MCQ has empty option text for question id=${q.id}`);
+          hardErrors.push(`MCQ has empty option text for question id=${q.id}`);
         } else if (seenOptions.has(txt)) {
-          softWarnings.push(`MCQ has duplicate option text for question id=${q.id}`);
+          hardErrors.push(`MCQ has duplicate option text for question id=${q.id}`);
         }
         seenOptions.add(txt);
       }
@@ -114,13 +145,12 @@ export function evaluatePaperQuality(
   }
 
   const allDiagnostics = [...hardErrors, ...softWarnings];
-
-  const hasHardErrors = hardErrors.length > 0;
-
-  if (hasHardErrors) {
+  if (hardErrors.length > 0) {
     return {
+      status: 'failed',
       ok: false,
       partialSuccess: false,
+      completionRate,
       diagnostics: allDiagnostics,
       generatedQuestionCount,
       requestedQuestionCount,
@@ -131,8 +161,10 @@ export function evaluatePaperQuality(
 
   if (generatedQuestionCount > 0 && generatedQuestionCount < requestedQuestionCount) {
     return {
+      status: 'partial_success',
       ok: true,
       partialSuccess: true,
+      completionRate,
       diagnostics: allDiagnostics,
       generatedQuestionCount,
       requestedQuestionCount,
@@ -142,8 +174,10 @@ export function evaluatePaperQuality(
   }
 
   return {
+    status: 'complete',
     ok: true,
     partialSuccess: false,
+    completionRate,
     diagnostics: softWarnings,
     generatedQuestionCount,
     requestedQuestionCount,

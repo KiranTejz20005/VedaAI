@@ -9,6 +9,8 @@ import type { ValidatedPaper } from '../validators/paper.validator';
 import type { GenerationJobData } from '../types/queue.types';
 import { logger } from '../utils/logger';
 import { withTimeout } from '../utils/timeout';
+import { jsonrepair } from 'jsonrepair';
+import { z } from 'zod';
 import {
   ProviderParseError,
   ProviderRateLimitError,
@@ -21,7 +23,7 @@ import {
 } from './ai/provider-errors';
 import { ProviderHealthManager } from './ai/provider-health';
 import { buildAdaptiveRetryPrompt, retryDecision, buildSmartRetryPrompt } from './ai/retry-manager';
-import { evaluatePaperQuality } from './ai/quality-gate';
+import { evaluatePaperQuality, type QualityGateResult } from './ai/quality-gate';
 import { createGenerationPlan, type PlannedBatch } from './ai/generation-planner';
 import { buildCompactSyllabusContext } from './ai/syllabus-preprocessor';
 import { validateBatchResponse, type BatchQuestion } from './ai/batch-validator';
@@ -37,6 +39,102 @@ const PROVIDER_TIMEOUTS: Record<ProviderName, number> = {
 };
 
 const health = new ProviderHealthManager();
+
+const answerEntrySchema = z.object({
+  questionId: z.string().uuid(),
+  answer: z.object({
+    text: z.string().min(1),
+    explanation: z.string().optional(),
+  }).strict(),
+}).strict();
+
+const answerEntriesSchema = z.array(answerEntrySchema).min(1);
+
+function stripCodeFences(raw: string): string {
+  return raw
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+}
+
+function isLikelyTruncatedJson(raw: string): boolean {
+  const trimmed = raw.trim();
+  if (!trimmed) return true;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (const char of trimmed) {
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (char === '"') inString = false;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (char === '{' || char === '[') depth += 1;
+    if (char === '}' || char === ']') depth -= 1;
+  }
+
+  return inString || depth !== 0;
+}
+
+function parseStrictJson(rawOutput: string): unknown {
+  const cleaned = stripCodeFences(rawOutput);
+  if (isLikelyTruncatedJson(cleaned)) {
+    throw new Error('AI output appears truncated');
+  }
+
+  return JSON.parse(jsonrepair(cleaned)) as unknown;
+}
+
+function parseAnswersPayload(rawOutput: string): Array<{ questionId: string; answer: { text: string; explanation?: string } }> {
+  const parsed = parseStrictJson(rawOutput);
+
+  let candidate: unknown[] | null = null;
+  if (Array.isArray(parsed)) {
+    candidate = parsed;
+  } else if (typeof parsed === 'object' && parsed !== null) {
+    const record = parsed as Record<string, unknown>;
+    if (Array.isArray(record.answers)) {
+      candidate = record.answers;
+    } else if ('questionId' in record && 'answer' in record) {
+      candidate = [record];
+    }
+  }
+
+  if (!candidate) {
+    throw new Error('Answers response is not an array');
+  }
+
+  const validation = answerEntriesSchema.safeParse(candidate);
+  if (!validation.success) {
+    throw new Error(`Answers response failed validation: ${validation.error.message}`);
+  }
+
+  const seen = new Set<string>();
+  for (const entry of validation.data) {
+    if (seen.has(entry.questionId)) {
+      throw new Error(`Duplicate answer questionId: ${entry.questionId}`);
+    }
+    seen.add(entry.questionId);
+  }
+
+  return validation.data;
+}
 
 let nvidiaClient: OpenAI | null = null;
 let anthropicClient: Anthropic | null = null;
@@ -237,7 +335,9 @@ async function callProvider(input: ProviderCallInput): Promise<string> {
 
 interface BatchAttemptResult {
   questions?: BatchQuestion[];
+  status?: 'complete' | 'partial' | 'failed';
   partial?: boolean;
+  completionRate?: number;
   diagnostics?: string[];
   repairCount?: number;
   discardCount?: number;
@@ -246,6 +346,21 @@ interface BatchAttemptResult {
   repairTypes?: string[];
   salvageRate?: number;
   error?: ProviderError;
+}
+
+export interface GenerationOutcome {
+  status: 'complete' | 'partial_success' | 'failed';
+  paper: ValidatedPaper;
+  quality: QualityGateResult;
+  generatedQuestions: number;
+  requestedQuestions: number;
+  generatedMarks: number;
+  requestedMarks: number;
+  recoveredQuestions: number;
+  discardedQuestions: number;
+  completedBatches: number;
+  failedBatches: number;
+  diagnostics: string[];
 }
 
 async function runBatchWithRetry(
@@ -262,6 +377,7 @@ async function runBatchWithRetry(
       type: batch.type,
       count: batch.count,
       marksPerQuestion: batch.marksPerQuestion,
+      allowedMarks: [batch.marksPerQuestion],
       totalMarks: batch.totalMarks,
       allowedTypes: batch.allowedTypes,
       sectionTitle: batch.sectionTitle,
@@ -287,23 +403,25 @@ async function runBatchWithRetry(
         expectedCount: batch.count,
         expectedMarks: batch.totalMarks,
         allowedTypes: batch.allowedTypes,
+        allowedMarks: [batch.marksPerQuestion],
         expectedType: batch.type,
       });
 
       logger.info(
         `[BATCH_GATE] correlationId=${correlationId} provider=${provider} batch=${batch.id} ` +
         `requested=${batch.count} generated=${validation.generatedCount} ` +
-        `ok=${validation.ok} partial=${validation.generatedCount < batch.count} ` +
+        `ok=${validation.ok} status=${validation.status} completionRate=${validation.completionRate.toFixed(2)} ` +
         `detected=${validation.totalDetected} repairs=${validation.repairCount} discarded=${validation.discardCount} ` +
         `malformed=${validation.malformedNodeCount} salvageRate=${validation.salvageRate.toFixed(2)} ` +
         `repairTypes=${validation.repairTypes.join(',') || 'none'}`
       );
 
-      // Accept partial recovery: even if !ok but we have questions, use them
       if (validation.questions.length > 0) {
         return {
           questions: validation.questions,
-          partial: validation.generatedCount < batch.count,
+          status: validation.status,
+          partial: validation.status !== 'complete',
+          completionRate: validation.completionRate,
           diagnostics: validation.diagnostics,
           repairCount: validation.repairCount,
           discardCount: validation.discardCount,
@@ -314,9 +432,12 @@ async function runBatchWithRetry(
         };
       }
 
-      // No questions recovered at all - fail the batch
       health.recordValidationFailure(provider);
-      throw new ProviderValidationError(provider, `Batch ${batch.id} produced zero valid questions`, validation.diagnostics);
+      throw new ProviderValidationError(
+        provider,
+        `Batch ${batch.id} failed strict validation: ${validation.diagnostics.join(' | ') || 'no valid questions'}`,
+        validation.diagnostics
+      );
     } catch (error) {
       if (!(error instanceof Error)) {
         return { error: new ProviderTransportError(provider, String(error)) };
@@ -353,7 +474,7 @@ export async function generatePaper(
   typeBreakdown?: QuestionTypeBreakdown[],
   job?: Job<GenerationJobData>,
   onStage?: (stage: GenerationStage, progress: number, message: string) => Promise<void>
-): Promise<ValidatedPaper> {
+): Promise<GenerationOutcome> {
   const started = Date.now();
   const correlationId = correlationIdFor(assignment);
 
@@ -420,17 +541,19 @@ export async function generatePaper(
         totalDiscarded += result.discardCount ?? 0;
         batchSuccess = true;
 
-        // Smart retry: if partial recovery, try to get missing questions
+        // Smart retry: if partial recovery, try to get missing questions.
         if (result.partial && result.questions.length < batch.count) {
           const missingCount = batch.count - result.questions.length;
           logger.info(
             `[SMART_RETRY] correlationId=${correlationId} batch=${batch.id} recovered=${result.questions.length}/${batch.count} requesting=${missingCount} more`
           );
+          await stage('validation_retry', 72, `Validating recovery batch for ${batch.id}...`);
 
           const retryPrompt = buildSmartRetryPrompt({
             missingCount: batch.count - result.questions.length,
             missingTypes: batch.allowedTypes,
             marksPerQuestion: batch.marksPerQuestion,
+            allowedMarks: [batch.marksPerQuestion],
             difficultyHint: batch.difficultyHint,
             syllabusContext,
             sectionTitle: batch.sectionTitle,
@@ -450,6 +573,7 @@ export async function generatePaper(
               expectedCount: missingCount,
               expectedMarks: missingCount * batch.marksPerQuestion,
               allowedTypes: batch.allowedTypes,
+              allowedMarks: [batch.marksPerQuestion],
               expectedType: batch.type,
             });
 
@@ -462,9 +586,7 @@ export async function generatePaper(
                 `[SMART_RETRY_OK] correlationId=${correlationId} recovered=${retryQuestions.length}/${missingCount} ` +
                 `detected=${retryValidation.totalDetected} repairs=${retryValidation.repairCount} discarded=${retryValidation.discardCount} ` +
                 `malformed=${retryValidation.malformedNodeCount} salvageRate=${retryValidation.salvageRate.toFixed(2)}`
-              );
-            } else {
-              logger.warn(`[SMART_RETRY_FAIL] correlationId=${correlationId} zero additional questions recovered`);
+              )
             }
           } catch (retryError) {
             logger.warn(`[SMART_RETRY_ERR] correlationId=${correlationId} ${retryError instanceof Error ? retryError.message : String(retryError)}`);
@@ -499,12 +621,12 @@ export async function generatePaper(
 
   if (totalRecovered < plan.totalQuestions) {
     let rescueAttempts = 0;
-    const maxRescueAttempts = Math.min(6, Math.max(2, plan.totalQuestions - totalRecovered));
+    const maxRescueAttempts = 2;
 
     while (totalRecovered < plan.totalQuestions && rescueAttempts < maxRescueAttempts) {
       const remaining = plan.totalQuestions - totalRecovered;
       rescueAttempts += 1;
-      await stage('batch_generating', 75, `Recovering missing questions (${remaining} remaining)...`);
+      await stage('recovering_batches', 75, `Recovering missing questions (${remaining} remaining)...`);
 
       const fallbackBatch: PlannedBatch = {
         id: `rescue-${rescueAttempts}`,
@@ -518,6 +640,7 @@ export async function generatePaper(
       };
 
       for (const provider of providers) {
+        await stage('provider_retry', 76, `Trying ${provider} for recovery...`);
         const rescue = await runBatchWithRetry(provider, assignment, fallbackBatch, syllabusContext, `${correlationId}-rescue-${rescueAttempts}`);
         if (!rescue.questions || rescue.questions.length === 0) continue;
 
@@ -536,95 +659,127 @@ export async function generatePaper(
 
   const paper = assemblePaperFromBatches(assignment, completedBatches);
   const quality = evaluatePaperQuality(assignment, paper, typeBreakdown);
+  const outcome: GenerationOutcome['status'] = quality.status;
 
   logger.info(
     `[FINAL_GATE] correlationId=${correlationId} requestedQuestions=${quality.requestedQuestionCount} ` +
     `generatedQuestions=${quality.generatedQuestionCount} requestedMarks=${quality.requestedMarks} ` +
-    `generatedMarks=${quality.generatedMarks} ok=${quality.ok} partial=${quality.partialSuccess}`
+    `generatedMarks=${quality.generatedMarks} ok=${quality.ok} partial=${quality.partialSuccess} status=${quality.status}`
   );
 
-  if (!quality.ok) {
-    throw new ProviderValidationError('NVIDIA', 'Final assembled paper failed quality gate', quality.diagnostics);
-  }
-
-  if (quality.partialSuccess) {
+  if (quality.status === 'partial_success') {
     logger.warn(
       `[PARTIAL_COMPLETE] correlationId=${correlationId} durationMs=${Date.now() - started} ` +
       `batches=${completedBatches.length} recovered=${totalRecovered}/${totalRequested} ` +
       `discarded=${totalDiscarded} diagnostics=${JSON.stringify(quality.diagnostics.slice(0, 5))}`
     );
-  } else {
+  } else if (quality.status === 'complete') {
     logger.info(
       `[GENERATE:COMPLETE] correlationId=${correlationId} durationMs=${Date.now() - started} ` +
       `batches=${completedBatches.length} questions=${totalRecovered} discarded=${totalDiscarded}`
     );
+  } else {
+    logger.warn(
+      `[GENERATE:FAILED_WITH_CONTENT] correlationId=${correlationId} durationMs=${Date.now() - started} ` +
+      `batches=${completedBatches.length} questions=${totalRecovered} discarded=${totalDiscarded} ` +
+      `diagnostics=${JSON.stringify(quality.diagnostics.slice(0, 5))}`
+    );
   }
 
   await stage('validating', 84, 'Validating generated paper quality...');
-  return paper;
-}
-
-function buildAnswersPrompt(paper: ValidatedPaper): string {
-  let questionsList = '';
-  for (const section of paper.sections) {
-    for (const q of section.questions) {
-      const typeLabel = q.type === 'mcq' ? `(MCQ:${q.options?.map((o) => `${o.key}.${o.text}`).join('|')})` : `(${q.type})`;
-      questionsList += `Q:${q.id}|${typeLabel}|${q.marks}m|${q.question}\n`;
-    }
-  }
-  return `Generate model answers for each question. Output JSON array: [{"questionId":"uuid","answer":{"text":"...","explanation":"..."}}]\n\nQuestions:\n${questionsList}`;
-}
-
-function parseAnswersJson(rawOutput: string): Array<{ questionId: string; answer: { text: string; explanation?: string } }> {
-  const cleaned = rawOutput
-    .replace(/^```json\s*/i, '')
-    .replace(/^```\s*/i, '')
-    .replace(/\s*```$/i, '')
-    .trim();
-  const firstBracket = cleaned.indexOf('[');
-  const lastBracket = cleaned.lastIndexOf(']');
-  const jsonStr = firstBracket !== -1 && lastBracket > firstBracket ? cleaned.slice(firstBracket, lastBracket + 1) : cleaned;
-  const parsed = JSON.parse(jsonStr);
-  if (!Array.isArray(parsed)) throw new Error('Answers response is not an array');
-  return parsed;
+  return {
+    status: outcome,
+    paper,
+    quality,
+    generatedQuestions: quality.generatedQuestionCount,
+    requestedQuestions: quality.requestedQuestionCount,
+    generatedMarks: quality.generatedMarks,
+    requestedMarks: quality.requestedMarks,
+    recoveredQuestions: totalRecovered,
+    discardedQuestions: totalDiscarded,
+    completedBatches: completedBatches.length,
+    failedBatches: batchErrors.length,
+    diagnostics: quality.diagnostics,
+  };
 }
 
 export async function generateAnswersForPaper(paper: ValidatedPaper): Promise<ValidatedPaper> {
   const questionsNeedingAnswers = paper.sections.flatMap((s) => s.questions).filter((q) => !q.answer);
   if (questionsNeedingAnswers.length === 0) return paper;
 
-  const prompt = buildAnswersPrompt(paper);
   const providers = health.orderedProviders(enabledProviders()).filter((provider) => health.canAttempt(provider));
   if (providers.length === 0) {
-    throw new Error('No provider available for answer-key generation');
+    logger.warn('No provider available for answer-key generation; returning paper without answers');
+    return paper;
   }
 
-  let lastError: Error | null = null;
-  for (const provider of providers) {
-    try {
-      const rawOutput = await callProvider({
-        provider,
-        systemPrompt: SYSTEM_PROMPT,
-        userPrompt: prompt,
-        temperature: 0.1,
-        correlationId: `ans-${Date.now()}`,
-      });
-      const answers = parseAnswersJson(rawOutput);
-      const answerMap = new Map(answers.map((a) => [a.questionId, a.answer]));
-      const paperObj = JSON.parse(JSON.stringify(paper)) as ValidatedPaper;
+  const paperObj = JSON.parse(JSON.stringify(paper)) as ValidatedPaper;
+  const questionsById = new Map(questionsNeedingAnswers.map((question) => [question.id, question]));
+  const batchSize = Math.min(3, Math.max(1, questionsNeedingAnswers.length));
+
+  for (let index = 0; index < questionsNeedingAnswers.length; index += batchSize) {
+    const batch = questionsNeedingAnswers.slice(index, index + batchSize);
+    const questionsList = batch
+      .map((question) => {
+        const typeLabel = question.type === 'mcq' && question.options ? `(MCQ:${question.options.map((option) => `${option.key}.${option.text}`).join('|')})` : `(${question.type})`;
+        return `Q:${question.id}|${typeLabel}|${question.marks}m|${question.question}`;
+      })
+      .join('\n');
+
+    const prompt = `Generate model answers for the questions below. Return ONLY JSON. Return ONLY an array of objects in this exact shape: [{"questionId":"uuid","answer":{"text":"...","explanation":"..."}}]. Do not wrap the array in an object. Do not include markdown or extra keys.\n\nQuestions:\n${questionsList}`;
+
+    let batchAnswers: Array<{ questionId: string; answer: { text: string; explanation?: string } }> | null = null;
+    let lastError: Error | null = null;
+
+    for (const provider of providers) {
+      try {
+        const rawOutput = await callProvider({
+          provider,
+          systemPrompt: SYSTEM_PROMPT,
+          userPrompt: prompt,
+          temperature: 0.1,
+          correlationId: `ans-${Date.now()}-${index}`,
+        });
+        const answers = parseAnswersPayload(rawOutput);
+        if (answers.length !== batch.length) {
+          throw new Error(`Expected ${batch.length} answers, received ${answers.length}`);
+        }
+
+        const expectedIds = new Set(batch.map((question) => question.id));
+        for (const answer of answers) {
+          if (!expectedIds.has(answer.questionId)) {
+            throw new Error(`Unexpected questionId in answer batch: ${answer.questionId}`);
+          }
+        }
+
+        batchAnswers = answers;
+        break;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      }
+    }
+
+    if (!batchAnswers) {
+      logger.warn(lastError?.message ?? 'Answer-key batch failed; keeping generated paper without those answers');
+      continue;
+    }
+
+    const answerMap = new Map(batchAnswers.map((answer) => [answer.questionId, answer.answer]));
+    for (const question of questionsById.values()) {
+      const answer = answerMap.get(question.id);
+      if (!answer) continue;
+
       for (const section of paperObj.sections) {
-        for (const q of section.questions) {
-          const answer = answerMap.get(q.id);
-          if (answer) q.answer = answer;
+        const target = section.questions.find((item) => item.id === question.id);
+        if (target) {
+          target.answer = answer;
+          break;
         }
       }
-      return paperObj;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
     }
   }
 
-  throw lastError ?? new Error('Answer-key generation failed');
+  return paperObj;
 }
 
 export function getProviderHealthSnapshot() {

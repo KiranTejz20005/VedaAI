@@ -16,6 +16,7 @@ export interface BatchPromptInput {
   type: QuestionType;
   count: number;
   marksPerQuestion: number;
+  allowedMarks: number[];
   totalMarks: number;
   allowedTypes: QuestionType[];
   sectionTitle: string;
@@ -66,6 +67,7 @@ export function buildBatchGenerationPrompt(
   syllabusContext: string
 ): string {
   const typeList = batch.allowedTypes.join(', ');
+  const allowedMarks = batch.allowedMarks.join(', ');
   const instructions = assignment.additionalInstructions?.trim() || 'None';
 
   return `Generate EXACTLY ${batch.count} ${batch.type} questions for one internal generation request.
@@ -75,6 +77,7 @@ ${syllabusContext}
 
 Requirements:
 - Allowed types: ${typeList}
+- Allowed marks per question: ${allowedMarks}
 - Marks per question: ${batch.marksPerQuestion}
 - Total marks: ${batch.totalMarks}
 - Difficulty target: ${batch.difficultyHint}
@@ -83,6 +86,10 @@ Requirements:
 - Return ONLY JSON.
 - No markdown, no prose, no extra keys.
 - Validation failure if count or marks mismatch.
+- Every question must use one of the allowed marks exactly.
+- Do NOT include an id field. The server assigns question IDs internally.
+- Do NOT include options on short-answer, long-answer, or true-false questions.
+- Do NOT include blanks on short-answer or long-answer questions.
 
 Assignment context:
 Subject: ${assignment.subject}
@@ -90,6 +97,6 @@ Title: ${assignment.title}
 Instructions: ${instructions}
 
 Schema:
-  {"questions":[{"id":"uuid","question":"","type":"${batch.type}","difficulty":"easy|medium|hard","marks":${batch.marksPerQuestion},"options":[{"key":"A","text":""}],"blanks":1}]}
+  {"questions":[{"question":"","type":"${batch.type}","difficulty":"easy|medium|hard","marks":${batch.marksPerQuestion},"options":[{"key":"A","text":""}],"blanks":1}]}
 `;
 }
