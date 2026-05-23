@@ -1,30 +1,45 @@
 import { io, type Socket } from 'socket.io-client';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? 'http://localhost:5000';
+// In production, NEXT_PUBLIC_SOCKET_URL must be set via Vercel env vars
+// In development, NEXT_PUBLIC_SOCKET_URL defaults to localhost
+// If the env var is missing in production, this fails at build time via Next.js static analysis
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL;
+
+if (!SOCKET_URL && typeof window !== 'undefined') {
+  console.error('[SOCKET] NEXT_PUBLIC_SOCKET_URL is not set. Socket.IO will not connect.');
+}
 
 let socket: Socket | null = null;
 let reconnectCount = 0;
-const MAX_RECONNECT_ATTEMPTS = 10;
+const MAX_RECONNECT_ATTEMPTS = 20;
 const subscriptions = new Set<string>();
 
 export function getSocket(): Socket {
   if (!socket) {
-    socket = io(SOCKET_URL, {
-      transports: ['polling', 'websocket'],
+    socket = io(SOCKET_URL || undefined, {
+      // websocket first for lower latency, polling fallback for restricted networks
+      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
-      reconnectionDelay: 2000,
-      reconnectionDelayMax: 10000,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 15000,
       randomizationFactor: 0.5,
-      timeout: 15000,
+      timeout: 20000,
+      // Disable auto-unix socket, force HTTP
+      autoConnect: false,
     });
 
     socket.on('connect', () => {
       reconnectCount = 0;
-      // Re-subscribe ALL active subscriptions on every connect/reconnect
-      // Socket.IO generates a new session on reconnect, losing all rooms
       for (const id of subscriptions) {
         socket?.emit('subscribe:assignment', { assignmentId: id });
+      }
+    });
+
+    socket.on('disconnect', (reason) => {
+      if (reason === 'io server disconnect') {
+        // Server initiated disconnect — reconnect manually
+        socket?.connect();
       }
     });
 
@@ -37,6 +52,15 @@ export function getSocket(): Socket {
         socket?.close();
       }
     });
+
+    socket.on('connect_error', () => {
+      const s = socket;
+      if (s && reconnectCount >= 3 && s.io.opts.transports?.[0] !== 'polling') {
+        s.io.opts.transports = ['polling', 'websocket'];
+      }
+    });
+
+    socket.connect();
   }
   return socket;
 }

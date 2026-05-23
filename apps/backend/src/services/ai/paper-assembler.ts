@@ -73,7 +73,8 @@ function normalizeQuestion(question: BatchQuestion): BatchQuestion {
 }
 
 function normalizeAggregationKey(question: BatchQuestion): string {
-  return question.question.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const text = question.question.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  return `${question.type}:${question.marks}:${question.difficulty}:${text}`;
 }
 
 function sortQuestions(questions: BatchQuestion[]): BatchQuestion[] {

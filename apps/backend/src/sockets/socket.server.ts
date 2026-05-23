@@ -6,6 +6,13 @@ import { logger } from '../utils/logger';
 
 let io: SocketIOServer<ClientToServerEvents, ServerToClientEvents> | null = null;
 
+function parseOrigins(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 export function initializeSocketServer(
   httpServer: HTTPServer
 ): SocketIOServer<ClientToServerEvents, ServerToClientEvents> {
@@ -14,29 +21,46 @@ export function initializeSocketServer(
     return io;
   }
 
+  const corsOrigins = env.SOCKET_CORS_ORIGIN
+    ? parseOrigins(env.SOCKET_CORS_ORIGIN)
+    : parseOrigins(env.FRONTEND_URL);
+
   io = new SocketIOServer<ClientToServerEvents, ServerToClientEvents>(httpServer, {
     cors: {
-      origin: env.FRONTEND_URL,
+      origin: corsOrigins,
       methods: ['GET', 'POST'],
+      credentials: true,
     },
-    pingTimeout: 60000,
-    pingInterval: 25000,
-    transports: ['polling', 'websocket'],
+    // Production-safe settings:
+    // websocket first for lower latency, polling fallback for restricted networks
+    transports: ['websocket', 'polling'],
+    pingTimeout: 30000,
+    pingInterval: 12000,
     maxHttpBufferSize: 1e6,
+    // Allow upgrades from polling to websocket
+    allowUpgrades: true,
+    // Cookie settings for sticky sessions
+    cookie: {
+      name: 'vedaai-socket',
+      httpOnly: true,
+      sameSite: 'lax',
+    },
   });
 
   io.on('connection', (socket) => {
-    logger.debug(`Socket connected: ${socket.id}`);
+    logger.debug(`Socket connected: ${socket.id} (transport: ${socket.conn.transport.name})`);
 
     socket.on('subscribe:assignment', ({ assignmentId }) => {
       if (assignmentId && typeof assignmentId === 'string') {
         socket.join(`assignment:${assignmentId}`);
+        logger.debug(`Socket ${socket.id} subscribed to assignment:${assignmentId}`);
       }
     });
 
     socket.on('unsubscribe:assignment', ({ assignmentId }) => {
       if (assignmentId && typeof assignmentId === 'string') {
         socket.leave(`assignment:${assignmentId}`);
+        logger.debug(`Socket ${socket.id} unsubscribed from assignment:${assignmentId}`);
       }
     });
 
@@ -56,7 +80,6 @@ export function getSocketServer(): SocketIOServer<ClientToServerEvents, ServerTo
 export function emitToAssignment(
   assignmentId: string,
   event: keyof ServerToClientEvents,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload: any
 ): void {
   if (!io) return;

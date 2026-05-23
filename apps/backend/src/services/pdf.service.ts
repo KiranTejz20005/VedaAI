@@ -1,8 +1,8 @@
-import path from 'path';
-import fs from 'fs/promises';
+import { env } from '../config/env';
 import type { IGeneratedPaper } from '../models/GeneratedPaper.model';
 import { logger } from '../utils/logger';
 import { validatePaperOrThrow } from '../validators/paper.validator';
+import { getPdfStorage } from './storage';
 
 export async function generatePdf(paper: IGeneratedPaper): Promise<{ pdfPath: string; pdfUrl: string }> {
   const validatedPaper = validatePaperOrThrow(paper);
@@ -12,15 +12,11 @@ export async function generatePdf(paper: IGeneratedPaper): Promise<{ pdfPath: st
 
   const html = buildPaperHtml(validatedPaper as IGeneratedPaper);
 
-  const pdfDir = path.join(process.cwd(), 'uploads', 'pdfs');
-  await fs.mkdir(pdfDir, { recursive: true });
-
+  const storage = getPdfStorage();
   const fileName = `paper-${paper.assignmentId.toString()}-${Date.now()}.pdf`;
-  const pdfPath = path.join(pdfDir, fileName);
 
   let browser;
   try {
-    // Try to use system Chrome, fall back to puppeteer-bundled
     const executablePath = process.env.CHROMIUM_PATH ||
       (process.env.NODE_ENV === 'production'
         ? await import('@sparticuz/chromium').then((m) => m.default.executablePath())
@@ -34,15 +30,15 @@ export async function generatePdf(paper: IGeneratedPaper): Promise<{ pdfPath: st
 
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
-    await page.pdf({
-      path: pdfPath,
+    const pdfBuffer = await page.pdf({
       format: 'A4',
       margin: { top: '20mm', right: '15mm', bottom: '20mm', left: '15mm' },
       printBackground: true,
     });
 
+    const pdfUrl = await storage.save(fileName, pdfBuffer, 'application/pdf');
+    const pdfPath = `${env.UPLOAD_DIR}/pdfs/${fileName}`;
     logger.info(`PDF generated: ${fileName}`);
-    const pdfUrl = `/api/papers/download/${fileName}`;
     return { pdfPath, pdfUrl };
   } finally {
     if (browser) await browser.close();

@@ -1,18 +1,8 @@
-/**
- * Redis client singletons using ioredis.
- * Provides TWO separate connections:
- *   1. `getRedisClient()` — general purpose (caching, sessions). Supports Upstash.
- *   2. `getBullRedisClient()` — for BullMQ queues & workers only. MUST be local Redis.
- *
- * BullMQ requires blocking commands, persistent locks, and low-latency polling.
- * Upstash does NOT support blocking commands — using it for BullMQ causes silent
- * job stalls and heartbeat failures.
- */
 import { Redis, type RedisOptions } from 'ioredis';
 import { env } from './env';
 import { logger } from '../utils/logger';
 
-// ── General-purpose Redis (caching, sessions) ─────────────────────────────
+// ── General-purpose Redis (caching, sessions, pub/sub) ──
 
 let redisClient: Redis | null = null;
 
@@ -53,7 +43,7 @@ export function getRedisClient(): Redis {
 
   redisClient = new Redis(env.REDIS_URL, buildRedisOptions());
 
-  redisClient.on('connect', () => logger.info('✅ Redis connected'));
+  redisClient.on('connect', () => logger.info('[REDIS] General client connected'));
   redisClient.on('ready', () => logger.info('[REDIS] General client ready'));
   redisClient.on('error', (err: Error) => {
     if (err.message.includes('ECONNREFUSED')) {
@@ -86,35 +76,25 @@ export function isRedisConnected(): boolean {
   return redisClient?.status === 'ready';
 }
 
-// ── BullMQ-dedicated Redis (MUST be local Redis — Upstash kills BullMQ) ──
+// ── BullMQ-dedicated Redis (requires TCP-compatible Redis, e.g., Upstack TCP endpoint) ──
 
 let bullRedisClient: Redis | null = null;
 
 /**
- * BullMQ connection URL — ALWAYS uses REDIS_BULLMQ_URL.
+ * BullMQ connection — uses REDIS_BULLMQ_URL.
  *
- * Upstash serverless Redis does NOT support the blocking commands (BLPOP, etc.)
- * that BullMQ workers depend on for reliable job processing. Using Upstash
- * for BullMQ causes:
- *   - Silent job stalls
- *   - Heartbeat failures
- *   - Lock expiration corruption
- *   - Infinite frontend polling
- *
- * REDIS_BULLMQ_URL defaults to redis://localhost:6379. If local Redis is not
- * available at startup, BullMQ workers will fail fast rather than silently
- * corrupting job state via Upstash.
+ * REQUIREMENTS:
+ * - Must be a TCP-compatible Redis endpoint (redis:// or rediss://)
+ * - Upstash REST API does NOT work (no BLPOP support)
+ * - Upstash Redis TCP endpoint DOES work — use the UPSTASH_REDIS_URL directly
+ * - MaxRetriesPerRequest: null is REQUIRED by BullMQ
  */
-function bullRedisUrl(): string {
-  return env.REDIS_BULLMQ_URL;
-}
-
 function buildBullRedisOptions(): RedisOptions {
-  const url = bullRedisUrl();
+  const url = env.REDIS_BULLMQ_URL;
   const isTls = url.startsWith('rediss://') || url.startsWith('redis+tls://');
+  const isUpstash = url.includes('.upstash.io');
 
   return {
-    // maxRetriesPerRequest: null is REQUIRED by BullMQ — it handles retries internally
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
     enableOfflineQueue: true,
@@ -134,17 +114,19 @@ function buildBullRedisOptions(): RedisOptions {
         err.message.includes('CLUSTERDOWN');
       return shouldReconnect ? 2 : false;
     },
-    ...(isTls
+    // Upstash TCP connections with TLS require keepalive to avoid idle disconnects
+    ...(isTls || isUpstash
       ? {
           tls: {
             rejectUnauthorized: false,
           },
+          keepAlive: 30000,
+          keepAliveInterval: 15000,
         }
       : {}),
   };
 }
 
-// Connection event counters for diagnostics
 export interface BullRedisDiagnostics {
   connected: boolean;
   status: string;
@@ -172,22 +154,22 @@ export function getBullRedisDiagnostics(): BullRedisDiagnostics {
 export function getBullRedisClient(): Redis {
   if (bullRedisClient) return bullRedisClient;
 
-  const url = bullRedisUrl();
+  const url = env.REDIS_BULLMQ_URL;
   bullRedisDiag.url = url;
   bullRedisClient = new Redis(url, buildBullRedisOptions());
 
   bullRedisClient.on('connect', () => {
     bullRedisDiag.connectCount++;
-    logger.info(`[REDIS:BullMQ] Connected to BullMQ Redis at ${url}`);
+    logger.info(`[REDIS:BullMQ] Connected to BullMQ Redis`);
   });
   bullRedisClient.on('ready', () => {
-    logger.info('[REDIS:BullMQ] Client ready (blocking commands OK — BullMQ stable)');
+    logger.info('[REDIS:BullMQ] Client ready (blocking commands OK)');
   });
   bullRedisClient.on('error', (err: Error) => {
     bullRedisDiag.errorCount++;
     bullRedisDiag.lastError = err.message;
     if (err.message.includes('ECONNREFUSED')) {
-      logger.error(`[REDIS:BullMQ] Connection REFUSED at ${url}. Workers UNAVAILABLE.`);
+      logger.error(`[REDIS:BullMQ] Connection REFUSED. Workers UNAVAILABLE.`);
     } else {
       logger.error('[REDIS:BullMQ] Error:', err.message);
     }

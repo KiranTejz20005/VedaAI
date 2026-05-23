@@ -79,7 +79,8 @@ export class ProviderHealthManager {
       s.quarantineUntil = Date.now() + 10 * 60_000;
       return;
     }
-    this.tripCircuit(s);
+    // Validation failures indicate the provider responded but sent bad data —
+    // these should not trip the circuit breaker since the provider is reachable.
   }
 
   recordParseFailure(provider: ProviderName): void {

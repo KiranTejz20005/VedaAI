@@ -1,5 +1,11 @@
 import axios from 'axios';
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+
+// NEXT_PUBLIC_API_URL must be set via Vercel env vars in production
+// In development, it defaults to localhost
+// Next.js replaces NEXT_PUBLIC_* at build time — missing vars in production
+// will result in 'undefined' string, which we detect
+const rawUrl = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = rawUrl && rawUrl !== 'undefined' ? rawUrl : 'http://localhost:5000';
 
 export const apiClient = axios.create({
   baseURL: `${API_URL}/api`,

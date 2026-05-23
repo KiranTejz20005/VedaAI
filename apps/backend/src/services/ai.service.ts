@@ -229,6 +229,20 @@ interface ProviderCallInput {
   signal?: AbortSignal;
 }
 
+const IMAGE_PATH_PATTERN = /\S*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi;
+
+function sanitizePrompt(text: string): string {
+  return text
+    .replace(/\b(?:data:)?image\/[a-z0-9+.]+;base64[^\s"'()]+\b/gi, '[BINARY REMOVED]')
+    .replace(/\b(?:https?:\/\/\S+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?))\b/gi, '[URL REMOVED]')
+    .replace(IMAGE_PATH_PATTERN, '[IMAGE REF REMOVED]')
+    .replace(/(?:[\w\-./\\()]+\/)?[\w\-.() ]+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '[PATH REMOVED]')
+    .replace(/\bimage\s*\.\s*(?:png|jpg|jpeg|gif|webp)\b/gi, '[REF REMOVED]')
+    .replace(/\(\s*(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\s*\)/gi, '[FORMAT REMOVED]')
+    .replace(/[""'][^"']*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)[""']/gi, '[QUOTED IMAGE REF]')
+    .replace(/\b(?:fig(?:ure)?|img|image|picture|photo|screenshot)\s*[:#]\s*\S+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '[IMAGE LABEL REMOVED]');
+}
+
 async function callProvider(input: ProviderCallInput): Promise<string> {
   const { provider, systemPrompt, userPrompt, temperature, correlationId, signal } = input;
 
@@ -242,6 +256,9 @@ async function callProvider(input: ProviderCallInput): Promise<string> {
 
   const t0 = Date.now();
   logger.info(`[AI_CALL] correlationId=${correlationId} provider=${provider} promptLen=${userPrompt.length} temp=${temperature}`);
+
+  const sanitizedUserPrompt = sanitizePrompt(userPrompt);
+  const sanitizedSystemPrompt = sanitizePrompt(systemPrompt);
 
   try {
     if (provider === 'NVIDIA') {
@@ -265,8 +282,8 @@ async function callProvider(input: ProviderCallInput): Promise<string> {
           {
             model: 'meta/llama-3.2-3b-instruct',
             messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt },
+              { role: 'system', content: sanitizedSystemPrompt },
+              { role: 'user', content: sanitizedUserPrompt },
             ],
             temperature,
             max_tokens: 2048,
@@ -319,8 +336,8 @@ async function callProvider(input: ProviderCallInput): Promise<string> {
           {
             model: 'llama-3.3-70b-versatile',
             messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt },
+              { role: 'system', content: sanitizedSystemPrompt },
+              { role: 'user', content: sanitizedUserPrompt },
             ],
             temperature,
             max_tokens: 2048,
@@ -360,8 +377,8 @@ async function callProvider(input: ProviderCallInput): Promise<string> {
       getAnthropic().messages.create({
         model: 'claude-3-5-sonnet-20241022',
         max_tokens: 2048,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: [{ type: 'text', text: userPrompt }] }],
+        system: sanitizedSystemPrompt,
+        messages: [{ role: 'user', content: [{ type: 'text', text: sanitizedUserPrompt }] }],
       }),
       PROVIDER_TIMEOUTS.Anthropic,
       'Anthropic',

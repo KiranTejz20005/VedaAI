@@ -42,16 +42,30 @@ const STAGE_ORDER: Record<GenerationStage, number> = {
 
 function sanitizeText(text: string): string {
   const before = text.length;
-  const result = text
+  let result = text
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
     .replace(/[^\x20-\x7E\x0A\x0D\x80-\xFF\n\t]/g, '')
-    .replace(/\b(?:data:image\/[a-z]+;base64[^\s]+)\b/gi, '[BINARY REMOVED]')
-    .replace(/\b(?:https?:\/\/\S+\.(?:png|jpg|jpeg|gif|webp|svg))\b/gi, '[URL REMOVED]')
-    .replace(/\S*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '[IMAGE REMOVED]')
-    .replace(/[\w\-./\\()]+\/(?:[\w\-./() ]+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?))/gi, '[PATH REMOVED]')
-    .replace(/\bimage\s*\.\s*(png|jpg|jpeg|gif|webp)\b/gi, '[REF REMOVED]')
-    .replace(/\(\s*(?:png|jpg|jpeg|gif|webp|svg|bmp|ico)\s*\)/gi, '[FORMAT REMOVED]')
     .slice(0, 8000);
+
+  const imagePatterns: [RegExp, string][] = [
+    [/\b(?:data:)?image\/[a-z0-9+.]+;base64[^\s"'()]+\b/gi, '[BINARY REMOVED]'],
+    [/\b(?:https?:\/\/\S+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?))\b/gi, '[URL REMOVED]'],
+    [/\S*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '[IMAGE REF REMOVED]'],
+    [/(?:[\w\-./\\()]+\/)?[\w\-.() ]+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '[PATH REMOVED]'],
+    [/\bimage\s*\.\s*(?:png|jpg|jpeg|gif|webp)\b/gi, '[REF REMOVED]'],
+    [/\(\s*(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\s*\)/gi, '[FORMAT REMOVED]'],
+    [/[""'][^"']*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)[""']/gi, '[QUOTED IMAGE REF]'],
+    [/\b(?:fig(?:ure)?|img|image|picture|photo|screenshot)\s*[:#]\s*\S+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '[IMAGE LABEL REMOVED]'],
+  ];
+
+  for (const [pattern, replacement] of imagePatterns) {
+    const beforeReplace = result.length;
+    result = result.replace(pattern, replacement);
+    if (result.length !== beforeReplace) {
+      logger.debug(`sanitizeText: matched ${pattern}`);
+    }
+  }
+
   const after = result.length;
   if (before !== after) logger.debug(`sanitizeText: ${before}→${after} chars (${before - after} removed)`);
   return result;

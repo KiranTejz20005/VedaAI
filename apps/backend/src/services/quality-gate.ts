@@ -68,6 +68,9 @@ export function classifyError(error: Error): { category: FailureCategory; userMe
   if (msg.includes('not found') || msg.includes('404') || msg.includes('econnrefused') || msg.includes('econnreset')) {
     return { category: 'provider_unavailable', userMessage: USER_MESSAGES.provider_unavailable };
   }
+  if (msg.includes('does not support image') || msg.includes('cannot read') || (msg.includes('image') && (msg.includes('png') || msg.includes('jpg') || msg.includes('jpeg')))) {
+    return { category: 'malformed_response', userMessage: 'Uploaded content contained image references which were removed. Generation continuing with text-only content.' };
+  }
   if (msg.includes('incomplete') || msg.includes('truncat') || msg.includes('token limit') || msg.includes('max tokens')) {
     return { category: 'truncated_output', userMessage: USER_MESSAGES.truncated_output };
   }

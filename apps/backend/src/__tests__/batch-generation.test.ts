@@ -246,7 +246,7 @@ describe('assemblePaperFromBatches', () => {
             id: '123e4567-e89b-12d3-a456-426614174111',
             question: 'What is a variable',
             type: 'mcq',
-            difficulty: 'medium',
+            difficulty: 'easy',
             marks: 1,
             options: [
               { key: 'A', text: 'Named storage' },

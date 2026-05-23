@@ -9,7 +9,7 @@ import rateLimit from 'express-rate-limit';
 import { QueueEvents } from 'bullmq';
 import { env } from './config/env';
 import { connectDatabase, disconnectDatabase } from './config/db';
-import { closeRedis, closeBullRedis, getBullRedisClient, getBullRedisDiagnostics } from './config/redis';
+import { closeRedis, closeBullRedis, getBullRedisClient, getBullRedisDiagnostics, isBullRedisConnected, isRedisConnected } from './config/redis';
 import { initializeSocketServer, getSocketServer } from './sockets/socket.server';
 import { createAiGenerationWorker, getActiveAiJobCount, getStalledAiJobCount } from './workers/aiGeneration.worker';
 import { createPdfWorker } from './workers/pdf.worker';
@@ -23,7 +23,7 @@ import { logger } from './utils/logger';
 // ── Bootstrap phase tracking ──
 let isBootstrapping = false;
 let bootstrapPhase = 'init';
-const healthState = { db: 'disconnected', redis: 'disconnected', bullmqRedis: 'disconnected' };
+const healthState = { db: 'disconnected', redis: 'disconnected', bullmqRedis: 'disconnected', workers: 'none' };
 let queueTimeoutMonitor: NodeJS.Timeout | null = null;
 let stallMonitorInterval: NodeJS.Timeout | null = null;
 let generationQueueEvents: QueueEvents | null = null;
@@ -49,38 +49,18 @@ process.on('unhandledRejection', (reason) => {
   if (reason instanceof Error) console.error(reason.stack);
 });
 
-process.on('exit', (code) => {
-  console.log(`[FATAL:exit] Process exiting with code ${code} (phase=${bootstrapPhase})`);
-});
-
-function tryListen(server: http.Server, port: number): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const onError = (err: NodeJS.ErrnoException) => {
-      server.removeListener('error', onError);
-      reject(err);
-    };
-    server.once('error', onError);
-    server.listen(port, () => {
-      server.removeListener('error', onError);
-      resolve(port);
+function parseCorsOrigins(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => {
+      // Support wildcard subdomains: https://*.vercel.app
+      if (s.startsWith('https://*.')) {
+        return s.replace('https://*.', 'https://');
+      }
+      return s;
     });
-  });
-}
-
-async function findAvailablePort(preferred: number, maxTries = 5): Promise<number> {
-  for (let i = 0; i < maxTries; i++) {
-    const candidate = preferred + i;
-    const tester = http.createServer();
-    try {
-      await tryListen(tester, candidate);
-      tester.close();
-      return candidate;
-    } catch {
-      tester.close();
-      console.log(`[BOOT:port] Port ${candidate} in use — trying ${candidate + 1}`);
-    }
-  }
-  throw new Error(`No available port in range ${preferred}–${preferred + maxTries - 1}`);
 }
 
 async function failStaleQueuedJobs(): Promise<void> {
@@ -141,40 +121,82 @@ async function failStaleInProgressJobs(): Promise<void> {
   }
 }
 
-async function bootstrap() {
-  if (isBootstrapping) {
-    console.warn('[BOOT] Bootstrap already running — skipping');
-    return;
-  }
-  isBootstrapping = true;
-  logBoot('init', 'Starting backend bootstrap...');
+async function initializeWorkers() {
+  healthState.workers = 'starting';
 
-  // ── Step 1: Create Express app and HTTP server FIRST ──
-  logBoot('express', 'Creating Express app');
-  const app = express();
-  const httpServer = http.createServer(app);
+  try {
+    healthState.bullmqRedis = 'connecting';
+    createAiGenerationWorker();
+    createPdfWorker();
+    healthState.bullmqRedis = 'connected';
+    healthState.workers = 'running';
+    logger.info('[WORKERS] AI + PDF workers created');
 
-  // Register health endpoint immediately — reflects dynamic bootstrap state
-  app.get('/health', (_req, res) => {
-    const appStatus = bootstrapPhase === 'ready' ? 'ok' : 'starting';
-    res.json({
-      status: appStatus,
-      phase: bootstrapPhase,
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      services: { ...healthState },
+    const bullConnection = getBullRedisClient();
+    generationQueueEvents = new QueueEvents('generation', {
+      connection: bullConnection,
+      skipVersionCheck: true,
     });
-  });
+    pdfQueueEvents = new QueueEvents('pdf', {
+      connection: bullConnection,
+      skipVersionCheck: true,
+    });
 
-  logBoot('socket', 'Initializing Socket.IO');
-  initializeSocketServer(httpServer);
+    generationQueueEvents.on('completed', ({ jobId }) => logger.info(`[QUEUE:generation] completed jobId=${jobId}`));
+    generationQueueEvents.on('failed', ({ jobId, failedReason }) => logger.warn(`[QUEUE:generation] failed jobId=${jobId} reason=${failedReason}`));
+    generationQueueEvents.on('stalled', ({ jobId }) => logger.error(`[QUEUE:generation] STALLED jobId=${jobId}`));
 
-  // ── Step 2: Register middleware and routes (non-blocking) ──
-  logBoot('middleware', 'Registering middleware');
+    pdfQueueEvents.on('completed', ({ jobId }) => logger.info(`[QUEUE:pdf] completed jobId=${jobId}`));
+    pdfQueueEvents.on('failed', ({ jobId, failedReason }) => logger.warn(`[QUEUE:pdf] failed jobId=${jobId} reason=${failedReason}`));
+
+    logger.info('[WORKERS] Queue events initialized');
+  } catch (error) {
+    healthState.workers = 'failed';
+    healthState.bullmqRedis = 'error';
+    logger.error(`[WORKERS] Failed to initialize: ${error instanceof Error ? error.message : error}`);
+    if (env.NODE_ENV === 'production') {
+      logger.error('[WORKERS] Workers failed in production — exiting');
+      process.exit(1);
+    }
+  }
+}
+
+async function startBackgroundWorkers() {
+  logBoot('workers', 'Starting background workers...');
+  await initializeWorkers();
+
+  // Queue timeout watchdog
+  queueTimeoutMonitor = setInterval(() => {
+    void Promise.all([
+      failStaleQueuedJobs(),
+      failStaleInProgressJobs(),
+    ]).catch((e) => logger.error('[WATCHDOG] Sweep failed:', e));
+  }, QUEUE_SWEEP_INTERVAL_MS);
+  void Promise.all([
+    failStaleQueuedJobs(),
+    failStaleInProgressJobs(),
+  ]).catch((e) => logger.error('[WATCHDOG] Initial sweep failed:', e));
+
+  // Stall monitor
+  stallMonitorInterval = setInterval(() => {
+    const diag = getBullRedisDiagnostics();
+    logger.info(
+      `[STALL] redis=${diag.status} connects=${diag.connectCount} reconnects=${diag.reconnectCount} errors=${diag.errorCount} stalled=${getStalledAiJobCount()} active=${getActiveAiJobCount()}`
+    );
+  }, STALL_MONITOR_INTERVAL_MS);
+
+  logBoot('workers', 'Background workers ready');
+}
+
+function createApp() {
+  const app = express();
+
+  const corsOrigins = parseCorsOrigins(env.FRONTEND_URL);
+
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
   app.use(compression());
   app.use(cors({
-    origin: env.FRONTEND_URL,
+    origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -192,7 +214,6 @@ async function bootstrap() {
   });
   app.use('/api', limiter);
 
-  logBoot('routes', 'Registering API routes');
   app.use('/api', apiRouter);
 
   app.use((_req, res) => {
@@ -200,106 +221,101 @@ async function bootstrap() {
   });
   app.use(errorMiddleware);
 
-  // ── Step 3: Start HTTP server (before waiting for DB/Redis) ──
-  logBoot('port', 'Finding available port');
-  let port: number;
+  return app;
+}
+
+async function bootstrap() {
+  if (isBootstrapping) {
+    console.warn('[BOOT] Bootstrap already running — skipping');
+    return;
+  }
+  isBootstrapping = true;
+  logBoot('init', `Starting backend — mode=${env.RENDER_WORKER_MODE}, env=${env.NODE_ENV}`);
+
+  // ── Step 1: Connect to MongoDB (fail fast) ──
+  logBoot('mongodb', 'Connecting to MongoDB...');
   try {
-    port = await findAvailablePort(env.PORT);
-  } catch (portError) {
-    console.error(`[BOOT:port] ${portError instanceof Error ? portError.message : String(portError)}`);
-    process.exit(1);
+    await connectDatabase();
+    healthState.db = 'connected';
+    logBoot('mongodb', 'Connected successfully');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    healthState.db = 'error';
+    logger.error(`[BOOT:mongodb] Connection failed: ${message}`);
+    if (env.NODE_ENV === 'production') {
+      process.exit(1);
+    }
   }
 
+  // ── Step 2: Connect to Redis (fail fast) ──
+  logBoot('redis', 'Connecting to Redis...');
+  try {
+    const redis = getBullRedisClient();
+    await new Promise<void>((resolve, reject) => {
+      const onReady = () => { redis.removeListener('error', onError); resolve(); };
+      const onError = (err: Error) => { redis.removeListener('ready', onReady); reject(err); };
+      redis.once('ready', onReady);
+      redis.once('error', onError);
+    });
+    healthState.redis = 'connected';
+    healthState.bullmqRedis = 'connected';
+    logBoot('redis', 'Redis connected');
+  } catch (error) {
+    healthState.redis = 'error';
+    healthState.bullmqRedis = 'error';
+    logger.error(`[BOOT:redis] Connection failed: ${error instanceof Error ? error.message : error}`);
+    if (env.NODE_ENV === 'production') {
+      process.exit(1);
+    }
+  }
+
+  // ── Step 3: Create Express app ──
+  logBoot('express', 'Creating Express app');
+  const app = createApp();
+  const httpServer = http.createServer(app);
+
+  // Health endpoint
+  app.get('/health', (_req, res) => {
+    res.json({
+      status: bootstrapPhase === 'ready' ? 'ok' : 'starting',
+      phase: bootstrapPhase,
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      services: {
+        ...healthState,
+        redis: isRedisConnected() ? 'connected' : healthState.redis,
+        bullmqRedis: isBullRedisConnected() ? 'connected' : healthState.bullmqRedis,
+      },
+    });
+  });
+
+  // ── Step 4: Initialize Socket.IO ──
+  logBoot('socket', 'Initializing Socket.IO');
+  initializeSocketServer(httpServer);
+
+  // ── Step 5: Start HTTP server ──
+  const port = env.PORT;
   httpServer.listen(port, () => {
-    console.log(`[BOOT:ready] Backend running on http://localhost:${port}`);
+    console.log(`[BOOT:ready] Backend running on port ${port}`);
     console.log(`[BOOT:ready] Socket.IO ready`);
-    console.log(`[BOOT:ready] Environment: ${env.NODE_ENV}`);
+    console.log(`[BOOT:ready] Environment: ${env.NODE_ENV} | Mode: ${env.RENDER_WORKER_MODE}`);
     logBoot('ready', `Listening on port ${port}`);
   });
 
-  // ── Step 4: Initialize DB in background (non-blocking) ──
-  logBoot('mongodb', 'Connecting to MongoDB...');
-  (async () => {
-    try {
-      await connectDatabase();
-      healthState.db = 'connected';
-      console.log('[BOOT:mongodb] Connected successfully');
-    } catch (error) {
-      const isAuthError =
-        error instanceof Error &&
-        (error.message.includes('bad auth') || error.message.includes('8000'));
-      if (isAuthError) {
-        console.error('[BOOT:mongodb] AUTHENTICATION FAILED — check MONGODB_URI');
-        return;
-      }
-      console.warn('[BOOT:mongodb] Connection failed — API routes may be unavailable');
-    }
-  })();
-
-  // ── Step 5: Initialize BullMQ/Redis/Workers in background (non-blocking) ──
-  logBoot('bullmq', 'Initializing BullMQ workers and queues...');
-  (async () => {
-    if (!env.ENABLE_BACKGROUND_WORKERS) {
-      healthState.bullmqRedis = 'disabled';
-      console.log('[BOOT:bullmq] Background workers disabled by ENABLE_BACKGROUND_WORKERS=false');
-      return;
-    }
-
-    try {
-      healthState.bullmqRedis = 'connecting';
-      createAiGenerationWorker();
-      createPdfWorker();
-      healthState.bullmqRedis = 'connected';
-      console.log('[BOOT:bullmq] Workers created (AI + PDF)');
-
-      const bullConnection = getBullRedisClient();
-      generationQueueEvents = new QueueEvents('generation', {
-        connection: bullConnection,
-        skipVersionCheck: true,
+  // ── Step 6: Start workers based on mode ──
+  if (env.RENDER_WORKER_MODE === 'worker' || env.RENDER_WORKER_MODE === 'both') {
+    if (env.ENABLE_BACKGROUND_WORKERS) {
+      startBackgroundWorkers().catch((error) => {
+        logger.error(`[BOOT:workers] Failed: ${error instanceof Error ? error.message : error}`);
       });
-      pdfQueueEvents = new QueueEvents('pdf', {
-        connection: bullConnection,
-        skipVersionCheck: true,
-      });
-
-      generationQueueEvents.on('completed', ({ jobId }) => console.log(`[QUEUE:generation] completed jobId=${jobId}`));
-      generationQueueEvents.on('failed', ({ jobId, failedReason }) => console.warn(`[QUEUE:generation] failed jobId=${jobId} reason=${failedReason}`));
-      generationQueueEvents.on('stalled', ({ jobId }) => console.error(`[QUEUE:generation] STALLED jobId=${jobId}`));
-
-      pdfQueueEvents.on('completed', ({ jobId }) => console.log(`[QUEUE:pdf] completed jobId=${jobId}`));
-      pdfQueueEvents.on('failed', ({ jobId, failedReason }) => console.warn(`[QUEUE:pdf] failed jobId=${jobId} reason=${failedReason}`));
-
-      console.log('[BOOT:bullmq] Queue events initialized');
-    } catch (error) {
-      console.warn(`[BOOT:bullmq] Failed to initialize: ${error instanceof Error ? error.message : error}`);
+    } else {
+      logBoot('workers', 'Background workers disabled by ENABLE_BACKGROUND_WORKERS=false');
+      healthState.workers = 'disabled';
     }
-
-    // Start queue timeout watchdog
-    queueTimeoutMonitor = setInterval(() => {
-      void Promise.all([
-        failStaleQueuedJobs(),
-        failStaleInProgressJobs(),
-      ]).catch((e) => console.error('[WATCHDOG] Sweep failed:', e));
-    }, QUEUE_SWEEP_INTERVAL_MS);
-    void Promise.all([
-      failStaleQueuedJobs(),
-      failStaleInProgressJobs(),
-    ]).catch((e) => console.error('[WATCHDOG] Initial sweep failed:', e));
-
-    // Start stall monitor
-    stallMonitorInterval = setInterval(() => {
-      const diag = getBullRedisDiagnostics();
-      console.log(
-        `[STALL] redis=${diag.status} connects=${diag.connectCount} reconnects=${diag.reconnectCount} errors=${diag.errorCount} stalled=${getStalledAiJobCount()} active=${getActiveAiJobCount()}`
-      );
-    }, STALL_MONITOR_INTERVAL_MS);
-
-    console.log('[BOOT:bullmq] Background initialization complete');
-  })();
-
-  // ── Step 6: Replace health endpoint with full version ──
-  // (the routes array allows overriding the early health route)
-  logBoot('health', 'Registering full health endpoint');
+  } else {
+    logBoot('workers', 'Worker mode=web — not starting background workers');
+    healthState.workers = 'web-only';
+  }
 
   // ── Step 7: Graceful shutdown ──
   const shutdown = async (signal: string) => {
