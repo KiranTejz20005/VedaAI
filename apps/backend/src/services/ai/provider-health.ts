@@ -34,7 +34,6 @@ const BASE_PRIORITY: Record<ProviderName, number> = {
   NVIDIA: 100,
   Groq: 95,
   Anthropic: 90,
-  Gemini: 80,
 };
 
 export class ProviderHealthManager {
@@ -133,6 +132,14 @@ export class ProviderHealthManager {
       };
     }
     return result;
+  }
+
+  reset(provider: ProviderName): void {
+    this.states.delete(provider);
+  }
+
+  resetAll(): void {
+    this.states.clear();
   }
 
   private tripCircuit(state: ProviderState): void {

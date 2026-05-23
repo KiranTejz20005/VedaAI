@@ -1,6 +1,5 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { Job } from 'bullmq';
 import { env } from '../config/env';
 import type { IAssignment } from '../models/Assignment.model';
@@ -29,12 +28,10 @@ import { buildCompactSyllabusContext } from './ai/syllabus-preprocessor';
 import { validateBatchResponse, type BatchQuestion } from './ai/batch-validator';
 import { assemblePaperFromBatches } from './ai/paper-assembler';
 import type { GenerationStage } from '../types/socket.types';
-
 const MAX_RETRIES = 2;
 
 const PROVIDER_TIMEOUTS: Record<ProviderName, number> = {
   Anthropic: 60_000,
-  Gemini: 60_000,
   NVIDIA: 60_000,
   Groq: 60_000,
 };
@@ -140,7 +137,6 @@ function parseAnswersPayload(rawOutput: string): Array<{ questionId: string; ans
 let nvidiaClient: OpenAI | null = null;
 let groqClient: OpenAI | null = null;
 let anthropicClient: Anthropic | null = null;
-let geminiClient: GoogleGenerativeAI | null = null;
 
 function correlationIdFor(assignment: IAssignment): string {
   const rawId = (assignment as unknown as { _id?: { toString(): string } })._id?.toString() ?? 'unknown';
@@ -176,17 +172,9 @@ function getAnthropic(): Anthropic {
   return anthropicClient;
 }
 
-function getGemini(): GoogleGenerativeAI {
-  if (!geminiClient) {
-    geminiClient = new GoogleGenerativeAI(env.GEMINI_API_KEY!);
-  }
-  return geminiClient;
-}
-
 function enabledProviders(): ProviderName[] {
   const candidates: ProviderName[] = [];
   if (env.ANTHROPIC_API_KEY) candidates.push('Anthropic');
-  if (env.GEMINI_API_KEY) candidates.push('Gemini');
   if (env.NVIDIA_API_KEY) candidates.push('NVIDIA');
   if (env.GROQ_API_KEY) candidates.push('Groq');
   return candidates;
@@ -197,7 +185,6 @@ function chooseAdaptiveBatchSize(providers: ProviderName[]): number {
   const baseline: Record<ProviderName, number> = {
     NVIDIA: 3,
     Groq: 4,
-    Gemini: 5,
     Anthropic: 7,
   };
   const stats = health.statsSnapshot()[primary];
@@ -229,16 +216,25 @@ function isQuotaExceededMessage(message: string): boolean {
   );
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && (error.name === 'AbortError' || error.message.includes('cancelled') || error.message.includes('aborted'));
+}
+
 interface ProviderCallInput {
   provider: ProviderName;
   systemPrompt: string;
   userPrompt: string;
   temperature: number;
   correlationId: string;
+  signal?: AbortSignal;
 }
 
 async function callProvider(input: ProviderCallInput): Promise<string> {
-  const { provider, systemPrompt, userPrompt, temperature, correlationId } = input;
+  const { provider, systemPrompt, userPrompt, temperature, correlationId, signal } = input;
+
+  if (signal?.aborted) {
+    throw new ProviderTransportError(provider, `${provider} aborted before call`);
+  }
 
   if (!health.canAttempt(provider)) {
     throw new ProviderUnavailableError(provider, `${provider} currently unhealthy (circuit/quarantine)`);
@@ -252,6 +248,18 @@ async function callProvider(input: ProviderCallInput): Promise<string> {
       const timeoutMs = PROVIDER_TIMEOUTS.NVIDIA;
       const controller = new AbortController();
       const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+
+      const onParentAbort = () => {
+        controller.abort();
+      };
+      if (signal) {
+        if (signal.aborted) {
+          clearTimeout(timeoutHandle);
+          throw new ProviderTransportError('NVIDIA', 'NVIDIA cancelled by parent');
+        }
+        signal.addEventListener('abort', onParentAbort, { once: true });
+      }
+
       try {
         const response = await getNvidia().chat.completions.create(
           {
@@ -270,9 +278,9 @@ async function callProvider(input: ProviderCallInput): Promise<string> {
         health.recordSuccess('NVIDIA', Date.now() - t0);
         return text;
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
+        if (isAbortError(error)) {
           health.recordTimeoutFailure('NVIDIA');
-          throw new ProviderTimeoutError('NVIDIA', `NVIDIA timed out after ${timeoutMs}ms`);
+          throw new ProviderTimeoutError('NVIDIA', `NVIDIA timed out or cancelled after ${timeoutMs}ms`);
         }
         const message = error instanceof Error ? error.message : String(error);
         if (isRateLimitMessage(message)) {
@@ -284,6 +292,9 @@ async function callProvider(input: ProviderCallInput): Promise<string> {
         throw new ProviderTransportError('NVIDIA', message);
       } finally {
         clearTimeout(timeoutHandle);
+        if (signal) {
+          signal.removeEventListener('abort', onParentAbort);
+        }
       }
     }
 
@@ -291,10 +302,22 @@ async function callProvider(input: ProviderCallInput): Promise<string> {
       const timeoutMs = PROVIDER_TIMEOUTS.Groq;
       const controller = new AbortController();
       const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+
+      const onParentAbort = () => {
+        controller.abort();
+      };
+      if (signal) {
+        if (signal.aborted) {
+          clearTimeout(timeoutHandle);
+          throw new ProviderTransportError('Groq', 'Groq cancelled by parent');
+        }
+        signal.addEventListener('abort', onParentAbort, { once: true });
+      }
+
       try {
         const response = await getGroq().chat.completions.create(
           {
-            model: 'llama-3.1-70b-versatile',
+            model: 'llama-3.3-70b-versatile',
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt },
@@ -309,9 +332,9 @@ async function callProvider(input: ProviderCallInput): Promise<string> {
         health.recordSuccess('Groq', Date.now() - t0);
         return text;
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
+        if (isAbortError(error)) {
           health.recordTimeoutFailure('Groq');
-          throw new ProviderTimeoutError('Groq', `Groq timed out after ${timeoutMs}ms`);
+          throw new ProviderTimeoutError('Groq', `Groq timed out or cancelled after ${timeoutMs}ms`);
         }
         const message = error instanceof Error ? error.message : String(error);
         if (isRateLimitMessage(message)) {
@@ -323,19 +346,14 @@ async function callProvider(input: ProviderCallInput): Promise<string> {
         throw new ProviderTransportError('Groq', message);
       } finally {
         clearTimeout(timeoutHandle);
+        if (signal) {
+          signal.removeEventListener('abort', onParentAbort);
+        }
       }
     }
 
-    if (provider === 'Gemini') {
-      const model = getGemini().getGenerativeModel({ model: 'gemini-2.0-flash' });
-      const response = await withTimeout(
-        model.generateContent(`${systemPrompt}\n\n${userPrompt}`),
-        PROVIDER_TIMEOUTS.Gemini,
-        'Gemini'
-      );
-      const text = response.response.text();
-      health.recordSuccess('Gemini', Date.now() - t0);
-      return text;
+    if (signal?.aborted) {
+      throw new ProviderTransportError('Anthropic', 'Anthropic cancelled by parent');
     }
 
     const response = await withTimeout(
@@ -346,32 +364,23 @@ async function callProvider(input: ProviderCallInput): Promise<string> {
         messages: [{ role: 'user', content: [{ type: 'text', text: userPrompt }] }],
       }),
       PROVIDER_TIMEOUTS.Anthropic,
-      'Anthropic'
+      'Anthropic',
+      signal
     );
     const content = response.content[0];
     const text = content.type === 'text' ? content.text : '';
     health.recordSuccess('Anthropic', Date.now() - t0);
     return text;
   } catch (error) {
+    if (isAbortError(error)) {
+      throw new ProviderTimeoutError(provider, `${provider} cancelled`);
+    }
+
     if (error instanceof ProviderTimeoutError || error instanceof ProviderRateLimitError || error instanceof ProviderTransportError) {
       throw error;
     }
 
     const message = error instanceof Error ? error.message : String(error);
-
-    if (provider === 'Gemini') {
-      if (isRateLimitMessage(message)) {
-        const quotaExceeded = isQuotaExceededMessage(message);
-        health.recordRateLimitFailure('Gemini', quotaExceeded);
-        throw new ProviderRateLimitError('Gemini', message, quotaExceeded);
-      }
-      if (message.toLowerCase().includes('timed out')) {
-        health.recordTimeoutFailure('Gemini');
-        throw new ProviderTimeoutError('Gemini', message);
-      }
-      health.recordTransportFailure('Gemini');
-      throw new ProviderTransportError('Gemini', message);
-    }
 
     if (provider === 'Groq') {
       if (isRateLimitMessage(message)) {
@@ -436,8 +445,13 @@ async function runBatchWithRetry(
   assignment: IAssignment,
   batch: PlannedBatch,
   syllabusContext: string,
-  correlationId: string
+  correlationId: string,
+  signal?: AbortSignal
 ): Promise<BatchAttemptResult> {
+  if (signal?.aborted) {
+    return { error: new ProviderTransportError(provider, 'Batch cancelled before start') };
+  }
+
   let prompt = buildBatchGenerationPrompt(
     assignment,
     {
@@ -455,6 +469,10 @@ async function runBatchWithRetry(
   );
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    if (signal?.aborted) {
+      return { error: new ProviderTransportError(provider, 'Batch cancelled during retry') };
+    }
+
     const temperature = attempt === 1 ? 0.15 : 0.05;
 
     try {
@@ -464,6 +482,7 @@ async function runBatchWithRetry(
         userPrompt: prompt,
         temperature,
         correlationId,
+        signal,
       });
 
       const validation = validateBatchResponse(rawOutput, {
@@ -507,6 +526,10 @@ async function runBatchWithRetry(
         validation.diagnostics
       );
     } catch (error) {
+      if (signal?.aborted) {
+        return { error: new ProviderTransportError(provider, 'Batch cancelled during error handling') };
+      }
+
       if (!(error instanceof Error)) {
         return { error: new ProviderTransportError(provider, String(error)) };
       }
@@ -541,12 +564,14 @@ export async function generatePaper(
   uploadedContent?: string,
   typeBreakdown?: QuestionTypeBreakdown[],
   job?: Job<GenerationJobData>,
-  onStage?: (stage: GenerationStage, progress: number, message: string) => Promise<void>
+  onStage?: (stage: GenerationStage, progress: number, message: string) => Promise<void>,
+  signal?: AbortSignal
 ): Promise<GenerationOutcome> {
   const started = Date.now();
   const correlationId = correlationIdFor(assignment);
 
   const progress = async (value: number) => {
+    if (signal?.aborted) return;
     if (!job) return;
     try {
       await job.updateProgress(value);
@@ -556,11 +581,16 @@ export async function generatePaper(
   };
 
   const stage = async (stageName: GenerationStage, value: number, message: string) => {
+    if (signal?.aborted) return;
     await progress(value);
     if (onStage) {
       await onStage(stageName, value, message);
     }
   };
+
+  if (signal?.aborted) {
+    throw new Error('Generation cancelled before start');
+  }
 
   await stage('extracting_content', 10, 'Extracting and parsing source content...');
   const syllabusContext = buildCompactSyllabusContext(uploadedContent);
@@ -589,6 +619,9 @@ export async function generatePaper(
   let totalDiscarded = 0;
 
   for (let batchIndex = 0; batchIndex < plan.batches.length; batchIndex++) {
+    if (signal?.aborted) {
+      throw new Error('Generation cancelled during batch processing');
+    }
     const batch = plan.batches[batchIndex]!;
     totalRequested += batch.count;
     const batchStart = Date.now();
@@ -601,7 +634,10 @@ export async function generatePaper(
     let batchSuccess = false;
 
     for (const provider of providers) {
-      const result = await runBatchWithRetry(provider, assignment, batch, syllabusContext, correlationId);
+      if (signal?.aborted) {
+        throw new Error('Generation cancelled during provider fallback');
+      }
+      const result = await runBatchWithRetry(provider, assignment, batch, syllabusContext, correlationId, signal);
 
       if (result.questions && result.questions.length > 0) {
         completedBatches.push({ plan: batch, questions: result.questions });
@@ -609,7 +645,6 @@ export async function generatePaper(
         totalDiscarded += result.discardCount ?? 0;
         batchSuccess = true;
 
-        // Smart retry: if partial recovery, try to get missing questions.
         if (result.partial && result.questions.length < batch.count) {
           const missingCount = batch.count - result.questions.length;
           logger.info(
@@ -634,6 +669,7 @@ export async function generatePaper(
               userPrompt: retryPrompt,
               temperature: 0.1,
               correlationId: `${correlationId}-retry`,
+              signal,
             });
 
             const retryValidation = validateBatchResponse(rawRetryOutput, {
@@ -657,6 +693,9 @@ export async function generatePaper(
               )
             }
           } catch (retryError) {
+            if (signal?.aborted) {
+              throw new Error('Generation cancelled during smart retry');
+            }
             logger.warn(`[SMART_RETRY_ERR] correlationId=${correlationId} ${retryError instanceof Error ? retryError.message : String(retryError)}`);
           }
         }
@@ -692,6 +731,9 @@ export async function generatePaper(
     const maxRescueAttempts = 2;
 
     while (totalRecovered < plan.totalQuestions && rescueAttempts < maxRescueAttempts) {
+      if (signal?.aborted) {
+        throw new Error('Generation cancelled during recovery');
+      }
       const remaining = plan.totalQuestions - totalRecovered;
       rescueAttempts += 1;
       await stage('recovering_batches', 75, `Recovering missing questions (${remaining} remaining)...`);
@@ -708,8 +750,11 @@ export async function generatePaper(
       };
 
       for (const provider of providers) {
+        if (signal?.aborted) {
+          throw new Error('Generation cancelled during provider recovery');
+        }
         await stage('provider_retry', 76, `Trying ${provider} for recovery...`);
-        const rescue = await runBatchWithRetry(provider, assignment, fallbackBatch, syllabusContext, `${correlationId}-rescue-${rescueAttempts}`);
+        const rescue = await runBatchWithRetry(provider, assignment, fallbackBatch, syllabusContext, `${correlationId}-rescue-${rescueAttempts}`, signal);
         if (!rescue.questions || rescue.questions.length === 0) continue;
 
         const rescuedQuestions = rescue.questions.slice(0, remaining);
@@ -771,7 +816,7 @@ export async function generatePaper(
   };
 }
 
-export async function generateAnswersForPaper(paper: ValidatedPaper): Promise<ValidatedPaper> {
+export async function generateAnswersForPaper(paper: ValidatedPaper, signal?: AbortSignal): Promise<ValidatedPaper> {
   const questionsNeedingAnswers = paper.sections.flatMap((s) => s.questions).filter((q) => !q.answer);
   if (questionsNeedingAnswers.length === 0) return paper;
 
@@ -787,8 +832,14 @@ export async function generateAnswersForPaper(paper: ValidatedPaper): Promise<Va
   const maxPasses = Math.max(2, Math.ceil(questionsNeedingAnswers.length / batchSize));
 
   for (let pass = 0; pass < maxPasses && unresolvedIds.size > 0; pass += 1) {
+    if (signal?.aborted) {
+      throw new Error('Answer generation cancelled');
+    }
     const currentQuestions = questionsNeedingAnswers.filter((question) => unresolvedIds.has(question.id));
     for (let index = 0; index < currentQuestions.length; index += batchSize) {
+      if (signal?.aborted) {
+        throw new Error('Answer generation cancelled during batch');
+      }
       const batch = currentQuestions.slice(index, index + batchSize);
       const questionsList = batch
         .map((question) => {
@@ -803,6 +854,9 @@ export async function generateAnswersForPaper(paper: ValidatedPaper): Promise<Va
       let lastError: Error | null = null;
 
       for (const provider of providers) {
+        if (signal?.aborted) {
+          throw new Error('Answer generation cancelled during provider fallback');
+        }
         try {
           const rawOutput = await callProvider({
             provider,
@@ -810,6 +864,7 @@ export async function generateAnswersForPaper(paper: ValidatedPaper): Promise<Va
             userPrompt: prompt,
             temperature: 0.1,
             correlationId: `ans-${Date.now()}-${index}`,
+            signal,
           });
           const answers = parseAnswersPayload(rawOutput);
           if (answers.length === 0) {

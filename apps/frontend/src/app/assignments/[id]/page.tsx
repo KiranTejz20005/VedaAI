@@ -183,7 +183,8 @@ export default function AssignmentDetailPage({
   }, [id]);
 
   useEffect(() => {
-    if (!assignment || assignment.status === 'draft') return;
+    if (!assignment) return;
+    if (assignment.status !== 'completed' && assignment.status !== 'partially_generated') return;
     fetchPaper(id).then(setPaper).catch(() => undefined);
   }, [assignment, id]);
 
@@ -233,10 +234,12 @@ export default function AssignmentDetailPage({
   }, [assignment, id, handleGenerate]);
 
   useEffect(() => {
+    const isTerminal = ['completed', 'failed', 'partially_generated'].includes(assignment?.status ?? '');
     if (!['queued', 'generating'].includes(assignment?.status ?? '') && !stage) return;
+    if (isTerminal) return;
+
     pollingRef.current = setInterval(async () => {
       try {
-        // Poll job status for intermediate progress
         const jobStatus = await fetchJobStatus(id);
         if (jobStatus) {
           const jobRecordId = jobStatus.jobRecordId ?? 'polling-unknown';
@@ -245,15 +248,19 @@ export default function AssignmentDetailPage({
           const version = jobStatus.version ?? 0;
           if (jobStatus.status === 'completed' && jobStatus.paperId) {
             useGenerationStore.getState().setCompleted(jobRecordId, genSeq, version, ts, jobStatus.paperId);
+            if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
           } else if (jobStatus.status === 'failed') {
             useGenerationStore.getState().setFailed(jobRecordId, genSeq, version, ts, jobStatus.error ?? 'Generation failed');
+            if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
           } else if (['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'].includes(jobStatus.status)) {
             useGenerationStore.getState().setProgress(jobRecordId, genSeq, version, ts, jobStatus.progress, jobStatus.status as GenerationStage);
           }
         }
-        // Also poll assignment to keep status in sync
         const updated = await fetchAssignment(id);
         setAssignment(updated);
+        if (['completed', 'failed', 'partially_generated'].includes(updated.status)) {
+          if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+        }
       } catch {
         // Polling failure is non-critical
       }
