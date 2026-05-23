@@ -4,10 +4,19 @@ function normalizeLine(line: string): string {
   return line.replace(/\s+/g, ' ').trim();
 }
 
+function stripImageRefs(text: string): string {
+  return text
+    .replace(/\S*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '')
+    .replace(/data:image\/[^;]+;base64[^"'\s)]+/gi, '')
+    .replace(/!\[.*?\]\(.*?\)/g, '')
+    .replace(/\(?\s*(?:see|refer|check|view|look at|fig|figure|image|picture)\s*:?\s*[^)\n]*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\)?/gi, '');
+}
+
 export function buildCompactSyllabusContext(uploadedContent?: string): string {
   if (!uploadedContent) return 'No uploaded syllabus provided.';
 
-  const lines = uploadedContent
+  const sanitized = stripImageRefs(uploadedContent);
+  const lines = sanitized
     .split(/\r?\n+/)
     .map(normalizeLine)
     .filter((line) => line.length >= 4);

@@ -551,6 +551,29 @@ async function runBatchWithRetry(
         return { error: new ProviderTransportError(provider, String(error)) };
       }
 
+      const msg = error.message;
+
+      // ── Image-reference error: re-sanitize prompt aggressively and retry same provider ──
+      if (
+        msg.includes('does not support image') ||
+        msg.includes('Cannot read') ||
+        (msg.includes('image') && (msg.includes('.png') || msg.includes('.jpg') || msg.includes('.jpeg')))
+      ) {
+        logger.warn(`[BATCH] correlationId=${correlationId} provider=${provider} image ref detected, re-sanitizing prompt`);
+        health.recordValidationFailure(provider);
+        prompt = prompt
+          .replace(/\S*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '[REMOVED]')
+          .replace(/data:image\/[^;]+;base64[^"'\s)]+/gi, '[BINARY REMOVED]')
+          .replace(/\(?\s*(?:see|refer|check|view|look at)\s*:?\s*[^)\n]*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\s*\)?/gi, '')
+          .replace(/!\[.*?\]\(.*?\)/g, '')
+          .replace(/\[.*?\]\(.*?\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\)/g, '');
+        if (attempt < MAX_RETRIES) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          continue;
+        }
+        return { error: new ProviderTransportError(provider, `Image references in uploaded content could not be fully removed: ${msg}`) };
+      }
+
       if (
         error instanceof ProviderValidationError ||
         error instanceof ProviderParseError ||
