@@ -97,9 +97,8 @@ describe('evaluatePaperQuality', () => {
     ]);
 
     const result = evaluatePaperQuality(assignment, paper, breakdown);
-    // Tolerant: under-generation is partial success, not hard failure
-    expect(result.ok).toBe(true);
-    expect(result.partialSuccess).toBe(true);
+    expect(result.ok).toBe(false);
+    expect(result.partialSuccess).toBe(false);
     expect(result.diagnostics.join(' | ')).toContain('Question count mismatch');
     expect(result.diagnostics.join(' | ')).toContain('Marks mismatch');
   });
@@ -138,8 +137,8 @@ describe('evaluatePaperQuality', () => {
     ]);
 
     const result = evaluatePaperQuality(assignment, paper, breakdown);
-    // Tolerant: duplicates are soft warnings, not hard failures
-    expect(result.ok).toBe(true);
+    expect(result.ok).toBe(false);
+    expect(result.partialSuccess).toBe(false);
     expect(result.diagnostics.join(' | ')).toContain('Duplicate question text');
     expect(result.diagnostics.join(' | ')).toContain('duplicate option text');
   });
