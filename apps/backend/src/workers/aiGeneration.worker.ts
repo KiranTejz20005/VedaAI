@@ -16,7 +16,9 @@ import type { GenerationMeta } from '../types/generation.types';
 import type { GenerationStage } from '../types/socket.types';
 import { buildCanonicalPaperMetadata } from '../services/canonical-metadata.service';
 import { logger } from '../utils/logger';
-import { withTimeout } from '../utils/timeout';
+import { withTimeout, createCancellablePromise } from '../utils/timeout';
+import { abortManager } from '../services/ai/abort-manager';
+import { GenerationLock } from '../services/ai/generation-lock';
 
 const GENERATION_TIMEOUT_MS = 120_000;
 
@@ -26,6 +28,9 @@ const STAGE_ORDER: Record<GenerationStage, number> = {
   topic_preprocessing: 20,
   generation_planning: 30,
   batch_generating: 40,
+  provider_retry: 45,
+  validation_retry: 50,
+  recovering_batches: 55,
   validating: 60,
   answer_key_generating: 75,
   pdf_composing: 85,
@@ -114,15 +119,23 @@ export function createAiGenerationWorker() {
       activeJobCount++;
       const { assignmentId, jobRecordId } = job.data;
       const jobStartTime = Date.now();
-      logger.info(`[WORKER:START] Job ${job.id} | assignment=${assignmentId} | attempt=${job.attemptsMade + 1} | activeJobs=${activeJobCount}`);
+      const workerId = `worker-${process.pid}-${job.id}`;
+      const lock = new GenerationLock();
+
+      logger.info(
+        `[WORKER:START] Job ${job.id} assignment=${assignmentId} attempt=${job.attemptsMade + 1} ` +
+        `activeJobs=${activeJobCount} workerId=${workerId}`
+      );
 
       let assignment: any = null;
       let generationSeq = 0;
       let progressVersion = 0;
       let lastStageIndex = 0;
       let lastProgress = 0;
+      let lockAcquired = false;
+
       try {
-        // ── STEP 0: Validate job record ──
+        // ── STEP 0: Validate job record and acquire lock ──
         logger.debug(`[STEP 0] Fetching GenerationJob: ${jobRecordId}`);
         const t0 = Date.now();
         const jobRecord = await GenerationJob.findById(jobRecordId).lean();
@@ -130,14 +143,16 @@ export function createAiGenerationWorker() {
         progressVersion = Number((jobRecord as any)?.progressVersion ?? 0);
         lastStageIndex = Number((jobRecord as any)?.stageIndex ?? 0);
         lastProgress = Number((jobRecord as any)?.progress ?? 0);
-        logger.debug(`[STEP 0] GenerationJob fetched in ${Date.now() - t0}ms | status=${jobRecord?.status}`);
+        logger.debug(
+          `[STEP 0] GenerationJob fetched in ${Date.now() - t0}ms | status=${jobRecord?.status} ` +
+          `assignmentId=${assignmentId}`
+        );
         if (!jobRecord || jobRecord.status === 'failed') {
           logger.error(`[STEP 0] Job record not found or already failed`);
           throw new Error('Generation job timed out in queue');
         }
 
         // Hard guard: only the Assignment's activeGenerationJobId is allowed to mutate state.
-        // This prevents stale retries / duplicate jobs from overwriting a newer successful run.
         const ownerCheck = await Assignment.findById(assignmentId).select({ activeGenerationJobId: 1, generationSeq: 1, status: 1 }).lean();
         const activeJobId = ownerCheck?.activeGenerationJobId ? String(ownerCheck.activeGenerationJobId) : '';
         const activeSeq = Number((ownerCheck as any)?.generationSeq ?? 0);
@@ -147,12 +162,30 @@ export function createAiGenerationWorker() {
             `[STALE JOB] Ignoring jobRecord=${jobRecordId} (seq=${jobSeq}) for assignment=${assignmentId}. ` +
             `Active jobRecord=${activeJobId || 'none'} (seq=${activeSeq}), status=${ownerCheck?.status}`
           );
-          // Do not throw: throwing can trigger BullMQ retries and additional stale writes.
           return;
         }
 
+        // ── Acquire distributed generation lock ──
+        logger.debug(`[STEP 0] Acquiring generation lock for assignment=${assignmentId}`);
+        lockAcquired = await lock.acquire(assignmentId, jobRecordId, generationSeq);
+        if (!lockAcquired) {
+          logger.warn(`[STEP 0] Could not acquire lock for assignment=${assignmentId}. Another worker owns this assignment.`);
+          return;
+        }
+
+        // Verify we still own the job after acquiring lock
+        const recheck = await Assignment.findById(assignmentId).select({ activeGenerationJobId: 1, generationSeq: 1 }).lean();
+        if (!recheck || String(recheck.activeGenerationJobId ?? '') !== String(jobRecordId)) {
+          logger.warn(`[LOCK] Lost ownership race for assignment=${assignmentId} — returning`);
+          return;
+        }
+
+        // Register abort controller
+        abortManager.register(assignmentId, jobRecordId, generationSeq, job.attemptsMade + 1);
+        const abortSignal = abortManager.getSignal(assignmentId, jobRecordId)!;
+
         const emit = async (stage: GenerationStage, progress: number, message?: string) => {
-          // Monotonic guard (local): never emit regressive stage/progress.
+          if (abortSignal.aborted) return;
           const prevStageIndex = lastStageIndex;
           const prevProgress = lastProgress;
           const nextStageIndex = STAGE_ORDER[stage] ?? 0;
@@ -174,8 +207,6 @@ export function createAiGenerationWorker() {
             ts: Date.now(),
           });
           try {
-            // DB monotonic guard: progressVersion always increases, progress never decreases,
-            // and stageIndex never decreases. Status changes only when moving forward.
             await GenerationJob.findOneAndUpdate(
               { _id: jobRecordId, generationSeq },
               {
@@ -201,7 +232,9 @@ export function createAiGenerationWorker() {
         logger.debug(`[STEP 3] Fetching Assignment: ${assignmentId}`);
         const t3 = Date.now();
         assignment = await Assignment.findById(assignmentId).lean();
-        logger.debug(`[STEP 3] Assignment fetched in ${Date.now() - t3}ms | title="${assignment?.title}" status=${assignment?.status}`);
+        logger.debug(
+          `[STEP 3] Assignment fetched in ${Date.now() - t3}ms | title="${assignment?.title}" status=${assignment?.status}`
+        );
         if (!assignment) {
           logger.error(`[STEP 3] Assignment ${assignmentId} not found`);
           throw new Error(`Assignment ${assignmentId} not found`);
@@ -245,39 +278,75 @@ export function createAiGenerationWorker() {
 
         await emit('generation_planning', 30, 'Building generation plan...');
 
-        // ── STEP 7: AI generation (THE CRITICAL STEP) ──
-        logger.info(`[STEP 7] Calling generatePaper() at ${Date.now() - jobStartTime}ms elapsed`);
+        // ── STEP 7: AI generation with timeout and abort support ──
+        logger.info(
+          `[STEP 7] Calling generatePaper() at ${Date.now() - jobStartTime}ms elapsed ` +
+          `assignment=${assignmentId}`
+        );
         const t7 = Date.now();
-        let paper: any;
+        let generationResult: any;
         try {
-          paper = await withTimeout(
-            generatePaper(assignment as any, uploadedContent || undefined, typeBreakdown, job, async (stage, progress, stageMessage) => {
-              await emit(stage, progress, stageMessage);
-            }),
+          generationResult = await withTimeout(
+            generatePaper(
+              assignment as any,
+              uploadedContent || undefined,
+              typeBreakdown,
+              job,
+              async (stage, progress, stageMessage) => {
+                await emit(stage, progress, stageMessage);
+              },
+              abortSignal
+            ),
             GENERATION_TIMEOUT_MS,
-            'Generation'
+            'Generation',
+            abortSignal
           );
           await job.updateProgress(80);
-          logger.info(`[STEP 7] generatePaper() completed in ${Date.now() - t7}ms | title="${paper?.title}" sections=${paper?.sections?.length}`);
+          logger.info(
+            `[STEP 7] generatePaper() completed in ${Date.now() - t7}ms | ` +
+            `title="${generationResult?.paper?.title}" sections=${generationResult?.paper?.sections?.length} status=${generationResult?.status}`
+          );
         } catch (genErr) {
-          logger.error(`[STEP 7 FAILED] generatePaper() threw after ${Date.now() - t7}ms: ${genErr instanceof Error ? genErr.message : String(genErr)}`);
-          if (genErr instanceof Error && genErr.stack) {
-            logger.error(`[STEP 7 STACK] ${genErr.stack.split('\n').slice(0, 6).join('\n')}`);
-          }
+          logger.error(
+            `[STEP 7 FAILED] generatePaper() threw after ${Date.now() - t7}ms: ` +
+            `${genErr instanceof Error ? genErr.message : String(genErr)} ` +
+            `assignmentId=${assignmentId} jobRecord=${jobRecordId}`
+          );
+          abortManager.abort(assignmentId, jobRecordId, 'Generation failed');
           throw genErr;
         }
 
-        // ── STEP 7b: Generate answers separately (split pipeline) ──
-        logger.info(`[STEP 7b] Generating answers for ${paper.sections.reduce((s: number, sec: any) => s + sec.questions.length, 0)} questions`);
+        if (abortSignal.aborted) {
+          logger.warn(`[STEP 7] Aborted after generation — abortSignal triggered assignment=${assignmentId}`);
+          throw new Error('Generation cancelled after completion check');
+        }
+
+        let paper: any = generationResult.paper;
+        const generationOutcome = generationResult.status;
+
+        // ── STEP 7b: Generate answers ──
+        logger.info(
+          `[STEP 7b] Generating answers for ${paper.sections.reduce((s: number, sec: any) => s + sec.questions.length, 0)} questions`
+        );
         const t7b = Date.now();
         try {
           await emit('answer_key_generating', 87, 'Generating answer key...');
-          paper = await generateAnswersForPaper(paper);
+          paper = await createCancellablePromise(
+            (sig) => generateAnswersForPaper(paper, sig),
+            abortSignal,
+            'Answer generation'
+          );
           await job.updateProgress(90);
           logger.info(`[STEP 7b] Answers generated in ${Date.now() - t7b}ms`);
         } catch (answerErr) {
-          logger.error(`[STEP 7b] Answer generation failed: ${answerErr instanceof Error ? answerErr.message : String(answerErr)}`);
+          logger.error(
+            `[STEP 7b] Answer generation failed: ${answerErr instanceof Error ? answerErr.message : String(answerErr)}`
+          );
           throw answerErr;
+        }
+
+        if (abortSignal.aborted) {
+          throw new Error('Generation cancelled after answer generation');
         }
 
         // ── STEP 8: Emit validating ──
@@ -289,10 +358,11 @@ export function createAiGenerationWorker() {
         const t9 = Date.now();
         let savedPaper: any;
         try {
-          // Re-check ownership right before destructive paper write.
           const owner = await Assignment.findById(assignmentId).select({ activeGenerationJobId: 1, generationSeq: 1 }).lean();
           if (!owner || String(owner.activeGenerationJobId ?? '') !== String(jobRecordId)) {
-            logger.warn(`[STALE JOB] Skipping savePaper for non-owner jobRecord=${jobRecordId} assignment=${assignmentId}`);
+            logger.warn(
+              `[STALE JOB] Skipping savePaper for non-owner jobRecord=${jobRecordId} assignment=${assignmentId}`
+            );
             return;
           }
           const provisionalMetadata = buildCanonicalPaperMetadata(assignment as any, paper as any);
@@ -300,7 +370,10 @@ export function createAiGenerationWorker() {
           await job.updateProgress(95);
           logger.info(`[STEP 9] GeneratedPaper saved in ${Date.now() - t9}ms | id=${savedPaper._id}`);
         } catch (saveErr) {
-          logger.error(`[STEP 9 FAILED] savePaper() threw after ${Date.now() - t9}ms: ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`);
+          logger.error(
+            `[STEP 9 FAILED] savePaper() threw after ${Date.now() - t9}ms: ` +
+            `${saveErr instanceof Error ? saveErr.message : String(saveErr)}`
+          );
           throw saveErr;
         }
 
@@ -313,15 +386,13 @@ export function createAiGenerationWorker() {
         const generatedQty = paper.sections.reduce((s: number, sec: any) => s + sec.questions.length, 0);
         const generatedMarks = paper.sections.reduce((s: number, sec: any) =>
           s + sec.questions.reduce((ms: number, q: any) => ms + (q.marks || 0), 0), 0);
-        const isPartial = generatedQty < requestedQty;
-        const isFinalAttempt = job.attemptsMade >= (job.opts.attempts ?? 2) - 1;
+        const isPartial = generationOutcome === 'partial_success';
+        const isFailed = generationOutcome === 'failed';
 
-        logger.debug(`[STEP 11] Generated ${generatedQty}/${requestedQty} questions (${generatedMarks}/${assignment.totalMarks} marks)`);
+        logger.debug(
+          `[STEP 11] Generated ${generatedQty}/${requestedQty} questions (${generatedMarks}/${assignment.totalMarks} marks)`
+        );
         const t11 = Date.now();
-
-        if (isPartial && !isFinalAttempt) {
-          throw new Error(`Incomplete generation (${generatedQty}/${requestedQty}); retrying before finalize`);
-        }
 
         if (isPartial) {
           const genMeta: GenerationMeta = {
@@ -330,8 +401,8 @@ export function createAiGenerationWorker() {
             requestedQuestionCount: requestedQty,
             generatedMarks,
             requestedMarks: assignment.totalMarks,
-            completedBatches: 1,
-            failedBatches: 0,
+            completedBatches: generationResult.completedBatches ?? 0,
+            failedBatches: generationResult.failedBatches ?? 0,
             providerName: null,
             failureCategory: 'under_generation',
             failureReason: `Generated ${generatedQty}/${requestedQty} questions. The AI provider returned fewer questions than requested.`,
@@ -344,12 +415,33 @@ export function createAiGenerationWorker() {
             { status: 'partially_generated', generationMeta: genMeta }
           );
           logger.info(`[STEP 11] Assignment marked as partially_generated (${generatedQty}/${requestedQty})`);
-        } else {
+        } else if (!isFailed) {
           await Assignment.findOneAndUpdate(
             { _id: assignmentId, activeGenerationJobId: jobRecordId },
             { status: 'completed', finalizedAt: new Date() }
           );
           logger.debug(`[STEP 11] Assignment status updated to 'completed' in ${Date.now() - t11}ms`);
+        } else {
+          const genMeta: GenerationMeta = {
+            status: 'failed',
+            generatedQuestionCount: generatedQty,
+            requestedQuestionCount: requestedQty,
+            generatedMarks,
+            requestedMarks: assignment.totalMarks,
+            completedBatches: generationResult.completedBatches ?? 0,
+            failedBatches: generationResult.failedBatches ?? 0,
+            providerName: null,
+            failureCategory: 'partial_generation',
+            failureReason: `Generation completed with only ${generatedQty}/${requestedQty} valid questions`,
+            diagnostics: generationResult.quality?.diagnostics?.slice(0, 20) ?? null,
+            partialPaper: paper.sections,
+            completedAt: new Date(),
+          };
+          await Assignment.findOneAndUpdate(
+            { _id: assignmentId, activeGenerationJobId: jobRecordId, status: { $ne: 'completed' } },
+            { status: 'failed', generationMeta: genMeta }
+          );
+          logger.warn(`[STEP 11] Assignment marked failed with partial paper (${generatedQty}/${requestedQty})`);
         }
         await job.updateProgress(99);
 
@@ -362,24 +454,41 @@ export function createAiGenerationWorker() {
         await GenerationJob.findOneAndUpdate(
           { _id: jobRecordId, generationSeq },
           {
-            $set: { status: 'completed', completedAt: new Date() },
+            $set: { status: isFailed ? 'failed' : 'completed', completedAt: new Date() },
             $inc: { progressVersion: 1 },
-            $max: { progress: 100, stageIndex: STAGE_ORDER.completed },
+            $max: { progress: 100, stageIndex: isFailed ? STAGE_ORDER.failed : STAGE_ORDER.completed },
           } as any
         );
         logger.debug(`[STEP 12] GenerationJob updated in ${Date.now() - t12}ms`);
 
-        // ── STEP 13: Emit generation:completed via WebSocket ──
-        logger.debug(`[STEP 13] Emitting generation:completed via WebSocket`);
+        // ── STEP 13: Emit terminal WebSocket event ──
         const t13 = Date.now();
-        emitToAssignment(assignmentId, 'generation:completed', {
-          assignmentId,
-          paperId: savedPaper._id.toString(),
-          jobRecordId,
-          generationSeq,
-          version: progressVersion,
-          ts: Date.now(),
-        });
+        if (isFailed) {
+          emitToAssignment(assignmentId, 'generation:failed', {
+            assignmentId,
+            error: `Generation finished with partial content (${generatedQty}/${requestedQty})`,
+            retryable: false,
+            jobRecordId,
+            generationSeq,
+            version: progressVersion,
+            ts: Date.now(),
+          });
+        } else {
+          emitToAssignment(assignmentId, 'generation:completed', {
+            assignmentId,
+            paperId: savedPaper._id.toString(),
+            jobRecordId,
+            generationSeq,
+            partial: isPartial,
+            status: isPartial ? 'partial_success' : 'complete',
+            generatedQuestionCount: generatedQty,
+            requestedQuestionCount: requestedQty,
+            generatedMarks,
+            requestedMarks: assignment.totalMarks,
+            version: progressVersion,
+            ts: Date.now(),
+          } as any);
+        }
         logger.debug(`[STEP 13] WebSocket emit done in ${Date.now() - t13}ms`);
 
         // ── STEP 14: Enqueue PDF generation ──
@@ -399,18 +508,26 @@ export function createAiGenerationWorker() {
         }
 
         const totalTime = Date.now() - jobStartTime;
-        logger.info(`[WORKER:COMPLETE] Job ${job.id} finished in ${totalTime}ms | assignment=${assignmentId} | activeJobs=${activeJobCount}`);
+        logger.info(
+          `[WORKER:COMPLETE] Job ${job.id} finished in ${totalTime}ms | ` +
+          `assignment=${assignmentId} | activeJobs=${activeJobCount} | workerId=${workerId}`
+        );
       } catch (error) {
         const elapsed = Date.now() - jobStartTime;
         const message = error instanceof Error ? error.message : 'Unknown error';
         const isFinalAttempt = job.attemptsMade >= (job.opts.attempts ?? 2) - 1;
-        logger.error(`[WORKER FAIL] Job ${job.id} failed at ${elapsed}ms (attempt ${job.attemptsMade + 1}, final=${isFinalAttempt}): ${message}`);
+
+        // Abort any running generation for this assignment
+        abortManager.abort(assignmentId, jobRecordId, `Worker failure: ${message}`);
+
+        logger.error(
+          `[WORKER FAIL] Job ${job.id} failed at ${elapsed}ms (attempt ${job.attemptsMade + 1}, final=${isFinalAttempt}): ${message} ` +
+          `assignmentId=${assignmentId} workerId=${workerId}`
+        );
         if (error instanceof Error && error.stack) {
           logger.error(`[WORKER FAIL STACK] ${error.stack.split('\n').slice(0, 8).join('\n')}`);
         }
 
-        // Only the active job may mark failure/partial. This prevents late retries from
-        // downgrading a completed assignment.
         const owner = await Assignment.findById(assignmentId).select({ activeGenerationJobId: 1, status: 1 }).lean().catch(() => null);
         const isOwner = !!owner && String(owner.activeGenerationJobId ?? '') === String(jobRecordId);
         const isFinalized = owner?.status === 'completed';
@@ -455,10 +572,13 @@ export function createAiGenerationWorker() {
           }
 
           await Promise.allSettled([
-            Assignment.findOneAndUpdate({ _id: assignmentId, activeGenerationJobId: jobRecordId, status: { $ne: 'completed' } }, {
-              status: hasPartial ? 'partially_generated' : 'failed',
-              generationMeta: genMeta,
-            }),
+            Assignment.findOneAndUpdate(
+              { _id: assignmentId, activeGenerationJobId: jobRecordId, status: { $ne: 'completed' } },
+              {
+                status: hasPartial ? 'partially_generated' : 'failed',
+                generationMeta: genMeta,
+              }
+            ),
             GenerationJob.findOneAndUpdate(
               { _id: jobRecordId, generationSeq },
               {
@@ -495,6 +615,16 @@ export function createAiGenerationWorker() {
 
         throw error;
       } finally {
+        // Release abort controller
+        abortManager.release(assignmentId, jobRecordId);
+
+        // Release distributed lock
+        if (lockAcquired) {
+          await lock.release(assignmentId).catch((err) => {
+            logger.warn(`[LOCK] Release error assignment=${assignmentId}: ${err}`);
+          });
+        }
+
         activeJobCount = Math.max(0, activeJobCount - 1);
       }
     },
@@ -503,16 +633,8 @@ export function createAiGenerationWorker() {
       skipVersionCheck: true,
       concurrency: env.AI_WORKER_CONCURRENCY,
       limiter: { max: 5, duration: 60000 },
-      // lockDuration MUST exceed the maximum AI generation time.
-      // Default is 30s — our AI generation can take up to 120s.
-      // Without this, BullMQ's stalled job detector kicks in during
-      // legitimate long-running AI calls and corrupts the job state.
       lockDuration: 180_000,
-      // stalledInterval: how often BullMQ checks for stalled jobs (ms).
-      // Default is 30s. Set high to avoid false positives during AI calls.
       stalledInterval: 120_000,
-      // drainDelay: delay before checking for new jobs when queue is empty.
-      // Default is 5s. Lower = faster pickup, higher = less Redis polling.
       drainDelay: 5000,
     }
   );
@@ -552,9 +674,14 @@ export function createAiGenerationWorker() {
       if (!jobRecord) return;
 
       const assignmentId = jobRecord.assignmentId.toString();
+      const jrId = String((jobRecord as any)._id ?? '');
+
+      // Abort any running work for this job
+      abortManager.abort(assignmentId, jrId, `BullMQ stalled ${perJobCount} times`);
+
       await Promise.allSettled([
         Assignment.findOneAndUpdate(
-          { _id: assignmentId, activeGenerationJobId: (jobRecord as any)._id, status: { $ne: 'completed' } },
+          { _id: assignmentId, activeGenerationJobId: jrId, status: { $ne: 'completed' } },
           { status: 'failed' }
         ),
         GenerationJob.findOneAndUpdate(
@@ -572,7 +699,7 @@ export function createAiGenerationWorker() {
         assignmentId,
         error: `Generation stalled ${perJobCount} times and was auto-failed`,
         retryable: true,
-        jobRecordId: String((jobRecord as any)._id ?? ''),
+        jobRecordId: jrId,
         generationSeq: Number((jobRecord as any).generationSeq ?? 0),
         version: nextVersion,
         ts: Date.now(),
@@ -596,6 +723,6 @@ export function createAiGenerationWorker() {
     logger.info('[WORKER:EVENT] resumed — job processing continuing');
   });
 
-  logger.info('[WORKER] AI generation worker created with LOCAL Redis (BullMQ stable)');
+  logger.info('[WORKER] AI generation worker created with CANCELLATION, LOCK, and ABORT support');
   return aiWorker;
 }

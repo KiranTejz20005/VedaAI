@@ -20,6 +20,7 @@ export interface SmartRetryInput {
   missingCount: number;
   missingTypes: QuestionType[];
   marksPerQuestion: number;
+  allowedMarks: number[];
   difficultyHint: string;
   syllabusContext: string;
   sectionTitle: string;
@@ -27,11 +28,13 @@ export interface SmartRetryInput {
 
 export function buildSmartRetryPrompt(input: SmartRetryInput): string {
   const allowedTypes = input.missingTypes.join(', ');
+  const allowedMarks = input.allowedMarks.join(', ');
 
   return (
     `Generate EXACTLY ${input.missingCount} additional question(s) for an exam paper.\n\n` +
     `Requirements:\n` +
     `- Question type(s): ${allowedTypes}\n` +
+    `- Allowed marks per question: ${allowedMarks}\n` +
     `- Marks per question: ${input.marksPerQuestion}\n` +
     `- Total marks needed: ${input.missingCount * input.marksPerQuestion}\n` +
     `- Difficulty: ${input.difficultyHint}\n` +
@@ -39,8 +42,10 @@ export function buildSmartRetryPrompt(input: SmartRetryInput): string {
     `${input.syllabusContext ? 'Topic context: ' + input.syllabusContext.slice(0, 500) + '\n\n' : ''}` +
     `Return ONLY valid JSON with a "questions" array containing EXACTLY ${input.missingCount} question object(s).\n` +
     `No markdown, no code fences, no extra text.\n` +
-    `Each object must have: id (UUID), question (string, >=10 chars), type, difficulty, marks.\n` +
-    `For MCQ: include exactly 4 options with key and text.`
+    `Do NOT include an id field. The server assigns question IDs internally.\n` +
+    `Each object must have: question (string, >=10 chars), type, difficulty, marks.\n` +
+    `For MCQ: include exactly 4 options with key and text.\n` +
+    `Question marks must match one of the allowed marks exactly.`
   );
 }
 

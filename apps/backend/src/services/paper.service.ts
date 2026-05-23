@@ -1,5 +1,5 @@
 import { GeneratedPaper, type IGeneratedPaper } from '../models/GeneratedPaper.model';
-import type { ValidatedPaper } from '../validators/paper.validator';
+import { validatePaperOrThrow, type ValidatedPaper } from '../validators/paper.validator';
 import mongoose from 'mongoose';
 import { logger } from '../utils/logger';
 import type { CanonicalPaperMetadata } from '../types/canonical.types';
@@ -11,6 +11,7 @@ export async function savePaper(
   canonicalMetadata?: CanonicalPaperMetadata
 ): Promise<IGeneratedPaper> {
   const t0 = Date.now();
+  const validatedPaper = validatePaperOrThrow(paper);
   logger.debug(`[savePaper] START | assignmentId=${assignmentId} title="${paper.title}" sections=${paper.sections.length}`);
 
   // Delete existing paper for this assignment
@@ -29,10 +30,10 @@ export async function savePaper(
   logger.debug(`[savePaper] Creating new GeneratedPaper...`);
   const saved = await GeneratedPaper.create({
     assignmentId: new mongoose.Types.ObjectId(assignmentId),
-    title: paper.title,
-    totalMarks: paper.totalMarks,
+    title: validatedPaper.title,
+    totalMarks: validatedPaper.totalMarks,
     duration: duration ?? 45,
-    sections: paper.sections,
+    sections: validatedPaper.sections,
     canonicalMetadata,
     generatedAt: new Date(),
   });

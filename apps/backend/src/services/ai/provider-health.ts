@@ -31,9 +31,9 @@ const DEFAULT_STATS: ProviderStats = {
 };
 
 const BASE_PRIORITY: Record<ProviderName, number> = {
-  Anthropic: 100,
-  Gemini: 80,
-  NVIDIA: 60,
+  NVIDIA: 100,
+  Groq: 95,
+  Anthropic: 90,
 };
 
 export class ProviderHealthManager {
@@ -73,6 +73,13 @@ export class ProviderHealthManager {
     const s = this.state(provider);
     s.stats.requests++;
     s.stats.validationFailures++;
+    const totalFailures = s.stats.validationFailures + s.stats.parseFailures + s.stats.transportFailures + s.stats.timeoutFailures;
+    const failureRate = totalFailures / Math.max(1, s.stats.requests);
+    if (s.stats.validationFailures >= 8 && failureRate > 0.45) {
+      s.quarantineUntil = Date.now() + 10 * 60_000;
+      return;
+    }
+    this.tripCircuit(s);
   }
 
   recordParseFailure(provider: ProviderName): void {
@@ -125,6 +132,14 @@ export class ProviderHealthManager {
       };
     }
     return result;
+  }
+
+  reset(provider: ProviderName): void {
+    this.states.delete(provider);
+  }
+
+  resetAll(): void {
+    this.states.clear();
   }
 
   private tripCircuit(state: ProviderState): void {

@@ -3,6 +3,7 @@ import type { ValidatedPaper } from '../../validators/paper.validator';
 import type { BatchQuestion } from './batch-validator';
 import type { PlannedBatch } from './generation-planner';
 import type { QuestionType } from '../../types/assignment.types';
+import { randomUUID } from 'crypto';
 
 export interface AssembledBatchSection {
   title: string;
@@ -46,6 +47,7 @@ function normalizeQuestionText(value: string): string {
 function normalizeQuestion(question: BatchQuestion): BatchQuestion {
   const normalized: BatchQuestion = {
     ...question,
+    id: randomUUID(),
     question: normalizeQuestionText(question.question),
     marks: Math.max(1, Math.round(Number(question.marks) || 1)),
     difficulty: question.difficulty,
@@ -70,16 +72,8 @@ function normalizeQuestion(question: BatchQuestion): BatchQuestion {
   return normalized;
 }
 
-function dedupeQuestions(questions: BatchQuestion[]): BatchQuestion[] {
-  const seen = new Set<string>();
-  const deduped: BatchQuestion[] = [];
-  for (const question of questions) {
-    const key = question.question.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    deduped.push(question);
-  }
-  return deduped;
+function normalizeAggregationKey(question: BatchQuestion): string {
+  return question.question.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
 function sortQuestions(questions: BatchQuestion[]): BatchQuestion[] {
@@ -95,25 +89,33 @@ export function assemblePaperFromBatches(
   batches: Array<{ plan: PlannedBatch; questions: BatchQuestion[] }>
 ): ValidatedPaper {
   const grouped = new Map<QuestionType, BatchQuestion[]>();
+  const seenQuestions = new Set<string>();
 
   for (const { questions } of batches) {
     for (const rawQuestion of questions) {
       const question = normalizeQuestion(rawQuestion);
+      const key = normalizeAggregationKey(question);
+      if (seenQuestions.has(key)) {
+        continue;
+      }
+      seenQuestions.add(key);
       const group = grouped.get(question.type) ?? [];
       group.push(question);
       grouped.set(question.type, group);
     }
   }
 
-  const sections: AssembledBatchSection[] = TYPE_ORDER
+  const sections: ValidatedPaper['sections'] = TYPE_ORDER
     .filter((type) => (grouped.get(type)?.length ?? 0) > 0)
     .map((type, index) => {
-      const questions = sortQuestions(dedupeQuestions(grouped.get(type) ?? []));
+      const questions = sortQuestions(grouped.get(type) ?? []).map(
+        (question) => question as ValidatedPaper['sections'][number]['questions'][number]
+      );
       return {
         title: `Section ${sectionLetter(index)} - ${SECTION_LABELS[type]}`,
         instruction: instructionFor(type, questions),
         questions,
-      };
+      } as ValidatedPaper['sections'][number];
     });
 
   const totalMarks = sections.reduce(

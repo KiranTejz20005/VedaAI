@@ -15,7 +15,7 @@ const router = Router();
 router.get('/', asyncHandler(listAssignmentsHandler));
 
 // POST /api/assignments  (with optional file uploads)
-router.post('/', uploadMiddleware.array('files', 5), asyncHandler(createAssignmentHandler));
+router.post('/', uploadMiddleware.array('files', 10), asyncHandler(createAssignmentHandler));
 
 // GET /api/assignments/:id
 router.get('/:id', asyncHandler(getAssignmentHandler));

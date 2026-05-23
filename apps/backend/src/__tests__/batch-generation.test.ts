@@ -82,7 +82,7 @@ describe('validateBatchResponse', () => {
     expect(result.generatedMarks).toBe(4);
   });
 
-  it('salvages truncated JSON and duplicate questions per question', () => {
+  it('rejects truncated JSON and duplicate questions', () => {
     const truncated = validateBatchResponse(
       '{"questions":[{"id":"123e4567-e89b-12d3-a456-426614174000","question":"Explain arrays","type":"short-answer","difficulty":"easy","marks":2},',
       {
@@ -93,8 +93,8 @@ describe('validateBatchResponse', () => {
       }
     );
 
-    expect(truncated.ok).toBe(true);
-    expect(truncated.generatedCount).toBe(1);
+    expect(truncated.ok).toBe(false);
+    expect(truncated.generatedCount).toBe(0);
     expect(truncated.diagnostics.join(' | ')).toContain('truncated');
 
     const duplicates = validateBatchResponse(
@@ -124,15 +124,13 @@ describe('validateBatchResponse', () => {
       }
     );
 
-    // Tolerant recovery: 1 question salvaged, 1 duplicate discarded
-    expect(duplicates.ok).toBe(true);
+    expect(duplicates.ok).toBe(false);
     expect(duplicates.generatedCount).toBe(1);
-    expect(duplicates.repairCount).toBe(0);
     expect(duplicates.discardCount).toBe(1);
     expect(duplicates.diagnostics.join(' | ')).toContain('duplicate question text');
   });
 
-  it('recovers valid questions around one corrupted question object', () => {
+  it('rejects batches with corrupted question objects', () => {
     const raw = `{
       "questions": [
         {"id":"123e4567-e89b-12d3-a456-426614174010","question":"What does var declare in JavaScript?","type":"mcq","difficulty":"beginner","marks":1,
@@ -153,14 +151,13 @@ describe('validateBatchResponse', () => {
       expectedType: 'mcq',
     });
 
-    expect(result.generatedCount).toBe(3);
-    expect(result.questions).toHaveLength(3);
-    expect(result.questions.every((q) => q.type === 'mcq')).toBe(true);
-    expect(result.discardCount).toBeGreaterThanOrEqual(1);
-    expect(result.totalDetected).toBeGreaterThan(result.generatedCount);
+    expect(result.ok).toBe(false);
+    expect(result.generatedCount).toBe(0);
+    expect(result.questions).toHaveLength(0);
+    expect(result.diagnostics.length).toBeGreaterThan(0);
   });
 
-  it('repairs duplicate and invalid UUIDs without rejecting the batch', () => {
+  it('assigns internal ids even when the model repeats or omits ids', () => {
     const duplicateId = '123e4567-e89b-12d3-a456-426614174020';
     const result = validateBatchResponse(
       JSON.stringify({
@@ -180,10 +177,11 @@ describe('validateBatchResponse', () => {
     );
 
     const ids = result.questions.map((q) => q.id);
+    expect(result.ok).toBe(true);
     expect(result.generatedCount).toBe(3);
     expect(new Set(ids).size).toBe(3);
     expect(ids.every((id) => /^[0-9a-f-]{36}$/i.test(id))).toBe(true);
-    expect(result.repairTypes).toEqual(expect.arrayContaining(['uuid']));
+    expect(result.repairTypes).toEqual([]);
   });
 });
 

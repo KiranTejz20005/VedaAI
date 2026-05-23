@@ -116,7 +116,11 @@ function SectionBlock({ section, startNumber }: { section: Section; startNumber:
         </p>
       )}
       {section.questions.map((q, qi) => (
-        <QuestionItem key={q.id} question={q} number={startNumber + qi} />
+        <QuestionItem
+          key={`${section.title}-${startNumber + qi}-${qi}`}
+          question={q}
+          number={startNumber + qi}
+        />
       ))}
     </div>
   );

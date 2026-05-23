@@ -32,6 +32,9 @@ const STAGE_STEPS: { stage: GenerationStage; label: string }[] = [
   { stage: 'topic_preprocessing', label: 'Preprocess' },
   { stage: 'generation_planning', label: 'Planning' },
   { stage: 'batch_generating', label: 'Generation' },
+  { stage: 'provider_retry', label: 'Provider Retry' },
+  { stage: 'validation_retry', label: 'Validation Retry' },
+  { stage: 'recovering_batches', label: 'Recovery' },
   { stage: 'validating', label: 'Validation' },
   { stage: 'answer_key_generating', label: 'Answer Key' },
   { stage: 'pdf_composing', label: 'PDF' },
@@ -43,14 +46,17 @@ function GenerationProgress({
   stage,
   progress,
   message,
+  status,
 }: {
   stage: GenerationStage | null;
   progress: number;
   message: string;
+  status: string | null;
 }) {
   const currentStageIndex = STAGE_STEPS.findIndex((s) => s.stage === stage);
   const isFailed = stage === 'failed';
   const isCompleted = stage === 'completed';
+  const isPartial = status === 'partial_success';
 
   return (
     <div
@@ -69,14 +75,16 @@ function GenerationProgress({
             width: 40,
             height: 40,
             borderRadius: 10,
-            background: isFailed ? '#FEE2E2' : isCompleted ? '#D1FAE5' : '#E0E7FF',
+            background: isFailed ? '#FEE2E2' : isPartial ? '#FFFBEB' : isCompleted ? '#D1FAE5' : '#E0E7FF',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
           }}
         >
-          {isCompleted ? (
+          {isPartial ? (
+            <AlertCircle size={20} color="#D97706" />
+          ) : isCompleted ? (
             <CheckCircle2 size={20} color="#059669" />
           ) : isFailed ? (
             <XCircle size={20} color="#DC2626" />
@@ -86,7 +94,7 @@ function GenerationProgress({
         </div>
         <div style={{ flex: 1 }}>
           <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-            {isCompleted ? 'Generation Complete!' : isFailed ? 'Generation Failed' : 'Generating Assessment…'}
+            {isPartial ? 'Partial Success' : isCompleted ? 'Generation Complete!' : isFailed ? 'Generation Failed' : 'Generating Assessment…'}
           </p>
           <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>
             {message || 'Processing…'}
@@ -109,7 +117,7 @@ function GenerationProgress({
           style={{
             height: '100%',
             borderRadius: 100,
-            background: isFailed ? '#EF4444' : isCompleted ? '#10B981' : 'var(--brand)',
+            background: isFailed ? '#EF4444' : isPartial ? '#F59E0B' : isCompleted ? '#10B981' : 'var(--brand)',
           }}
           animate={{ width: `${progress}%` }}
           transition={{ duration: 0.5, ease: 'easeOut' }}
@@ -119,8 +127,8 @@ function GenerationProgress({
       {/* Stage pills */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {STAGE_STEPS.map(({ stage: s, label }, i) => {
-          const isDone = currentStageIndex > i || isCompleted;
-          const isActive = currentStageIndex === i && !isCompleted;
+          const isDone = currentStageIndex > i || isCompleted || isPartial;
+          const isActive = currentStageIndex === i && !isCompleted && !isPartial;
           return (
             <div
               key={s}
@@ -164,7 +172,7 @@ export default function AssignmentDetailPage({
   const hasAutoQueuedRef = useRef(false);
   const retryCooldownRef = useRef(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const { stage, progress, message, paperId, error, warning, reset, setQueued, setWarning } = useGenerationStore();
+  const { stage, status, progress, message, paperId, error, warning, reset, setQueued, setWarning } = useGenerationStore();
 
   useGenerationSocket(id);
 
@@ -193,6 +201,8 @@ export default function AssignmentDetailPage({
 
   useEffect(() => {
     if (!assignment || (assignment.status !== 'completed' && assignment.status !== 'partially_generated')) return;
+    if (!assignment) return;
+    if (assignment.status !== 'completed' && assignment.status !== 'partially_generated') return;
     fetchPaper(id).then(setPaper).catch(() => undefined);
   }, [assignment, id]);
 
@@ -242,10 +252,12 @@ export default function AssignmentDetailPage({
   }, [assignment, id, handleGenerate]);
 
   useEffect(() => {
+    const isTerminal = ['completed', 'failed', 'partially_generated'].includes(assignment?.status ?? '');
     if (!['queued', 'generating'].includes(assignment?.status ?? '') && !stage) return;
+    if (isTerminal) return;
+
     pollingRef.current = setInterval(async () => {
       try {
-        // Poll job status for intermediate progress
         const jobStatus = await fetchJobStatus(id);
         if (jobStatus) {
           const jobRecordId = jobStatus.jobRecordId ?? 'polling-unknown';
@@ -254,15 +266,19 @@ export default function AssignmentDetailPage({
           const version = jobStatus.version ?? 0;
           if (jobStatus.status === 'completed' && jobStatus.paperId) {
             useGenerationStore.getState().setCompleted(jobRecordId, genSeq, version, ts, jobStatus.paperId);
+            if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
           } else if (jobStatus.status === 'failed') {
             useGenerationStore.getState().setFailed(jobRecordId, genSeq, version, ts, jobStatus.error ?? 'Generation failed');
+            if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
           } else if (['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'].includes(jobStatus.status)) {
             useGenerationStore.getState().setProgress(jobRecordId, genSeq, version, ts, jobStatus.progress, jobStatus.status as GenerationStage);
           }
         }
-        // Also poll assignment to keep status in sync
         const updated = await fetchAssignment(id);
         setAssignment(updated);
+        if (['completed', 'failed', 'partially_generated'].includes(updated.status)) {
+          if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+        }
       } catch {
         // Polling failure is non-critical
       }
@@ -335,12 +351,10 @@ export default function AssignmentDetailPage({
 
   const qualityStatus = assignment.status === 'failed'
     ? 'Generation Failed'
-    : isPartial
+    : status === 'partial_success' || assignment.status === 'partially_generated'
     ? 'Partially Generated'
     : assignment.status === 'completed'
     ? 'Complete'
-    : assignment.status === 'partially_generated'
-    ? 'Partially Generated'
     : 'In Progress';
 
   return (
@@ -503,6 +517,7 @@ export default function AssignmentDetailPage({
           >
             <GenerationProgress
               stage={stage ?? (assignment.status === 'queued' ? 'queued' : null)}
+              status={status}
               progress={progress}
               message={message}
             />
@@ -580,7 +595,7 @@ export default function AssignmentDetailPage({
       )}
 
       {/* Completed CTA */}
-      {(stage === 'completed' || assignment.status === 'completed' || assignment.status === 'partially_generated') && paper && (
+      {paper && assignment.status !== 'draft' && (
         <motion.div
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
