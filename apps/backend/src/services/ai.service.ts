@@ -36,6 +36,7 @@ const PROVIDER_TIMEOUTS: Record<ProviderName, number> = {
   Anthropic: 60_000,
   Gemini: 60_000,
   NVIDIA: 60_000,
+  Groq: 60_000,
 };
 
 const health = new ProviderHealthManager();
@@ -137,6 +138,7 @@ function parseAnswersPayload(rawOutput: string): Array<{ questionId: string; ans
 }
 
 let nvidiaClient: OpenAI | null = null;
+let groqClient: OpenAI | null = null;
 let anthropicClient: Anthropic | null = null;
 let geminiClient: GoogleGenerativeAI | null = null;
 
@@ -154,6 +156,17 @@ function getNvidia(): OpenAI {
     });
   }
   return nvidiaClient;
+}
+
+function getGroq(): OpenAI {
+  if (!groqClient) {
+    groqClient = new OpenAI({
+      apiKey: env.GROQ_API_KEY,
+      baseURL: 'https://api.groq.com/openai/v1',
+      timeout: PROVIDER_TIMEOUTS.Groq,
+    });
+  }
+  return groqClient;
 }
 
 function getAnthropic(): Anthropic {
@@ -175,6 +188,7 @@ function enabledProviders(): ProviderName[] {
   if (env.ANTHROPIC_API_KEY) candidates.push('Anthropic');
   if (env.GEMINI_API_KEY) candidates.push('Gemini');
   if (env.NVIDIA_API_KEY) candidates.push('NVIDIA');
+  if (env.GROQ_API_KEY) candidates.push('Groq');
   return candidates;
 }
 
@@ -182,6 +196,7 @@ function chooseAdaptiveBatchSize(providers: ProviderName[]): number {
   const primary = providers[0] ?? 'NVIDIA';
   const baseline: Record<ProviderName, number> = {
     NVIDIA: 3,
+    Groq: 4,
     Gemini: 5,
     Anthropic: 7,
   };
@@ -272,6 +287,45 @@ async function callProvider(input: ProviderCallInput): Promise<string> {
       }
     }
 
+    if (provider === 'Groq') {
+      const timeoutMs = PROVIDER_TIMEOUTS.Groq;
+      const controller = new AbortController();
+      const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await getGroq().chat.completions.create(
+          {
+            model: 'llama-3.1-70b-versatile',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            temperature,
+            max_tokens: 2048,
+          },
+          { signal: controller.signal } as unknown as undefined
+        );
+        const text = response.choices[0]?.message?.content ?? '';
+        logger.info(`[GROQ_RAW_RESPONSE] correlationId=${correlationId} ${text.replace(/\s+/g, ' ').slice(0, 1400)}`);
+        health.recordSuccess('Groq', Date.now() - t0);
+        return text;
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          health.recordTimeoutFailure('Groq');
+          throw new ProviderTimeoutError('Groq', `Groq timed out after ${timeoutMs}ms`);
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        if (isRateLimitMessage(message)) {
+          const quotaExceeded = isQuotaExceededMessage(message);
+          health.recordRateLimitFailure('Groq', quotaExceeded);
+          throw new ProviderRateLimitError('Groq', message, quotaExceeded);
+        }
+        health.recordTransportFailure('Groq');
+        throw new ProviderTransportError('Groq', message);
+      } finally {
+        clearTimeout(timeoutHandle);
+      }
+    }
+
     if (provider === 'Gemini') {
       const model = getGemini().getGenerativeModel({ model: 'gemini-2.0-flash' });
       const response = await withTimeout(
@@ -317,6 +371,20 @@ async function callProvider(input: ProviderCallInput): Promise<string> {
       }
       health.recordTransportFailure('Gemini');
       throw new ProviderTransportError('Gemini', message);
+    }
+
+    if (provider === 'Groq') {
+      if (isRateLimitMessage(message)) {
+        const quotaExceeded = isQuotaExceededMessage(message);
+        health.recordRateLimitFailure('Groq', quotaExceeded);
+        throw new ProviderRateLimitError('Groq', message, quotaExceeded);
+      }
+      if (message.toLowerCase().includes('timed out')) {
+        health.recordTimeoutFailure('Groq');
+        throw new ProviderTimeoutError('Groq', message);
+      }
+      health.recordTransportFailure('Groq');
+      throw new ProviderTransportError('Groq', message);
     }
 
     if (isRateLimitMessage(message)) {
@@ -709,74 +777,88 @@ export async function generateAnswersForPaper(paper: ValidatedPaper): Promise<Va
 
   const providers = health.orderedProviders(enabledProviders()).filter((provider) => health.canAttempt(provider));
   if (providers.length === 0) {
-    logger.warn('No provider available for answer-key generation; returning paper without answers');
-    return paper;
+    throw new Error('No provider available for answer-key generation');
   }
 
   const paperObj = JSON.parse(JSON.stringify(paper)) as ValidatedPaper;
   const questionsById = new Map(questionsNeedingAnswers.map((question) => [question.id, question]));
+  const unresolvedIds = new Set(questionsNeedingAnswers.map((question) => question.id));
   const batchSize = Math.min(3, Math.max(1, questionsNeedingAnswers.length));
+  const maxPasses = Math.max(2, Math.ceil(questionsNeedingAnswers.length / batchSize));
 
-  for (let index = 0; index < questionsNeedingAnswers.length; index += batchSize) {
-    const batch = questionsNeedingAnswers.slice(index, index + batchSize);
-    const questionsList = batch
-      .map((question) => {
-        const typeLabel = question.type === 'mcq' && question.options ? `(MCQ:${question.options.map((option) => `${option.key}.${option.text}`).join('|')})` : `(${question.type})`;
-        return `Q:${question.id}|${typeLabel}|${question.marks}m|${question.question}`;
-      })
-      .join('\n');
+  for (let pass = 0; pass < maxPasses && unresolvedIds.size > 0; pass += 1) {
+    const currentQuestions = questionsNeedingAnswers.filter((question) => unresolvedIds.has(question.id));
+    for (let index = 0; index < currentQuestions.length; index += batchSize) {
+      const batch = currentQuestions.slice(index, index + batchSize);
+      const questionsList = batch
+        .map((question) => {
+          const typeLabel = question.type === 'mcq' && question.options ? `(MCQ:${question.options.map((option) => `${option.key}.${option.text}`).join('|')})` : `(${question.type})`;
+          return `Q:${question.id}|${typeLabel}|${question.marks}m|${question.question}`;
+        })
+        .join('\n');
 
-    const prompt = `Generate model answers for the questions below. Return ONLY JSON. Return ONLY an array of objects in this exact shape: [{"questionId":"uuid","answer":{"text":"...","explanation":"..."}}]. Do not wrap the array in an object. Do not include markdown or extra keys.\n\nQuestions:\n${questionsList}`;
+      const prompt = `Generate model answers for the questions below. Return ONLY JSON. Return ONLY an array of objects in this exact shape: [{"questionId":"uuid","answer":{"text":"...","explanation":"..."}}]. Do not wrap the array in an object. Do not include markdown or extra keys.\n\nQuestions:\n${questionsList}`;
 
-    let batchAnswers: Array<{ questionId: string; answer: { text: string; explanation?: string } }> | null = null;
-    let lastError: Error | null = null;
+      let batchAnswers: Array<{ questionId: string; answer: { text: string; explanation?: string } }> | null = null;
+      let lastError: Error | null = null;
 
-    for (const provider of providers) {
-      try {
-        const rawOutput = await callProvider({
-          provider,
-          systemPrompt: SYSTEM_PROMPT,
-          userPrompt: prompt,
-          temperature: 0.1,
-          correlationId: `ans-${Date.now()}-${index}`,
-        });
-        const answers = parseAnswersPayload(rawOutput);
-        if (answers.length !== batch.length) {
-          throw new Error(`Expected ${batch.length} answers, received ${answers.length}`);
+      for (const provider of providers) {
+        try {
+          const rawOutput = await callProvider({
+            provider,
+            systemPrompt: SYSTEM_PROMPT,
+            userPrompt: prompt,
+            temperature: 0.1,
+            correlationId: `ans-${Date.now()}-${index}`,
+          });
+          const answers = parseAnswersPayload(rawOutput);
+          if (answers.length === 0) {
+            throw new Error('No answers returned');
+          }
+
+          const expectedIds = new Set(batch.map((question) => question.id));
+          let matchedCount = 0;
+          for (const answer of answers) {
+            if (!expectedIds.has(answer.questionId)) {
+              continue;
+            }
+            matchedCount += 1;
+            unresolvedIds.delete(answer.questionId);
+          }
+
+          if (matchedCount === 0) {
+            throw new Error('No matching questionIds returned');
+          }
+
+          batchAnswers = answers;
+          break;
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error(String(error));
         }
+      }
 
-        const expectedIds = new Set(batch.map((question) => question.id));
-        for (const answer of answers) {
-          if (!expectedIds.has(answer.questionId)) {
-            throw new Error(`Unexpected questionId in answer batch: ${answer.questionId}`);
+      if (!batchAnswers) {
+        throw lastError ?? new Error('Answer-key generation failed');
+      }
+
+      const answerMap = new Map(batchAnswers.map((answer) => [answer.questionId, answer.answer]));
+      for (const question of questionsById.values()) {
+        const answer = answerMap.get(question.id);
+        if (!answer) continue;
+
+        for (const section of paperObj.sections) {
+          const target = section.questions.find((item) => item.id === question.id);
+          if (target) {
+            target.answer = answer;
+            break;
           }
         }
-
-        batchAnswers = answers;
-        break;
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
       }
     }
+  }
 
-    if (!batchAnswers) {
-      logger.warn(lastError?.message ?? 'Answer-key batch failed; keeping generated paper without those answers');
-      continue;
-    }
-
-    const answerMap = new Map(batchAnswers.map((answer) => [answer.questionId, answer.answer]));
-    for (const question of questionsById.values()) {
-      const answer = answerMap.get(question.id);
-      if (!answer) continue;
-
-      for (const section of paperObj.sections) {
-        const target = section.questions.find((item) => item.id === question.id);
-        if (target) {
-          target.answer = answer;
-          break;
-        }
-      }
-    }
+  if (unresolvedIds.size > 0) {
+    throw new Error(`Answer-key generation incomplete: ${unresolvedIds.size} question(s) still missing answers`);
   }
 
   return paperObj;

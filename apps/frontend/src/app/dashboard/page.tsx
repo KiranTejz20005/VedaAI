@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { formatDistanceToNow, format } from 'date-fns';
+import { format } from 'date-fns';
 import {
   Plus,
   Search,
@@ -15,19 +15,13 @@ import {
   Trash2,
   Loader2,
   AlertCircle,
-  BookOpen,
   CheckCircle2,
   XCircle,
-  Zap,
-  RefreshCw,
-  Clock,
-  FileText,
   ChevronDown,
 } from 'lucide-react';
 import { useAssignments } from '@/hooks/useAssignments';
 import {
   deleteAssignment as deleteAssignmentRequest,
-  generateAssignment as generateAssignmentRequest,
 } from '@/services/assignment.service';
 import type { Assignment } from '@/types/assignment.types';
 
@@ -50,13 +44,11 @@ function StatusBadge({ status }: { status: Assignment['status'] }) {
 function CardMenu({
   assignment,
   onView,
-  onRegenerate,
   onDelete,
   isDeleting,
 }: {
   assignment: Assignment;
   onView: (assignmentId: string) => void;
-  onRegenerate: (assignmentId: string) => Promise<void>;
   onDelete: (assignmentId: string) => Promise<void>;
   isDeleting: boolean;
 }) {
@@ -110,20 +102,6 @@ function CardMenu({
             </button>
             <button
               type="button"
-              className="dropdown-item"
-              onClick={async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setOpen(false);
-                await onRegenerate(assignment._id);
-              }}
-              disabled={isDeleting || assignment.status === 'queued' || assignment.status === 'generating'}
-            >
-              <RefreshCw size={14} />
-              Regenerate
-            </button>
-            <button
-              type="button"
               className="dropdown-item danger"
               onClick={async (e) => {
                 e.preventDefault();
@@ -148,14 +126,12 @@ function AssignmentCard({
   assignment,
   index,
   onView,
-  onRegenerate,
   onDelete,
   isDeleting,
 }: {
   assignment: Assignment;
   index: number;
   onView: (assignmentId: string) => void;
-  onRegenerate: (assignmentId: string) => Promise<void>;
   onDelete: (assignmentId: string) => Promise<void>;
   isDeleting: boolean;
 }) {
@@ -202,7 +178,6 @@ function AssignmentCard({
         <CardMenu
           assignment={assignment}
           onView={onView}
-          onRegenerate={onRegenerate}
           onDelete={onDelete}
           isDeleting={isDeleting}
         />
@@ -364,34 +339,6 @@ function EmptyState({ isFiltered }: { isFiltered: boolean }) {
   );
 }
 
-// ─── Stats bar ───────────────────────────────────────────────
-function StatsBar({ assignments }: { assignments: Assignment[] }) {
-  const total = assignments.length;
-  const completed = assignments.filter((a) => a.status === 'completed').length;
-  const partial = assignments.filter((a) => a.status === 'partially_generated').length;
-  const inProgress = assignments.filter((a) => a.status === 'generating' || a.status === 'queued').length;
-  const failed = assignments.filter((a) => a.status === 'failed').length;
-
-  const stats = [
-    { label: 'Total', value: total, color: '#6366F1' },
-    { label: 'Completed', value: completed, color: '#10B981' },
-    { label: 'In Progress', value: inProgress, color: '#F59E0B' },
-    { label: 'Partial', value: partial, color: '#EA580C' },
-    { label: 'Failed', value: failed, color: '#EF4444' },
-  ];
-
-  return (
-    <div className="stats-grid">
-      {stats.map(({ label, value, color }) => (
-        <div key={label} className="stat-card">
-          <div className="stat-value" style={{ color }}>{value}</div>
-          <div className="stat-label">{label}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // ─── Main page ───────────────────────────────────────────────
 export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState('All');
@@ -402,7 +349,7 @@ export default function DashboardPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleView = (assignmentId: string) => {
-    void router.push(`/assignments/${assignmentId}`);
+    void router.push(`/assignments/${assignmentId}/paper`);
   };
 
   const handleDelete = async (assignmentId: string) => {
@@ -418,16 +365,6 @@ export default function DashboardPage() {
       toast.error(e instanceof Error ? e.message : 'Failed to delete assignment');
     } finally {
       setDeletingId(null);
-    }
-  };
-
-  const handleRegenerate = async (assignmentId: string) => {
-    try {
-      await generateAssignmentRequest(assignmentId);
-      toast.success('Regeneration queued');
-      await reload();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to queue regeneration');
     }
   };
 
@@ -451,13 +388,6 @@ export default function DashboardPage() {
         </div>
         <p className="page-subtitle">Manage and create assignments for your classes.</p>
       </div>
-
-      {/* Stats (only when there is data) */}
-      {!isLoading && assignments.length > 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <StatsBar assignments={assignments} />
-        </motion.div>
-      )}
 
       {/* Search + Filter bar */}
       <div
@@ -558,7 +488,6 @@ export default function DashboardPage() {
                 assignment={assignment}
                 index={i}
                 onView={handleView}
-                onRegenerate={handleRegenerate}
                 onDelete={handleDelete}
                 isDeleting={deletingId === assignment._id}
               />

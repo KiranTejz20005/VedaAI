@@ -31,9 +31,10 @@ const DEFAULT_STATS: ProviderStats = {
 };
 
 const BASE_PRIORITY: Record<ProviderName, number> = {
-  Anthropic: 100,
+  NVIDIA: 100,
+  Groq: 95,
+  Anthropic: 90,
   Gemini: 80,
-  NVIDIA: 60,
 };
 
 export class ProviderHealthManager {

@@ -1,4 +1,4 @@
-export type ProviderName = 'Anthropic' | 'Gemini' | 'NVIDIA';
+export type ProviderName = 'Anthropic' | 'Gemini' | 'NVIDIA' | 'Groq';
 
 export abstract class ProviderError extends Error {
   constructor(
