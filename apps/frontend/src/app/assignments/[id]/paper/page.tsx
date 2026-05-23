@@ -1,8 +1,9 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Download, Printer, AlertCircle, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Download, RefreshCw, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fetchPaper } from '@/services/paper.service';
 import type { GeneratedPaper, Question, Section } from '@/types/paper.types';
@@ -18,174 +19,88 @@ function formatMarks(marks: number) {
   return `${marks} ${marks === 1 ? 'Mark' : 'Marks'}`;
 }
 
-// ─── Single question ───────────────────────────────────────
 function QuestionItem({ question, number }: { question: Question; number: number }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12 }}>
-      <span style={{ fontSize: 13, color: '#555', minWidth: 20 }}>{number}.</span>
-      <div style={{ flex: 1 }}>
-        <p style={{ fontSize: 13.5, color: '#222', lineHeight: 1.6, margin: 0 }}>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: '#999',
-              marginRight: 6,
-              background: '#f3f4f6',
-              padding: '1px 6px',
-              borderRadius: 4,
-            }}
-          >
-            [{DIFFICULTY_LABELS[question.difficulty]}]
-          </span>
-          {question.question}
-        </p>
-
-        {/* MCQ options */}
-        {question.type === 'mcq' && question.options && (
-          <div style={{ marginTop: 6, paddingLeft: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {question.options.map((opt) => (
-              <div key={opt.key} style={{ fontSize: 13, color: '#444', display: 'flex', gap: 6 }}>
-                <span style={{ fontWeight: 600, minWidth: 20 }}>{opt.key}.</span>
-                <span>{opt.text}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* True/False */}
-        {question.type === 'true-false' && (
-          <div style={{ marginTop: 6, display: 'flex', gap: 12 }}>
-            {['True', 'False'].map((o) => (
-              <span
-                key={o}
-                style={{
-                  fontSize: 12,
-                  padding: '2px 12px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: 100,
-                  color: '#6b7280',
-                }}
-              >
-                {o}
-              </span>
-            ))}
-          </div>
-        )}
+    <div className="question-item" style={{ marginBottom: 'clamp(14px, 1.5vw, 18px)' }}>
+      <span className="question-num" style={{ fontSize: 'clamp(15px, 1.3vw, 17px)', fontWeight: 700, minWidth: 24, textAlign: 'right', flexShrink: 0 }}>
+        {number}.
+      </span>
+      <div className="question-text-block" style={{ fontSize: 'clamp(15px, 1.3vw, 17px)', lineHeight: 1.7 }}>
+        <span style={{ fontSize: 'clamp(12px, 1vw, 13px)', fontWeight: 600, color: '#999', marginRight: 8, background: '#f3f4f6', padding: '2px 8px', borderRadius: 4, whiteSpace: 'nowrap' }}>
+          [{DIFFICULTY_LABELS[question.difficulty]}]
+        </span>
+        {question.question}
       </div>
-      <span
-        style={{
-          fontSize: 11,
-          fontWeight: 700,
-          color: '#6b7280',
-          flexShrink: 0,
-          whiteSpace: 'nowrap',
-        }}
-      >
+      <span className="question-marks" style={{ fontSize: 'clamp(15px, 1.3vw, 17px)', fontWeight: 700 }}>
         [{formatMarks(question.marks)}]
       </span>
     </div>
   );
 }
 
-// ─── Section block ─────────────────────────────────────────
 function SectionBlock({ section, startNumber }: { section: Section; startNumber: number }) {
   return (
-    <div style={{ marginBottom: 28 }}>
-      <h3
-        style={{
-          fontSize: 15,
-          fontWeight: 700,
-          color: '#111',
-          textAlign: 'center',
-          marginBottom: 16,
-        }}
-      >
+    <div style={{ marginBottom: 'clamp(28px, 4vw, 36px)' }}>
+      <h3 className="print-hidden" style={{ fontSize: 'clamp(17px, 1.6vw, 20px)', fontWeight: 700, color: '#111', textAlign: 'center', marginBottom: 'clamp(14px, 1.8vw, 18px)' }}>
         {section.title}
       </h3>
       {section.instruction && (
-        <p
-          style={{
-            fontSize: 12.5,
-            color: '#6b7280',
-            fontStyle: 'italic',
-            marginBottom: 10,
-          }}
-        >
+        <p className="print-hidden" style={{ fontSize: 'clamp(14px, 1.2vw, 16px)', color: '#6b7280', fontStyle: 'italic', textAlign: 'left', marginBottom: 'clamp(14px, 1.8vw, 18px)' }}>
           {section.instruction}
         </p>
       )}
       {section.questions.map((q, qi) => (
-        <QuestionItem
-          key={`${section.title}-${startNumber + qi}-${qi}`}
-          question={q}
-          number={startNumber + qi}
-        />
+        <QuestionItem key={`${section.title}-${startNumber + qi}-${qi}`} question={q} number={startNumber + qi} />
       ))}
     </div>
   );
 }
 
-// ─── Answer key ────────────────────────────────────────────
 function AnswerKey({ sections }: { sections: Section[] }) {
   const answers = sections
     .flatMap((s) => s.questions)
     .filter((q) => q.answer)
-    .map((q, i) => ({
-      number: i + 1,
-      answer: typeof q.answer === 'string' ? q.answer : q.answer?.text,
-    }))
+    .map((q, i) => ({ number: i + 1, answer: typeof q.answer === 'string' ? q.answer : q.answer?.text }))
     .filter((item) => item.answer);
 
   if (answers.length === 0) return null;
 
   return (
-    <div style={{ marginTop: 36, paddingTop: 24, borderTop: '2px solid #e5e7eb' }}>
-      <h3 style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 14 }}>
-        Answer Key
-      </h3>
-      <ol style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 0, listStyle: 'none' }}>
+    <div style={{ marginTop: 'clamp(32px, 5vw, 40px)', paddingTop: 'clamp(20px, 3vw, 28px)', borderTop: '2px solid #111827' }}>
+      <h4 style={{ fontSize: 'clamp(17px, 1.6vw, 20px)', fontWeight: 700, color: '#111', marginBottom: 'clamp(16px, 2vw, 20px)' }}>Answer Key</h4>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(14px, 1.8vw, 18px)' }}>
         {answers.map(({ number, answer }) => (
-          <li key={number} style={{ fontSize: 13, color: '#444', display: 'flex', gap: 8 }}>
-            <span style={{ fontWeight: 700, minWidth: 24, color: '#111' }}>{number}.</span>
-            <span>{answer}</span>
-          </li>
+          <div key={number} className="question-item">
+            <span className="question-num" style={{ fontSize: 'clamp(15px, 1.3vw, 17px)', fontWeight: 700, minWidth: 24, textAlign: 'right', flexShrink: 0 }}>
+              {number}.
+            </span>
+            <div className="question-text-block" style={{ fontSize: 'clamp(15px, 1.3vw, 17px)', color: '#4B5563', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
+              {answer}
+            </div>
+          </div>
         ))}
-      </ol>
+      </div>
     </div>
   );
 }
 
-// ─── Main page ─────────────────────────────────────────────
-export default function PaperViewPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function PaperViewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const [paper, setPaper] = useState<GeneratedPaper | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+
+  useEffect(() => { if (error) toast.error(error, { id: 'paper-error', position: 'bottom-center' }); }, [error]);
 
   useEffect(() => {
-    if (error) {
-      toast.error(error, { id: 'paper-error', position: 'bottom-center' });
-    }
-  }, [error]);
-
-  useEffect(() => {
-    fetchPaper(id)
-      .then(setPaper)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load paper'))
-      .finally(() => setLoading(false));
+    fetchPaper(id).then(setPaper).catch((e) => setError(e instanceof Error ? e.message : 'Failed to load paper')).finally(() => setLoading(false));
   }, [id]);
 
   const handleDownload = async () => {
-    if (!paper?.pdfUrl) {
-      window.print();
-      return;
-    }
+    if (!paper?.pdfUrl) { window.print(); return; }
     setDownloading(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
@@ -193,19 +108,29 @@ export default function PaperViewPage({
       link.href = `${apiUrl}${paper.pdfUrl}`;
       link.download = `${paper.title.replace(/\s+/g, '_')}.pdf`;
       link.click();
-    } finally {
-      setDownloading(false);
-    }
+    } finally { setDownloading(false); }
   };
+
+  const handleRegenerate = useCallback(async () => {
+    setRegenerating(true);
+    try {
+      const { generateAssignment } = await import('@/services/assignment.service');
+      await generateAssignment(id);
+      toast.success('Regeneration started!', { id: 'regen-toast' });
+      router.push(`/assignments/${id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to regenerate', { id: 'regen-err' });
+    } finally {
+      setRegenerating(false);
+    }
+  }, [id, router]);
 
   if (loading) {
     return (
       <>
-        <div className="page-header">
-          <div className="skeleton" style={{ height: 24, width: 180, borderRadius: 6 }} />
-        </div>
+        <div className="skeleton" style={{ height: 24, width: 'clamp(120px, 25vw, 180px)', borderRadius: 6, marginBottom: 16 }} />
         <div className="skeleton" style={{ height: 56, borderRadius: 12, marginBottom: 16 }} />
-        <div className="skeleton" style={{ height: 600, borderRadius: 16 }} />
+        <div className="skeleton" style={{ height: 'clamp(400px, 60vh, 600px)', borderRadius: 16 }} />
       </>
     );
   }
@@ -213,49 +138,14 @@ export default function PaperViewPage({
   if (error || !paper) {
     return (
       <div className="empty-state">
-        {/* Illustration */}
         <div className="empty-illustration" aria-hidden="true">
-          <img 
-            src="/empty-state.png" 
-            alt="Error illustration" 
-            style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-          />
+          <img src="/empty-state.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
         </div>
-
         <h2 className="empty-title">Failed to load question paper</h2>
-        <p className="empty-desc">
-          The custom question paper could not be retrieved. Please check your connection or return to the assignment details page to try again.
-        </p>
-
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
-          <Link 
-            href={`/assignments/${id}`} 
-            className="btn btn-dark"
-            style={{
-              borderRadius: '100px',
-              padding: '12px 28px',
-              fontWeight: '700',
-              fontSize: '14.5px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.06)'
-            }}
-          >
-            Back to Assignment
-          </Link>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="btn btn-secondary"
-            style={{
-              borderRadius: '100px',
-              padding: '12px 28px',
-              fontWeight: '700',
-              fontSize: '14.5px',
-              cursor: 'pointer'
-            }}
-          >
-            Reload Page
-          </button>
+        <p className="empty-desc">The question paper could not be retrieved.</p>
+        <div style={{ display: 'flex', gap: 'clamp(8px, 1.5vw, 12px)', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <Link href={`/assignments/${id}`} className="btn btn-dark btn-pill">Back to Assignment</Link>
+          <button onClick={() => window.location.reload()} className="btn btn-secondary btn-pill" style={{ cursor: 'pointer' }}>Reload Page</button>
         </div>
       </div>
     );
@@ -267,103 +157,81 @@ export default function PaperViewPage({
   const className = meta?.className ?? 'Not Specified';
   const duration = meta?.durationMinutes ?? paper.duration ?? 45;
   const totalMarks = meta?.generatedMarks ?? paper.totalMarks;
+
   const sectionStarts = paper.sections.reduce<Array<{ title: string; start: number }>>((acc, section) => {
-    const start =
-      acc.length === 0
-        ? 1
-        : acc[acc.length - 1]!.start + paper.sections[acc.length - 1]!.questions.length;
+    const start = acc.length === 0 ? 1 : acc[acc.length - 1]!.start + paper.sections[acc.length - 1]!.questions.length;
     acc.push({ title: section.title, start });
     return acc;
   }, []);
 
   return (
-    <>
-      {/* Page header */}
-      <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Link
-            href={`/assignments/${id}`}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              color: 'var(--text-secondary)',
-              textDecoration: 'none',
-              fontSize: 14,
-              fontWeight: 500,
-            }}
-          >
-            <ArrowLeft size={15} />
-            Back
-          </Link>
-        </div>
-      </div>
-
-      <div style={{ maxWidth: 820 }}>
-        <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }} className="print:hidden">
-          <button
-            onClick={() => void handleDownload()}
-            disabled={downloading}
-            className="btn btn-secondary btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            {downloading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
-            Download as PDF
-          </button>
+    <div style={{ width: '100%' }}>
+      <div className="outer-paper-container">
+        <div className="dark-banner-card print-hidden" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <p style={{ fontSize: 'clamp(15px, 1.3vw, 17px)', margin: 0, lineHeight: 1.7, fontWeight: 500, flex: '1 1 auto' }}>
+            Here is your customized <u><strong>Question Paper</strong></u> for <u><strong>{subject}</strong></u>:
+          </p>
+          <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+            <button
+              onClick={() => void handleRegenerate()}
+              disabled={regenerating}
+              style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 'var(--radius-pill)', color: '#FFFFFF', padding: 'clamp(8px, 1vw, 10px) clamp(16px, 2vw, 20px)', fontSize: 'var(--text-sm)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.22)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.12)')}
+            >
+              {regenerating ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+              Regenerate
+            </button>
+            <button
+              onClick={() => void handleDownload()}
+              disabled={downloading}
+              style={{ background: '#FFFFFF', border: 'none', borderRadius: 'var(--radius-pill)', color: '#111827', padding: 'clamp(8px, 1vw, 10px) clamp(16px, 2vw, 20px)', fontSize: 'var(--text-sm)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#F3F4F6')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = '#FFFFFF')}
+            >
+              {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+              Download as PDF
+            </button>
+          </div>
         </div>
 
-        {/* Actual paper */}
-        <div className="paper-page" style={{ fontFamily: '"Times New Roman", Times, serif' }}>
-          {/* School header */}
-          <div className="paper-school">{schoolName}</div>
-          <div className="paper-meta">
-            <div>{subject}</div>
-            <div style={{ fontSize: 13, marginTop: 2 }}>
-              Class: {className} &nbsp;&nbsp;|&nbsp;&nbsp;
-              Time Allowed: {duration} minutes &nbsp;&nbsp;|&nbsp;&nbsp;
-              Maximum Marks: {totalMarks}
-            </div>
+        <div className="paper-card" style={{ fontFamily: '"Times New Roman", Times, serif', color: '#111827' }}>
+          <h1 className="print-hidden" style={{ fontSize: 'clamp(22px, 2.5vw, 28px)', fontWeight: 700, textAlign: 'center', margin: '0 0 10px 0', letterSpacing: '0.5px' }}>
+            {schoolName}
+          </h1>
+          <h2 className="print-hidden" style={{ fontSize: 'clamp(16px, 1.6vw, 19px)', fontWeight: 700, textAlign: 'center', margin: '0 0 6px 0' }}>
+            Subject: {subject}
+          </h2>
+          <h3 className="print-hidden" style={{ fontSize: 'clamp(16px, 1.6vw, 19px)', fontWeight: 700, textAlign: 'center', margin: '0 0 clamp(20px, 3vw, 28px) 0' }}>
+            Class: {className}
+          </h3>
+
+          <div className="print-hidden" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'clamp(14px, 1.2vw, 16px)', fontWeight: 700, borderBottom: '2px solid #111827', paddingBottom: 'clamp(10px, 1.2vw, 14px)', marginBottom: 'clamp(16px, 2vw, 20px)', gap: 12, flexWrap: 'wrap' }}>
+            <span>Time Allowed: {duration} minutes</span>
+            <span>Maximum Marks: {totalMarks}</span>
           </div>
 
-          <p style={{ fontSize: 13, fontStyle: 'italic', marginBottom: 16, color: '#444' }}>
+          <p className="print-hidden" style={{ fontSize: 'clamp(14px, 1.2vw, 16px)', fontWeight: 700, margin: '0 0 clamp(20px, 2.5vw, 24px) 0' }}>
             All questions are compulsory unless stated otherwise.
           </p>
 
-          {/* Student fields */}
-          <div style={{ display: 'flex', gap: 32, marginBottom: 24 }}>
-            {['Name', 'Roll Number', 'Section'].map((f) => (
-              <div key={f} style={{ fontSize: 13, color: '#333' }}>
-                {f}: <span style={{ borderBottom: '1px solid #333', display: 'inline-block', minWidth: 120 }}>&nbsp;</span>
-              </div>
-            ))}
+          <div className="student-fields-grid print-hidden" style={{ marginBottom: 'clamp(28px, 3.5vw, 36px)', fontSize: 'clamp(14px, 1.2vw, 16px)', fontWeight: 700 }}>
+            <div>Name: <span style={{ borderBottom: '2px solid #111827', display: 'inline-block', minWidth: 'clamp(120px, 18vw, 160px)' }}>&nbsp;</span></div>
+            <div>Roll Number: <span style={{ borderBottom: '2px solid #111827', display: 'inline-block', minWidth: 'clamp(120px, 18vw, 160px)' }}>&nbsp;</span></div>
+            <div>Section: <span style={{ borderBottom: '2px solid #111827', display: 'inline-block', minWidth: 'clamp(80px, 12vw, 100px)' }}>&nbsp;</span></div>
           </div>
 
-          {/* Sections + questions */}
           {paper.sections.map((section, index) => (
-            <SectionBlock
-              key={section.title}
-              section={section}
-              startNumber={sectionStarts[index]?.start ?? 1}
-            />
+            <SectionBlock key={section.title} section={section} startNumber={sectionStarts[index]?.start ?? 1} />
           ))}
 
-          {/* End note */}
-          <p style={{ fontSize: 13, fontWeight: 700, textAlign: 'center', marginTop: 24, color: '#111' }}>
+          <p className="print-hidden" style={{ fontSize: 'clamp(15px, 1.3vw, 17px)', fontWeight: 700, textAlign: 'center', margin: '0 0 clamp(28px, 4vw, 36px) 0', borderBottom: '2px solid #111827', paddingBottom: 'clamp(20px, 2.5vw, 24px)' }}>
             End of Question Paper
           </p>
 
-          {/* Answer key */}
           <AnswerKey sections={paper.sections} />
         </div>
-
-        {/* Print button (bottom) */}
-        <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 8 }} className="print:hidden">
-          <button onClick={() => window.print()} className="btn btn-secondary btn-sm">
-            <Printer size={14} />
-            Print
-          </button>
-        </div>
       </div>
-    </>
+    </div>
   );
 }
