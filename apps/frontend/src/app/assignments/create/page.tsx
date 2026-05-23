@@ -110,7 +110,8 @@ function FileUploadZone({
       const dropped = Array.from(e.dataTransfer.files).filter(
         (f) =>
           f.type === 'application/pdf' ||
-          f.type === 'text/plain'
+          f.type === 'text/plain' ||
+          f.type.startsWith('image/')
       );
       onAdd(dropped);
     },
@@ -154,7 +155,7 @@ function FileUploadZone({
           </svg>
           <p className="upload-zone-title">Choose a file or drag &amp; drop it here</p>
           <p className="upload-zone-sub" style={{ marginBottom: 12 }}>
-            PDF, TXT, up to 10mb
+            JPEG, PNG, upto 10MB
           </p>
           <span
             style={{
@@ -174,7 +175,7 @@ function FileUploadZone({
           <input
             id="file-upload"
             type="file"
-            accept=".pdf,.txt"
+            accept="image/jpeg,image/png,application/pdf,text/plain"
             multiple
             style={{ display: 'none' }}
             onChange={(e) => { if (e.target.files) onAdd(Array.from(e.target.files)); }}
@@ -191,7 +192,7 @@ function FileUploadZone({
           marginTop: 8,
         }}
       >
-        Upload study guides, syllabus documents, or reading notes
+        Upload images of your preferred document/image
       </p>
 
       {/* Uploaded files list */}
@@ -245,67 +246,92 @@ function QuestionTypeRow({
   isOnly: boolean;
 }) {
   return (
-    <div className="question-row">
-      {/* Type select */}
-      <div className="question-select-wrap">
-        <select
-          value={row.type}
-          onChange={(e) => onChange({ ...row, type: e.target.value as QuestionTypeOption })}
-          className="input question-select"
-          style={{ fontSize: 13, padding: '8px 12px' }}
-          aria-label="Question type"
-        >
-          {QUESTION_TYPE_OPTIONS.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
-      </div>
+    <div className="question-row-container">
+      {/* Desktop view */}
+      <div className="desktop-question-row">
+        <div className="question-select-wrap">
+          <select
+            value={row.type}
+            onChange={(e) => onChange({ ...row, type: e.target.value as QuestionTypeOption })}
+            className="input question-select"
+            aria-label="Question type"
+          >
+            {QUESTION_TYPE_OPTIONS.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        </div>
 
-      {/* No. of Questions */}
-      <div className="counter-group">
-        <span className="counter-label">No. of Questions</span>
+        <button
+          type="button"
+          onClick={onRemove}
+          disabled={isOnly}
+          className="question-remove-btn"
+          aria-label="Remove question type"
+        >
+          <X size={14} />
+        </button>
+
         <Counter
           value={row.count}
           onChange={(v) => onChange({ ...row, count: v })}
           min={1}
           max={50}
         />
-      </div>
 
-      {/* Remove */}
-      <button
-        type="button"
-        onClick={onRemove}
-        disabled={isOnly}
-        style={{
-          width: 28,
-          height: 28,
-          border: '1px solid var(--border)',
-          borderRadius: 6,
-          background: 'white',
-          cursor: isOnly ? 'not-allowed' : 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: isOnly ? 'var(--text-muted)' : '#EF4444',
-          flexShrink: 0,
-          opacity: isOnly ? 0.4 : 1,
-          transition: 'all 0.15s',
-        }}
-        aria-label="Remove question type"
-      >
-        <X size={13} />
-      </button>
-
-      {/* Marks */}
-      <div className="counter-group">
-        <span className="counter-label">Marks</span>
         <Counter
           value={row.marks}
           onChange={(v) => onChange({ ...row, marks: v })}
           min={1}
           max={20}
         />
+      </div>
+
+      {/* Mobile view */}
+      <div className="mobile-question-row">
+        <div className="mobile-row-top">
+          <select
+            value={row.type}
+            onChange={(e) => onChange({ ...row, type: e.target.value as QuestionTypeOption })}
+            className="input question-select"
+            aria-label="Question type"
+          >
+            {QUESTION_TYPE_OPTIONS.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={onRemove}
+            disabled={isOnly}
+            className="question-remove-btn"
+            aria-label="Remove question type"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="mobile-counters-container">
+          <div className="mobile-counter-item">
+            <span className="counter-label">No. of Questions</span>
+            <Counter
+              value={row.count}
+              onChange={(v) => onChange({ ...row, count: v })}
+              min={1}
+              max={50}
+            />
+          </div>
+
+          <div className="mobile-counter-item">
+            <span className="counter-label">Marks</span>
+            <Counter
+              value={row.marks}
+              onChange={(v) => onChange({ ...row, marks: v })}
+              min={1}
+              max={20}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -416,24 +442,57 @@ export default function CreateAssignmentPage() {
 
   return (
     <>
-      {/* Page header */}
-      <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div className="status-dot" aria-hidden="true" />
-          <h1 className="page-title">Create Assignment</h1>
+      {/* Page heading (responsive structures defined in globals.css) */}
+      <div className="page-header-container">
+        {/* Desktop-only Page Header */}
+        <div className="desktop-page-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="status-dot" aria-hidden="true" />
+            <h1 className="page-title">Create Assignment</h1>
+          </div>
+          <p className="page-subtitle">Set up a new assignment for your students.</p>
         </div>
-        <p className="page-subtitle">Set up a new assignment for your students.</p>
+
+        {/* Mobile-only Page Header */}
+        <div className="mobile-page-header">
+          <button 
+            onClick={() => window.history.back()}
+            className="mobile-header-back-btn"
+            aria-label="Go back"
+            style={{
+              background: '#FFFFFF',
+              border: '1px solid #E5E7EB',
+              borderRadius: '50%',
+              width: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: '#374151',
+              flexShrink: 0
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12" />
+              <polyline points="12 19 5 12 12 5" />
+            </svg>
+          </button>
+          <h1 className="mobile-header-title">Create Assignment</h1>
+          <div style={{ width: '32px' }} /> {/* Spacer to center the title */}
+        </div>
       </div>
 
-      {/* Full-width two-column layout */}
+      {/* Segmented Progress bar (placed under headers, above card container) */}
+      <div className="step-progress" role="progressbar" aria-valuenow={step} aria-valuemax={TOTAL_STEPS}>
+        <div className="step-progress-fill" style={{ width: `${progressPct}%` }} />
+      </div>
+
+      {/* Form Card Layout */}
       <div className="create-form-layout">
 
-        {/* ── Left: Form ── */}
+        {/* ── Center: Form ── */}
         <div className="create-form-main">
-          {/* Progress bar */}
-          <div className="step-progress" role="progressbar" aria-valuenow={step} aria-valuemax={TOTAL_STEPS}>
-            <div className="step-progress-fill" style={{ width: `${progressPct}%` }} />
-          </div>
 
           <AnimatePresence mode="wait">
             {step === 1 ? (
@@ -474,10 +533,21 @@ export default function CreateAssignmentPage() {
                       type="date"
                       value={formData.dueDate}
                       onChange={(e) => setFormData((d) => ({ ...d, dueDate: e.target.value }))}
-                      className="input"
+                      className="input date-input"
                       placeholder="DD-MM-YYYY"
                       style={{ colorScheme: 'light' }}
                       aria-describedby="dueDate-hint"
+                    />
+                    <Calendar
+                      size={16}
+                      style={{
+                        position: 'absolute',
+                        right: '16px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: '#111827',
+                        pointerEvents: 'none',
+                      }}
                     />
                   </div>
                 </div>
@@ -488,27 +558,11 @@ export default function CreateAssignmentPage() {
                     Question Type
                   </label>
 
-                  {/* Header row labels */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '4px 0 8px',
-                      borderBottom: '1px solid var(--border)',
-                      marginBottom: 4,
-                    }}
-                  >
-                    <div style={{ flex: 1, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Type
-                    </div>
-                    <div style={{ minWidth: 90, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      No. of Questions
-                    </div>
-                    <div style={{ width: 28, flexShrink: 0 }} />
-                    <div style={{ minWidth: 90, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Marks
-                    </div>
+                  {/* Header row labels (desktop only) */}
+                  <div className="question-headers">
+                    <div className="header-type">Question Type</div>
+                    <div className="header-count">No. of Questions</div>
+                    <div className="header-marks">Marks</div>
                   </div>
 
                   {questionRows.map((row) => (
@@ -525,21 +579,10 @@ export default function CreateAssignmentPage() {
                   <button
                     type="button"
                     onClick={addRow}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: 'var(--brand)',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: '10px 0 0',
-                    }}
+                    className="add-question-type-btn"
                   >
-                    <Plus size={15} />
-                    Add Question Type
+                    <span className="plus-icon-circle">+</span>
+                    <span>Add Question Type</span>
                   </button>
 
                   {/* Totals */}
@@ -668,132 +711,55 @@ export default function CreateAssignmentPage() {
               </motion.div>
             )}
           </AnimatePresence>
-
-          {/* Navigation footer */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginTop: 28,
-              paddingTop: 20,
-              borderTop: '1px solid var(--border)',
-            }}
-          >
-            {step > 1 ? (
-              <button
-                type="button"
-                onClick={() => setStep((s) => s - 1)}
-                className="btn btn-secondary btn-sm"
-                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                <ChevronLeft size={15} />
-                Previous
-              </button>
-            ) : (
-              <div />
-            )}
-
-            {step < TOTAL_STEPS ? (
-              <button
-                type="button"
-                onClick={() => setStep((s) => s + 1)}
-                className="btn btn-dark btn-sm"
-                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                Next
-                <ChevronRight size={15} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => void handleSubmit()}
-                disabled={isSubmitting}
-                className="btn btn-primary btn-sm"
-                style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 120, justifyContent: 'center' }}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    Creating…
-                  </>
-                ) : (
-                  <>
-                    Generate
-                    <ChevronRight size={15} />
-                  </>
-                )}
-              </button>
-            )}
-          </div>
         </div>
 
-        {/* ── Right: Live Summary Sidebar ── */}
-        <div className="create-form-sidebar">
-          <p className="create-sidebar-title">Assignment Preview</p>
-
-          {/* Core stats */}
-          <div className="create-sidebar-row">
-            <span>Total Questions</span>
-            <strong>{totalQuestions}</strong>
-          </div>
-          <div className="create-sidebar-row">
-            <span>Total Marks</span>
-            <strong>{totalMarks}</strong>
-          </div>
-          <div className="create-sidebar-row">
-            <span>Files Uploaded</span>
-            <strong>{files.length}</strong>
-          </div>
-          <div className="create-sidebar-row">
-            <span>Due Date</span>
-            <strong>{formData.dueDate || '—'}</strong>
-          </div>
-          {formData.subject && (
-            <div className="create-sidebar-row">
-              <span>Subject</span>
-              <strong>{formData.subject}</strong>
-            </div>
+        {/* Navigation Action Footer (Outside the card, responsive aligned) */}
+        <div className="create-form-footer">
+          {step > 1 ? (
+            <button
+              type="button"
+              onClick={() => setStep((s) => s - 1)}
+              className="btn btn-secondary btn-pill"
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              <ChevronLeft size={15} />
+              Previous
+            </button>
+          ) : (
+            <div />
           )}
 
-          {/* Question type breakdown */}
-          <div className="create-sidebar-section">
-            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Breakdown
-            </p>
-            {questionRows.map((row) => (
-              <div key={row.id} className="create-sidebar-breakdown-item">
-                <span style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {row.type}
-                </span>
-                <span>{row.count}q × {row.marks}m</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Tips */}
-          <div className="create-sidebar-tip">
-            💡 Upload relevant study material for better AI-generated questions.
-          </div>
-
-          {/* Step indicator */}
-          <div style={{ marginTop: 20, display: 'flex', gap: 6 }}>
-            {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-              <div
-                key={i}
-                style={{
-                  flex: 1,
-                  height: 4,
-                  borderRadius: 99,
-                  background: i < step ? 'var(--brand)' : 'var(--border)',
-                  transition: 'background 0.3s',
-                }}
-              />
-            ))}
-          </div>
-          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, textAlign: 'center' }}>
-            Step {step} of {TOTAL_STEPS}
-          </p>
+          {step < TOTAL_STEPS ? (
+            <button
+              type="button"
+              onClick={() => setStep((s) => s + 1)}
+              className="btn btn-dark btn-pill"
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              Next
+              <ChevronRight size={15} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void handleSubmit()}
+              disabled={isSubmitting}
+              className="btn btn-primary btn-pill"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 120, justifyContent: 'center' }}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Creating…
+                </>
+              ) : (
+                <>
+                  Generate
+                  <ChevronRight size={15} />
+                </>
+              )}
+            </button>
+          )}
         </div>
 
       </div>

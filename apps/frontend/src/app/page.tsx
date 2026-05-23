@@ -1,438 +1,301 @@
 'use client';
 
-import { motion, type Variants } from 'framer-motion';
-import Link from 'next/link';
-import {
-  Brain,
-  Zap,
-  Shield,
-  FileText,
-  ArrowRight,
-  Sparkles,
-  BookOpen,
-  Clock,
-  BarChart3,
-  CheckCircle2,
-} from 'lucide-react';
+import { Download } from 'lucide-react';
 
-const FEATURES = [
+const QUESTIONS = [
   {
-    icon: Brain,
-    title: 'Multi-Model AI',
-    description: 'OpenAI, Anthropic, Gemini & NVIDIA working in fallback chains for uninterrupted generation.',
-    iconBg: '#EDE9FE',
-    iconColor: '#7C3AED',
+    num: 1,
+    difficulty: 'Easy',
+    text: 'Define electroplating. Explain its purpose.',
+    marks: 2,
   },
   {
-    icon: Zap,
-    title: 'Realtime Progress',
-    description: 'WebSocket-powered live updates show every generation stage as it happens.',
-    iconBg: '#FEF3C7',
-    iconColor: '#D97706',
+    num: 2,
+    difficulty: 'Moderate',
+    text: 'What is the role of a conductor in the process of electrolysis?',
+    marks: 2,
   },
   {
-    icon: Shield,
-    title: 'Validated Output',
-    description: 'Every AI response is parsed and schema-validated. Raw LLM text never reaches your screen.',
-    iconBg: '#D1FAE5',
-    iconColor: '#059669',
+    num: 3,
+    difficulty: 'Easy',
+    text: 'Why does a solution of copper sulfate conduct electricity?',
+    marks: 2,
   },
   {
-    icon: FileText,
-    title: 'PDF Export',
-    description: 'Export beautifully formatted A4 exam papers with headers, footers, and page numbers.',
-    iconBg: '#DBEAFE',
-    iconColor: '#2563EB',
+    num: 4,
+    difficulty: 'Moderate',
+    text: 'Describe one example of the chemical effect of electric current in daily life.',
+    marks: 2,
   },
   {
-    icon: BarChart3,
-    title: 'Difficulty Control',
-    description: 'Fine-tune easy / medium / hard ratios and get perfectly balanced assessments.',
-    iconBg: '#FCE7F3',
-    iconColor: '#DB2777',
+    num: 5,
+    difficulty: 'Moderate',
+    text: 'Explain why electric current is said to have chemical effects.',
+    marks: 2,
   },
   {
-    icon: Clock,
-    title: 'Queue-Based Processing',
-    description: 'BullMQ-backed job queue ensures every assignment gets generated reliably.',
-    iconBg: '#FEF9C3',
-    iconColor: '#CA8A04',
+    num: 6,
+    difficulty: 'Challenging',
+    text: 'How is sodium hydroxide prepared during the electrolysis of brine? Write the chemical reaction involved.',
+    marks: 2,
+  },
+  {
+    num: 7,
+    difficulty: 'Challenging',
+    text: 'What happens at the cathode and anode during the electrolysis of water? Name the gases evolved.',
+    marks: 2,
+  },
+  {
+    num: 8,
+    difficulty: 'Easy',
+    text: 'Mention the type of current used in electroplating and justify why it is used.',
+    marks: 2,
+  },
+  {
+    num: 9,
+    difficulty: 'Moderate',
+    text: 'What is the importance of electric current in the field of metallurgy?',
+    marks: 2,
+  },
+  {
+    num: 10,
+    difficulty: 'Challenging',
+    text: 'Explain with a chemical equation how copper is deposited during the electroplating of an object.',
+    marks: 2,
   },
 ];
 
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.08 },
+const ANSWERS = [
+  {
+    num: 1,
+    text: 'Electroplating is the process of depositing a thin layer of metal on the surface of another metal using electric current. Its purpose is to prevent corrosion, improve appearance, or increase thickness.',
   },
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.4, ease: 'easeOut' as const },
+  {
+    num: 2,
+    text: 'A conductor allows the flow of electric current, causing ions in the electrolyte to move and enabling chemical changes at electrodes.',
   },
-};
+  {
+    num: 3,
+    text: 'Copper sulfate solution contains free copper and sulfate ions which carry electric charge, thus conducting electricity.',
+  },
+  {
+    num: 4,
+    text: 'An example is the electroplating of silver on jewelry to prevent tarnishing.',
+  },
+  {
+    num: 5,
+    text: 'Electric current causes the movement of ions leading to chemical changes at the electrodes, hence it shows chemical effects.',
+  },
+  {
+    num: 6,
+    text: 'Sodium hydroxide is formed at the cathode during brine electrolysis as water gains electrons:\n2H2O + 2e- → H2 + 2OH-\nNa+ + OH- → NaOH (in solution)',
+  },
+  {
+    num: 7,
+    text: 'At the cathode: water is reduced to hydrogen gas and hydroxide ions.\nAt the anode: water is oxidized to oxygen gas and hydrogen ions.',
+  },
+  {
+    num: 8,
+    text: 'Direct current (DC) is used because it produces a consistent flow of electrons necessary for controlled deposition of metals.',
+  },
+  {
+    num: 9,
+    text: 'Electric current helps extract metals from their ores and purify metals by electrolysis in metallurgy.',
+  },
+  {
+    num: 10,
+    text: 'During copper electroplating, copper ions in solution gain electrons at the cathode and deposit as copper metal:\nCu2+ + 2e- → Cu (solid)',
+  },
+];
 
-export default function LandingPage() {
+export default function RedesignedHomePage() {
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-        background: 'var(--bg-page)',
-        color: 'var(--text-primary)',
-      }}
-    >
-      {/* ── Hero ── */}
-      <section
-        style={{
-          maxWidth: 900,
-          margin: '0 auto',
-          padding: 'clamp(40px, 8vw, 80px) clamp(16px, 5vw, 32px) clamp(32px, 6vw, 60px)',
-          textAlign: 'center',
-        }}
-      >
-        {/* Badge */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <span
+    <div style={{ width: '100%', paddingBottom: '40px' }}>
+      {/* Outer Container (responsive styles in globals.css) */}
+      <div className="outer-paper-container">
+        {/* Dark Banner inside container */}
+        <div className="dark-banner-card">
+          <p style={{ fontSize: '14.5px', margin: 0, lineHeight: '1.6', fontWeight: '500' }}>
+            Certainly, Lakshya! Here are customized <u><strong>Question Paper</strong></u> for your <u><strong>CBSE Grade 8 Science</strong></u> classes on the <u><strong>NCERT chapters</strong></u>:
+          </p>
+          
+          {/* Desktop Download Button */}
+          <button
+            className="desktop-download-btn"
+            onClick={() => window.print()}
             style={{
+              background: '#FFFFFF',
+              border: 'none',
+              borderRadius: '100px',
+              color: '#111827',
+              padding: '10px 20px',
+              fontSize: '13px',
+              fontWeight: '700',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 6,
-              background: 'var(--brand-light)',
-              color: 'var(--brand)',
-              border: '1px solid var(--brand-border)',
-              borderRadius: 100,
-              padding: '4px 14px',
-              fontSize: 12.5,
-              fontWeight: 600,
-              marginBottom: 28,
+              gap: '8px',
+              marginTop: '16px',
+              cursor: 'pointer',
+              transition: 'background 0.15s ease',
             }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = '#F3F4F6')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = '#FFFFFF')}
           >
-            <Sparkles size={13} />
-            AI-Powered Assessment Creator
-          </span>
-        </motion.div>
+            <Download size={15} />
+            Download as PDF
+          </button>
 
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          style={{
-            fontSize: 'clamp(36px, 6vw, 64px)',
-            fontWeight: 800,
-            letterSpacing: '-1.5px',
-            lineHeight: 1.1,
-            color: 'var(--text-primary)',
-            marginBottom: 20,
-          }}
-        >
-          Generate Exam Papers{' '}
-          <span style={{ color: 'var(--brand)' }}>in Seconds</span>
-        </motion.h1>
-
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          style={{
-            fontSize: 18,
-            color: 'var(--text-secondary)',
-            maxWidth: 560,
-            margin: '0 auto 36px',
-            lineHeight: 1.7,
-          }}
-        >
-          VedaAI helps educators create structured, high-quality assessments effortlessly.
-          Upload your material, configure question types, and let AI do the rest.
-        </motion.p>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}
-        >
-          <Link href="/dashboard" className="btn btn-dark" style={{ padding: '12px 28px', fontSize: 15 }}>
-            Go to Dashboard
-            <ArrowRight size={17} />
-          </Link>
-          <Link
-            href="/assignments/create"
-            className="btn btn-primary"
-            style={{ padding: '12px 28px', fontSize: 15 }}
-          >
-            <Sparkles size={16} />
-            Create Assignment
-          </Link>
-        </motion.div>
-      </section>
-
-      {/* ── Stats ── */}
-      <section style={{ maxWidth: 900, margin: '0 auto', padding: '0 clamp(16px, 5vw, 32px) 60px' }}>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="landing-stats-grid"
-        >
-          {[
-            { value: '30s', label: 'Average generation time' },
-            { value: '100%', label: 'Schema-validated output' },
-            { value: '7+', label: 'Question types supported' },
-          ].map(({ value, label }) => (
-            <div
-              key={label}
-              className="card"
-              style={{ textAlign: 'center', padding: '24px 16px' }}
-            >
-              <div
-                style={{
-                  fontSize: 36,
-                  fontWeight: 800,
-                  color: 'var(--brand)',
-                  letterSpacing: '-1px',
-                  marginBottom: 6,
-                }}
-              >
-                {value}
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{label}</div>
-            </div>
-          ))}
-        </motion.div>
-      </section>
-
-      {/* ── Features ── */}
-      <section style={{ maxWidth: 960, margin: '0 auto', padding: '0 32px 80px' }}>
-        <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <h2
+          {/* Mobile Download Button (icon-only circular) */}
+          <button
+            className="mobile-download-btn"
+            onClick={() => window.print()}
             style={{
-              fontSize: 30,
-              fontWeight: 800,
-              letterSpacing: '-0.5px',
-              color: 'var(--text-primary)',
-              marginBottom: 8,
+              background: 'rgba(255, 255, 255, 0.12)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              borderRadius: '50%',
+              color: '#FFFFFF',
+              width: '40px',
+              height: '40px',
+              display: 'none', // Toggled by media queries in globals.css
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginTop: '16px',
+              cursor: 'pointer',
+              transition: 'background 0.15s ease',
             }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.22)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)')}
           >
-            Everything you need
-          </h2>
-          <p style={{ fontSize: 15, color: 'var(--text-muted)' }}>
-            Built for teachers who want to spend less time creating exams and more time teaching.
-          </p>
+            <Download size={18} />
+          </button>
         </div>
 
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-60px' }}
-          className="landing-features-grid"
+        {/* Paper Card inside container */}
+        <div
+          className="paper-card"
+          style={{
+            fontFamily: '"Times New Roman", Times, serif',
+            color: '#111827',
+          }}
         >
-          {FEATURES.map(({ icon: Icon, title, description, iconBg, iconColor }) => (
-            <motion.div key={title} variants={itemVariants} className="card">
-              <div
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
-                  background: iconBg,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 14,
-                }}
-              >
-                <Icon size={22} color={iconColor} />
-              </div>
-              <h3
-                style={{
-                  fontSize: 15,
-                  fontWeight: 700,
-                  color: 'var(--text-primary)',
-                  marginBottom: 6,
-                }}
-              >
-                {title}
-              </h3>
-              <p style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                {description}
-              </p>
-            </motion.div>
-          ))}
-        </motion.div>
-      </section>
-
-      {/* ── How it works ── */}
-      <section
-        style={{
-          background: 'white',
-          borderTop: '1px solid var(--border)',
-          borderBottom: '1px solid var(--border)',
-          padding: '64px 32px',
-        }}
-      >
-        <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center' }}>
-          <h2
+          {/* School Header */}
+          <h1
             style={{
-              fontSize: 28,
-              fontWeight: 800,
-              letterSpacing: '-0.4px',
-              color: 'var(--text-primary)',
-              marginBottom: 8,
+              fontSize: '22px',
+              fontWeight: '700',
+              textAlign: 'center',
+              margin: '0 0 8px 0',
+              letterSpacing: '0.2px',
             }}
           >
-            How it works
+            Delhi Public School, Sector-4, Bokaro
+          </h1>
+          <h2
+            style={{
+              fontSize: '15px',
+              fontWeight: '700',
+              textAlign: 'center',
+              margin: '0 0 4px 0',
+            }}
+          >
+            Subject: English
           </h2>
-          <p style={{ fontSize: 15, color: 'var(--text-muted)', marginBottom: 48 }}>
-            Three simple steps to a professional exam paper.
-          </p>
+          <h3
+            style={{
+              fontSize: '15px',
+              fontWeight: '700',
+              textAlign: 'center',
+              margin: '0 0 24px 0',
+            }}
+          >
+            Class: 5th
+          </h3>
 
-          <div className="landing-how-grid">
-            {[
-              {
-                step: '01',
-                icon: BookOpen,
-                title: 'Upload Material',
-                desc: 'Upload your textbook pages, notes, or PDFs. VedaAI reads and understands the content.',
-                iconBg: 'var(--brand-light)',
-                iconColor: 'var(--brand)',
-              },
-              {
-                step: '02',
-                icon: Sparkles,
-                title: 'Configure Questions',
-                desc: 'Choose question types, difficulty distribution, marks, and any special instructions.',
-                iconBg: '#EDE9FE',
-                iconColor: '#7C3AED',
-              },
-              {
-                step: '03',
-                icon: FileText,
-                title: 'Download Paper',
-                desc: 'Get a print-ready A4 exam paper with answer key, ready to distribute to students.',
-                iconBg: '#D1FAE5',
-                iconColor: '#059669',
-              },
-            ].map(({ step, icon: Icon, title, desc, iconBg, iconColor }) => (
-              <div key={step} style={{ textAlign: 'center' }}>
-                <div
-                  style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 16,
-                    background: iconBg,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 16px',
-                  }}
-                >
-                  <Icon size={26} color={iconColor} />
-                </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: 'var(--text-muted)',
-                    letterSpacing: '0.1em',
-                    textTransform: 'uppercase',
-                    marginBottom: 6,
-                  }}
-                >
-                  Step {step}
-                </div>
-                <h3
-                  style={{
-                    fontSize: 16,
-                    fontWeight: 700,
-                    color: 'var(--text-primary)',
-                    marginBottom: 8,
-                  }}
-                >
-                  {title}
-                </h3>
-                <p style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                  {desc}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── CTA ── */}
-      <section
-        style={{
-          maxWidth: 640,
-          margin: '0 auto',
-          padding: '80px 32px',
-          textAlign: 'center',
-        }}
-      >
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-        >
+          {/* Time / Marks Row */}
           <div
             style={{
               display: 'flex',
-              gap: 6,
-              justifyContent: 'center',
-              marginBottom: 24,
+              justifyContent: 'space-between',
+              fontSize: '13.5px',
+              fontWeight: '700',
+              borderBottom: '1px solid #E5E7EB',
+              paddingBottom: '12px',
+              marginBottom: '16px',
             }}
           >
-            {[CheckCircle2, CheckCircle2, CheckCircle2].map((Icon, i) => (
-              <Icon key={i} size={20} color="var(--brand)" />
+            <span>Time Allowed: 45 minutes</span>
+            <span>Maximum Marks: 20</span>
+          </div>
+
+          {/* Instructions */}
+          <p style={{ fontSize: '13px', fontWeight: '700', margin: '0 0 20px 0' }}>
+            All questions are compulsory unless stated otherwise.
+          </p>
+
+          {/* Student Fields */}
+          <div className="student-fields-grid" style={{ marginBottom: '32px', fontSize: '13px', fontWeight: '700' }}>
+            <div>
+              Name: <span style={{ borderBottom: '1px solid #111827', display: 'inline-block', minWidth: '140px' }}>&nbsp;</span>
+            </div>
+            <div>
+              Roll Number: <span style={{ borderBottom: '1px solid #111827', display: 'inline-block', minWidth: '140px' }}>&nbsp;</span>
+            </div>
+            <div>
+              Class: 5th Section: <span style={{ borderBottom: '1px solid #111827', display: 'inline-block', minWidth: '80px' }}>&nbsp;</span>
+            </div>
+          </div>
+
+          {/* Section Header */}
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <h4 style={{ fontSize: '16px', fontWeight: '700', margin: '0 0 16px 0' }}>Section A</h4>
+            <h5 style={{ fontSize: '13.5px', fontWeight: '700', textAlign: 'left', margin: '0 0 4px 0' }}>
+              Short Answer Questions
+            </h5>
+            <p style={{ fontSize: '12.5px', fontStyle: 'italic', color: '#4B5563', textAlign: 'left', margin: 0 }}>
+              Attempt all questions. Each question carries 2 marks
+            </p>
+          </div>
+
+          {/* Questions list */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '36px' }}>
+            {QUESTIONS.map((q) => (
+              <div key={q.num} className="question-item">
+                <span className="question-num" style={{ fontSize: '13.5px', fontWeight: '700', minWidth: '20px', textAlign: 'right' }}>
+                  {q.num}.
+                </span>
+                <div className="question-text-block" style={{ fontSize: '13.5px', fontWeight: '700', lineHeight: '1.6' }}>
+                  [{q.difficulty}] {q.text}
+                </div>
+                <span className="question-marks" style={{ fontSize: '13.5px', fontWeight: '700', whiteSpace: 'nowrap', paddingLeft: '8px' }}>
+                  [{q.marks} Marks]
+                </span>
+              </div>
             ))}
           </div>
-          <h2
-            style={{
-              fontSize: 32,
-              fontWeight: 800,
-              letterSpacing: '-0.6px',
-              color: 'var(--text-primary)',
-              marginBottom: 12,
-            }}
-          >
-            Ready to save hours every week?
-          </h2>
-          <p style={{ fontSize: 16, color: 'var(--text-muted)', marginBottom: 32, lineHeight: 1.6 }}>
-            Join educators who use VedaAI to create professional exam papers faster than ever before.
-          </p>
-          <Link
-            href="/assignments/create"
-            className="btn btn-primary"
-            style={{ padding: '14px 36px', fontSize: 16, borderRadius: 100 }}
-          >
-            <Sparkles size={18} />
-            Create Your First Assignment
-          </Link>
-        </motion.div>
-      </section>
 
-      {/* ── Footer ── */}
-      <footer
-        style={{
-          borderTop: '1px solid var(--border)',
-          padding: '24px 32px',
-          textAlign: 'center',
-        }}
-      >
-        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          © 2025 VedaAI — Built for educators, powered by AI
-        </p>
-      </footer>
+          {/* End Note */}
+          <p style={{ fontSize: '13.5px', fontWeight: '700', textAlign: 'center', margin: '0 0 32px 0', borderBottom: '1px solid #E5E7EB', paddingBottom: '20px' }}>
+            End of Question Paper
+          </p>
+
+          {/* Answer Key */}
+          <div>
+            <h4 style={{ fontSize: '14.5px', fontWeight: '700', margin: '0 0 16px 0' }}>Answer Key:</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {ANSWERS.map((a) => (
+                <div key={a.num} className="question-item">
+                  <span className="question-num" style={{ fontSize: '13.5px', fontWeight: '700', minWidth: '20px', textAlign: 'right' }}>
+                    {a.num}.
+                  </span>
+                  <div className="question-text-block" style={{ color: '#4B5563', lineHeight: '1.6', whiteSpace: 'pre-line' }}>
+                    {a.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

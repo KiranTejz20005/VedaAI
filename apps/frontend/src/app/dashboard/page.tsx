@@ -104,23 +104,9 @@ function CardMenu({
                 setOpen(false);
                 onView(assignment._id);
               }}
+              style={{ padding: '8px 14px', fontSize: '13px', color: '#111827', fontWeight: '500' }}
             >
-              <Eye size={14} />
               View Assignment
-            </button>
-            <button
-              type="button"
-              className="dropdown-item"
-              onClick={async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setOpen(false);
-                await onRegenerate(assignment._id);
-              }}
-              disabled={isDeleting || assignment.status === 'queued' || assignment.status === 'generating'}
-            >
-              <RefreshCw size={14} />
-              Regenerate
             </button>
             <button
               type="button"
@@ -132,8 +118,8 @@ function CardMenu({
                 await onDelete(assignment._id);
               }}
               disabled={isDeleting}
+              style={{ padding: '8px 14px', fontSize: '13px', color: '#DC2626', fontWeight: '500' }}
             >
-              <Trash2 size={14} />
               {isDeleting ? 'Deleting...' : 'Delete'}
             </button>
           </motion.div>
@@ -194,10 +180,9 @@ function AssignmentCard({
       {/* Header row: title + 3-dot */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h3 className="card-title" style={{ marginBottom: 4 }}>
+          <h3 className="card-title" style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#111827' }}>
             {assignment.title}
           </h3>
-          <StatusBadge status={assignment.status} />
         </div>
         <CardMenu
           assignment={assignment}
@@ -208,67 +193,20 @@ function AssignmentCard({
         />
       </div>
 
-      {/* Generated counts row (for completed & partial) */}
-      {(assignment.status === 'completed' || isPartial) && genMeta && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            marginTop: 10,
-            fontSize: 12,
-          }}
-        >
-          <span style={{ color: 'var(--text-muted)' }}>
-            Generated:{' '}
-            <strong style={{ color: isPartial ? '#EA580C' : '#065F46' }}>
-              {genMeta.generatedQuestionCount}/{genMeta.requestedQuestionCount}
-            </strong>{' '}
-            questions ·{' '}
-            <strong style={{ color: isPartial ? '#EA580C' : '#065F46' }}>
-              {genMeta.generatedMarks}/{genMeta.requestedMarks}
-            </strong>{' '}
-            marks
-          </span>
-        </div>
-      )}
-
-      {/* Failure reason for partial */}
-      {isPartial && genMeta?.failureReason && (
-        <div
-          style={{
-            marginTop: 8,
-            padding: '6px 10px',
-            background: '#FED7AA',
-            borderRadius: 6,
-            fontSize: 11,
-            color: '#9A3412',
-            lineHeight: 1.4,
-          }}
-        >
-          {genMeta.failureReason}
-        </div>
-      )}
-
-      {/* Meta row */}
+      {/* Meta row (clean side-by-side dates, no divider, bold dark text) */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginTop: isPartial || assignment.status === 'completed' ? 10 : 14,
-          paddingTop: 12,
-          borderTop: '1px solid var(--border)',
+          marginTop: 18,
+          fontSize: '11.5px',
+          fontWeight: '700',
+          color: '#111827',
         }}
       >
-        <span className="card-meta">
-          <span style={{ color: 'var(--text-muted)' }}>Assigned on</span>{' '}
-          <strong style={{ color: 'var(--text-secondary)' }}>{assignedDate}</strong>
-        </span>
-        <span className="card-meta">
-          <span style={{ color: 'var(--text-muted)' }}>Due</span>{' '}
-          <strong style={{ color: 'var(--text-secondary)' }}>{dueDate}</strong>
-        </span>
+        <span>Assigned on : {assignedDate}</span>
+        <span>Due : {dueDate}</span>
       </div>
 
       {/* Processing indicator */}
@@ -317,32 +255,11 @@ function EmptyState({ isFiltered }: { isFiltered: boolean }) {
     <div className="empty-state">
       {/* Illustration */}
       <div className="empty-illustration" aria-hidden="true">
-        <svg viewBox="0 0 140 140" fill="none" xmlns="http://www.w3.org/2000/svg" width="140" height="140">
-          {/* Background circle */}
-          <circle cx="70" cy="70" r="60" fill="#F3F4F6" />
-
-          {/* Document */}
-          <rect x="42" y="34" width="56" height="72" rx="6" fill="white" stroke="#E5E7EB" strokeWidth="1.5"/>
-          <rect x="50" y="46" width="30" height="3" rx="1.5" fill="#E5E7EB"/>
-          <rect x="50" y="54" width="40" height="3" rx="1.5" fill="#E5E7EB"/>
-          <rect x="50" y="62" width="36" height="3" rx="1.5" fill="#E5E7EB"/>
-          <rect x="50" y="70" width="28" height="3" rx="1.5" fill="#E5E7EB"/>
-
-          {/* Magnifying glass */}
-          <circle cx="88" cy="88" r="22" fill="white" stroke="#D1D5DB" strokeWidth="2"/>
-          <circle cx="84" cy="84" r="14" fill="#F9FAFB" stroke="#E5E7EB" strokeWidth="1.5"/>
-          <line x1="94" y1="98" x2="108" y2="112" stroke="#9CA3AF" strokeWidth="3" strokeLinecap="round"/>
-
-          {/* Red X */}
-          <circle cx="84" cy="84" r="9" fill="#FEE2E2"/>
-          <line x1="79" y1="79" x2="89" y2="89" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round"/>
-          <line x1="89" y1="79" x2="79" y2="89" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round"/>
-
-          {/* Sparkles */}
-          <circle cx="38" cy="52" r="3" fill="#E8531D" opacity="0.6"/>
-          <circle cx="110" cy="46" r="4" fill="#60A5FA" opacity="0.5"/>
-          <circle cx="46" cy="106" r="2.5" fill="#34D399" opacity="0.6"/>
-        </svg>
+        <img 
+          src="/empty-state.png" 
+          alt="No assignments yet" 
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+        />
       </div>
 
       <h2 className="empty-title">
@@ -355,8 +272,21 @@ function EmptyState({ isFiltered }: { isFiltered: boolean }) {
       </p>
 
       {!isFiltered && (
-        <Link href="/assignments/create" className="btn btn-dark">
-          <Plus size={15} />
+        <Link 
+          href="/assignments/create" 
+          className="btn btn-dark"
+          style={{
+            borderRadius: '100px',
+            padding: '12px 28px',
+            fontWeight: '700',
+            fontSize: '14.5px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.06)'
+          }}
+        >
+          <span style={{ fontSize: '18px', fontWeight: '500', lineHeight: 1 }}>+</span>
           Create Your First Assignment
         </Link>
       )}
@@ -401,6 +331,12 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (error) {
+      toast.error(error, { id: 'dashboard-error', position: 'bottom-center' });
+    }
+  }, [error]);
+
   const handleView = (assignmentId: string) => {
     void router.push(`/assignments/${assignmentId}`);
   };
@@ -443,13 +379,45 @@ export default function DashboardPage() {
 
   return (
     <>
-      {/* Page heading */}
-      <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div className="status-dot" aria-hidden="true" />
-          <h1 className="page-title">Assignments</h1>
+      {/* Page heading (responsive structures defined in globals.css) */}
+      <div className="page-header-container">
+        {/* Desktop-only Page Header */}
+        <div className="desktop-page-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="status-dot" aria-hidden="true" />
+            <h1 className="page-title">Assignments</h1>
+          </div>
+          <p className="page-subtitle">Manage and create assignments for your classes.</p>
         </div>
-        <p className="page-subtitle">Manage and create assignments for your classes.</p>
+
+        {/* Mobile-only Page Header */}
+        <div className="mobile-page-header">
+          <button 
+            onClick={() => window.history.back()}
+            className="mobile-header-back-btn"
+            aria-label="Go back"
+            style={{
+              background: '#FFFFFF',
+              border: '1px solid #E5E7EB',
+              borderRadius: '50%',
+              width: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: '#374151',
+              flexShrink: 0
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12" />
+              <polyline points="12 19 5 12 12 5" />
+            </svg>
+          </button>
+          <h1 className="mobile-header-title">Assignments</h1>
+          <div style={{ width: '32px' }} /> {/* Spacer to center the title */}
+        </div>
       </div>
 
       {/* Stats (only when there is data) */}
@@ -460,15 +428,7 @@ export default function DashboardPage() {
       )}
 
       {/* Search + Filter bar */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 10,
-          marginBottom: 20,
-          alignItems: 'center',
-          flexWrap: 'wrap',
-        }}
-      >
+      <div className="search-filter-row">
         {/* Filter By */}
         <div
           className="filter-btn"
@@ -480,7 +440,7 @@ export default function DashboardPage() {
           }}
         >
           <Filter size={14} />
-          <label htmlFor="status-filter" style={{ fontSize: 14, fontWeight: 500 }}>
+          <label className="filter-label" htmlFor="status-filter" style={{ fontSize: 14, fontWeight: 500 }}>
             Filter By
           </label>
           <select
@@ -510,7 +470,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Search */}
-        <div className="search-wrap" style={{ flex: 1, minWidth: 200 }}>
+        <div className="search-wrap">
           <Search size={15} className="search-icon" aria-hidden="true" />
           <input
             type="text"
@@ -531,20 +491,37 @@ export default function DashboardPage() {
           ))}
         </div>
       ) : error ? (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '64px 32px',
-            textAlign: 'center',
-          }}
-        >
-          <AlertCircle size={36} style={{ color: '#EF4444', marginBottom: 12 }} />
-          <p style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>{error}</p>
-          <button onClick={() => void reload()} className="btn btn-secondary btn-sm">
-            Retry
+        <div className="empty-state">
+          {/* Illustration */}
+          <div className="empty-illustration" aria-hidden="true">
+            <img 
+              src="/empty-state.png" 
+              alt="Error illustration" 
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+            />
+          </div>
+
+          <h2 className="empty-title">Failed to load assignments</h2>
+          <p className="empty-desc">
+            Something went wrong while retrieving your assignments. Please check your connection or try reloading the page.
+          </p>
+
+          <button 
+            onClick={() => void reload()} 
+            className="btn btn-dark"
+            style={{
+              borderRadius: '100px',
+              padding: '12px 28px',
+              fontWeight: '700',
+              fontSize: '14.5px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.06)'
+            }}
+          >
+            <RefreshCw size={14} style={{ marginRight: '4px' }} />
+            Retry loading
           </button>
         </div>
       ) : assignments.length === 0 || filtered.length === 0 ? (

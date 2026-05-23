@@ -18,7 +18,7 @@
   --brand-text: #E8531D;
 
   /* Page surfaces */
-  --bg-page: #F5F4F1;
+  --bg-page: #F8F7F4;
   --bg-sidebar: #FFFFFF;
   --bg-card: #FFFFFF;
   --bg-topbar: #FFFFFF;
@@ -50,7 +50,7 @@
   --shadow-lg: 0 8px 32px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.05);
 
   /* Sidebar */
-  --sidebar-w: 220px;
+  --sidebar-w: 240px;
   --topbar-h: 60px;
 
   /* Radius */
@@ -84,12 +84,15 @@ body {
 /* ── Sidebar ── */
 .sidebar {
   position: fixed;
-  top: 0;
-  left: 0;
+  top: 24px;
+  left: 24px;
+  bottom: 24px;
   width: var(--sidebar-w);
-  height: 100vh;
+  height: calc(100vh - 48px);
   background: var(--bg-sidebar);
-  border-right: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
   z-index: 40;
@@ -295,7 +298,7 @@ body {
 
 /* ── Main content wrapper ── */
 .main-wrapper {
-  margin-left: var(--sidebar-w);
+  margin-left: calc(var(--sidebar-w) + 48px);
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -305,15 +308,19 @@ body {
 /* ── Top Bar ── */
 .topbar {
   position: sticky;
-  top: 0;
+  top: 24px;
   z-index: 30;
-  height: var(--topbar-h);
-  background: var(--bg-topbar);
-  border-bottom: 1px solid var(--border);
+  height: 64px;
+  background: #FFFFFF !important;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
+  margin-top: 24px;
+  margin-right: 24px;
   gap: 16px;
 }
 
@@ -417,7 +424,7 @@ body {
 /* ── Page container ── */
 .page-container {
   flex: 1;
-  padding: 28px;
+  padding: 24px 24px 24px 0;
   max-width: 100%;
   overflow-x: hidden;
 }
@@ -744,32 +751,36 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 64px 32px;
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  padding: 48px 24px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .empty-illustration {
-  width: 140px;
-  height: 140px;
+  width: 220px;
+  height: 220px;
   margin-bottom: 24px;
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .empty-title {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 8px;
+  letter-spacing: -0.3px;
 }
 
 .empty-desc {
   font-size: 13.5px;
-  color: var(--text-muted);
-  max-width: 320px;
+  color: var(--text-secondary);
+  max-width: 460px;
   line-height: 1.6;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 
 /* ── File upload zone ── */
@@ -1125,9 +1136,14 @@ body {
 
   /* Sidebar becomes a drawer */
   .sidebar {
-    transform: translateX(-100%);
+    transform: translateX(calc(-100% - 32px));
     width: 260px;
     z-index: 40;
+    left: 16px !important;
+    top: 16px !important;
+    bottom: 16px !important;
+    height: calc(100vh - 32px) !important;
+    border-radius: 24px !important;
   }
 
   .sidebar.open {
@@ -1349,3 +1365,569 @@ hr {
 
 /* ── animate-spin utility ── */
 .animate-spin { animation: spin 1s linear infinite; }
+
+
+/* ============================================================
+   VedaAI — Responsive Mobile Layout (Mockup Alignment)
+   ============================================================ */
+
+/* Header content blocks */
+.desktop-topbar-content {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mobile-topbar-content {
+  display: none;
+}
+
+/* Question paper containers */
+.outer-paper-container {
+  background: #5E6167;
+  border-radius: 24px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+.dark-banner-card {
+  background: #1F2023;
+  color: #FFFFFF;
+  border-radius: 16px;
+  padding: 24px 32px;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  position: relative;
+}
+
+.paper-card {
+  background: #FFFFFF;
+  border: none;
+  border-radius: 20px;
+  padding: 48px 48px;
+}
+
+.student-fields-grid {
+  display: flex;
+  flex-direction: row;
+  gap: 32px;
+}
+
+.question-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.question-text-block {
+  flex: 1;
+}
+
+.question-marks {
+  display: inline-block;
+}
+
+/* Small screens override */
+@media (max-width: 768px) {
+  /* Toggle header view */
+  .desktop-topbar-content {
+    display: none !important;
+  }
+  .mobile-topbar-content {
+    display: flex !important;
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  /* Floating header margins on mobile */
+  .topbar {
+    margin: 16px 16px 0 16px !important;
+    width: calc(100% - 32px) !important;
+    border-radius: 20px !important;
+    height: 56px !important;
+    padding: 0 16px !important;
+    position: sticky !important;
+    top: 16px !important;
+  }
+  
+  /* Gutter spacing for main container */
+  .page-container {
+    padding: 16px 16px 40px 16px !important;
+  }
+  
+  /* Remove grey background and padding of outer paper container */
+  .outer-paper-container {
+    background: transparent !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    gap: 16px !important;
+  }
+  
+  /* Dark banner styles on mobile */
+  .dark-banner-card {
+    border-radius: 20px !important;
+    padding: 20px 24px !important;
+  }
+  
+  /* Download button toggle */
+  .desktop-download-btn {
+    display: none !important;
+  }
+  
+  .mobile-download-btn {
+    display: flex !important;
+  }
+  
+  /* White paper card styling on mobile */
+  .paper-card {
+    border-radius: 24px !important;
+    padding: 32px 20px !important;
+  }
+  
+  /* Student details stack vertically */
+  .student-fields-grid {
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+  
+  /* Inline list flow for questions and answers key */
+  .question-item {
+    display: block !important;
+  }
+  
+  .question-num {
+    float: left;
+    margin-right: 8px;
+    min-width: unset !important;
+    text-align: left !important;
+  }
+  
+  .question-text-block {
+    display: inline !important;
+  }
+  
+  .question-marks {
+    display: inline !important;
+    white-space: normal !important;
+    padding-left: 4px !important;
+  }
+
+  /* Empty state overrides on mobile */
+  .empty-illustration {
+    width: 170px !important;
+    height: 170px !important;
+    margin-bottom: 16px !important;
+  }
+  
+  .empty-title {
+    font-size: 18px !important;
+  }
+  
+  .empty-desc {
+    font-size: 13px !important;
+    max-width: 320px !important;
+    margin-bottom: 24px !important;
+  }
+}
+
+/* ── Assignments Loaded Dashboard Layout Overrides ── */
+
+/* Page Headers responsive toggles */
+.desktop-page-header {
+  display: block;
+}
+.mobile-page-header {
+  display: none;
+}
+
+/* Search + Filter Row (Desktop defaults) */
+.search-filter-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+.search-filter-row .search-wrap {
+  flex: 1;
+}
+
+/* Desktop Grid override: 2-column layout */
+@media (min-width: 769px) {
+  .assignment-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* Mobile & Tablet Overrides (max-width: 768px) */
+@media (max-width: 768px) {
+  .desktop-page-header {
+    display: none !important;
+  }
+  
+  .mobile-page-header {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+  
+  .mobile-header-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text-primary);
+    text-align: center;
+    margin: 0;
+  }
+
+  /* Force search and filter on a single row, side-by-side */
+  .search-filter-row {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    width: 100% !important;
+    margin-bottom: 16px !important;
+  }
+  
+  .search-filter-row .filter-label {
+    display: none !important;
+  }
+  
+  .search-filter-row .filter-btn {
+    padding: 8px 10px !important;
+    flex-shrink: 0 !important;
+  }
+  
+  .search-filter-row .search-wrap {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+  
+  .search-filter-row .search-input {
+    font-size: 13px !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+
+  /* Stack assignment cards in 1 column */
+  .assignment-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ============================================================
+   VedaAI — Create Assignment Form Redesign
+   ============================================================ */
+
+/* Single centered card layout on desktop */
+.create-form-layout {
+  max-width: 900px !important;
+  margin: 0 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  grid-template-columns: none !important; /* overrides previous 2-column layout */
+  gap: 0 !important;
+}
+
+.create-form-main {
+  background: #FFFFFF !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 24px !important;
+  padding: 32px 40px !important;
+  box-shadow: var(--shadow-sm) !important;
+  width: 100% !important;
+  overflow: visible !important;
+}
+
+/* Action navigation buttons footer below card */
+.create-form-footer {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-top: 24px !important;
+  margin-bottom: 40px !important;
+  padding: 0 4px !important;
+  width: 100% !important;
+}
+
+/* Pill buttons override */
+.btn-pill {
+  border-radius: 100px !important;
+  padding: 12px 28px !important;
+  font-size: 14.5px !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+}
+
+/* Step segmented progress bar above card */
+.step-progress {
+  height: 6px !important;
+  background: #E5E7EB !important;
+  border-radius: 100px !important;
+  margin-bottom: 24px !important;
+  position: relative !important;
+  overflow: hidden !important;
+  width: 100% !important;
+}
+
+.step-progress-fill {
+  height: 100% !important;
+  background: #111827 !important; /* Dark active progress line */
+  border-radius: 100px !important;
+  transition: width 0.4s ease !important;
+}
+
+/* Custom calendar overlay date input */
+.date-input {
+  border-radius: 100px !important;
+  background-color: #F3F4F6 !important;
+  border: 1px solid var(--border) !important;
+  padding: 10px 18px !important;
+  padding-right: 44px !important;
+  font-size: 14px !important;
+  color: var(--text-primary) !important;
+  width: 100% !important;
+  outline: none !important;
+}
+
+.date-input::-webkit-calendar-picker-indicator {
+  opacity: 0 !important;
+  cursor: pointer !important;
+  position: absolute !important;
+  right: 12px !important;
+  width: 24px !important;
+  height: 24px !important;
+}
+
+/* Textarea input styles */
+.create-form-main textarea.input {
+  background-color: #F3F4F6 !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 16px !important;
+  padding: 12px 44px 12px 16px !important;
+  font-size: 14px !important;
+  width: 100% !important;
+}
+
+/* Add Question Type Button */
+.add-question-type-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: var(--text-primary) !important;
+  background: none !important;
+  border: none !important;
+  cursor: pointer !important;
+  padding: 12px 0 0 !important;
+  transition: opacity 0.15s !important;
+}
+
+.add-question-type-btn:hover {
+  opacity: 0.8 !important;
+}
+
+.plus-icon-circle {
+  width: 26px !important;
+  height: 26px !important;
+  border-radius: 50% !important;
+  background: #111827 !important;
+  color: #FFFFFF !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+}
+
+/* ── Question rows grid styling (Desktop default) ── */
+.question-headers {
+  display: grid !important;
+  grid-template-columns: 1fr 40px 140px 140px !important;
+  gap: 16px !important;
+  align-items: center !important;
+  padding: 4px 0 10px !important;
+  margin-top: 14px !important;
+  margin-bottom: 4px !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.header-type, .header-count, .header-marks {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: var(--text-muted) !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+
+.header-count, .header-marks {
+  text-align: center !important;
+}
+
+.desktop-question-row {
+  display: grid !important;
+  grid-template-columns: 1fr 40px 140px 140px !important;
+  gap: 16px !important;
+  align-items: center !important;
+  padding: 12px 0 !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.desktop-question-row:last-child {
+  border-bottom: none !important;
+}
+
+.desktop-question-row .question-select {
+  border-radius: 100px !important;
+  background-color: #F3F4F6 !important;
+  border: 1px solid var(--border) !important;
+  font-size: 14px !important;
+  padding: 10px 18px !important;
+  height: 44px !important;
+  width: 100% !important;
+}
+
+.question-remove-btn {
+  background: transparent !important;
+  border: none !important;
+  color: #9CA3AF !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  transition: all 0.15s !important;
+}
+
+.question-remove-btn:hover:not(:disabled) {
+  background: var(--bg-hover) !important;
+  color: #EF4444 !important;
+}
+
+.question-remove-btn:disabled {
+  opacity: 0.3 !important;
+  cursor: not-allowed !important;
+}
+
+/* custom Counter component pill style */
+.counter {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background: #FFFFFF !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 100px !important;
+  padding: 2px 6px !important;
+  height: 40px !important;
+  width: 100% !important;
+}
+
+.counter-btn {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  border: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--text-primary) !important;
+  cursor: pointer !important;
+  transition: background 0.15s !important;
+}
+
+.counter-btn:hover:not(:disabled) {
+  background: var(--bg-hover) !important;
+}
+
+.counter-btn:disabled {
+  color: var(--text-muted) !important;
+  cursor: not-allowed !important;
+}
+
+.counter-val {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: var(--text-primary) !important;
+}
+
+.mobile-question-row {
+  display: none !important;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+  .desktop-question-row {
+    display: none !important;
+  }
+  .question-headers {
+    display: none !important;
+  }
+  .mobile-question-row {
+    display: block !important;
+    background: #F9FAFB !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 18px !important;
+    padding: 16px !important;
+    margin-bottom: 16px !important;
+  }
+  .mobile-row-top {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    justify-content: space-between !important;
+    margin-bottom: 12px !important;
+  }
+  .mobile-row-top .question-select {
+    flex: 1 !important;
+    border-radius: 100px !important;
+    background-color: #FFFFFF !important;
+    border: 1px solid var(--border) !important;
+    padding: 9px 16px !important;
+    height: 40px !important;
+  }
+  .mobile-counters-container {
+    display: flex !important;
+    background: #F3F4F6 !important;
+    border-radius: 16px !important;
+    padding: 12px 14px !important;
+    gap: 12px !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+  .mobile-counter-item {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+  .mobile-counter-item .counter-label {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: var(--text-secondary) !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+  }
+  .create-form-main {
+    padding: 24px 20px !important;
+    border-radius: 24px !important;
+  }
+  .create-form-footer {
+    justify-content: center !important;
+    gap: 12px !important;
+    margin-top: 16px !important;
+    margin-bottom: 30px !important;
+  }
+}
+
