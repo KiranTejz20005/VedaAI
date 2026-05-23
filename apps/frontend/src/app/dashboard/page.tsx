@@ -11,21 +11,15 @@ import {
   Search,
   Filter,
   MoreVertical,
-  Eye,
-  Trash2,
   Loader2,
   AlertCircle,
-  CheckCircle2,
-  XCircle,
   ChevronDown,
+  RefreshCw,
 } from 'lucide-react';
 import { useAssignments } from '@/hooks/useAssignments';
-import {
-  deleteAssignment as deleteAssignmentRequest,
-} from '@/services/assignment.service';
+import { deleteAssignment as deleteAssignmentRequest } from '@/services/assignment.service';
 import type { Assignment } from '@/types/assignment.types';
 
-// ─── Status badge ──────────────────────────────────────────
 function StatusBadge({ status }: { status: Assignment['status'] }) {
   const config: Record<string, { cls: string; label: string }> = {
     draft:               { cls: 'badge-draft',      label: 'Draft' },
@@ -35,12 +29,10 @@ function StatusBadge({ status }: { status: Assignment['status'] }) {
     failed:              { cls: 'badge-failed',     label: 'Failed' },
     partially_generated: { cls: 'badge-warning',    label: 'Partially Generated' },
   };
-
   const { cls, label } = config[status] ?? config.draft;
   return <span className={`badge ${cls}`}>{label}</span>;
 }
 
-// ─── 3-dot context menu ─────────────────────────────────────
 function CardMenu({
   assignment,
   onView,
@@ -64,20 +56,15 @@ function CardMenu({
   }, []);
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
+    <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
       <button
         className="menu-btn"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setOpen((o) => !o);
-        }}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o); }}
         aria-label="Card options"
         aria-expanded={open}
       >
         <MoreVertical size={16} />
       </button>
-
       <AnimatePresence>
         {open && (
           <motion.div
@@ -87,30 +74,14 @@ function CardMenu({
             exit={{ opacity: 0, scale: 0.95, y: -4 }}
             transition={{ duration: 0.12 }}
           >
-            <button
-              type="button"
-              className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setOpen(false);
-                onView(assignment._id);
-              }}
-              style={{ padding: '8px 14px', fontSize: '13px', color: '#111827', fontWeight: '500' }}
-            >
+            <button type="button" className="dropdown-item" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); onView(assignment._id); }}>
               View Assignment
             </button>
             <button
               type="button"
               className="dropdown-item danger"
-              onClick={async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setOpen(false);
-                await onDelete(assignment._id);
-              }}
+              onClick={async (e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); await onDelete(assignment._id); }}
               disabled={isDeleting}
-              style={{ padding: '8px 14px', fontSize: '13px', color: '#DC2626', fontWeight: '500' }}
             >
               {isDeleting ? 'Deleting...' : 'Delete'}
             </button>
@@ -121,7 +92,6 @@ function CardMenu({
   );
 }
 
-// ─── Assignment card ─────────────────────────────────────────
 function AssignmentCard({
   assignment,
   index,
@@ -136,8 +106,6 @@ function AssignmentCard({
   isDeleting: boolean;
 }) {
   const isLive = assignment.status === 'generating' || assignment.status === 'queued';
-  const isPartial = assignment.status === 'partially_generated';
-  const genMeta = assignment.generationMeta;
   const assignedDate = format(new Date(assignment.createdAt), 'dd-MM-yyyy');
   const dueDate = format(new Date(assignment.dueDate), 'dd-MM-yyyy');
 
@@ -149,88 +117,50 @@ function AssignmentCard({
       exit={{ opacity: 0, y: -8 }}
       transition={{ delay: index * 0.04 }}
       className="assignment-card"
-      style={{ overflow: 'visible' }}
     >
-      {/* Live pulse border */}
       {isLive && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: 'var(--radius-lg)',
-            border: '2px solid var(--brand)',
-            opacity: 0.4,
-            animation: 'pulse-ring 2s ease-in-out infinite',
-            pointerEvents: 'none',
-          }}
-          aria-hidden="true"
-        />
+        <div style={{ position: 'absolute', inset: 0, borderRadius: 'var(--radius-lg)', border: '2px solid var(--brand)', opacity: 0.4, animation: 'pulse-ring 2s ease-in-out infinite', pointerEvents: 'none' }} aria-hidden="true" />
       )}
 
-      {/* Header row: title + 3-dot */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h3 className="card-title" style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#111827' }}>
-            {assignment.title}
-          </h3>
+          <h3 className="card-title">{assignment.title}</h3>
+          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <StatusBadge status={assignment.status} />
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+              {assignment.subject}
+            </span>
+          </div>
         </div>
-        <CardMenu
-          assignment={assignment}
-          onView={onView}
-          onDelete={onDelete}
-          isDeleting={isDeleting}
-        />
+        <CardMenu assignment={assignment} onView={onView} onDelete={onDelete} isDeleting={isDeleting} />
       </div>
 
-      {/* Meta row (clean side-by-side dates, no divider, bold dark text) */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginTop: 18,
-          fontSize: '11.5px',
-          fontWeight: '700',
-          color: '#111827',
-        }}
-      >
-        <span>Assigned on : {assignedDate}</span>
-        <span>Due : {dueDate}</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-secondary)', gap: 8, flexWrap: 'wrap' }}>
+        <span>Assigned on: {assignedDate}</span>
+        <span>Due: {dueDate}</span>
       </div>
 
-      {/* Processing indicator */}
       {isLive && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            marginTop: 10,
-            fontSize: 12,
-            color: 'var(--brand)',
-            fontWeight: 600,
-          }}
-        >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 'var(--text-sm)', color: 'var(--brand)', fontWeight: 600 }}>
           <Loader2 size={12} className="animate-spin" aria-hidden="true" />
-          Generating paper…
+          Generating paper...
         </div>
       )}
     </motion.div>
   );
 }
 
-// ─── Skeleton ────────────────────────────────────────────────
 function SkeletonCard() {
   return (
     <div className="assignment-card" style={{ animation: 'none' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+      <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1 }}>
-          <div className="skeleton" style={{ height: 18, width: '65%', borderRadius: 6, marginBottom: 10 }} />
-          <div className="skeleton" style={{ height: 20, width: 80, borderRadius: 100 }} />
+          <div className="skeleton" style={{ height: 20, width: '65%', borderRadius: 6, marginBottom: 10 }} />
+          <div className="skeleton" style={{ height: 22, width: 90, borderRadius: 100 }} />
         </div>
-        <div className="skeleton" style={{ width: 28, height: 28, borderRadius: 6 }} />
+        <div className="skeleton" style={{ width: 28, height: 28, borderRadius: 6, flexShrink: 0 }} />
       </div>
-      <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between' }}>
+      <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', gap: 12 }}>
         <div className="skeleton" style={{ height: 14, width: 120, borderRadius: 4 }} />
         <div className="skeleton" style={{ height: 14, width: 100, borderRadius: 4 }} />
       </div>
@@ -238,44 +168,23 @@ function SkeletonCard() {
   );
 }
 
-// ─── Empty state ─────────────────────────────────────────────
-function EmptyState({ isFiltered }: { isFiltered: boolean }) {
+function EmptyState({ isFiltered, assignmentsCount }: { isFiltered: boolean; assignmentsCount: number }) {
   return (
     <div className="empty-state">
-      {/* Illustration */}
       <div className="empty-illustration" aria-hidden="true">
-        <img 
-          src="/empty-state.png" 
-          alt="No assignments yet" 
-          style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-        />
+        <img src="/empty-state.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
       </div>
-
       <h2 className="empty-title">
-        {isFiltered ? 'No matching assignments' : 'No assignments yet'}
+        {isFiltered && assignmentsCount > 0 ? 'No matching assignments' : 'No assignments yet'}
       </h2>
       <p className="empty-desc">
-        {isFiltered
+        {isFiltered && assignmentsCount > 0
           ? 'Try adjusting your search or filter criteria.'
-          : 'Create your first assignment to start collecting and grading student submissions. You can set up rubrics, define marking criteria, and let AI assist with grading.'}
+          : 'Create your first assignment to start collecting and grading student submissions.'}
       </p>
-
-      {!isFiltered && (
-        <Link 
-          href="/assignments/create" 
-          className="btn btn-dark"
-          style={{
-            borderRadius: '100px',
-            padding: '12px 28px',
-            fontWeight: '700',
-            fontSize: '14.5px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.06)'
-          }}
-        >
-          <span style={{ fontSize: '18px', fontWeight: '500', lineHeight: 1 }}>+</span>
+      {!(isFiltered && assignmentsCount > 0) && (
+        <Link href="/assignments/create" className="btn btn-dark btn-pill">
+          <span style={{ fontSize: 18, fontWeight: 500, lineHeight: 1 }}>+</span>
           Create Your First Assignment
         </Link>
       )}
@@ -283,7 +192,6 @@ function EmptyState({ isFiltered }: { isFiltered: boolean }) {
   );
 }
 
-// ─── Main page ───────────────────────────────────────────────
 export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState('All');
   const effectiveStatus = statusFilter === 'All' ? undefined : statusFilter;
@@ -293,19 +201,12 @@ export default function DashboardPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (error) {
-      toast.error(error, { id: 'dashboard-error', position: 'bottom-center' });
-    }
+    if (error) toast.error(error, { id: 'dashboard-error', position: 'bottom-center' });
   }, [error]);
 
-  const handleView = (assignmentId: string) => {
-    void router.push(`/assignments/${assignmentId}/paper`);
-  };
-
+  const handleView = (assignmentId: string) => void router.push(`/assignments/${assignmentId}/paper`);
   const handleDelete = async (assignmentId: string) => {
-    const confirmed = window.confirm('Delete this assignment? This action cannot be undone.');
-    if (!confirmed) return;
-
+    if (!window.confirm('Delete this assignment? This action cannot be undone.')) return;
     try {
       setDeletingId(assignmentId);
       await deleteAssignmentRequest(assignmentId);
@@ -319,9 +220,7 @@ export default function DashboardPage() {
   };
 
   const filtered = assignments.filter((a) => {
-    const matchSearch =
-      a.title.toLowerCase().includes(search.toLowerCase()) ||
-      a.subject.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = a.title.toLowerCase().includes(search.toLowerCase()) || a.subject.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === 'All' || a.status === statusFilter;
     return matchSearch && matchStatus;
   });
@@ -330,77 +229,35 @@ export default function DashboardPage() {
 
   return (
     <>
-      {/* Page heading (responsive structures defined in globals.css) */}
-      <div className="page-header-container">
-        {/* Desktop-only Page Header */}
-        <div className="desktop-page-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div className="status-dot" aria-hidden="true" />
-            <h1 className="page-title">Assignments</h1>
-          </div>
-          <p className="page-subtitle">Manage and create assignments for your classes.</p>
+      <div className="desktop-page-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="status-dot" aria-hidden="true" />
+          <h1 className="page-title">Assignments</h1>
         </div>
-
-        {/* Mobile-only Page Header */}
-        <div className="mobile-page-header">
-          <button 
-            onClick={() => window.history.back()}
-            className="mobile-header-back-btn"
-            aria-label="Go back"
-            style={{
-              background: '#FFFFFF',
-              border: '1px solid #E5E7EB',
-              borderRadius: '50%',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              color: '#374151',
-              flexShrink: 0
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="19" y1="12" x2="5" y2="12" />
-              <polyline points="12 19 5 12 12 5" />
-            </svg>
-          </button>
-          <h1 className="mobile-header-title">Assignments</h1>
-          <div style={{ width: '32px' }} /> {/* Spacer to center the title */}
-        </div>
+        <p className="page-subtitle">Manage and create assignments for your classes.</p>
       </div>
 
-      {/* Search + Filter bar */}
+      <div className="mobile-page-header">
+        <button onClick={() => window.history.back()} aria-label="Go back" className="topbar-icon-btn" style={{ width: 32, height: 32, flexShrink: 0, cursor: 'pointer' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+          </svg>
+        </button>
+        <h1 className="mobile-header-title">Assignments</h1>
+        <div style={{ width: 32 }} />
+      </div>
+
       <div className="search-filter-row">
-        {/* Filter By */}
-        <div
-          className="filter-btn"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            paddingRight: 10,
-          }}
-        >
+        <div className="filter-btn" style={{ paddingRight: 10 }}>
           <Filter size={14} />
-          <label className="filter-label" htmlFor="status-filter" style={{ fontSize: 14, fontWeight: 500 }}>
-            Filter By
-          </label>
+          <label className="filter-label" htmlFor="status-filter" style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>Filter By</label>
           <select
             id="status-filter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             aria-label="Filter assignments by status"
-            style={{
-              border: 'none',
-              outline: 'none',
-              background: 'transparent',
-              color: 'var(--text-primary)',
-              fontSize: 14,
-              fontWeight: 500,
-              cursor: 'pointer',
-            }}
+            style={{ border: 'none', outline: 'none', background: 'transparent', color: 'var(--text-primary)', fontSize: 'var(--text-base)', fontWeight: 500, cursor: 'pointer' }}
           >
             <option value="All">All</option>
             <option value="draft">Draft</option>
@@ -413,63 +270,30 @@ export default function DashboardPage() {
           <ChevronDown size={13} />
         </div>
 
-        {/* Search */}
         <div className="search-wrap">
           <Search size={15} className="search-icon" aria-hidden="true" />
-          <input
-            type="text"
-            placeholder="Search Assignment"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input search-input"
-            aria-label="Search assignments"
-          />
+          <input type="text" placeholder="Search Assignment" value={search} onChange={(e) => setSearch(e.target.value)} className="input search-input" aria-label="Search assignments" />
         </div>
       </div>
 
-      {/* Content */}
       {isLoading ? (
         <div className="assignment-grid">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
+          {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : error ? (
         <div className="empty-state">
-          {/* Illustration */}
           <div className="empty-illustration" aria-hidden="true">
-            <img 
-              src="/empty-state.png" 
-              alt="Error illustration" 
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-            />
+            <img src="/empty-state.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
-
           <h2 className="empty-title">Failed to load assignments</h2>
-          <p className="empty-desc">
-            Something went wrong while retrieving your assignments. Please check your connection or try reloading the page.
-          </p>
-
-          <button 
-            onClick={() => void reload()} 
-            className="btn btn-dark"
-            style={{
-              borderRadius: '100px',
-              padding: '12px 28px',
-              fontWeight: '700',
-              fontSize: '14.5px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.06)'
-            }}
-          >
-            <RefreshCw size={14} style={{ marginRight: '4px' }} />
+          <p className="empty-desc">Something went wrong while retrieving your assignments.</p>
+          <button onClick={() => void reload()} className="btn btn-dark btn-pill">
+            <RefreshCw size={14} />
             Retry loading
           </button>
         </div>
       ) : assignments.length === 0 || filtered.length === 0 ? (
-        <EmptyState isFiltered={isFiltered && assignments.length > 0} />
+        <EmptyState isFiltered={isFiltered} assignmentsCount={assignments.length} />
       ) : (
         <AnimatePresence mode="popLayout">
           <div className="assignment-grid">
@@ -487,7 +311,6 @@ export default function DashboardPage() {
         </AnimatePresence>
       )}
 
-      {/* Floating Create button (desktop only — mobile uses FAB in bottom nav) */}
       {assignments.length > 0 && (
         <div className="dashboard-fab">
           <Link href="/assignments/create" className="btn btn-dark">
