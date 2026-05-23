@@ -31,9 +31,9 @@ import type { GenerationStage } from '../types/socket.types';
 const MAX_RETRIES = 2;
 
 const PROVIDER_TIMEOUTS: Record<ProviderName, number> = {
-  Anthropic: 60_000,
-  NVIDIA: 60_000,
-  Groq: 60_000,
+  Anthropic: 90_000,
+  NVIDIA: 90_000,
+  Groq: 90_000,
 };
 
 const health = new ProviderHealthManager();
@@ -233,14 +233,14 @@ const IMAGE_PATH_PATTERN = /\S*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/g
 
 function sanitizePrompt(text: string): string {
   return text
-    .replace(/\b(?:data:)?image\/[a-z0-9+.]+;base64[^\s"'()]+\b/gi, '[BINARY REMOVED]')
-    .replace(/\b(?:https?:\/\/\S+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?))\b/gi, '[URL REMOVED]')
-    .replace(IMAGE_PATH_PATTERN, '[IMAGE REF REMOVED]')
-    .replace(/(?:[\w\-./\\()]+\/)?[\w\-.() ]+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '[PATH REMOVED]')
-    .replace(/\bimage\s*\.\s*(?:png|jpg|jpeg|gif|webp)\b/gi, '[REF REMOVED]')
-    .replace(/\(\s*(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\s*\)/gi, '[FORMAT REMOVED]')
-    .replace(/[""'][^"']*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)[""']/gi, '[QUOTED IMAGE REF]')
-    .replace(/\b(?:fig(?:ure)?|img|image|picture|photo|screenshot)\s*[:#]\s*\S+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '[IMAGE LABEL REMOVED]');
+    .replace(/\b(?:data:)?image\/[a-z0-9+.]+;base64[^\s"'()]+\b/gi, '')
+    .replace(/\b(?:https?:\/\/\S+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?))\b/gi, '')
+    .replace(IMAGE_PATH_PATTERN, '')
+    .replace(/(?:[\w\-./\\()]+\/)?[\w\-.() ]+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '')
+    .replace(/\bimage\s*\.\s*(?:png|jpg|jpeg|gif|webp)\b/gi, '')
+    .replace(/\(\s*(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\s*\)/gi, '')
+    .replace(/[""'][^"']*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)[""']/gi, '')
+    .replace(/\b(?:fig(?:ure)?|img|image|picture|photo|screenshot)\s*[:#]\s*\S+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '');
 }
 
 async function callProvider(input: ProviderCallInput): Promise<string> {
@@ -280,13 +280,13 @@ async function callProvider(input: ProviderCallInput): Promise<string> {
       try {
         const response = await getNvidia().chat.completions.create(
           {
-            model: 'meta/llama-3.2-3b-instruct',
+            model: 'meta/llama-3.1-8b-instruct',
             messages: [
               { role: 'system', content: sanitizedSystemPrompt },
               { role: 'user', content: sanitizedUserPrompt },
             ],
             temperature,
-            max_tokens: 2048,
+            max_tokens: 4096,
           },
           { signal: controller.signal } as unknown as undefined
         );
@@ -340,7 +340,7 @@ async function callProvider(input: ProviderCallInput): Promise<string> {
               { role: 'user', content: sanitizedUserPrompt },
             ],
             temperature,
-            max_tokens: 2048,
+            max_tokens: 4096,
           },
           { signal: controller.signal } as unknown as undefined
         );
@@ -373,10 +373,10 @@ async function callProvider(input: ProviderCallInput): Promise<string> {
       throw new ProviderTransportError('Anthropic', 'Anthropic cancelled by parent');
     }
 
-    const response = await withTimeout(
+        const response = await withTimeout(
       getAnthropic().messages.create({
         model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 2048,
+        max_tokens: 4096,
         system: sanitizedSystemPrompt,
         messages: [{ role: 'user', content: [{ type: 'text', text: sanitizedUserPrompt }] }],
       }),
@@ -562,11 +562,13 @@ async function runBatchWithRetry(
         logger.warn(`[BATCH] correlationId=${correlationId} provider=${provider} image ref detected, re-sanitizing prompt`);
         health.recordValidationFailure(provider);
         prompt = prompt
-          .replace(/\S*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '[REMOVED]')
-          .replace(/data:image\/[^;]+;base64[^"'\s)]+/gi, '[BINARY REMOVED]')
+          .replace(/\S*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '')
+          .replace(/data:image\/[^;]+;base64[^"'\s)]+/gi, '')
           .replace(/\(?\s*(?:see|refer|check|view|look at)\s*:?\s*[^)\n]*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\s*\)?/gi, '')
           .replace(/!\[.*?\]\(.*?\)/g, '')
-          .replace(/\[.*?\]\(.*?\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\)/g, '');
+          .replace(/\[.*?\]\(.*?\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\)/g, '')
+          .replace(/['"`]\S*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\S*['"`]/gi, '')
+          .replace(/\bimage\s*\.\s*(?:png|jpg|jpeg|gif|webp)\b/gi, '');
         if (attempt < MAX_RETRIES) {
           await new Promise((resolve) => setTimeout(resolve, 1000));
           continue;
@@ -665,8 +667,8 @@ export async function generatePaper(
     const batch = plan.batches[batchIndex]!;
     totalRequested += batch.count;
     const batchStart = Date.now();
-    const progressBase = 40 + Math.floor((batchIndex / Math.max(1, plan.batches.length)) * 35);
-    await stage('batch_generating', progressBase, `Generating batch ${batchIndex + 1}/${plan.batches.length}...`);
+    const realProgress = plan.totalQuestions > 0 ? Math.round((totalRecovered / plan.totalQuestions) * 100) : 0;
+    await stage('batch_generating', realProgress, `Generating batch ${batchIndex + 1}/${plan.batches.length}...`);
     logger.info(
       `[BATCH_START] correlationId=${correlationId} batch=${batch.id} type=${batch.type} count=${batch.count} marks=${batch.totalMarks}`
     );
@@ -723,7 +725,12 @@ export async function generatePaper(
 
             if (retryValidation.questions.length > 0) {
               const retryQuestions = retryValidation.questions.slice(0, missingCount);
-              completedBatches.push({ plan: batch, questions: retryQuestions });
+              const existingEntry = completedBatches.find((e) => e.plan.id === batch.id);
+              if (existingEntry) {
+                existingEntry.questions.push(...retryQuestions);
+              } else {
+                completedBatches.push({ plan: batch, questions: retryQuestions });
+              }
               totalRecovered += retryQuestions.length;
               totalDiscarded += retryValidation.discardCount;
               logger.info(
@@ -759,9 +766,10 @@ export async function generatePaper(
       logger.warn(`[BATCH_EXHAUSTED] correlationId=${correlationId} batch=${batch.id} no valid questions from any provider`);
     }
 
+    const afterProgress = plan.totalQuestions > 0 ? Math.round((totalRecovered / plan.totalQuestions) * 100) : 0;
     await stage(
       'batch_generating',
-      40 + Math.floor(((batchIndex + 1) / Math.max(1, plan.batches.length)) * 35),
+      afterProgress,
       `Batch ${batchIndex + 1}/${plan.batches.length} complete`
     );
   }
@@ -953,7 +961,7 @@ export async function generateAnswersForPaper(paper: ValidatedPaper, signal?: Ab
   }
 
   if (unresolvedIds.size > 0) {
-    throw new Error(`Answer-key generation incomplete: ${unresolvedIds.size} question(s) still missing answers`);
+    logger.warn(`[ANSWERS] Answer-key generation incomplete: ${unresolvedIds.size} question(s) still missing answers — persisting with partial answers`);
   }
 
   return paperObj;

@@ -9,7 +9,9 @@ function stripImageRefs(text: string): string {
     .replace(/\S*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '')
     .replace(/data:image\/[^;]+;base64[^"'\s)]+/gi, '')
     .replace(/!\[.*?\]\(.*?\)/g, '')
-    .replace(/\(?\s*(?:see|refer|check|view|look at|fig|figure|image|picture)\s*:?\s*[^)\n]*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\)?/gi, '');
+    .replace(/\(?\s*(?:see|refer|check|view|look at|fig|figure|image|picture)\s*:?\s*[^)\n]*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\)?/gi, '')
+    .replace(/['"`]\S*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\S*['"`]/gi, '')
+    .replace(/\[?\s*\S*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\s*\]?/gi, '');
 }
 
 export function buildCompactSyllabusContext(uploadedContent?: string): string {

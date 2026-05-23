@@ -48,14 +48,14 @@ function sanitizeText(text: string): string {
     .slice(0, 8000);
 
   const imagePatterns: [RegExp, string][] = [
-    [/\b(?:data:)?image\/[a-z0-9+.]+;base64[^\s"'()]+\b/gi, '[BINARY REMOVED]'],
-    [/\b(?:https?:\/\/\S+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?))\b/gi, '[URL REMOVED]'],
-    [/\S*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '[IMAGE REF REMOVED]'],
-    [/(?:[\w\-./\\()]+\/)?[\w\-.() ]+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '[PATH REMOVED]'],
-    [/\bimage\s*\.\s*(?:png|jpg|jpeg|gif|webp)\b/gi, '[REF REMOVED]'],
-    [/\(\s*(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\s*\)/gi, '[FORMAT REMOVED]'],
-    [/[""'][^"']*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)[""']/gi, '[QUOTED IMAGE REF]'],
-    [/\b(?:fig(?:ure)?|img|image|picture|photo|screenshot)\s*[:#]\s*\S+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, '[IMAGE LABEL REMOVED]'],
+    [/\b(?:data:)?image\/[a-z0-9+.]+;base64[^\s"'()]+\b/gi, ''],
+    [/\b(?:https?:\/\/\S+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?))\b/gi, ''],
+    [/\S*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, ''],
+    [/(?:[\w\-./\\()]+\/)?[\w\-.() ]+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, ''],
+    [/\bimage\s*\.\s*(?:png|jpg|jpeg|gif|webp)\b/gi, ''],
+    [/\(\s*(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\s*\)/gi, ''],
+    [/[""'][^"']*\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)[""']/gi, ''],
+    [/\b(?:fig(?:ure)?|img|image|picture|photo|screenshot)\s*[:#]\s*\S+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff?)\b/gi, ''],
   ];
 
   for (const [pattern, replacement] of imagePatterns) {
