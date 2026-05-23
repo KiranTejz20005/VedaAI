@@ -41,8 +41,8 @@ export function useGenerationSocket(assignmentId: string | null) {
 
     const onCompleted = (payload: GenerationCompletedPayload) => {
       if (payload.assignmentId !== assignmentId) return;
-      callbacksRef.current.setCompleted(payload.jobRecordId, payload.generationSeq, payload.version, payload.ts, payload.paperId);
-      callbacksRef.current.updateAssignmentStatus(assignmentId, 'completed');
+      callbacksRef.current.setCompleted(payload.jobRecordId, payload.generationSeq, payload.version, payload.ts, payload.paperId, payload.partial);
+      callbacksRef.current.updateAssignmentStatus(assignmentId, payload.partial ? 'partially_generated' : 'completed');
     };
 
     const onFailed = (payload: GenerationFailedPayload) => {

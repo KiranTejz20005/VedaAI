@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { GenerationStage } from '../types/socket.types';
 
 interface GenerationState {
+  status: 'queued' | 'generating' | 'partial_success' | 'completed' | 'failed' | 'recovering_batches' | 'provider_retry' | 'validation_retry' | null;
   stage: GenerationStage | null;
   progress: number;
   message: string;
@@ -15,7 +16,7 @@ interface GenerationState {
   lastEventTs: number;
   setQueued: (jobRecordId: string, generationSeq: number, version: number, ts?: number) => void;
   setProgress: (jobRecordId: string, generationSeq: number, version: number, ts: number, progress: number, stage: GenerationStage, message?: string) => void;
-  setCompleted: (jobRecordId: string, generationSeq: number, version: number, ts: number, paperId: string) => void;
+  setCompleted: (jobRecordId: string, generationSeq: number, version: number, ts: number, paperId: string, partial?: boolean) => void;
   setFailed: (jobRecordId: string, generationSeq: number, version: number, ts: number, error: string) => void;
   setWarning: (warning: string) => void;
   reset: () => void;
@@ -23,6 +24,7 @@ interface GenerationState {
 
 export const useGenerationStore = create<GenerationState>((set) => ({
   stage: null,
+  status: null,
   progress: 0,
   message: '',
   paperId: null,
@@ -36,6 +38,7 @@ export const useGenerationStore = create<GenerationState>((set) => ({
 
   setQueued: (jobRecordId, generationSeq, version, ts) =>
     set({
+      status: 'queued',
       stage: 'queued',
       progress: 0,
       message: 'Queued for processing...',
@@ -58,6 +61,7 @@ export const useGenerationStore = create<GenerationState>((set) => ({
       if (progress < (s.progress ?? 0)) return s;
       return {
         ...s,
+        status: stage === 'recovering_batches' || stage === 'provider_retry' || stage === 'validation_retry' ? stage : 'generating',
         progress,
         stage,
         message: message ?? '',
@@ -69,13 +73,14 @@ export const useGenerationStore = create<GenerationState>((set) => ({
       };
     }),
 
-  setCompleted: (jobRecordId, generationSeq, version, ts, paperId) =>
+  setCompleted: (jobRecordId, generationSeq, version, ts, paperId, partial) =>
     set((s) => {
       if (s.activeJobRecordId && s.activeJobRecordId !== jobRecordId) return s;
       if (s.generationSeq !== null && s.generationSeq !== generationSeq) return s;
       if (version <= (s.lastVersion ?? 0)) return s;
       return {
         ...s,
+        status: partial ? 'partial_success' : 'completed',
         stage: 'completed',
         progress: 100,
         paperId,
@@ -97,6 +102,7 @@ export const useGenerationStore = create<GenerationState>((set) => ({
       if (s.stage === 'completed') return s;
       return {
         ...s,
+        status: 'failed',
         stage: 'failed',
         error,
         isActive: false,
@@ -110,6 +116,7 @@ export const useGenerationStore = create<GenerationState>((set) => ({
   setWarning: (warning) => set({ warning }),
   reset: () =>
     set({
+      status: null,
       stage: null,
       progress: 0,
       message: '',
