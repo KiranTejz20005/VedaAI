@@ -14,6 +14,10 @@ const MOBILE_NAV = [
 export function MobileBottomNav() {
   const pathname = usePathname();
 
+  if (pathname === '/') {
+    return null;
+  }
+
   return (
     <nav className="mobile-bottom-nav" role="navigation" aria-label="Mobile navigation">
       {/* First two items */}

@@ -167,6 +167,7 @@ export default function AssignmentDetailPage({
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [paper, setPaper] = useState<GeneratedPaper | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const hasAutoQueuedRef = useRef(false);
   const retryCooldownRef = useRef(false);
@@ -178,11 +179,28 @@ export default function AssignmentDetailPage({
   useEffect(() => {
     fetchAssignment(id)
       .then(setAssignment)
-      .catch(console.error)
+      .catch((e) => {
+        const msg = e instanceof Error ? e.message : 'Failed to load assignment';
+        setFetchError(msg);
+        console.error(e);
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
   useEffect(() => {
+    if (fetchError) {
+      toast.error(fetchError, { id: 'fetch-error', position: 'bottom-center' });
+    }
+  }, [fetchError]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error, { id: 'generation-error', position: 'bottom-center' });
+    }
+  }, [error]);
+
+  useEffect(() => {
+    if (!assignment || (assignment.status !== 'completed' && assignment.status !== 'partially_generated')) return;
     if (!assignment) return;
     if (assignment.status !== 'completed' && assignment.status !== 'partially_generated') return;
     fetchPaper(id).then(setPaper).catch(() => undefined);
@@ -287,19 +305,34 @@ export default function AssignmentDetailPage({
 
   if (!assignment) {
     return (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '64px 32px',
-          textAlign: 'center',
-        }}
-      >
-        <XCircle size={40} style={{ color: '#EF4444', marginBottom: 12 }} />
-        <p style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>Assignment not found</p>
-        <Link href="/dashboard" className="btn btn-secondary btn-sm">
+      <div className="empty-state">
+        {/* Illustration */}
+        <div className="empty-illustration" aria-hidden="true">
+          <img 
+            src="/empty-state.png" 
+            alt="Error illustration" 
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+          />
+        </div>
+
+        <h2 className="empty-title">Assignment not found</h2>
+        <p className="empty-desc">
+          The requested assignment could not be retrieved. It may have been deleted, or there might be a network connection issue.
+        </p>
+
+        <Link 
+          href="/dashboard" 
+          className="btn btn-dark"
+          style={{
+            borderRadius: '100px',
+            padding: '12px 28px',
+            fontWeight: '700',
+            fontSize: '14.5px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.06)'
+          }}
+        >
           Back to Dashboard
         </Link>
       </div>

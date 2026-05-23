@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Download, Printer, AlertCircle, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { fetchPaper } from '@/services/paper.service';
 import type { GeneratedPaper, Question, Section } from '@/types/paper.types';
 import type { DifficultyLevel } from '@/types/assignment.types';
@@ -168,6 +169,12 @@ export default function PaperViewPage({
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
+    if (error) {
+      toast.error(error, { id: 'paper-error', position: 'bottom-center' });
+    }
+  }, [error]);
+
+  useEffect(() => {
     fetchPaper(id)
       .then(setPaper)
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load paper'))
@@ -205,21 +212,51 @@ export default function PaperViewPage({
 
   if (error || !paper) {
     return (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '64px 32px',
-          textAlign: 'center',
-        }}
-      >
-        <AlertCircle size={40} style={{ color: '#EF4444', marginBottom: 12 }} />
-        <p style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>{error ?? 'Paper not found'}</p>
-        <Link href={`/assignments/${id}`} className="btn btn-secondary btn-sm">
-          Back to Assignment
-        </Link>
+      <div className="empty-state">
+        {/* Illustration */}
+        <div className="empty-illustration" aria-hidden="true">
+          <img 
+            src="/empty-state.png" 
+            alt="Error illustration" 
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+          />
+        </div>
+
+        <h2 className="empty-title">Failed to load question paper</h2>
+        <p className="empty-desc">
+          The custom question paper could not be retrieved. Please check your connection or return to the assignment details page to try again.
+        </p>
+
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <Link 
+            href={`/assignments/${id}`} 
+            className="btn btn-dark"
+            style={{
+              borderRadius: '100px',
+              padding: '12px 28px',
+              fontWeight: '700',
+              fontSize: '14.5px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.06)'
+            }}
+          >
+            Back to Assignment
+          </Link>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="btn btn-secondary"
+            style={{
+              borderRadius: '100px',
+              padding: '12px 28px',
+              fontWeight: '700',
+              fontSize: '14.5px',
+              cursor: 'pointer'
+            }}
+          >
+            Reload Page
+          </button>
+        </div>
       </div>
     );
   }
