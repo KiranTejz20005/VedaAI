@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -14,6 +14,9 @@ import {
   Calendar,
   Mic,
   ChevronDown,
+  FileText,
+  Image as ImageIcon,
+  File as FileIcon,
 } from 'lucide-react';
 import { createAssignment } from '@/services/assignment.service';
 import { useAssignmentStore } from '@/store/assignment.store';
@@ -127,10 +130,12 @@ function FileUploadZone({
   files,
   onAdd,
   onRemove,
+  onRename,
 }: {
   files: File[];
   onAdd: (f: File[]) => void;
   onRemove: (i: number) => void;
+  onRename: (i: number, newName: string) => void;
 }) {
   const [dragging, setDragging] = useState(false);
 
@@ -149,8 +154,8 @@ function FileUploadZone({
     [onAdd]
   );
 
-  return (
-    <div style={{ marginBottom: 20 }}>
+  const uploadArea = (
+    <div style={{ flex: files.length > 0 ? '1' : 'none' }}>
       <div
         className={`upload-zone ${dragging ? 'dragging' : ''}`}
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
@@ -215,49 +220,248 @@ function FileUploadZone({
         </label>
       </div>
 
-      <p
-        style={{
-          fontSize: 12,
-          color: 'var(--text-muted)',
-          textAlign: 'center',
-          marginTop: 8,
-        }}
-      >
-        Upload images of your preferred document/image
-      </p>
+      {files.length === 0 && (
+        <p
+          style={{
+            fontSize: 12,
+            color: 'var(--text-muted)',
+            textAlign: 'center',
+            marginTop: 8,
+          }}
+        >
+          Upload images of your preferred document/image
+        </p>
+      )}
+    </div>
+  );
 
-      {/* Uploaded files list */}
-      {files.length > 0 && (
-        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {files.map((file, i) => (
-            <div
-              key={i}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '8px 12px',
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-md)',
-              }}
+  return (
+    <div style={{ marginBottom: 20 }}>
+      {files.length > 0 ? (
+        <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
+          {/* Left: Upload Area */}
+          {uploadArea}
+          
+          {/* Right: Uploaded Files */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto', paddingRight: 4 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>Uploaded Documents</h3>
+            {files.map((file, i) => {
+              let Icon = FileIcon;
+              let iconColor = '#6B7280';
+              if (file.type.startsWith('image/')) {
+                Icon = ImageIcon;
+                iconColor = '#3B82F6';
+              } else if (file.name.endsWith('.pdf')) {
+                Icon = FileText;
+                iconColor = '#EF4444';
+              } else if (file.name.endsWith('.doc') || file.name.endsWith('.docx') || file.name.endsWith('.txt')) {
+                Icon = FileText;
+                iconColor = '#3B82F6';
+              }
+
+              return (
+                <div
+                  key={i}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '8px 12px',
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-md)',
+                  }}
+                >
+                  <Icon size={18} color={iconColor} style={{ flexShrink: 0 }} />
+                  <input
+                    type="text"
+                    value={file.name}
+                    onChange={(e) => onRename(i, e.target.value)}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      border: '1px solid transparent',
+                      background: 'transparent',
+                      fontSize: 13,
+                      color: 'var(--text-primary)',
+                      outline: 'none',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '2px 4px',
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.border = '1px solid var(--border-focus)';
+                      e.target.style.background = 'white';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.border = '1px solid transparent';
+                      e.target.style.background = 'transparent';
+                    }}
+                  />
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                    {Math.max(1, Math.round(file.size / 1024))} KB
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onRemove(i)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}
+                    aria-label={`Remove ${file.name}`}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        uploadArea
+      )}
+    </div>
+  );
+}
+
+function CustomDatePicker({ value, onChange }: { value: string, onChange: (val: string) => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    if (value) return new Date(value);
+    return new Date();
+  });
+
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (popupRef.current && !popupRef.current.contains(e.target as Node)) setIsOpen(false);
+    };
+    if (isOpen) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [isOpen]);
+
+  const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
+  const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
+
+  const days = [];
+  for (let i = 0; i < firstDay; i++) days.push(null);
+  for (let i = 1; i <= daysInMonth; i++) days.push(i);
+
+  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+  const handleSelect = (day: number) => {
+    const d = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    onChange(`${yyyy}-${mm}-${dd}`);
+    setIsOpen(false);
+  };
+
+  let displayValue = '';
+  if (value) {
+    const [y, m, d] = value.split('-');
+    if (y && m && d) displayValue = `${d}-${m}-${y}`;
+  }
+
+  return (
+    <div style={{ position: 'relative' }} ref={popupRef}>
+      <div 
+        className="input date-input"
+        style={{ 
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'white', border: '1px solid var(--border)', padding: '9px 14px', borderRadius: 'var(--radius-md)'
+        }}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <span style={{ color: displayValue ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+          {displayValue || 'DD-MM-YYYY'}
+        </span>
+        <Calendar size={18} color="var(--text-muted)" />
+      </div>
+
+      {isOpen && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 50,
+          background: 'white', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)',
+          boxShadow: 'var(--shadow-md)', padding: 16, width: 280
+        }}>
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <button 
+              type="button"
+              onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
+              style={{ background: 'var(--bg-input)', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 'var(--radius-sm)' }}
             >
-              <span style={{ fontSize: 13, color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {file.name}
-              </span>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                {(file.size / 1024).toFixed(0)} KB
-              </span>
-              <button
-                type="button"
-                onClick={() => onRemove(i)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}
-                aria-label={`Remove ${file.name}`}
-              >
-                <X size={14} />
-              </button>
-            </div>
-          ))}
+              <ChevronLeft size={16} />
+            </button>
+            <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>
+              {months[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+            </span>
+            <button 
+              type="button"
+              onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
+              style={{ background: 'var(--bg-input)', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 'var(--radius-sm)' }}
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+
+          {/* Days header */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 8 }}>
+            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+              <div key={d} style={{ textAlign: 'center', fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' }}>{d}</div>
+            ))}
+          </div>
+
+          {/* Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+            {days.map((d, i) => {
+              if (d === null) return <div key={i} />;
+              
+              const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+              const isSelected = value === dateStr;
+              const isToday = new Date().toISOString().split('T')[0] === dateStr;
+
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => handleSelect(d)}
+                  style={{
+                    width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: isSelected ? '#E8531D' : 'transparent',
+                    color: isSelected ? '#000000' : 'var(--text-primary)',
+                    borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: isSelected || isToday ? 700 : 400,
+                    margin: 'auto'
+                  }}
+                  onMouseOver={(e) => { if (!isSelected) e.currentTarget.style.background = 'var(--bg-hover)' }}
+                  onMouseOut={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent' }}
+                >
+                  {d}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Footer actions */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+            <button 
+              type="button"
+              onClick={() => { onChange(''); setIsOpen(false); }}
+              style={{ background: '#FFF0E8', border: 'none', color: '#E8531D', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '6px 14px', borderRadius: 100 }}
+            >
+              Clear
+            </button>
+            <button 
+              type="button"
+              onClick={() => {
+                const today = new Date();
+                onChange(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`);
+                setIsOpen(false);
+              }}
+              style={{ background: '#FFF0E8', border: 'none', color: '#E8531D', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '6px 14px', borderRadius: 100 }}
+            >
+              Today
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -568,34 +772,21 @@ export default function CreateAssignmentPage() {
                   files={files}
                   onAdd={(newFiles) => setFiles((prev) => [...prev, ...newFiles])}
                   onRemove={(i) => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                  onRename={(i, newName) => setFiles((prev) => {
+                    const newFiles = [...prev];
+                    const file = newFiles[i];
+                    newFiles[i] = new File([file], newName, { type: file.type });
+                    return newFiles;
+                  })}
                 />
 
                 {/* Due Date */}
                 <div className="input-group" style={{ marginBottom: 20 }}>
                   <label className="label" htmlFor="dueDate">Due Date</label>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      id="dueDate"
-                      type="date"
-                      value={formData.dueDate}
-                      onChange={(e) => setFormData((d) => ({ ...d, dueDate: e.target.value }))}
-                      className="input date-input"
-                      placeholder="DD-MM-YYYY"
-                      style={{ colorScheme: 'light' }}
-                      aria-describedby="dueDate-hint"
-                    />
-                    <Calendar
-                      size={16}
-                      style={{
-                        position: 'absolute',
-                        right: '16px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        color: '#111827',
-                        pointerEvents: 'none',
-                      }}
-                    />
-                  </div>
+                  <CustomDatePicker
+                    value={formData.dueDate}
+                    onChange={(val) => setFormData((d) => ({ ...d, dueDate: val }))}
+                  />
                 </div>
 
                 {/* Question Type section */}

@@ -64,7 +64,7 @@ export const useGenerationStore = create<GenerationState>((set) => ({
         status: stage === 'recovering_batches' || stage === 'provider_retry' || stage === 'validation_retry' ? stage : 'generating',
         progress,
         stage,
-        message: message ?? '',
+        message: message !== undefined ? message : s.message,
         isActive: true,
         activeJobRecordId: s.activeJobRecordId ?? jobRecordId,
         generationSeq: s.generationSeq ?? generationSeq,

@@ -1,6 +1,6 @@
 'use client';
 import { motion } from 'framer-motion';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, AlertTriangle } from 'lucide-react';
 
 interface ErrorViewProps {
   error: string | null;
@@ -13,61 +13,70 @@ export function ErrorView({ error, onRetry, isRetrying }: ErrorViewProps) {
     <motion.div
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
-      className="flex flex-col items-center text-center px-4"
+      transition={{ duration: 0.6, ease: 'easeOut' }}
+      className="flex flex-col items-center justify-center w-full max-w-4xl mx-auto px-4 py-12"
     >
+      <div className="absolute top-0 left-0 w-full h-[40vh] bg-gradient-to-b from-red-50/80 to-transparent -z-10 pointer-events-none" />
+
       <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ type: 'spring', stiffness: 200, damping: 12 }}
-        className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-50"
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 150, damping: 20, delay: 0.1 }}
+        className="relative flex items-center justify-center mb-10"
       >
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="15" y1="9" x2="9" y2="15" />
-          <line x1="9" y1="9" x2="15" y2="15" />
-        </svg>
+        <div className="w-24 h-24 sm:w-32 sm:h-32 bg-red-100 rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(220,38,38,0.2)] relative z-10">
+          <AlertTriangle className="w-12 h-12 sm:w-16 sm:h-16 text-red-600" strokeWidth={2.5} />
+        </div>
+        <motion.div 
+          animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0, 0.3] }}
+          transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute inset-0 bg-red-400 rounded-full blur-2xl z-0"
+        />
       </motion.div>
 
       <motion.h2
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="text-2xl font-extrabold text-gray-900 tracking-tight"
+        className="text-5xl sm:text-7xl font-black text-gray-900 tracking-tighter text-center mb-6 leading-[1.1]"
       >
         Generation Interrupted
       </motion.h2>
+
       <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
-        className="text-sm text-gray-500 mt-2 max-w-sm"
+        className="text-xl sm:text-2xl text-gray-500 font-medium text-center max-w-2xl leading-relaxed mb-8"
       >
-        We hit a small issue while generating your assignment. You can retry or adjust your materials.
+        We hit a roadblock while crafting your assignment. This could be due to invalid materials or a temporary connection issue.
       </motion.p>
+
       {error && (
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.4 }}
-          className="text-xs text-gray-400 mt-2 max-w-sm font-mono bg-gray-50 rounded-lg px-3 py-2"
+          className="w-full bg-white border border-red-200 rounded-3xl p-6 sm:p-8 shadow-xl shadow-red-100/50 mb-12"
         >
-          {error}
-        </motion.p>
+          <p className="text-sm sm:text-base text-red-600 font-mono break-words text-center font-semibold">
+            {error}
+          </p>
+        </motion.div>
       )}
 
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
-        className="mt-8"
+        className="w-full max-w-md"
       >
         <button
           onClick={onRetry}
           disabled={isRetrying}
-          className="inline-flex items-center gap-2 rounded-full bg-gray-900 px-7 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 transition-all disabled:opacity-50"
+          className="flex items-center justify-center gap-4 w-full bg-gray-900 text-white rounded-2xl px-10 py-6 text-xl sm:text-2xl font-bold shadow-2xl shadow-gray-900/30 hover:bg-gray-800 hover:scale-[1.02] hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 disabled:hover:scale-100 disabled:hover:translate-y-0"
         >
-          <RefreshCw size={14} className={isRetrying ? 'animate-spin' : ''} />
+          <RefreshCw className={`w-8 h-8 ${isRetrying ? 'animate-spin' : ''}`} />
           {isRetrying ? 'Retrying...' : 'Try Again'}
         </button>
       </motion.div>

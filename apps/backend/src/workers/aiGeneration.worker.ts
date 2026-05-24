@@ -33,8 +33,8 @@ const STAGE_ORDER: Record<GenerationStage, number> = {
   recovering_batches: 55,
   validating: 60,
   answer_key_generating: 75,
-  pdf_composing: 85,
-  persisting: 90,
+  persisting: 85,
+  pdf_composing: 90,
   'pdf-generating': 92,
   completed: 100,
   failed: 100,
@@ -346,23 +346,23 @@ export function createAiGenerationWorker() {
         let paper: any = generationResult.paper;
         const generationOutcome = generationResult.status;
 
-        // ── STEP 7b: Generate answers ──
+        // ── STEP 8: Generate answers ──
         logger.info(
-          `[STEP 7b] Generating answers for ${paper.sections.reduce((s: number, sec: any) => s + sec.questions.length, 0)} questions`
+          `[STEP 8] Generating answers for ${paper.sections.reduce((s: number, sec: any) => s + sec.questions.length, 0)} questions`
         );
         const t7b = Date.now();
         try {
-          await emit('answer_key_generating', 87, 'Generating answer key...');
+          await emit('answer_key_generating', 85, 'Generating answer key...');
           paper = await createCancellablePromise(
             (sig) => generateAnswersForPaper(paper, sig),
             abortSignal,
             'Answer generation'
           );
-          await job.updateProgress(90);
-          logger.info(`[STEP 7b] Answers generated in ${Date.now() - t7b}ms`);
+          await job.updateProgress(88);
+          logger.info(`[STEP 8] Answers generated in ${Date.now() - t7b}ms`);
         } catch (answerErr) {
           logger.error(
-            `[STEP 7b] Answer generation failed: ${answerErr instanceof Error ? answerErr.message : String(answerErr)}`
+            `[STEP 8] Answer generation failed: ${answerErr instanceof Error ? answerErr.message : String(answerErr)}`
           );
           throw answerErr;
         }
@@ -370,10 +370,6 @@ export function createAiGenerationWorker() {
         if (abortSignal.aborted) {
           throw new Error('Generation cancelled after answer generation');
         }
-
-        // ── STEP 8: Emit validating ──
-        logger.debug(`[STEP 8] AI output received, emitting validating`);
-        await emit('validating', 80, 'Validating generated paper...');
 
         // ── STEP 9: Save paper ──
         logger.debug(`[STEP 9] Saving GeneratedPaper...`);
@@ -389,7 +385,7 @@ export function createAiGenerationWorker() {
           }
           const provisionalMetadata = buildCanonicalPaperMetadata(assignment as any, paper as any);
           savedPaper = await savePaper(assignmentId, paper, assignment.duration, provisionalMetadata);
-          await job.updateProgress(95);
+          await job.updateProgress(92);
           logger.info(`[STEP 9] GeneratedPaper saved in ${Date.now() - t9}ms | id=${savedPaper._id}`);
         } catch (saveErr) {
           logger.error(
@@ -399,11 +395,27 @@ export function createAiGenerationWorker() {
           throw saveErr;
         }
 
-        // ── STEP 10: Emit saving ──
-        logger.debug(`[STEP 10] Emitting saving (85%)`);
-        await emit('persisting', 97, 'Persisting metadata...');
+        // ── STEP 10: Emit persisting metadata ──
+        logger.debug(`[STEP 10] Emitting persisting (92%)`);
+        await emit('persisting', 92, 'Persisting metadata...');
 
-        // ── STEP 11: Check for partial vs complete generation ──
+        // ── STEP 11: Enqueue PDF generation ──
+        logger.debug(`[STEP 11] Enqueuing PDF generation job`);
+        const t11 = Date.now();
+        try {
+          await emit('pdf_composing', 96, 'Composing professional PDF...');
+          const pdfQueue = getPdfQueue();
+          await pdfQueue.add('generate-pdf', {
+            assignmentId,
+            paperId: savedPaper._id.toString(),
+            jobRecordId,
+          });
+          logger.debug(`[STEP 11] PDF job enqueued in ${Date.now() - t11}ms`);
+        } catch (pdfErr) {
+          logger.warn(`[STEP 11] PDF queue add failed (non-fatal): ${pdfErr}`);
+        }
+
+        // ── STEP 12: Check for partial vs complete generation ──
         const requestedQty = assignment.questionConfig.count;
         const generatedQty = paper.sections.reduce((s: number, sec: any) => s + sec.questions.length, 0);
         const generatedMarks = paper.sections.reduce((s: number, sec: any) =>
@@ -412,9 +424,9 @@ export function createAiGenerationWorker() {
         const isFailed = generationOutcome === 'failed';
 
         logger.debug(
-          `[STEP 11] Generated ${generatedQty}/${requestedQty} questions (${generatedMarks}/${assignment.totalMarks} marks)`
+          `[STEP 12] Generated ${generatedQty}/${requestedQty} questions (${generatedMarks}/${assignment.totalMarks} marks)`
         );
-        const t11 = Date.now();
+        const t12 = Date.now();
 
         if (isPartial) {
           const genMeta: GenerationMeta = {
@@ -436,13 +448,13 @@ export function createAiGenerationWorker() {
             { _id: assignmentId, activeGenerationJobId: jobRecordId, status: { $ne: 'completed' } },
             { status: 'partially_generated', generationMeta: genMeta }
           );
-          logger.info(`[STEP 11] Assignment marked as partially_generated (${generatedQty}/${requestedQty})`);
+          logger.info(`[STEP 12] Assignment marked as partially_generated (${generatedQty}/${requestedQty})`);
         } else if (!isFailed) {
           await Assignment.findOneAndUpdate(
             { _id: assignmentId, activeGenerationJobId: jobRecordId },
             { status: 'completed', finalizedAt: new Date() }
           );
-          logger.debug(`[STEP 11] Assignment status updated to 'completed' in ${Date.now() - t11}ms`);
+          logger.debug(`[STEP 12] Assignment status updated to 'completed' in ${Date.now() - t12}ms`);
         } else {
           const genMeta: GenerationMeta = {
             status: 'failed',
@@ -463,13 +475,13 @@ export function createAiGenerationWorker() {
             { _id: assignmentId, activeGenerationJobId: jobRecordId, status: { $ne: 'completed' } },
             { status: 'failed', generationMeta: genMeta }
           );
-          logger.warn(`[STEP 11] Assignment marked failed with partial paper (${generatedQty}/${requestedQty})`);
+          logger.warn(`[STEP 12] Assignment marked failed with partial paper (${generatedQty}/${requestedQty})`);
         }
         await job.updateProgress(99);
 
-        // ── STEP 12: Update GenerationJob to completed ──
-        logger.debug(`[STEP 12] Updating GenerationJob to completed`);
-        const t12 = Date.now();
+        // ── STEP 13: Update GenerationJob to completed ──
+        logger.debug(`[STEP 13] Updating GenerationJob to completed`);
+        const t13 = Date.now();
         progressVersion += 1;
         lastStageIndex = Math.max(lastStageIndex, STAGE_ORDER.completed);
         lastProgress = Math.max(lastProgress, 100);
@@ -481,10 +493,10 @@ export function createAiGenerationWorker() {
             $max: { progress: 100, stageIndex: isFailed ? STAGE_ORDER.failed : STAGE_ORDER.completed },
           } as any
         );
-        logger.debug(`[STEP 12] GenerationJob updated in ${Date.now() - t12}ms`);
+        logger.debug(`[STEP 13] GenerationJob updated in ${Date.now() - t13}ms`);
 
-        // ── STEP 13: Emit terminal WebSocket event ──
-        const t13 = Date.now();
+        // ── STEP 14: Emit terminal WebSocket event ──
+        const t14 = Date.now();
         if (isFailed) {
           emitToAssignment(assignmentId, 'generation:failed', {
             assignmentId,
@@ -511,23 +523,7 @@ export function createAiGenerationWorker() {
             ts: Date.now(),
           } as any);
         }
-        logger.debug(`[STEP 13] WebSocket emit done in ${Date.now() - t13}ms`);
-
-        // ── STEP 14: Enqueue PDF generation ──
-        logger.debug(`[STEP 14] Enqueuing PDF generation job`);
-        const t14 = Date.now();
-        try {
-          await emit('pdf_composing', 92, 'Composing professional PDF...');
-          const pdfQueue = getPdfQueue();
-          await pdfQueue.add('generate-pdf', {
-            assignmentId,
-            paperId: savedPaper._id.toString(),
-            jobRecordId,
-          });
-          logger.debug(`[STEP 14] PDF job enqueued in ${Date.now() - t14}ms`);
-        } catch (pdfErr) {
-          logger.warn(`[STEP 14] PDF queue add failed (non-fatal): ${pdfErr}`);
-        }
+        logger.debug(`[STEP 14] WebSocket emit done in ${Date.now() - t14}ms`);
 
         const totalTime = Date.now() - jobStartTime;
         logger.info(

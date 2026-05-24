@@ -78,8 +78,9 @@ export async function deleteAssignment(id: string): Promise<void> {
   await apiClient.delete(`/assignments/${id}`);
 }
 
-export async function generateAssignment(id: string): Promise<{ jobId: string; position: number; jobRecordId: string; generationSeq: number }> {
-  const res = await apiClient.post<{ data: { jobId: string; position: number; jobRecordId: string; generationSeq: number } }>(`/assignments/${id}/generate`);
+export async function generateAssignment(id: string, force = false): Promise<{ jobId: string; position: number; jobRecordId: string; generationSeq: number }> {
+  const endpoint = `/assignments/${id}/generate${force ? '?force=true' : ''}`;
+  const res = await apiClient.post<{ data: { jobId: string; position: number; jobRecordId: string; generationSeq: number } }>(endpoint);
   return res.data.data;
 }
 

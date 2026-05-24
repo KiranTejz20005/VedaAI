@@ -635,7 +635,7 @@ export async function generatePaper(
     throw new Error('Generation cancelled before start');
   }
 
-  await stage('extracting_content', 10, 'Extracting and parsing source content...');
+  // Already emitted by worker; skip redundant/regressing stage update
   const syllabusContext = buildCompactSyllabusContext(uploadedContent);
   const providers = health
     .orderedProviders(enabledProviders())
@@ -653,7 +653,7 @@ export async function generatePaper(
     `[GENERATION_PLAN] correlationId=${correlationId} batches=${plan.batches.length} ` +
     `maxBatchQuestions=${plan.maxBatchQuestions} contextChars=${syllabusContext.length}`
   );
-  await stage('generation_planning', 28, 'Preparing generation batches...');
+  // Already emitted by worker; skip redundant/regressing stage update
 
   const completedBatches: Array<{ plan: PlannedBatch; questions: BatchQuestion[] }> = [];
   const batchErrors: string[] = [];
@@ -668,7 +668,9 @@ export async function generatePaper(
     const batch = plan.batches[batchIndex]!;
     totalRequested += batch.count;
     const batchStart = Date.now();
-    const realProgress = plan.totalQuestions > 0 ? Math.round((totalRecovered / plan.totalQuestions) * 100) : 0;
+    // Scale batch generation progress from 30% to 75%
+    const progressPercent = plan.totalQuestions > 0 ? Math.round((totalRecovered / plan.totalQuestions) * 100) : 0;
+    const realProgress = 30 + Math.round((progressPercent * 45) / 100);
     await stage('batch_generating', realProgress, `Generating batch ${batchIndex + 1}/${plan.batches.length}...`);
     logger.info(
       `[BATCH_START] correlationId=${correlationId} batch=${batch.id} type=${batch.type} count=${batch.count} marks=${batch.totalMarks}`
@@ -766,13 +768,6 @@ export async function generatePaper(
       batchErrors.push(`batch ${batch.id}: all providers exhausted`);
       logger.warn(`[BATCH_EXHAUSTED] correlationId=${correlationId} batch=${batch.id} no valid questions from any provider`);
     }
-
-    const afterProgress = plan.totalQuestions > 0 ? Math.round((totalRecovered / plan.totalQuestions) * 100) : 0;
-    await stage(
-      'batch_generating',
-      afterProgress,
-      `Batch ${batchIndex + 1}/${plan.batches.length} complete`
-    );
   }
 
   if (totalRecovered < plan.totalQuestions) {
@@ -848,7 +843,7 @@ export async function generatePaper(
     );
   }
 
-  await stage('validating', 84, 'Validating generated paper quality...');
+  await stage('validating', 78, 'Validating generated paper quality...');
   return {
     status: outcome,
     paper,

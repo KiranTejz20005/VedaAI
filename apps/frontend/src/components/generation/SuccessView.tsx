@@ -1,7 +1,7 @@
-﻿'use client';
+'use client';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { RefreshCw, Zap } from 'lucide-react';
+import { RefreshCw, Zap, CheckCircle2, ChevronRight, FileText, Clock, Trophy } from 'lucide-react';
 
 interface SuccessViewProps {
   assignmentId: string;
@@ -18,119 +18,108 @@ interface SuccessViewProps {
   isRetrying: boolean;
 }
 
-function CheckmarkCircle() {
-  return (
-    <div className="relative mx-auto mb-5 flex h-20 w-20 items-center justify-center">
-      <motion.div
-        className="absolute inset-0 rounded-full bg-emerald-100"
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
-      />
-      <motion.div
-        className="absolute inset-0 rounded-full bg-emerald-200/50"
-        initial={{ scale: 0 }}
-        animate={{ scale: [1, 1.3, 1] }}
-        transition={{ duration: 1, delay: 0.3, ease: 'easeOut' }}
-      />
-      <motion.svg
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 0.5, delay: 0.3, ease: 'easeOut' }}
-        width="32" height="32" viewBox="0 0 24 24" fill="none"
-        stroke="#059669" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
-        className="relative z-10"
-      >
-        <motion.polyline points="20 6 9 17 4 12" />
-      </motion.svg>
-    </div>
-  );
-}
-
 export function SuccessView({
   assignmentId, isPartial, generatedCount, requestedCount,
   generatedMarks, requestedMarks, duration, subject, schoolName, className,
   onRegenerate, isRetrying,
 }: SuccessViewProps) {
-  const normalizedSchoolName =
-    schoolName && schoolName.trim().toLowerCase() !== 'school'
-      ? schoolName
-      : 'Delhi Public School';
-
-  const normalizedClassName =
-    className &&
-    className.trim().toLowerCase() !== 'not specified' &&
-    className.trim().toLowerCase() !== 'class not specified'
-      ? className
-      : 'Class 8';
-
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
-      className="flex justify-center px-4 py-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.6, ease: 'easeOut' }}
+      className="flex flex-col items-center justify-center w-full max-w-7xl mx-auto px-4 py-4 sm:py-6 gap-6 sm:gap-8 md:gap-10"
     >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.45, ease: 'easeOut' }}
-        className="w-full max-w-3xl rounded-3xl border border-gray-200 bg-white/95 shadow-2xl shadow-black/5 px-6 py-8 sm:px-10 sm:py-10"
+      <div className="absolute top-0 left-0 w-full h-[50vh] bg-gradient-to-b from-emerald-50/80 to-transparent -z-10 pointer-events-none" />
+
+      {/* Hero Section */}
+      <motion.div 
+        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+        className="text-center flex flex-col items-center max-w-3xl flex-shrink-0"
       >
-        <div className="flex flex-col items-center text-center gap-1">
-          <CheckmarkCircle />
-
-          <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight leading-none">
-            {isPartial ? 'Partially Generated' : 'Assignment Ready'}
-          </h2>
-          <p className="text-sm sm:text-base text-gray-500 mt-3 max-w-xl">
-            {isPartial
-              ? `Generated ${generatedCount ?? 'some'}/${requestedCount ?? '?'} questions. Some sections need attention.`
-              : 'Your assignment has been generated successfully and is ready to view.'}
-          </p>
-
-          <div className="flex flex-wrap justify-center items-center gap-x-3 gap-y-1 mt-2 text-xs sm:text-sm text-gray-500">
-            <span>{normalizedSchoolName}</span>
-            <span>•</span>
-            <span>{subject || 'Mathematics'}</span>
-            <span>•</span>
-            <span>{normalizedClassName}</span>
-          </div>
-
-          <div className="grid w-full grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
-            {[
-              { label: 'Questions', value: generatedCount !== null && generatedCount !== undefined ? `${generatedCount}/${requestedCount}` : (requestedCount ?? '-') },
-              { label: 'Marks', value: generatedMarks !== null && generatedMarks !== undefined ? `${generatedMarks}/${requestedMarks}` : (requestedMarks ?? '-') },
-              { label: 'Duration', value: `${duration} min` },
-            ].map((stat) => (
-              <div
-                key={stat.label}
-                className="flex min-h-[108px] flex-col items-center justify-center bg-white rounded-2xl border border-gray-200 px-6 py-4 shadow-sm"
-              >
-                <span className="text-5xl leading-none font-extrabold text-gray-900">{String(stat.value)}</span>
-                <span className="text-xs text-gray-500 font-semibold mt-2 uppercase tracking-[0.14em]">{stat.label}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-3 mt-8 w-full">
-            <Link
-              href={`/assignments/${assignmentId}/paper`}
-              className="inline-flex w-full sm:w-auto min-w-[220px] items-center justify-center gap-2 rounded-full bg-gray-900 px-8 py-3 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 transition-all"
-            >
-              <Zap size={15} />
-              {isPartial ? 'View Partial Results' : 'View Generated Paper'}
-            </Link>
-            <button
-              onClick={onRegenerate}
-              disabled={isRetrying}
-              className="inline-flex w-full sm:w-auto min-w-[180px] items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-8 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
-            >
-              <RefreshCw size={14} className={isRetrying ? 'animate-spin' : ''} />
-              {isRetrying ? 'Regenerating...' : 'Regenerate'}
-            </button>
-          </div>
+        <div className="relative flex items-center justify-center mb-3 mt-2">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 200, damping: 20, delay: 0.2 }}
+            className="w-16 h-16 sm:w-20 sm:h-20 bg-emerald-100 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.15)] relative z-10"
+          >
+            <CheckCircle2 className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600" strokeWidth={2.5} />
+          </motion.div>
+          <motion.div 
+            animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0, 0.2] }}
+            transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute inset-0 bg-emerald-400 rounded-full blur-lg z-0"
+          />
         </div>
+
+        <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight leading-[1.15] mb-2">
+          {isPartial ? 'Partially Generated' : 'Assignment Ready'}
+        </h1>
+        
+        <p className="text-sm sm:text-base text-gray-500 font-medium max-w-2xl leading-relaxed">
+          {isPartial
+            ? `We successfully generated ${generatedCount ?? 'some'} out of ${requestedCount ?? '?'} questions. You can view the partial results or regenerate.`
+            : 'The AI has finished crafting your assignment. It is perfectly structured and ready for review.'}
+        </p>
+      </motion.div>
+
+      {/* Stats Section */}
+      <motion.div 
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: 'easeOut', delay: 0.3 }}
+        className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 w-full max-w-4xl px-6 flex-shrink-0"
+      >
+        {[
+          { label: 'Questions', value: generatedCount !== null && generatedCount !== undefined ? `${generatedCount}/${requestedCount}` : (requestedCount ?? '-'), icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'Total Marks', value: generatedMarks !== null && generatedMarks !== undefined ? `${generatedMarks}/${requestedMarks}` : (requestedMarks ?? '-'), icon: Trophy, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: 'Duration', value: `${duration} min`, icon: Clock, color: 'text-purple-600', bg: 'bg-purple-50' },
+        ].map((stat, idx) => (
+          <motion.div 
+            key={stat.label}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, delay: 0.4 + idx * 0.1 }}
+            className="flex flex-col items-center justify-center relative p-1 flex-shrink-0"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <div className={`p-2 rounded-lg ${stat.bg} ${stat.color}`}>
+                <stat.icon className="w-5 h-5" />
+              </div>
+              <span className="text-xs sm:text-sm font-bold text-gray-500 uppercase tracking-widest">{stat.label}</span>
+            </div>
+            <div>
+              <span className="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight">{String(stat.value)}</span>
+            </div>
+          </motion.div>
+        ))}
+      </motion.div>
+
+      {/* Actions */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.6 }}
+        className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full max-w-xl flex-shrink-0"
+      >
+        <Link
+          href={`/assignments/${assignmentId}/paper`}
+          className="flex-1 flex items-center justify-center gap-2.5 w-full bg-gray-900 text-white rounded-full px-6 py-3.5 sm:py-4 text-base sm:text-lg font-bold shadow-lg shadow-gray-900/10 hover:bg-gray-800 hover:scale-[1.02] transition-all duration-300 min-h-[48px] sm:min-h-[54px]"
+        >
+          <Zap className="w-4 h-4 sm:w-5 sm:h-5" />
+          {isPartial ? 'View Partial Paper' : 'View Assignment'}
+        </Link>
+        <button
+          onClick={onRegenerate}
+          disabled={isRetrying}
+          className="flex-1 flex items-center justify-center gap-2.5 w-full bg-white text-gray-800 border border-gray-200 rounded-full px-6 py-3.5 sm:py-4 text-base sm:text-lg font-bold shadow-sm hover:bg-gray-50 hover:border-gray-300 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:hover:scale-100 min-h-[48px] sm:min-h-[54px]"
+        >
+          <RefreshCw className={`w-4 h-4 sm:w-5 sm:h-5 ${isRetrying ? 'animate-spin' : ''}`} />
+          {isRetrying ? 'Regenerating...' : 'Regenerate'}
+        </button>
       </motion.div>
     </motion.div>
   );
