@@ -135,9 +135,9 @@ function AssignmentCard({
         <CardMenu assignment={assignment} onView={onView} onDelete={onDelete} isDeleting={isDeleting} />
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-secondary)', gap: 8, flexWrap: 'wrap' }}>
-        <span>Assigned on: {assignedDate}</span>
-        <span>Due: {dueDate}</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: '11px', color: '#111827', gap: 8, flexWrap: 'wrap' }}>
+        <span><strong>Assigned on : </strong><span style={{ color: '#6B7280', fontWeight: 500 }}>{assignedDate}</span></span>
+        <span><strong>Due : </strong><span style={{ color: '#6B7280', fontWeight: 500 }}>{dueDate}</span></span>
       </div>
 
       {isLive && (
@@ -313,7 +313,7 @@ export default function DashboardPage() {
 
       {assignments.length > 0 && (
         <div className="dashboard-fab">
-          <Link href="/assignments/create" className="btn btn-dark">
+          <Link href="/assignments/create" className="btn btn-dark btn-pill">
             <Plus size={16} />
             Create Assignment
           </Link>
