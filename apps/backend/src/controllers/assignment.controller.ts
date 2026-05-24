@@ -52,10 +52,12 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
   });
 
   if (!parsed.success) {
+    const fieldErrors = parsed.error.flatten().fieldErrors;
+    console.error('[createAssignment] Validation failed:', JSON.stringify(fieldErrors));
     res.status(400).json({
       success: false,
       error: 'Validation failed',
-      details: parsed.error.flatten().fieldErrors,
+      details: fieldErrors,
     });
     return;
   }

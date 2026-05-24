@@ -657,12 +657,37 @@ export default function CreateAssignmentPage() {
         `Exam duration: ${durationMinutes} minutes.`,
       ]
         .filter(Boolean)
-        .join('\n');
+        .join('\n')
+        .slice(0, 2000);
+
+      const title = formData.title.trim() || 'Assignment';
+      const subject = formData.subject.trim() || 'General';
+
+      if (title.length < 1) {
+        toast.error('Please enter a title');
+        setIsSubmitting(false);
+        return;
+      }
+      if (subject.length < 1) {
+        toast.error('Please select a subject');
+        setIsSubmitting(false);
+        return;
+      }
+      if (totalQuestions < 1) {
+        toast.error('Add at least one question');
+        setIsSubmitting(false);
+        return;
+      }
+      if (totalMarks < 1) {
+        toast.error('Total marks must be at least 1');
+        setIsSubmitting(false);
+        return;
+      }
 
       const payload = {
-        title: formData.title || 'Assignment',
-        subject: formData.subject || 'General',
-        description: formData.additionalInfo,
+        title,
+        subject,
+        description: (formData.additionalInfo || '').slice(0, 2000),
         dueDate: formData.dueDate,
         duration: durationMinutes,
         totalMarks,
@@ -675,6 +700,9 @@ export default function CreateAssignmentPage() {
         typeBreakdown: JSON.stringify(typeBreakdown),
       };
 
+      console.log('[CreateAssignment] Submitting payload:', JSON.stringify(payload, null, 2));
+      console.log('[CreateAssignment] Files:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
+
       const created = await createAssignment(payload, files);
       const { assignment } = created;
       addAssignment(assignment);
@@ -683,8 +711,13 @@ export default function CreateAssignmentPage() {
       }
       toast.success('Assignment created! Generation started…', { duration: 4000 });
       router.push(`/assignments/${assignment._id}`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to create assignment');
+    } catch (e: unknown) {
+      let errorMsg = 'Failed to create assignment';
+      if (e instanceof Error) {
+        errorMsg = e.message;
+      }
+      console.error('[CreateAssignment] Error:', e);
+      toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
     }
