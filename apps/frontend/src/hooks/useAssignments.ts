@@ -15,6 +15,7 @@ export function useAssignments(page = 1, status?: string) {
       const result = await fetchAssignments(page, 10, status);
       setAssignments(result.data, result.pagination.total);
     } catch (e) {
+      setAssignments([], 0);
       setError(e instanceof Error ? e.message : 'Failed to load assignments');
     } finally {
       setLoading(false);

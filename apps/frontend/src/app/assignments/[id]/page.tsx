@@ -31,6 +31,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   const hasAutoQueuedRef = useRef(false);
   const retryCooldownRef = useRef(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollErrorsRef = useRef(0);
   const { stage, status, message, error, reset, setQueued, setWarning } = useGenerationStore();
 
   useGenerationSocket(id);
@@ -47,7 +48,14 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
 
   useEffect(() => {
     if (!assignment || (assignment.status !== 'completed' && assignment.status !== 'partially_generated')) return;
-    fetchPaper(id).then(setPaper).catch(() => {});
+    fetchPaper(id)
+      .then(setPaper)
+      .catch((e) => {
+        toast.error(e instanceof Error ? e.message : 'Failed to load paper', {
+          id: 'paper-load-error',
+          position: 'bottom-center',
+        });
+      });
   }, [assignment, id]);
 
   useEffect(() => {
@@ -100,9 +108,10 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     if (!['queued', 'generating'].includes(assignment?.status ?? '') && !stage) return;
     if (isTerminal) return;
 
-    pollingRef.current = setInterval(async () => {
+    const poll = async () => {
       try {
         const jobStatus = await fetchJobStatus(id);
+        pollErrorsRef.current = 0;
         if (jobStatus) {
           const jobRecordId = jobStatus.jobRecordId ?? 'polling-unknown';
           const genSeq = jobStatus.generationSeq ?? 0;
@@ -123,12 +132,25 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
         if (['completed', 'failed', 'partially_generated'].includes(updated.status)) {
           if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
         }
-      } catch {}
-    }, 5000);
+      } catch (err) {
+        pollErrorsRef.current += 1;
+        if (pollErrorsRef.current >= 3) {
+          if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+          toast.error(
+            err instanceof Error ? err.message : 'Lost connection to server. Please refresh.',
+            { id: 'poll-error', position: 'bottom-center' }
+          );
+        }
+      }
+    };
+
+    void poll();
+    pollingRef.current = setInterval(() => void poll(), 8000);
     return () => {
       if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+      pollErrorsRef.current = 0;
     };
-  }, [id, assignment?.status, stage, setQueued]);
+  }, [id, assignment?.status]);
 
   const showGeneration = Boolean(stage) || ['queued', 'generating'].includes(assignment?.status ?? '');
   const genMeta = assignment?.generationMeta;
@@ -153,7 +175,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
 
   if (loading) {
     return (
-      <div style={{ maxWidth: 'min(720px, 100%)' }}>
+      <div className="assignment-page">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="skeleton" style={{ height: 36, width: 'clamp(140px, 30vw, 180px)', borderRadius: 8 }} />
           <div className="skeleton" style={{ height: 140, borderRadius: 16 }} />
@@ -206,10 +228,10 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
       <AnimatePresence>
         {phase !== 'processing' && (
           <motion.div
+            className="assignment-page"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            style={{ maxWidth: 'min(720px, 100%)', width: '100%' }}
           >
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="card" style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'clamp(12px, 2vw, 16px)' }}>

@@ -37,17 +37,23 @@ export const useGenerationStore = create<GenerationState>((set) => ({
   lastEventTs: 0,
 
   setQueued: (jobRecordId, generationSeq, version, ts) =>
-    set({
-      status: 'queued',
-      stage: 'queued',
-      progress: 0,
-      message: 'Queued for processing...',
-      isActive: true,
-      error: null,
-      activeJobRecordId: jobRecordId,
-      generationSeq,
-      lastVersion: Math.max(0, version),
-      lastEventTs: Math.max(0, ts ?? Date.now()),
+    set((s) => {
+      if (s.activeJobRecordId && s.activeJobRecordId !== jobRecordId) return s;
+      if (s.generationSeq !== null && s.generationSeq !== generationSeq) return s;
+      if (version > 0 && version <= (s.lastVersion ?? 0)) return s;
+      if (s.stage === 'completed' || s.stage === 'failed') return s;
+      return {
+        status: 'queued',
+        stage: 'queued',
+        progress: 0,
+        message: 'Queued for processing...',
+        isActive: true,
+        error: null,
+        activeJobRecordId: jobRecordId,
+        generationSeq,
+        lastVersion: Math.max(s.lastVersion ?? 0, version),
+        lastEventTs: Math.max(s.lastEventTs ?? 0, ts ?? Date.now()),
+      };
     }),
 
   setProgress: (jobRecordId, generationSeq, version, ts, progress, stage, message) =>

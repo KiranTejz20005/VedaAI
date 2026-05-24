@@ -82,6 +82,10 @@ async function failStaleQueuedJobs(): Promise<void> {
       assignmentId,
       error: 'Generation timed out while waiting in queue',
       retryable: true,
+      jobRecordId: job._id.toString(),
+      generationSeq: job.generationSeq ?? 0,
+      version: job.progressVersion ?? 0,
+      ts: Date.now(),
     });
 
     logger.warn(`Generation job ${job._id.toString()} timed out in queue and was marked failed`);
@@ -111,6 +115,10 @@ async function failStaleInProgressJobs(): Promise<void> {
       assignmentId,
       error: 'Generation appears stuck and was automatically failed',
       retryable: true,
+      jobRecordId: job._id.toString(),
+      generationSeq: job.generationSeq ?? 0,
+      version: job.progressVersion ?? 0,
+      ts: Date.now(),
     });
 
     logger.warn(`Generation job ${job._id.toString()} was stale in-progress and marked failed`);
@@ -202,8 +210,15 @@ function createApp() {
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
       const normalizedOrigin = origin.replace(/\/+$/, '');
-      const allowed = ALLOWED_ORIGINS.includes(normalizedOrigin) ||
-        /\.vercel\.app$/i.test(new URL(normalizedOrigin).hostname);
+      let allowed = ALLOWED_ORIGINS.includes(normalizedOrigin);
+      if (!allowed) {
+        try {
+          const hostname = new URL(normalizedOrigin).hostname;
+          allowed = /^vedaai[\w-]*\.vercel\.app$/i.test(hostname);
+        } catch {
+          allowed = false;
+        }
+      }
       if (!allowed) {
         logger.warn(`[CORS] Blocked origin: ${normalizedOrigin}`);
       }

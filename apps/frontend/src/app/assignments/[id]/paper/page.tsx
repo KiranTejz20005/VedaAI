@@ -7,8 +7,9 @@ import { useRouter } from 'next/navigation';
 import { Download, RefreshCw, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fetchPaper } from '@/services/paper.service';
-import { API_ORIGIN } from '@/lib/api';
-import { joinUrl } from '@/utils/url';
+import { getSocket, subscribeToAssignment, unsubscribeFromAssignment } from '@/sockets/socket.client';
+import { resolveAssetUrl } from '@/utils/url';
+import type { GenerationPdfReadyPayload } from '@/types/socket.types';
 import type { GeneratedPaper, Question, Section } from '@/types/paper.types';
 import type { DifficultyLevel } from '@/types/assignment.types';
 
@@ -64,8 +65,10 @@ function SectionBlock({ section, startNumber }: { section: Section; startNumber:
 function AnswerKey({ sections }: { sections: Section[] }) {
   const answers = sections
     .flatMap((s) => s.questions)
-    .filter((q) => q.answer)
-    .map((q, i) => ({ number: i + 1, answer: typeof q.answer === 'string' ? q.answer : q.answer?.text }))
+    .map((q, i) => ({
+      number: i + 1,
+      answer: typeof q.answer === 'string' ? q.answer : q.answer?.text,
+    }))
     .filter((item) => item.answer);
 
   if (answers.length === 0) return null;
@@ -100,14 +103,46 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
     fetchPaper(id).then(setPaper).catch((e) => setError(e instanceof Error ? e.message : 'Failed to load paper')).finally(() => setLoading(false));
   }, [id]);
 
+  useEffect(() => {
+    subscribeToAssignment(id);
+    return () => unsubscribeFromAssignment(id);
+  }, [id]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    const onPdfReady = (payload: GenerationPdfReadyPayload) => {
+      if (payload.assignmentId !== id) return;
+      setPaper((prev) => (prev ? { ...prev, pdfUrl: payload.pdfUrl } : prev));
+    };
+    socket.on('generation:pdf_ready', onPdfReady);
+    return () => {
+      socket.off('generation:pdf_ready', onPdfReady);
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (!paper || paper.pdfUrl) return;
+    const interval = setInterval(() => {
+      fetchPaper(id)
+        .then((p) => {
+          if (p.pdfUrl) setPaper(p);
+        })
+        .catch(() => {});
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [id, paper]);
+
   const handleDownload = async () => {
     if (!paper?.pdfUrl) { window.print(); return; }
     setDownloading(true);
     try {
       const link = document.createElement('a');
-      link.href = joinUrl(API_ORIGIN, paper.pdfUrl);
+      link.href = resolveAssetUrl(paper.pdfUrl);
       link.download = `${paper.title.replace(/\s+/g, '_')}.pdf`;
+      link.rel = 'noopener';
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     } finally { setDownloading(false); }
   };
 
@@ -143,7 +178,7 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
         </div>
         <h2 className="empty-title">Failed to load question paper</h2>
         <p className="empty-desc">The question paper could not be retrieved.</p>
-        <div style={{ display: 'flex', gap: 'clamp(8px, 1.5vw, 12px)', flexWrap: 'wrap', justifyContent: 'center' }}>
+        <div className="empty-state-actions">
           <Link href={`/assignments/${id}`} className="btn btn-dark btn-pill">Back to Assignment</Link>
           <button onClick={() => window.location.reload()} className="btn btn-secondary btn-pill" style={{ cursor: 'pointer' }}>Reload Page</button>
         </div>
@@ -228,7 +263,7 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
           </div>
 
           {paper.sections.map((section, index) => (
-            <SectionBlock key={section.title} section={section} startNumber={sectionStarts[index]?.start ?? 1} />
+            <SectionBlock key={`${section.title}-${index}`} section={section} startNumber={sectionStarts[index]?.start ?? 1} />
           ))}
 
           <p style={{ fontSize: 'clamp(15px, 1.3vw, 17px)', fontWeight: 700, textAlign: 'center', margin: '0 0 clamp(28px, 4vw, 36px) 0', borderBottom: '2px solid #111827', paddingBottom: 'clamp(20px, 2.5vw, 24px)' }}>

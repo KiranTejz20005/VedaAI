@@ -60,3 +60,10 @@ export interface GenerationFailedPayload {
   version: number;
   ts: number;
 }
+
+export interface GenerationPdfReadyPayload {
+  assignmentId: string;
+  paperId: string;
+  pdfUrl: string;
+  ts: number;
+}

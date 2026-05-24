@@ -61,12 +61,20 @@ export interface GenerationFailedPayload {
   ts: number;
 }
 
+export interface GenerationPdfReadyPayload {
+  assignmentId: string;
+  paperId: string;
+  pdfUrl: string;
+  ts: number;
+}
+
 export interface ServerToClientEvents {
   'generation:queued': (payload: GenerationQueuedPayload) => void;
   'generation:processing': (payload: GenerationProgressPayload) => void;
   'generation:progress': (payload: GenerationProgressPayload) => void;
   'generation:completed': (payload: GenerationCompletedPayload) => void;
   'generation:failed': (payload: GenerationFailedPayload) => void;
+  'generation:pdf_ready': (payload: GenerationPdfReadyPayload) => void;
 }
 
 export interface ClientToServerEvents {

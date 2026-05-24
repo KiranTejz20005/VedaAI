@@ -40,7 +40,7 @@ function CardMenu({
   isDeleting,
 }: {
   assignment: Assignment;
-  onView: (assignmentId: string) => void;
+  onView: (assignmentId: string, status?: Assignment['status']) => void;
   onDelete: (assignmentId: string) => Promise<void>;
   isDeleting: boolean;
 }) {
@@ -74,7 +74,7 @@ function CardMenu({
             exit={{ opacity: 0, scale: 0.95, y: -4 }}
             transition={{ duration: 0.12 }}
           >
-            <button type="button" className="dropdown-item" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); onView(assignment._id); }}>
+            <button type="button" className="dropdown-item" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); onView(assignment._id, assignment.status); }}>
               View Assignment
             </button>
             <div className="dropdown-divider" />
@@ -102,7 +102,7 @@ function AssignmentCard({
 }: {
   assignment: Assignment;
   index: number;
-  onView: (assignmentId: string) => void;
+  onView: (assignmentId: string, status?: Assignment['status']) => void;
   onDelete: (assignmentId: string) => Promise<void>;
   isDeleting: boolean;
 }) {
@@ -184,10 +184,12 @@ function EmptyState({ isFiltered, assignmentsCount }: { isFiltered: boolean; ass
           : 'Create your first assignment to start collecting and grading student submissions.'}
       </p>
       {!(isFiltered && assignmentsCount > 0) && (
-        <Link href="/assignments/create" className="btn btn-dark btn-pill">
-          <span style={{ fontSize: 18, fontWeight: 500, lineHeight: 1 }}>+</span>
-          Create Your First Assignment
-        </Link>
+        <div className="empty-state-actions">
+          <Link href="/assignments/create" className="btn btn-dark btn-pill">
+            <span style={{ fontSize: 18, fontWeight: 500, lineHeight: 1 }}>+</span>
+            Create Your First Assignment
+          </Link>
+        </div>
       )}
     </div>
   );
@@ -217,7 +219,15 @@ export default function DashboardPage() {
     if (error) toast.error(error, { id: 'dashboard-error', position: 'bottom-center' });
   }, [error]);
 
-  const handleView = (assignmentId: string) => void router.push(`/assignments/${assignmentId}/paper`);
+  const handleView = (assignmentId: string, status?: Assignment['status']) => {
+    const resolved =
+      status ?? assignments.find((a) => a._id === assignmentId)?.status;
+    if (resolved === 'completed' || resolved === 'partially_generated') {
+      router.push(`/assignments/${assignmentId}/paper`);
+    } else {
+      router.push(`/assignments/${assignmentId}`);
+    }
+  };
   const handleDelete = async (assignmentId: string) => {
     if (!window.confirm('Delete this assignment? This action cannot be undone.')) return;
     try {
@@ -240,8 +250,10 @@ export default function DashboardPage() {
 
   const isFiltered = Boolean(search || statusFilter !== 'All');
 
+  const showFab = !error && !isLoading && filtered.length > 0;
+
   return (
-    <>
+    <div className={showFab ? 'dashboard-view dashboard-view--has-fab' : 'dashboard-view'}>
       <div className="desktop-page-header dashboard-header-v3">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div className="status-dot" aria-hidden="true" />
@@ -318,12 +330,12 @@ export default function DashboardPage() {
           </div>
           <h2 className="empty-title">Failed to load assignments</h2>
           <p className="empty-desc">Could not connect to server. {error}</p>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-            <button onClick={() => void reload()} className="btn btn-dark btn-pill">
+          <div className="empty-state-actions">
+            <button type="button" onClick={() => void reload()} className="btn btn-dark btn-pill">
               <RefreshCw size={14} />
               Retry loading
             </button>
-            <button onClick={() => window.history.back()} className="btn btn-secondary btn-pill">
+            <button type="button" onClick={() => window.history.back()} className="btn btn-secondary btn-pill">
               Go back
             </button>
           </div>
@@ -347,14 +359,14 @@ export default function DashboardPage() {
         </AnimatePresence>
       )}
 
-      {assignments.length > 0 && (
-        <div className="dashboard-fab dashboard-fab-v3">
-          <Link href="/assignments/create" className="btn btn-dark btn-pill">
-            <Plus size={16} />
+      {showFab && (
+        <div className="dashboard-fab-v3" aria-label="Create assignment actions">
+          <Link href="/assignments/create" className="dashboard-fab-btn">
+            <Plus size={16} strokeWidth={2.5} aria-hidden />
             Create Assignment
           </Link>
         </div>
       )}
-    </>
+    </div>
   );
 }

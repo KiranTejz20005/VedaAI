@@ -29,15 +29,15 @@ apiRouter.get('/health/queue', asyncHandler(async (_req, res) => {
 }));
 
 apiRouter.get('/health/providers', asyncHandler(async (_req, res) => {
-  const configuredProviders: string[] = [];
-  if (process.env.ANTHROPIC_API_KEY) configuredProviders.push('anthropic');
-  if (process.env.NVIDIA_API_KEY) configuredProviders.push('nvidia');
-  if (process.env.GROQ_API_KEY) configuredProviders.push('groq');
-  if (process.env.OPENAI_API_KEY) configuredProviders.push('openai');
+  const providerCount = [
+    process.env.ANTHROPIC_API_KEY,
+    process.env.NVIDIA_API_KEY,
+    process.env.GROQ_API_KEY,
+    process.env.OPENAI_API_KEY,
+  ].filter((key) => key && key.trim().length > 5).length;
   res.json({
-    success: true,
-    configuredProviders,
-    providerCount: configuredProviders.length,
+    success: providerCount > 0,
+    providerCount,
   });
 }));
 

@@ -346,6 +346,10 @@ export function createAiGenerationWorker() {
         let paper: any = generationResult.paper;
         const generationOutcome = generationResult.status;
 
+        // ── STEP 8: Validate structure before answer key ──
+        logger.debug(`[STEP 8] AI output received, emitting validating`);
+        await emit('validating', 80, 'Validating generated paper...');
+
         // ── STEP 7b: Generate answers ──
         logger.info(
           `[STEP 7b] Generating answers for ${paper.sections.reduce((s: number, sec: any) => s + sec.questions.length, 0)} questions`
@@ -370,10 +374,6 @@ export function createAiGenerationWorker() {
         if (abortSignal.aborted) {
           throw new Error('Generation cancelled after answer generation');
         }
-
-        // ── STEP 8: Emit validating ──
-        logger.debug(`[STEP 8] AI output received, emitting validating`);
-        await emit('validating', 80, 'Validating generated paper...');
 
         // ── STEP 9: Save paper ──
         logger.debug(`[STEP 9] Saving GeneratedPaper...`);
@@ -483,6 +483,22 @@ export function createAiGenerationWorker() {
         );
         logger.debug(`[STEP 12] GenerationJob updated in ${Date.now() - t12}ms`);
 
+        // ── STEP 14: Enqueue PDF generation (before terminal event) ──
+        logger.debug(`[STEP 14] Enqueuing PDF generation job`);
+        const t14 = Date.now();
+        try {
+          await emit('pdf_composing', 92, 'Composing professional PDF...');
+          const pdfQueue = getPdfQueue();
+          await pdfQueue.add('generate-pdf', {
+            assignmentId,
+            paperId: savedPaper._id.toString(),
+            jobRecordId,
+          });
+          logger.debug(`[STEP 14] PDF job enqueued in ${Date.now() - t14}ms`);
+        } catch (pdfErr) {
+          logger.warn(`[STEP 14] PDF queue add failed (non-fatal): ${pdfErr}`);
+        }
+
         // ── STEP 13: Emit terminal WebSocket event ──
         const t13 = Date.now();
         if (isFailed) {
@@ -509,25 +525,9 @@ export function createAiGenerationWorker() {
             requestedMarks: assignment.totalMarks,
             version: progressVersion,
             ts: Date.now(),
-          } as any);
+          });
         }
         logger.debug(`[STEP 13] WebSocket emit done in ${Date.now() - t13}ms`);
-
-        // ── STEP 14: Enqueue PDF generation ──
-        logger.debug(`[STEP 14] Enqueuing PDF generation job`);
-        const t14 = Date.now();
-        try {
-          await emit('pdf_composing', 92, 'Composing professional PDF...');
-          const pdfQueue = getPdfQueue();
-          await pdfQueue.add('generate-pdf', {
-            assignmentId,
-            paperId: savedPaper._id.toString(),
-            jobRecordId,
-          });
-          logger.debug(`[STEP 14] PDF job enqueued in ${Date.now() - t14}ms`);
-        } catch (pdfErr) {
-          logger.warn(`[STEP 14] PDF queue add failed (non-fatal): ${pdfErr}`);
-        }
 
         const totalTime = Date.now() - jobStartTime;
         logger.info(
@@ -612,17 +612,29 @@ export function createAiGenerationWorker() {
           ]);
           logger.debug(`[WORKER FAIL] DB updates done in ${Date.now() - f0}ms | finalStatus=${hasPartial ? 'partially_generated' : 'failed'}`);
           progressVersion += 1;
-          emitToAssignment(assignmentId, hasPartial ? 'generation:completed' : 'generation:failed', {
-            assignmentId,
-            error: hasPartial ? undefined : userMessage,
-            partial: hasPartial,
-            retryable: false,
-            failureReason: hasPartial ? `Partial: ${userMessage}` : userMessage,
-            jobRecordId,
-            generationSeq,
-            version: progressVersion,
-            ts: Date.now(),
-          });
+          const failTs = Date.now();
+          if (hasPartial && existingPaper) {
+            emitToAssignment(assignmentId, 'generation:completed', {
+              assignmentId,
+              paperId: existingPaper._id.toString(),
+              jobRecordId,
+              generationSeq,
+              partial: true,
+              status: 'partial_success',
+              version: progressVersion,
+              ts: failTs,
+            });
+          } else {
+            emitToAssignment(assignmentId, 'generation:failed', {
+              assignmentId,
+              error: userMessage,
+              retryable: false,
+              jobRecordId,
+              generationSeq,
+              version: progressVersion,
+              ts: failTs,
+            });
+          }
           logger.debug(`[WORKER FAIL] WebSocket ${hasPartial ? 'generation:completed (partial)' : 'generation:failed'} emitted`);
         } else {
           logger.debug(`[WORKER FAIL] Non-final attempt — requeueing job`);

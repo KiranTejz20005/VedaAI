@@ -138,10 +138,23 @@ export async function generateAssignmentHandler(req: Request, res: Response): Pr
   sendSuccess(res, { jobId, position, jobRecordId, generationSeq }, 202, 'Generation queued successfully');
 }
 
+const ASSIGNMENT_STATUSES = [
+  'draft',
+  'queued',
+  'generating',
+  'completed',
+  'failed',
+  'partially_generated',
+] as const;
+
 export async function listAssignmentsHandler(req: Request, res: Response): Promise<void> {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
-  const status = req.query.status as string | undefined;
+  const rawStatus = req.query.status;
+  const status =
+    typeof rawStatus === 'string' && ASSIGNMENT_STATUSES.includes(rawStatus as (typeof ASSIGNMENT_STATUSES)[number])
+      ? rawStatus
+      : undefined;
 
   const result = await listAssignments(page, limit, status);
 

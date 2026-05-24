@@ -49,7 +49,10 @@ export function TopBar() {
   }, []);
 
   return (
-    <header className={`topbar ${hiddenOnScroll ? 'topbar-hidden' : ''}`} role="banner">
+    <header
+      className={`topbar ${hiddenOnScroll ? 'topbar-hidden' : ''}`}
+      role="banner"
+    >
       {/* Desktop content */}
       <div className="desktop-topbar-content">
         <button className="topbar-hamburger" onClick={toggle} aria-label="Toggle navigation menu">
