@@ -5,7 +5,7 @@ import { ChevronRight, Bell, Menu, ChevronDown } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 
 const BREADCRUMB_MAP: Record<string, string> = {
-  '/': 'Create New',
+  '/': 'Home',
   '/dashboard': 'Assignment',
   '/assignments/create': 'Assignment',
   '/toolkit': "AI Teacher's Toolkit",
@@ -13,7 +13,7 @@ const BREADCRUMB_MAP: Record<string, string> = {
 };
 
 function getBreadcrumb(pathname: string): { parent?: string; current: string } {
-  if (pathname === '/') return { current: 'Create New' };
+  if (pathname === '/') return { current: 'Home' };
   if (pathname.startsWith('/assignments/') && pathname.endsWith('/paper'))
     return { parent: 'Assignment', current: 'Paper View' };
   if (pathname.startsWith('/assignments/') && pathname !== '/assignments/create')
@@ -25,7 +25,7 @@ export function TopBar() {
   const pathname = usePathname();
   const { parent, current } = getBreadcrumb(pathname);
   const toggle = useSidebarStore((s) => s.toggle);
-  const showBackButton = pathname === '/' || pathname.startsWith('/assignments/');
+  const showBackButton = pathname.startsWith('/assignments/');
 
   return (
     <header className="topbar" role="banner">
@@ -86,11 +86,13 @@ export function TopBar() {
       {/* Mobile content */}
       <div className="mobile-topbar-content">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div className="sidebar-logo-icon" style={{ width: 30, height: 30 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
-              <path d="M6 6h10" />
-              <path d="M6 10h10" />
+          <div className="sidebar-logo-icon" style={{
+            width: 30,
+            height: 30,
+            background: 'linear-gradient(135deg, #F97316 0%, #E8531D 50%, #C2410C 100%)',
+          }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 4H8.5L12 15L15.5 4H20L14.5 20H9.5L4 4Z" fill="white" stroke="white" strokeWidth="0.5" strokeLinejoin="round"/>
             </svg>
           </div>
           <span style={{ fontSize: 18, fontWeight: 800, color: '#111827', letterSpacing: '-0.5px' }}>VedaAI</span>
