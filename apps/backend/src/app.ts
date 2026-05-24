@@ -190,6 +190,7 @@ async function startBackgroundWorkers() {
 
 function createApp() {
   const app = express();
+  app.set('trust proxy', 1);
 
   const corsOrigins = parseCorsOrigins(env.FRONTEND_URL);
 
@@ -215,11 +216,6 @@ function createApp() {
   app.use('/api', limiter);
 
   app.use('/api', apiRouter);
-
-  app.use((_req, res) => {
-    res.status(404).json({ success: false, error: 'Route not found' });
-  });
-  app.use(errorMiddleware);
 
   return app;
 }
@@ -289,6 +285,19 @@ async function bootstrap() {
     });
   });
 
+  // Service info endpoint to avoid ambiguous root-path 404 in platform probes/manual checks.
+  app.get('/', (_req, res) => {
+    res.json({
+      success: true,
+      service: 'vedaai-api',
+      status: bootstrapPhase === 'ready' ? 'ok' : 'starting',
+      endpoints: {
+        health: '/health',
+        api: '/api',
+      },
+    });
+  });
+
   // ── Step 4: Initialize Socket.IO ──
   logBoot('socket', 'Initializing Socket.IO');
   initializeSocketServer(httpServer);
@@ -345,6 +354,12 @@ async function bootstrap() {
 
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
   process.on('SIGINT', () => void shutdown('SIGINT'));
+
+  // Keep fallback/error handlers last so all routes (including /health) remain reachable.
+  app.use((_req, res) => {
+    res.status(404).json({ success: false, error: 'Route not found' });
+  });
+  app.use(errorMiddleware);
 }
 
 logBoot('start', 'Calling bootstrap()');
