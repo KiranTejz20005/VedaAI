@@ -611,17 +611,28 @@ export function createAiGenerationWorker() {
           ]);
           logger.debug(`[WORKER FAIL] DB updates done in ${Date.now() - f0}ms | finalStatus=${hasPartial ? 'partially_generated' : 'failed'}`);
           progressVersion += 1;
-          emitToAssignment(assignmentId, hasPartial ? 'generation:completed' : 'generation:failed', {
-            assignmentId,
-            error: hasPartial ? undefined : userMessage,
-            partial: hasPartial,
-            retryable: false,
-            failureReason: hasPartial ? `Partial: ${userMessage}` : userMessage,
-            jobRecordId,
-            generationSeq,
-            version: progressVersion,
-            ts: Date.now(),
-          });
+          if (hasPartial) {
+            emitToAssignment(assignmentId, 'generation:completed', {
+              assignmentId,
+              paperId: '',
+              partial: true,
+              status: 'partial_success',
+              jobRecordId,
+              generationSeq,
+              version: progressVersion,
+              ts: Date.now(),
+            });
+          } else {
+            emitToAssignment(assignmentId, 'generation:failed', {
+              assignmentId,
+              error: userMessage,
+              retryable: false,
+              jobRecordId,
+              generationSeq,
+              version: progressVersion,
+              ts: Date.now(),
+            });
+          }
           logger.debug(`[WORKER FAIL] WebSocket ${hasPartial ? 'generation:completed (partial)' : 'generation:failed'} emitted`);
         } else {
           logger.debug(`[WORKER FAIL] Non-final attempt — requeueing job`);
