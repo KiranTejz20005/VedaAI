@@ -7,6 +7,7 @@ export const SYSTEM_PROMPT = `You generate academic assessments. Output ONLY val
 
 export interface QuestionTypeBreakdown {
   type: string;
+  displayType?: string;
   count: number;
   marksPerQuestion: number;
 }
@@ -14,6 +15,7 @@ export interface QuestionTypeBreakdown {
 export interface BatchPromptInput {
   batchId: string;
   type: QuestionType;
+  displayType?: string;
   count: number;
   marksPerQuestion: number;
   allowedMarks: number[];
@@ -77,11 +79,12 @@ export function buildBatchGenerationPrompt(
   batch: BatchPromptInput,
   syllabusContext: string
 ): string {
+  const typeLabel = batch.displayType || batch.type;
   const typeList = batch.allowedTypes.join(', ');
   const allowedMarks = batch.allowedMarks.join(', ');
   const instructions = assignment.additionalInstructions?.trim() || 'None';
 
-  return `Generate EXACTLY ${batch.count} ${batch.type} questions for one internal generation request.
+  return `Generate EXACTLY ${batch.count} ${typeLabel} questions for one internal generation request.
 
 Topic context:
 ${syllabusContext}

@@ -440,6 +440,7 @@ export default function CreateAssignmentPage() {
       const uniqueTypes = [...new Set(questionRows.map((r) => typeMapping[r.type] || r.type))] as QuestionType[];
       const typeBreakdown = questionRows.map((r) => ({
         type: typeMapping[r.type] || r.type,
+        displayType: r.type,
         count: r.count,
         marksPerQuestion: r.marks,
       }));
@@ -599,13 +600,10 @@ export default function CreateAssignmentPage() {
 
                 {/* Question Type section */}
                 <div style={{ marginBottom: 20 }}>
-                  <label className="label" style={{ marginBottom: 10, display: 'block' }}>
-                    Question Type
-                  </label>
-
                   {/* Header row labels (desktop only) */}
                   <div className="question-headers">
                     <div className="header-type">Question Type</div>
+                    <div style={{ width: 32 }} />
                     <div className="header-count">No. of Questions</div>
                     <div className="header-marks">Marks</div>
                   </div>
@@ -625,9 +623,10 @@ export default function CreateAssignmentPage() {
                     type="button"
                     onClick={addRow}
                     className="add-question-type-btn"
+                    aria-label="Add question type"
                   >
-                    <span className="plus-icon-circle">+</span>
-                    <span>Add Question Type</span>
+                    <Plus size={15} />
+                    <span>Add Question</span>
                   </button>
 
                   {/* Totals */}

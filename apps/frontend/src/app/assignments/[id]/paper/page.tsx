@@ -19,33 +19,35 @@ function formatMarks(marks: number) {
   return `${marks} ${marks === 1 ? 'Mark' : 'Marks'}`;
 }
 
+function DifficultyTag({ difficulty }: { difficulty: DifficultyLevel }) {
+  return (
+    <span style={{ fontSize: 'clamp(11px, 0.9vw, 12px)', fontWeight: 600, color: '#888', marginRight: 6, background: '#f3f4f6', padding: '1px 7px', borderRadius: 3, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+      {DIFFICULTY_LABELS[difficulty]}
+    </span>
+  );
+}
+
 function QuestionItem({ question, number }: { question: Question; number: number }) {
   return (
-    <div className="question-item" style={{ marginBottom: 'clamp(14px, 1.5vw, 18px)' }}>
-      <span className="question-num" style={{ fontSize: 'clamp(15px, 1.3vw, 17px)', fontWeight: 700, minWidth: 24, textAlign: 'right', flexShrink: 0 }}>
-        {number}.
-      </span>
-      <div className="question-text-block" style={{ fontSize: 'clamp(15px, 1.3vw, 17px)', lineHeight: 1.7 }}>
-        <span style={{ fontSize: 'clamp(12px, 1vw, 13px)', fontWeight: 600, color: '#999', marginRight: 8, background: '#f3f4f6', padding: '2px 8px', borderRadius: 4, whiteSpace: 'nowrap' }}>
-          [{DIFFICULTY_LABELS[question.difficulty]}]
-        </span>
+    <div className="question-item" style={{ marginBottom: 'clamp(12px, 1.2vw, 16px)' }}>
+      <span className="question-num">{number}.</span>
+      <div className="question-text-block">
+        <DifficultyTag difficulty={question.difficulty} />
         {question.question}
       </div>
-      <span className="question-marks" style={{ fontSize: 'clamp(15px, 1.3vw, 17px)', fontWeight: 700 }}>
-        [{formatMarks(question.marks)}]
-      </span>
+      <span className="question-marks">[{formatMarks(question.marks)}]</span>
     </div>
   );
 }
 
 function SectionBlock({ section, startNumber }: { section: Section; startNumber: number }) {
   return (
-    <div style={{ marginBottom: 'clamp(28px, 4vw, 36px)' }}>
-      <h3 className="print-hidden" style={{ fontSize: 'clamp(17px, 1.6vw, 20px)', fontWeight: 700, color: '#111', textAlign: 'center', marginBottom: 'clamp(14px, 1.8vw, 18px)' }}>
+    <div style={{ marginBottom: 'clamp(36px, 5vw, 48px)' }}>
+      <h3 style={{ fontSize: 'clamp(16px, 1.5vw, 19px)', fontWeight: 700, color: '#111', textAlign: 'center', marginBottom: 'clamp(14px, 1.5vw, 18px)' }}>
         {section.title}
       </h3>
       {section.instruction && (
-        <p className="print-hidden" style={{ fontSize: 'clamp(14px, 1.2vw, 16px)', color: '#6b7280', fontStyle: 'italic', textAlign: 'left', marginBottom: 'clamp(14px, 1.8vw, 18px)' }}>
+        <p style={{ fontSize: 'clamp(13px, 1.1vw, 15px)', color: '#6b7280', fontStyle: 'italic', textAlign: 'left', marginBottom: 'clamp(12px, 1.5vw, 16px)' }}>
           {section.instruction}
         </p>
       )}
@@ -66,17 +68,13 @@ function AnswerKey({ sections }: { sections: Section[] }) {
   if (answers.length === 0) return null;
 
   return (
-    <div style={{ marginTop: 'clamp(32px, 5vw, 40px)', paddingTop: 'clamp(20px, 3vw, 28px)', borderTop: '2px solid #111827' }}>
-      <h4 style={{ fontSize: 'clamp(17px, 1.6vw, 20px)', fontWeight: 700, color: '#111', marginBottom: 'clamp(16px, 2vw, 20px)' }}>Answer Key</h4>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(14px, 1.8vw, 18px)' }}>
+    <div style={{ marginTop: 'clamp(28px, 4vw, 36px)', paddingTop: 'clamp(16px, 2.5vw, 24px)', borderTop: '2px solid #111827' }}>
+      <h4 style={{ fontSize: 'clamp(16px, 1.5vw, 19px)', fontWeight: 700, color: '#111', marginBottom: 'clamp(14px, 1.8vw, 18px)' }}>Answer Key</h4>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(12px, 1.5vw, 16px)' }}>
         {answers.map(({ number, answer }) => (
           <div key={number} className="question-item">
-            <span className="question-num" style={{ fontSize: 'clamp(15px, 1.3vw, 17px)', fontWeight: 700, minWidth: 24, textAlign: 'right', flexShrink: 0 }}>
-              {number}.
-            </span>
-            <div className="question-text-block" style={{ fontSize: 'clamp(15px, 1.3vw, 17px)', color: '#4B5563', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
-              {answer}
-            </div>
+            <span className="question-num">{number}.</span>
+            <div className="question-text-block" style={{ color: '#4B5563', whiteSpace: 'pre-line' }}>{answer}</div>
           </div>
         ))}
       </div>
@@ -152,11 +150,11 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
   }
 
   const meta = paper.canonicalMetadata;
-  const schoolName = meta?.schoolName ?? 'School';
-  const subject = meta?.subject ?? paper.title;
-  const className = meta?.className ?? 'Not Specified';
-  const duration = meta?.durationMinutes ?? paper.duration ?? 45;
-  const totalMarks = meta?.generatedMarks ?? paper.totalMarks;
+  const schoolName = meta?.schoolName || 'School';
+  const subject = meta?.subject || paper.title;
+  const className = meta?.className || '';
+  const duration = meta?.durationMinutes || paper.duration || 45;
+  const totalMarks = meta?.generatedMarks || paper.totalMarks;
 
   const sectionStarts = paper.sections.reduce<Array<{ title: string; start: number }>>((acc, section) => {
     const start = acc.length === 0 ? 1 : acc[acc.length - 1]!.start + paper.sections[acc.length - 1]!.questions.length;
@@ -169,7 +167,7 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
       <div className="outer-paper-container">
         <div className="dark-banner-card print-hidden" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <p style={{ fontSize: 'clamp(15px, 1.3vw, 17px)', margin: 0, lineHeight: 1.7, fontWeight: 500, flex: '1 1 auto' }}>
-            Here is your customized <u><strong>Question Paper</strong></u> for <u><strong>{subject}</strong></u>:
+            Here is your customized <u><strong>Question Paper</strong></u>:
           </p>
           <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
             <button
@@ -196,26 +194,32 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
         </div>
 
         <div className="paper-card" style={{ fontFamily: '"Times New Roman", Times, serif', color: '#111827' }}>
-          <h1 className="print-hidden" style={{ fontSize: 'clamp(22px, 2.5vw, 28px)', fontWeight: 700, textAlign: 'center', margin: '0 0 10px 0', letterSpacing: '0.5px' }}>
-            {schoolName}
-          </h1>
-          <h2 className="print-hidden" style={{ fontSize: 'clamp(16px, 1.6vw, 19px)', fontWeight: 700, textAlign: 'center', margin: '0 0 6px 0' }}>
-            Subject: {subject}
-          </h2>
-          <h3 className="print-hidden" style={{ fontSize: 'clamp(16px, 1.6vw, 19px)', fontWeight: 700, textAlign: 'center', margin: '0 0 clamp(20px, 3vw, 28px) 0' }}>
-            Class: {className}
-          </h3>
+          <div style={{ textAlign: 'center', marginBottom: 'clamp(20px, 3vw, 28px)' }}>
+            <h1 style={{ fontSize: 'clamp(22px, 2.5vw, 28px)', fontWeight: 700, letterSpacing: '0.5px', margin: 0 }}>
+              {schoolName}
+            </h1>
+            {subject && (
+              <h2 style={{ fontSize: 'clamp(16px, 1.6vw, 19px)', fontWeight: 700, margin: '6px 0 0 0' }}>
+                Subject: {subject}
+              </h2>
+            )}
+            {className && (
+              <h3 style={{ fontSize: 'clamp(16px, 1.6vw, 19px)', fontWeight: 700, margin: '4px 0 0 0' }}>
+                Class: {className}
+              </h3>
+            )}
+          </div>
 
-          <div className="print-hidden" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'clamp(14px, 1.2vw, 16px)', fontWeight: 700, borderBottom: '2px solid #111827', paddingBottom: 'clamp(10px, 1.2vw, 14px)', marginBottom: 'clamp(16px, 2vw, 20px)', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'clamp(14px, 1.2vw, 16px)', fontWeight: 700, borderBottom: '2px solid #111827', paddingBottom: 'clamp(10px, 1.2vw, 14px)', marginBottom: 'clamp(16px, 2vw, 20px)', gap: 12, flexWrap: 'wrap' }}>
             <span>Time Allowed: {duration} minutes</span>
             <span>Maximum Marks: {totalMarks}</span>
           </div>
 
-          <p className="print-hidden" style={{ fontSize: 'clamp(14px, 1.2vw, 16px)', fontWeight: 700, margin: '0 0 clamp(20px, 2.5vw, 24px) 0' }}>
+          <p style={{ fontSize: 'clamp(14px, 1.2vw, 16px)', fontWeight: 700, margin: '0 0 clamp(20px, 2.5vw, 24px) 0' }}>
             All questions are compulsory unless stated otherwise.
           </p>
 
-          <div className="student-fields-grid print-hidden" style={{ marginBottom: 'clamp(28px, 3.5vw, 36px)', fontSize: 'clamp(14px, 1.2vw, 16px)', fontWeight: 700 }}>
+          <div className="student-fields-grid" style={{ marginBottom: 'clamp(28px, 3.5vw, 36px)', fontSize: 'clamp(14px, 1.2vw, 16px)', fontWeight: 700 }}>
             <div>Name: <span style={{ borderBottom: '2px solid #111827', display: 'inline-block', minWidth: 'clamp(120px, 18vw, 160px)' }}>&nbsp;</span></div>
             <div>Roll Number: <span style={{ borderBottom: '2px solid #111827', display: 'inline-block', minWidth: 'clamp(120px, 18vw, 160px)' }}>&nbsp;</span></div>
             <div>Section: <span style={{ borderBottom: '2px solid #111827', display: 'inline-block', minWidth: 'clamp(80px, 12vw, 100px)' }}>&nbsp;</span></div>
@@ -225,7 +229,7 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
             <SectionBlock key={section.title} section={section} startNumber={sectionStarts[index]?.start ?? 1} />
           ))}
 
-          <p className="print-hidden" style={{ fontSize: 'clamp(15px, 1.3vw, 17px)', fontWeight: 700, textAlign: 'center', margin: '0 0 clamp(28px, 4vw, 36px) 0', borderBottom: '2px solid #111827', paddingBottom: 'clamp(20px, 2.5vw, 24px)' }}>
+          <p style={{ fontSize: 'clamp(15px, 1.3vw, 17px)', fontWeight: 700, textAlign: 'center', margin: '0 0 clamp(28px, 4vw, 36px) 0', borderBottom: '2px solid #111827', paddingBottom: 'clamp(20px, 2.5vw, 24px)' }}>
             End of Question Paper
           </p>
 

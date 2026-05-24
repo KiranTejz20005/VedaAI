@@ -6,11 +6,14 @@ import { RefreshCw, Zap } from 'lucide-react';
 interface SuccessViewProps {
   assignmentId: string;
   isPartial: boolean;
-  generatedCount: number | null;
-  requestedCount: number | null;
+  generatedCount: number | null | undefined;
+  requestedCount: number | null | undefined;
   generatedMarks: number | null | undefined;
   requestedMarks: number | null | undefined;
   duration: number;
+  subject?: string;
+  schoolName?: string;
+  className?: string;
   onRegenerate: () => void;
   isRetrying: boolean;
 }
@@ -46,7 +49,8 @@ function CheckmarkCircle() {
 
 export function SuccessView({
   assignmentId, isPartial, generatedCount, requestedCount,
-  generatedMarks, requestedMarks, duration, onRegenerate, isRetrying,
+  generatedMarks, requestedMarks, duration, subject, schoolName, className,
+  onRegenerate, isRetrying,
 }: SuccessViewProps) {
   return (
     <motion.div
@@ -82,6 +86,19 @@ export function SuccessView({
           : 'Your assignment has been generated successfully and is ready to view.'}
       </motion.p>
 
+      {(subject || schoolName || className) && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.65 }}
+          className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-3 text-xs text-gray-400"
+        >
+          {schoolName && <span>{schoolName}</span>}
+          {subject && <span>{subject}</span>}
+          {className && <span>Class: {className}</span>}
+        </motion.div>
+      )}
+
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -89,8 +106,8 @@ export function SuccessView({
         className="flex flex-wrap justify-center gap-4 mt-8"
       >
         {[
-          { label: 'Questions', value: generatedCount !== null ? `${generatedCount}/${requestedCount}` : (requestedCount ?? '—') },
-          { label: 'Marks', value: generatedMarks !== null ? `${generatedMarks}/${requestedMarks}` : (requestedMarks ?? '—') },
+          { label: 'Questions', value: generatedCount !== null && generatedCount !== undefined ? `${generatedCount}/${requestedCount}` : (requestedCount ?? '—') },
+          { label: 'Marks', value: generatedMarks !== null && generatedMarks !== undefined ? `${generatedMarks}/${requestedMarks}` : (requestedMarks ?? '—') },
           { label: 'Duration', value: `${duration} min` },
         ].map((stat, i) => (
           <motion.div
@@ -100,7 +117,7 @@ export function SuccessView({
             transition={{ delay: 0.8 + i * 0.1 }}
             className="flex flex-col items-center bg-white rounded-xl border border-gray-100 px-6 py-3 min-w-[100px] shadow-sm"
           >
-            <span className="text-xl font-extrabold text-gray-900">{stat.value}</span>
+            <span className="text-xl font-extrabold text-gray-900">{String(stat.value)}</span>
             <span className="text-xs text-gray-400 font-medium mt-0.5">{stat.label}</span>
           </motion.div>
         ))}

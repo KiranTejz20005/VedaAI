@@ -1253,11 +1253,35 @@ img, svg, video, canvas { max-width: 100%; height: auto; display: block; }
 .question-item {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
 }
 
-.question-text-block { flex: 1; }
-.question-marks { display: inline-block; white-space: nowrap; flex-shrink: 0; }
+.question-num {
+  font-size: clamp(15px, 1.3vw, 17px);
+  font-weight: 700;
+  min-width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+  line-height: 1.7;
+}
+
+.question-text-block {
+  flex: 1;
+  min-width: 0;
+  font-size: clamp(15px, 1.3vw, 17px);
+  line-height: 1.7;
+  word-break: break-word;
+}
+
+.question-marks {
+  font-size: clamp(15px, 1.3vw, 17px);
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 70px;
+  text-align: right;
+  line-height: 1.7;
+}
 
 /* ── Stats grid ── */
 .stats-grid {
@@ -1410,6 +1434,34 @@ img, svg, video, canvas { max-width: 100%; height: auto; display: block; }
 
 .question-remove-btn:hover:not(:disabled) { background: var(--bg-hover); color: #EF4444; }
 .question-remove-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* ── Add question type button ── */
+.add-question-type-btn {
+  margin-top: 10px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: #111827;
+  color: #fff;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.add-question-type-btn:hover {
+  background: #374151;
+}
+
+.add-question-type-btn:active {
+  background: #1f2937;
+}
 
 /* ── Custom counter pill ── */
 .counter.pill-style {
@@ -1730,10 +1782,28 @@ hr { border: none; border-top: 1px solid var(--border); }
   .dark-banner-card { border-radius: 20px; padding: 20px 24px; }
   .paper-card { border-radius: 24px; padding: 32px 20px; }
   .student-fields-grid { flex-direction: column; gap: 16px; }
-  .question-item { display: block; }
-  .question-num { float: left; margin-right: 8px; min-width: unset; text-align: left; }
-  .question-text-block { display: inline; }
-  .question-marks { display: inline; white-space: normal; padding-left: 4px; }
+  .question-item {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .question-num {
+    min-width: 22px;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .question-text-block {
+    flex: 1 1 calc(100% - 100px);
+    font-size: 15px;
+    line-height: 1.6;
+    min-width: 0;
+  }
+  .question-marks {
+    font-size: 15px;
+    min-width: 60px;
+    text-align: right;
+    line-height: 1.6;
+  }
 
   .desktop-download-btn { display: none; }
   .mobile-download-btn { display: flex; }

@@ -5,6 +5,7 @@ import type { QuestionTypeBreakdown } from '../../prompts/generation.prompt';
 export interface PlannedBatch {
   id: string;
   type: QuestionType;
+  displayType?: string;
   count: number;
   marksPerQuestion: number;
   totalMarks: number;
@@ -43,11 +44,12 @@ function splitTypeBreakdown(
       batches.push({
         id: `${bucket.type}-${index}`,
         type: bucket.type as QuestionType,
+        displayType: bucket.displayType,
         count,
         marksPerQuestion: bucket.marksPerQuestion,
         totalMarks: count * bucket.marksPerQuestion,
         allowedTypes: [bucket.type as QuestionType],
-        sectionTitle: bucket.type,
+        sectionTitle: bucket.displayType || bucket.type,
         difficultyHint,
       });
       remaining -= count;

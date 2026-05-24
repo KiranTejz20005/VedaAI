@@ -7,7 +7,6 @@ import { GenerationTile, type TileConfig } from './GenerationTile';
 import { SuccessView } from './SuccessView';
 import { ErrorView } from './ErrorView';
 
-/* ── Stage-to-tile mapping ── */
 const TILE_MAP: { stage: GenerationStage; tile: TileConfig }[] = [
   { stage: 'queued',              tile: { id: 'queued',              icon: '📋', label: 'Queued for Processing',   description: 'Preparing your request' } },
   { stage: 'extracting_content',  tile: { id: 'extracting_content',  icon: '📄', label: 'Reading Uploaded PDFs',   description: 'Extracting text from your files' } },
@@ -36,7 +35,6 @@ function getTileState(stage: GenerationStage | null, currentStageIdx: number, ti
   return 'pending';
 }
 
-/* ── AI Orb ── */
 function AnimatedOrb() {
   return (
     <div className="relative flex items-center justify-center w-12 h-12">
@@ -69,7 +67,6 @@ function AnimatedOrb() {
   );
 }
 
-/* ── Props ── */
 export interface GenerationScreenProps {
   assignmentTitle: string;
   assignmentSubject: string;
@@ -79,6 +76,8 @@ export interface GenerationScreenProps {
   requestedQuestionCount: number | null;
   generatedMarks: number | null | undefined;
   requestedMarks: number | null | undefined;
+  schoolName?: string;
+  className?: string;
   isPartial: boolean;
   onRetry: () => void;
   isRetrying: boolean;
@@ -87,7 +86,7 @@ export interface GenerationScreenProps {
 export function GenerationScreen({
   assignmentTitle, assignmentSubject, assignmentId, duration,
   generatedQuestionCount, requestedQuestionCount,
-  generatedMarks, requestedMarks, isPartial,
+  generatedMarks, requestedMarks, schoolName, className, isPartial,
   onRetry, isRetrying,
 }: GenerationScreenProps) {
   const { stage, status, progress, message, error } = useGenerationStore();
@@ -126,7 +125,6 @@ export function GenerationScreen({
       className="fixed inset-0 z-50 flex flex-col bg-white overflow-y-auto"
       style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
-      {/* Header */}
       <div className="flex-shrink-0 border-b border-gray-100 px-6 py-4">
         <div className="flex items-center gap-4 max-w-4xl mx-auto">
           <AnimatedOrb />
@@ -137,18 +135,21 @@ export function GenerationScreen({
                 <span className="text-xs text-orange-500 font-medium flex-shrink-0">{Math.round(progress)}%</span>
               )}
             </div>
-            <p className="text-xs text-gray-400 mt-0.5">{assignmentSubject}</p>
+            <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+              <span>{assignmentSubject}</span>
+              {className && <><span>·</span><span>Class {className}</span></>}
+              {schoolName && <><span>·</span><span>{schoolName}</span></>}
+            </div>
           </div>
           {showProgress && (
             <div className="hidden sm:flex items-center gap-2 text-xs text-gray-400">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Generating Assignment
+              Generating
             </div>
           )}
         </div>
       </div>
 
-      {/* Body */}
       <div className="flex-1 flex items-start justify-center px-6 py-8 sm:py-12">
         <div className="w-full max-w-4xl">
           <AnimatePresence mode="wait">
@@ -168,6 +169,9 @@ export function GenerationScreen({
                   generatedMarks={generatedMarks}
                   requestedMarks={requestedMarks}
                   duration={duration}
+                  subject={assignmentSubject}
+                  schoolName={schoolName}
+                  className={className}
                   onRegenerate={onRetry}
                   isRetrying={isRetrying}
                 />
@@ -193,7 +197,6 @@ export function GenerationScreen({
         </div>
       </div>
 
-      {/* Footer */}
       {showProgress && (
         <div className="flex-shrink-0 border-t border-gray-100 px-6 py-3">
           <div className="max-w-4xl mx-auto flex items-center justify-between">

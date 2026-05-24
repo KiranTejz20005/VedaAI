@@ -125,6 +125,8 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   const generatedQuestionCount = canonical?.generatedQuestionCount ?? genMeta?.generatedQuestionCount ?? null;
   const generatedMarks = canonical?.generatedMarks ?? genMeta?.generatedMarks ?? null;
   const requestedMarks = canonical?.requestedMarks ?? assignment?.totalMarks;
+  const schoolName = canonical?.schoolName;
+  const className = canonical?.className;
   const isPartial = assignment?.status === 'partially_generated';
   const failureReason = genMeta?.failureReason || error || null;
 
@@ -174,6 +176,8 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
             requestedQuestionCount={requestedQuestionCount}
             generatedMarks={generatedMarks}
             requestedMarks={requestedMarks}
+            schoolName={schoolName}
+            className={className}
             isPartial={isPartial}
             onRetry={handleGenerate}
             isRetrying={isRetrying}

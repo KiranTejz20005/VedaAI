@@ -474,6 +474,7 @@ async function runBatchWithRetry(
     {
       batchId: batch.id,
       type: batch.type,
+      displayType: batch.displayType,
       count: batch.count,
       marksPerQuestion: batch.marksPerQuestion,
       allowedMarks: [batch.marksPerQuestion],

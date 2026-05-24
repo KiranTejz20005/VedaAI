@@ -54,13 +54,7 @@ function parseCorsOrigins(raw: string): string[] {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
-    .map((s) => {
-      // Support wildcard subdomains: https://*.vercel.app
-      if (s.startsWith('https://*.')) {
-        return s.replace('https://*.', 'https://');
-      }
-      return s.replace(/\/+$/, '');
-    });
+    .map((s) => s.replace(/\/+$/, ''));
 }
 
 async function failStaleQueuedJobs(): Promise<void> {
@@ -193,38 +187,32 @@ function createApp() {
   app.set('trust proxy', 1);
 
   const corsOrigins = parseCorsOrigins(env.FRONTEND_URL);
+  const ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    ...corsOrigins,
+  ];
 
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
   app.use(compression());
-  app.use(cors({
+
+  const corsMiddleware = cors({
     origin: (origin, callback) => {
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
+      if (!origin) return callback(null, true);
       const normalizedOrigin = origin.replace(/\/+$/, '');
-      const allowed = corsOrigins.some((allowedOrigin) => {
-        if (allowedOrigin === normalizedOrigin) return true;
-        // Wildcard entry is normalized as "https://vercel.app", match subdomains.
-        if (allowedOrigin === 'https://vercel.app') {
-          try {
-            return /\.vercel\.app$/i.test(new URL(normalizedOrigin).hostname);
-          } catch {
-            return false;
-          }
-        }
-        return false;
-      });
+      const allowed = ALLOWED_ORIGINS.includes(normalizedOrigin) ||
+        /\.vercel\.app$/i.test(new URL(normalizedOrigin).hostname);
       if (!allowed) {
-        logger.warn(`[CORS] Blocked origin: ${normalizedOrigin} | allowed=${corsOrigins.join(',')}`);
+        logger.warn(`[CORS] Blocked origin: ${normalizedOrigin}`);
       }
-      // Don't throw here; just deny CORS headers. Throwing creates noisy error logs.
       callback(null, allowed);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-  }));
+  });
+  app.use(corsMiddleware);
+  app.options('*', corsMiddleware);
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
   app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));

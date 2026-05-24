@@ -47,12 +47,11 @@ export async function generatePdf(paper: IGeneratedPaper): Promise<{ pdfPath: st
 
 function buildPaperHtml(paper: IGeneratedPaper): string {
   const meta = paper.canonicalMetadata;
-  const schoolName = meta?.schoolName ?? 'School';
-  const subject = meta?.subject ?? paper.title;
-  const className = meta?.className ?? 'Not Specified';
-  const duration = meta?.durationMinutes ?? paper.duration ?? 45;
-  const maxMarks = meta?.generatedMarks ?? paper.totalMarks;
-  const totalQuestions = paper.sections.reduce((sum, section) => sum + section.questions.length, 0);
+  const schoolName = meta?.schoolName || 'School';
+  const subject = meta?.subject || paper.title;
+  const className = meta?.className || '';
+  const duration = meta?.durationMinutes || paper.duration || 45;
+  const maxMarks = meta?.generatedMarks || paper.totalMarks;
   const sectionsHtml = paper.sections
     .map(
       (section, sIdx) => `
@@ -86,41 +85,44 @@ function buildPaperHtml(paper: IGeneratedPaper): string {
 <head>
 <meta charset="utf-8">
 <style>
-  * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 11.5pt; color: #222; margin: 0; padding: 0; line-height: 1.45; }
-  .paper { width: 100%; }
-  .school { text-align: center; font-size: 19pt; font-weight: 800; margin-bottom: 4px; }
-  .exam-title { text-align: center; font-size: 14pt; font-weight: 700; margin-bottom: 2px; }
-  .class-line { text-align: center; font-size: 12.5pt; font-weight: 700; margin-bottom: 22px; }
-  .meta-row { display: flex; justify-content: space-between; font-size: 11.5pt; font-weight: 700; margin: 0 0 18px; }
-  .instruction-top { font-size: 11pt; font-weight: 700; margin: 0 0 18px; }
-  .student-info { display: grid; grid-template-columns: 1.7fr 1fr 1.1fr; gap: 18px; margin: 0 0 28px; font-weight: 700; }
-  .line { display: inline-block; min-width: 120px; border-bottom: 1px solid #222; height: 14px; vertical-align: baseline; }
-  .section { margin-top: 26px; break-inside: auto; }
-  .section h2 { text-align: center; font-size: 14pt; margin: 0 0 22px; font-weight: 800; break-after: avoid; page-break-after: avoid; }
-  .instruction { font-size: 11pt; font-style: italic; margin: -8px 0 16px; break-after: avoid; page-break-after: avoid; }
-  .questions { padding-left: 22px; margin: 0; }
-  .question { margin-bottom: 13px; padding-left: 4px; break-inside: avoid; page-break-inside: avoid; }
-  .q-header { display: flex; align-items: flex-start; gap: 12px; }
-  .q-text { flex: 1; min-width: 0; }
-  .difficulty { font-weight: 400; color: #333; }
-  .q-marks { font-weight: 400; white-space: nowrap; margin-left: 10px; }
-  .options { list-style: none; padding-left: 18px; margin: 7px 0 0; display: grid; gap: 4px; }
-  .options li { break-inside: avoid; }
-  .end-note { font-weight: 800; margin-top: 20px; }
-  .answer-key { margin-top: 34px; padding-top: 20px; border-top: 1px solid #bbb; break-before: page; page-break-before: always; }
-  .answer-key h2 { font-size: 14pt; margin: 0 0 14px; }
-  .answer-key ol { margin: 0; padding-left: 22px; }
-  .answer-key li { margin-bottom: 10px; }
-  .footer { position: fixed; bottom: 8mm; left: 0; right: 0; text-align: center; font-size: 8.5pt; color: #777; }
-  @page { size: A4; margin: 18mm 15mm 18mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #000; line-height: 1.5; }
+  .paper { width: 100%; padding: 0 2mm; }
+  .header { text-align: center; margin-bottom: 6mm; }
+  .school { font-size: 18pt; font-weight: 800; letter-spacing: 0.5px; }
+  .exam-title { font-size: 14pt; font-weight: 700; margin-top: 2mm; }
+  .class-line { font-size: 12pt; font-weight: 700; margin-top: 1mm; }
+  .meta-row { display: flex; justify-content: space-between; font-size: 11pt; font-weight: 700; border-bottom: 2px solid #000; padding-bottom: 3mm; margin: 4mm 0; }
+  .instruction-top { font-size: 11pt; font-weight: 700; margin-bottom: 4mm; }
+  .student-info { display: grid; grid-template-columns: 1.7fr 1fr 1.1fr; gap: 4mm; margin-bottom: 6mm; font-weight: 700; }
+  .line { display: inline-block; min-width: 30mm; border-bottom: 1px solid #000; height: 12px; vertical-align: baseline; }
+  .section { margin-top: 6mm; }
+  .section h2 { text-align: center; font-size: 14pt; margin-bottom: 4mm; font-weight: 800; }
+  .instruction { font-size: 11pt; font-style: italic; margin-bottom: 3mm; }
+  .questions { padding-left: 8mm; margin: 0; }
+  .question { margin-bottom: 3mm; padding-left: 2mm; }
+  .q-header { display: flex; align-items: flex-start; gap: 3mm; }
+  .q-text { flex: 1; }
+  .difficulty { font-weight: 400; color: #555; font-size: 10pt; }
+  .q-marks { font-weight: 400; white-space: nowrap; font-size: 11pt; }
+  .options { list-style: none; padding-left: 6mm; margin: 2mm 0 0; }
+  .options li { margin-bottom: 1mm; }
+  .end-note { font-weight: 800; text-align: center; border-top: 2px solid #000; padding-top: 3mm; margin-top: 6mm; }
+  .answer-key { margin-top: 8mm; padding-top: 4mm; border-top: 2px solid #000; }
+  .answer-key h2 { font-size: 14pt; margin-bottom: 3mm; }
+  .answer-key ol { margin: 0; padding-left: 8mm; }
+  .answer-key li { margin-bottom: 2mm; }
+  .footer { position: fixed; bottom: 5mm; left: 0; right: 0; text-align: center; font-size: 9pt; color: #888; font-family: Arial, sans-serif; }
+  @page { size: A4; margin: 18mm 16mm 22mm; }
 </style>
 </head>
 <body>
   <main class="paper">
-    <div class="school">${escapeHtml(schoolName)}</div>
-    <div class="exam-title">${escapeHtml(subject)}</div>
-    <div class="class-line">Class: ${escapeHtml(className)}</div>
+    <div class="header">
+      <div class="school">${escapeHtml(schoolName)}</div>
+      <div class="exam-title">${escapeHtml(subject)}</div>
+      ${className ? `<div class="class-line">Class: ${escapeHtml(className)}</div>` : ''}
+    </div>
     <div class="meta-row">
       <span>Time Allowed: ${duration} minutes</span>
       <span>Maximum Marks: ${maxMarks}</span>
@@ -135,7 +137,7 @@ function buildPaperHtml(paper: IGeneratedPaper): string {
     <p class="end-note">End of Question Paper</p>
     ${answerHtml}
   </main>
-  <div class="footer">${totalQuestions} Questions | ${paper.totalMarks} Marks</div>
+  <div class="footer">${escapeHtml(schoolName)} | Generated by VedaAI</div>
 </body>
 </html>`;
 }
