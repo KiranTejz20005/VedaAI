@@ -10,7 +10,7 @@ const API_URL = rawUrl && rawUrl !== 'undefined' ? rawUrl : 'http://localhost:50
 export const apiClient = axios.create({
   baseURL: `${API_URL}/api`,
   timeout: 30000,
-  headers: { 'Content-Type': 'application/json' },
+  // No default Content-Type — axios auto-detects JSON vs FormData
 });
 
 const inFlightRequests = new Map<string, Promise<unknown>>();
