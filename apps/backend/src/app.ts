@@ -9,7 +9,7 @@ import rateLimit from 'express-rate-limit';
 import { QueueEvents } from 'bullmq';
 import { env } from './config/env';
 import { connectDatabase, disconnectDatabase } from './config/db';
-import { closeRedis, closeBullRedis, getBullRedisClient, getBullRedisDiagnostics, isBullRedisConnected, isRedisConnected } from './config/redis';
+import { closeRedis, closeBullRedis, getBullRedisClient, getBullRedisDiagnostics, getRedisClient, isBullRedisConnected, isRedisConnected } from './config/redis';
 import { initializeSocketServer, getSocketServer } from './sockets/socket.server';
 import { createAiGenerationWorker, getActiveAiJobCount, getStalledAiJobCount } from './workers/aiGeneration.worker';
 import { createPdfWorker } from './workers/pdf.worker';
@@ -215,7 +215,11 @@ function createApp() {
         }
         return false;
       });
-      callback(allowed ? null : new Error('Not allowed by CORS'), allowed);
+      if (!allowed) {
+        logger.warn(`[CORS] Blocked origin: ${normalizedOrigin} | allowed=${corsOrigins.join(',')}`);
+      }
+      // Don't throw here; just deny CORS headers. Throwing creates noisy error logs.
+      callback(null, allowed);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -265,13 +269,22 @@ async function bootstrap() {
   // ── Step 2: Connect to Redis (fail fast) ──
   logBoot('redis', 'Connecting to Redis...');
   try {
-    const redis = getBullRedisClient();
-    await new Promise<void>((resolve, reject) => {
-      const onReady = () => { redis.removeListener('error', onError); resolve(); };
-      const onError = (err: Error) => { redis.removeListener('ready', onReady); reject(err); };
-      redis.once('ready', onReady);
-      redis.once('error', onError);
-    });
+    const generalRedis = getRedisClient();
+    const bullRedis = getBullRedisClient();
+    await Promise.all([
+      new Promise<void>((resolve, reject) => {
+        const onReady = () => { generalRedis.removeListener('error', onError); resolve(); };
+        const onError = (err: Error) => { generalRedis.removeListener('ready', onReady); reject(err); };
+        generalRedis.once('ready', onReady);
+        generalRedis.once('error', onError);
+      }),
+      new Promise<void>((resolve, reject) => {
+        const onReady = () => { bullRedis.removeListener('error', onError); resolve(); };
+        const onError = (err: Error) => { bullRedis.removeListener('ready', onReady); reject(err); };
+        bullRedis.once('ready', onReady);
+        bullRedis.once('error', onError);
+      }),
+    ]);
     healthState.redis = 'connected';
     healthState.bullmqRedis = 'connected';
     logBoot('redis', 'Redis connected');

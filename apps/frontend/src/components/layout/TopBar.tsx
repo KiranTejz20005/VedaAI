@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { ChevronRight, Bell, Menu, ChevronDown } from 'lucide-react';
+import { ChevronRight, Bell, Menu, ChevronDown, Grid2x2 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 
 const BREADCRUMB_MAP: Record<string, string> = {
@@ -25,7 +25,7 @@ export function TopBar() {
   const pathname = usePathname();
   const { parent, current } = getBreadcrumb(pathname);
   const toggle = useSidebarStore((s) => s.toggle);
-  const showBackButton = pathname.startsWith('/assignments/');
+  const showBackButton = pathname === '/dashboard' || pathname.startsWith('/assignments/');
 
   return (
     <header className="topbar" role="banner">
@@ -62,7 +62,10 @@ export function TopBar() {
                 <span>Create New</span>
               </div>
             ) : (
-              <span className="topbar-breadcrumb-current">{current}</span>
+              <span className="topbar-breadcrumb-current" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                {current === 'Assignment' && <Grid2x2 size={14} color="#9CA3AF" />}
+                {current}
+              </span>
             )}
           </div>
         </div>

@@ -12,7 +12,6 @@ import {
   Filter,
   MoreVertical,
   Loader2,
-  AlertCircle,
   ChevronDown,
   RefreshCw,
 } from 'lucide-react';
@@ -77,6 +76,7 @@ function CardMenu({
             <button type="button" className="dropdown-item" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); onView(assignment._id); }}>
               View Assignment
             </button>
+            <div className="dropdown-divider" />
             <button
               type="button"
               className="dropdown-item danger"
@@ -116,7 +116,7 @@ function AssignmentCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ delay: index * 0.04 }}
-      className="assignment-card"
+      className="assignment-card assignment-card-v3"
     >
       {isLive && (
         <div style={{ position: 'absolute', inset: 0, borderRadius: 'var(--radius-lg)', border: '2px solid var(--brand)', opacity: 0.4, animation: 'pulse-ring 2s ease-in-out infinite', pointerEvents: 'none' }} aria-hidden="true" />
@@ -124,7 +124,7 @@ function AssignmentCard({
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h3 className="card-title">{assignment.title}</h3>
+          <h3 className="card-title assignment-card-title-v3">{assignment.title}</h3>
           <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <StatusBadge status={assignment.status} />
             <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
@@ -135,7 +135,7 @@ function AssignmentCard({
         <CardMenu assignment={assignment} onView={onView} onDelete={onDelete} isDeleting={isDeleting} />
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: '11px', color: '#111827', gap: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: '12px', color: '#111827', gap: 8, flexWrap: 'wrap' }}>
         <span><strong>Assigned on : </strong><span style={{ color: '#6B7280', fontWeight: 500 }}>{assignedDate}</span></span>
         <span><strong>Due : </strong><span style={{ color: '#6B7280', fontWeight: 500 }}>{dueDate}</span></span>
       </div>
@@ -194,11 +194,23 @@ function EmptyState({ isFiltered, assignmentsCount }: { isFiltered: boolean; ass
 
 export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState('All');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
   const effectiveStatus = statusFilter === 'All' ? undefined : statusFilter;
   const { assignments, isLoading, error, reload } = useAssignments(1, effectiveStatus);
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setFilterOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
 
   useEffect(() => {
     if (error) toast.error(error, { id: 'dashboard-error', position: 'bottom-center' });
@@ -229,7 +241,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      <div className="desktop-page-header">
+      <div className="desktop-page-header dashboard-header-v3">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div className="status-dot" aria-hidden="true" />
           <h1 className="page-title">Assignments</h1>
@@ -248,38 +260,56 @@ export default function DashboardPage() {
         <div style={{ width: 32 }} />
       </div>
 
-      <div className="search-filter-row">
-        <div className="filter-btn" style={{ paddingRight: 10 }}>
-          <Filter size={14} />
-          <label className="filter-label" htmlFor="status-filter" style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>Filter By</label>
-          <select
-            id="status-filter"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+      <div className="search-filter-row search-filter-row-v3">
+        <div className="filter-select-wrap modern-filter" ref={filterRef}>
+          <button
+            type="button"
+            className={`modern-filter-trigger${filterOpen ? ' open' : ''}`}
+            onClick={() => setFilterOpen((s) => !s)}
             aria-label="Filter assignments by status"
-            style={{ border: 'none', outline: 'none', background: 'transparent', color: 'var(--text-primary)', fontSize: 'var(--text-base)', fontWeight: 500, cursor: 'pointer' }}
+            aria-expanded={filterOpen}
           >
-            <option value="All">All</option>
-            <option value="draft">Draft</option>
-            <option value="queued">Queued</option>
-            <option value="generating">Generating</option>
-            <option value="completed">Completed</option>
-            <option value="partially_generated">Partial</option>
-            <option value="failed">Failed</option>
-          </select>
-          <ChevronDown size={13} />
+            <Filter size={14} className="filter-icon" aria-hidden="true" />
+            <span>{statusFilter === 'All' ? 'All' : statusFilter.replace('_', ' ')}</span>
+            <ChevronDown size={14} className={`filter-chevron${filterOpen ? ' open' : ''}`} aria-hidden="true" />
+          </button>
+          <AnimatePresence>
+            {filterOpen && (
+              <motion.div
+                className="modern-filter-menu"
+                initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                transition={{ duration: 0.14 }}
+              >
+                {['All', 'draft', 'queued', 'generating', 'completed', 'partially_generated', 'failed'].map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    className={`modern-filter-item${statusFilter === status ? ' active' : ''}`}
+                    onClick={() => {
+                      setStatusFilter(status);
+                      setFilterOpen(false);
+                    }}
+                  >
+                    {status === 'All' ? 'All' : status.replace('_', ' ')}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <div className="search-wrap">
-          <Search size={15} className="search-icon" aria-hidden="true" />
-          <input type="text" placeholder="Search Assignment" value={search} onChange={(e) => setSearch(e.target.value)} className="input search-input" aria-label="Search assignments" />
+              <Search size={15} className="search-icon" aria-hidden="true" />
+              <input type="text" placeholder="Search Assignment" value={search} onChange={(e) => setSearch(e.target.value)} className="input search-input" aria-label="Search assignments" />
         </div>
       </div>
 
       {isLoading ? (
-        <div className="assignment-grid">
-          {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
-        </div>
+          <div className="assignment-grid assignment-grid-v3">
+            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
       ) : error ? (
         <div className="empty-state">
           <div className="empty-illustration" aria-hidden="true">
@@ -296,7 +326,7 @@ export default function DashboardPage() {
         <EmptyState isFiltered={isFiltered} assignmentsCount={assignments.length} />
       ) : (
         <AnimatePresence mode="popLayout">
-          <div className="assignment-grid">
+          <div className="assignment-grid assignment-grid-v3">
             {filtered.map((assignment, i) => (
               <AssignmentCard
                 key={assignment._id}
@@ -312,7 +342,7 @@ export default function DashboardPage() {
       )}
 
       {assignments.length > 0 && (
-        <div className="dashboard-fab">
+        <div className="dashboard-fab dashboard-fab-v3">
           <Link href="/assignments/create" className="btn btn-dark btn-pill">
             <Plus size={16} />
             Create Assignment
