@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   XCircle,
   ChevronDown,
+  RefreshCw,
 } from 'lucide-react';
 import { useAssignments } from '@/hooks/useAssignments';
 import {
