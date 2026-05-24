@@ -14,7 +14,7 @@ export function ErrorView({ error, onRetry, isRetrying }: ErrorViewProps) {
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: 'easeOut' }}
-      className="flex flex-col items-center justify-center w-full max-w-4xl mx-auto px-4 py-12"
+      className="flex flex-col items-center justify-center w-full max-w-3xl mx-auto px-4 py-10 overflow-x-hidden"
     >
       <div className="absolute top-0 left-0 w-full h-[40vh] bg-gradient-to-b from-red-50/80 to-transparent -z-10 pointer-events-none" />
 
@@ -38,7 +38,7 @@ export function ErrorView({ error, onRetry, isRetrying }: ErrorViewProps) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="text-5xl sm:text-7xl font-black text-gray-900 tracking-tighter text-center mb-6 leading-[1.1]"
+        className="text-4xl sm:text-6xl font-black text-gray-900 tracking-tight text-center mb-6 leading-[1.1] break-words"
       >
         Generation Interrupted
       </motion.h2>
@@ -47,7 +47,7 @@ export function ErrorView({ error, onRetry, isRetrying }: ErrorViewProps) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
-        className="text-xl sm:text-2xl text-gray-500 font-medium text-center max-w-2xl leading-relaxed mb-8"
+        className="text-lg sm:text-xl text-gray-500 font-medium text-center max-w-2xl leading-relaxed mb-8"
       >
         We hit a roadblock while crafting your assignment. This could be due to invalid materials or a temporary connection issue.
       </motion.p>
@@ -57,7 +57,7 @@ export function ErrorView({ error, onRetry, isRetrying }: ErrorViewProps) {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.4 }}
-          className="w-full bg-white border border-red-200 rounded-3xl p-6 sm:p-8 shadow-xl shadow-red-100/50 mb-12"
+          className="w-full max-w-[92vw] bg-white border border-red-200 rounded-2xl p-4 sm:p-6 shadow-xl shadow-red-100/50 mb-10 overflow-hidden"
         >
           <p className="text-sm sm:text-base text-red-600 font-mono break-words text-center font-semibold">
             {error}
@@ -69,12 +69,12 @@ export function ErrorView({ error, onRetry, isRetrying }: ErrorViewProps) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
-        className="w-full max-w-md"
+        className="w-full max-w-sm"
       >
         <button
           onClick={onRetry}
           disabled={isRetrying}
-          className="flex items-center justify-center gap-4 w-full bg-gray-900 text-white rounded-2xl px-10 py-6 text-xl sm:text-2xl font-bold shadow-2xl shadow-gray-900/30 hover:bg-gray-800 hover:scale-[1.02] hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 disabled:hover:scale-100 disabled:hover:translate-y-0"
+          className="flex items-center justify-center gap-3 w-full bg-gray-900 text-white rounded-xl px-6 py-4 text-lg sm:text-xl font-bold shadow-xl shadow-gray-900/25 hover:bg-gray-800 transition-all duration-300 disabled:opacity-50"
         >
           <RefreshCw className={`w-8 h-8 ${isRetrying ? 'animate-spin' : ''}`} />
           {isRetrying ? 'Retrying...' : 'Try Again'}

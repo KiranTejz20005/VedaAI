@@ -434,7 +434,7 @@ export default function LandingPage() {
         }}
       >
         <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          &copy; 2025 VedaAI &mdash; Built for educators, powered by AI
+          &copy; 2026 VedaAI &mdash; Built for educators, powered by AI
         </p>
       </footer>
     </div>

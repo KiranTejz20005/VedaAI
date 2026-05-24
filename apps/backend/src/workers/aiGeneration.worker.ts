@@ -422,13 +422,16 @@ export function createAiGenerationWorker() {
           s + sec.questions.reduce((ms: number, q: any) => ms + (q.marks || 0), 0), 0);
         const isPartial = generationOutcome === 'partial_success';
         const isFailed = generationOutcome === 'failed';
+        // If we generated usable content, treat it as partial success instead of hard failure.
+        const hasUsablePartial = isFailed && generatedQty > 0;
+        const shouldFinalizeAsPartial = isPartial || hasUsablePartial;
 
         logger.debug(
           `[STEP 12] Generated ${generatedQty}/${requestedQty} questions (${generatedMarks}/${assignment.totalMarks} marks)`
         );
         const t12 = Date.now();
 
-        if (isPartial) {
+        if (shouldFinalizeAsPartial) {
           const genMeta: GenerationMeta = {
             status: 'partially_generated',
             generatedQuestionCount: generatedQty,
@@ -488,16 +491,16 @@ export function createAiGenerationWorker() {
         await GenerationJob.findOneAndUpdate(
           { _id: jobRecordId, generationSeq },
           {
-            $set: { status: isFailed ? 'failed' : 'completed', completedAt: new Date() },
+            $set: { status: shouldFinalizeAsPartial ? 'completed' : (isFailed ? 'failed' : 'completed'), completedAt: new Date() },
             $inc: { progressVersion: 1 },
-            $max: { progress: 100, stageIndex: isFailed ? STAGE_ORDER.failed : STAGE_ORDER.completed },
+            $max: { progress: 100, stageIndex: shouldFinalizeAsPartial ? STAGE_ORDER.completed : (isFailed ? STAGE_ORDER.failed : STAGE_ORDER.completed) },
           } as any
         );
         logger.debug(`[STEP 13] GenerationJob updated in ${Date.now() - t13}ms`);
 
         // ── STEP 14: Emit terminal WebSocket event ──
         const t14 = Date.now();
-        if (isFailed) {
+        if (isFailed && !shouldFinalizeAsPartial) {
           emitToAssignment(assignmentId, 'generation:failed', {
             assignmentId,
             error: `Generation finished with partial content (${generatedQty}/${requestedQty})`,
@@ -513,8 +516,8 @@ export function createAiGenerationWorker() {
             paperId: savedPaper._id.toString(),
             jobRecordId,
             generationSeq,
-            partial: isPartial,
-            status: isPartial ? 'partial_success' : 'complete',
+            partial: shouldFinalizeAsPartial,
+            status: shouldFinalizeAsPartial ? 'partial_success' : 'complete',
             generatedQuestionCount: generatedQty,
             requestedQuestionCount: requestedQty,
             generatedMarks,

@@ -32,7 +32,7 @@ export function errorMiddleware(
   }
 
   // Handle custom upload/filter errors thrown in multer fileFilter callback
-  if (error.message.includes('Only PDF and TXT') || error.message.includes('not allowed')) {
+  if (error.message.includes('not allowed') || error.message.includes('Only PDF')) {
     res.status(400).json({
       success: false,
       error: error.message,

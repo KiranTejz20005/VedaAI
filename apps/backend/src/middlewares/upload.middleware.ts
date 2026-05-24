@@ -27,12 +27,13 @@ function fileFilter(
   const mime = (file.mimetype || '').toLowerCase();
   const allowedByExtAndMime =
     (fileExt === '.pdf' && (mime === 'application/pdf' || mime === 'application/octet-stream')) ||
-    (fileExt === '.txt' && (mime === 'text/plain' || mime === 'application/octet-stream'));
+    (fileExt === '.txt' && (mime === 'text/plain' || mime === 'application/octet-stream')) ||
+    (['.jpg', '.jpeg', '.png'].includes(fileExt) && mime.startsWith('image/'));
 
   if (allowedByExtAndMime) {
     cb(null, true);
   } else {
-    cb(new Error(`File type ${file.mimetype} with extension ${fileExt || '(none)'} is not allowed. Only PDF and TXT files accepted.`));
+    cb(new Error(`File type ${file.mimetype} with extension ${fileExt || '(none)'} is not allowed. Only PDF, TXT, JPEG, and PNG files accepted.`));
   }
 }
 
