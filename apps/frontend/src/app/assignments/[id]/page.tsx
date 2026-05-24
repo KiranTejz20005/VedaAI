@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import {
@@ -166,7 +167,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     return (
       <div className="empty-state">
         <div className="empty-illustration" aria-hidden="true">
-          <img src="/empty-state.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          <Image src="/empty-state.png" alt="" fill sizes="(max-width: 768px) 100vw, 320px" style={{ objectFit: 'contain' }} />
         </div>
         <h2 className="empty-title">Assignment not found</h2>
         <p className="empty-desc">The requested assignment could not be retrieved.</p>

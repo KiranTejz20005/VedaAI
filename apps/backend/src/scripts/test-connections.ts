@@ -16,17 +16,25 @@ import { Redis } from 'ioredis';
 const MONGODB_URI = process.env.MONGODB_URI ?? '';
 const REDIS_URL = process.env.REDIS_URL ?? '';
 
+function writeLine(message: string): void {
+  process.stdout.write(`${message}\n`);
+}
+
+function writeError(message: string): void {
+  process.stderr.write(`${message}\n`);
+}
+
 async function testMongoDB(): Promise<void> {
-  console.log('\n🔍 Testing MongoDB connection...');
-  console.log('   URI (password redacted):', MONGODB_URI.replace(/:([^@]+)@/, ':***@'));
+  writeLine('\n🔍 Testing MongoDB connection...');
+  writeLine(`   URI (password redacted): ${MONGODB_URI.replace(/:([^@]+)@/, ':***@')}`);
 
   if (!MONGODB_URI) {
-    console.error('   ❌ MONGODB_URI is not set in .env');
+    writeError('   ❌ MONGODB_URI is not set in .env');
     return;
   }
 
   if (MONGODB_URI.includes('<') || MONGODB_URI.includes('>')) {
-    console.error(
+    writeError(
       '   ❌ MONGODB_URI contains < or > angle brackets!\n' +
         '      These break authentication (error code 8000).\n' +
         '      Fix: Remove the angle brackets and use the raw password.'
@@ -40,14 +48,14 @@ async function testMongoDB(): Promise<void> {
       connectTimeoutMS: 8_000,
       authSource: 'admin',
     });
-    console.log('   ✅ MongoDB connected successfully!');
-    console.log('   📊 Host:', mongoose.connection.host);
-    console.log('   📊 Database:', mongoose.connection.name);
+    writeLine('   ✅ MongoDB connected successfully!');
+    writeLine(`   📊 Host: ${mongoose.connection.host}`);
+    writeLine(`   📊 Database: ${mongoose.connection.name}`);
     await mongoose.disconnect();
   } catch (err) {
     const error = err as Error;
     if (error.message.includes('bad auth') || error.message.includes('8000')) {
-      console.error(
+      writeError(
         '   ❌ Authentication failed (code 8000)!\n' +
           '      → Verify the username is correct\n' +
           '      → Verify the password is correct\n' +
@@ -56,35 +64,33 @@ async function testMongoDB(): Promise<void> {
           '      → Check that your IP is whitelisted in Atlas → Network Access'
       );
     } else if (error.message.includes('ECONNREFUSED')) {
-      console.error('   ❌ Connection refused — is the MongoDB server running?');
+      writeError('   ❌ Connection refused — is the MongoDB server running?');
     } else if (error.message.includes('timed out')) {
-      console.error(
-        '   ❌ Connection timed out — check your IP whitelist in Atlas Network Access'
-      );
+      writeError('   ❌ Connection timed out — check your IP whitelist in Atlas Network Access');
     } else {
-      console.error('   ❌ MongoDB error:', error.message);
+      writeError(`   ❌ MongoDB error: ${error.message}`);
     }
   }
 }
 
 async function testRedis(): Promise<void> {
-  console.log('\n🔍 Testing Redis connection...');
+  writeLine('\n🔍 Testing Redis connection...');
 
   if (!REDIS_URL) {
-    console.error('   ❌ REDIS_URL is not set in .env');
+    writeError('   ❌ REDIS_URL is not set in .env');
     return;
   }
 
   if (!REDIS_URL.startsWith('redis://') && !REDIS_URL.startsWith('rediss://')) {
-    console.error(
+    writeError(
       '   ❌ REDIS_URL does not look like a valid URL!\n' +
         '      Expected: redis:// or rediss:// (with double-s for TLS)\n' +
-        '      Got: ' + REDIS_URL.substring(0, 50)
+        `      Got: ${REDIS_URL.substring(0, 50)}`
     );
     return;
   }
 
-  console.log('   URL (password redacted):', REDIS_URL.replace(/:([^@]+)@/, ':***@'));
+  writeLine(`   URL (password redacted): ${REDIS_URL.replace(/:([^@]+)@/, ':***@')}`);
 
   const isTls = REDIS_URL.startsWith('rediss://');
   const client = new Redis(REDIS_URL, {
@@ -96,37 +102,38 @@ async function testRedis(): Promise<void> {
   try {
     await client.connect();
     const pong = await client.ping();
-    console.log('   ✅ Redis connected! PING response:', pong);
+    writeLine(`   ✅ Redis connected! PING response: ${pong}`);
     await client.quit();
   } catch (err) {
     const error = err as Error;
     if (error.message.includes('ECONNREFUSED')) {
-      console.error('   ❌ Connection refused — is Redis running?');
+      writeError('   ❌ Connection refused — is Redis running?');
     } else if (error.message.includes('WRONGPASS') || error.message.includes('NOAUTH')) {
-      console.error('   ❌ Authentication failed — check the password in REDIS_URL');
+      writeError('   ❌ Authentication failed — check the password in REDIS_URL');
     } else {
-      console.error('   ❌ Redis error:', error.message);
+      writeError(`   ❌ Redis error: ${error.message}`);
     }
     client.disconnect();
   }
 }
 
 async function main() {
-  console.log('═══════════════════════════════════════════════');
-  console.log('  VedaAI Backend Connection Test');
-  console.log('═══════════════════════════════════════════════');
-  console.log('  NODE_ENV:', process.env.NODE_ENV ?? 'not set');
+  writeLine('═══════════════════════════════════════════════');
+  writeLine('  VedaAI Backend Connection Test');
+  writeLine('═══════════════════════════════════════════════');
+  writeLine(`  NODE_ENV: ${process.env.NODE_ENV ?? 'not set'}`);
 
   await testMongoDB();
   await testRedis();
 
-  console.log('\n═══════════════════════════════════════════════');
-  console.log('  Test complete');
-  console.log('═══════════════════════════════════════════════\n');
+  writeLine('\n═══════════════════════════════════════════════');
+  writeLine('  Test complete');
+  writeLine('═══════════════════════════════════════════════\n');
   process.exit(0);
 }
 
 main().catch((err) => {
-  console.error('Test script error:', err);
+  writeError(`Test script error: ${String(err)}`);
   process.exit(1);
 });
+

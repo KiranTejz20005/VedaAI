@@ -297,6 +297,7 @@ img, svg, video, canvas { max-width: 100%; height: auto; display: block; }
   border-radius: 50%;
   background: white;
   border: none;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1048,6 +1049,7 @@ img, svg, video, canvas { max-width: 100%; height: auto; display: block; }
   width: clamp(160px, 20vw, 220px);
   height: clamp(160px, 20vw, 220px);
   margin-bottom: clamp(16px, 2vw, 24px);
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1885,7 +1887,7 @@ hr { border: none; border-top: 1px solid var(--border); }
 
   .assignment-grid { grid-template-columns: repeat(2, 1fr); }
 
-  &.page-container { padding: var(--page-pad) var(--page-pad) var(--page-pad) 0; }
+  .page-container { padding: var(--page-pad) var(--page-pad) var(--page-pad) 0; }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -1896,7 +1898,24 @@ hr { border: none; border-top: 1px solid var(--border); }
 }
 
 /* ════════════════════════════════════════════════════════════
-   RESPONSIVE: Large (1920px+)
+   RESPONSIVE: Ultra-wide desktop + zoomed-out (1700px+)
+   ════════════════════════════════════════════════════════════ */
+@media (min-width: 1700px) {
+  html { font-size: 17px; }
+  :root {
+    --sidebar-w: 280px;
+    --topbar-h: 64px;
+  }
+  .main-wrapper {
+    margin-left: calc(var(--sidebar-w) + 42px);
+  }
+  .page-container {
+    max-width: 1600px;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   RESPONSIVE: Large (1920px+) — overrides 1700px
    ════════════════════════════════════════════════════════════ */
 @media (min-width: 1920px) {
   :root {
@@ -1916,21 +1935,6 @@ hr { border: none; border-top: 1px solid var(--border); }
   .create-form-main {
     border-radius: 32px;
     padding: 44px;
-  }
-}
-
-/* Ultra-wide desktop + zoomed-out stabilization */
-@media (min-width: 1700px) {
-  html { font-size: 17px; }
-  :root {
-    --sidebar-w: 280px;
-    --topbar-h: 64px;
-  }
-  .main-wrapper {
-    margin-left: calc(var(--sidebar-w) + 42px);
-  }
-  .page-container {
-    max-width: 1600px;
   }
 }
 

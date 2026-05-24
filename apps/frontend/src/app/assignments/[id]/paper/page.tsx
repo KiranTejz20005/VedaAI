@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Download, RefreshCw, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -138,7 +139,7 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
     return (
       <div className="empty-state">
         <div className="empty-illustration" aria-hidden="true">
-          <img src="/empty-state.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          <Image src="/empty-state.png" alt="" fill sizes="(max-width: 768px) 100vw, 320px" style={{ objectFit: 'contain' }} />
         </div>
         <h2 className="empty-title">Failed to load question paper</h2>
         <p className="empty-desc">The question paper could not be retrieved.</p>

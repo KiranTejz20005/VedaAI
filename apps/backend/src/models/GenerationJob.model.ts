@@ -15,6 +15,8 @@ export interface IGenerationJob extends Document {
   error: string | null;
   startedAt: Date;
   completedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const GenerationJobSchema = new Schema<IGenerationJob>(

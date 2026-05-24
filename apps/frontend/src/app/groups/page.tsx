@@ -1,6 +1,6 @@
 'use client';
 
-import { Users, Plus, Search, BookOpen, Clock, MoreVertical } from 'lucide-react';
+import { Users, Plus, Search, BookOpen, MoreVertical } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const MOCK_GROUPS = [

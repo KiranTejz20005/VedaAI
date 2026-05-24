@@ -1,6 +1,6 @@
 'use client';
 
-import { Settings, User, Bell, Shield, Palette, Database, ChevronRight, Building2, Moon, Sun, Globe } from 'lucide-react';
+import { User, Bell, Shield, Palette, Database, ChevronRight, Building2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 

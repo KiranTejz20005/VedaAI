@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
+import { ThemeProvider } from '@/components/providers/theme-provider';
 
 export const metadata: Metadata = {
   title: 'VedaAI — AI-Powered Assessment Creator',
@@ -25,6 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
+        <ThemeProvider>
         <div className="app-shell">
           {/* Fixed sidebar */}
           <Sidebar />
@@ -55,7 +57,8 @@ export default function RootLayout({
             error: { iconTheme: { primary: '#EF4444', secondary: '#fff' } },
           }}
         />
-      </body>
+      </ThemeProvider>
+    </body>
     </html>
   );
 }

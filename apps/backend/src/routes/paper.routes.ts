@@ -5,6 +5,9 @@ import { GenerationJob } from '../models/GenerationJob.model';
 import { Assignment } from '../models/Assignment.model';
 import { getPaper } from '../services/paper.service';
 import { buildCanonicalGenerationState } from '../services/canonical-metadata.service';
+import type { IAssignment } from '../models/Assignment.model';
+import type { IGenerationJob } from '../models/GenerationJob.model';
+import type { IGeneratedPaper } from '../models/GeneratedPaper.model';
 
 const router = Router();
 
@@ -22,10 +25,14 @@ router.get('/job/:assignmentId', asyncHandler(async (req, res) => {
     return;
   }
 
+  const typedAssignment = assignment as IAssignment;
+  const typedJob = job as IGenerationJob | null;
+  const typedPaper = paper as IGeneratedPaper | null;
+
   const state = buildCanonicalGenerationState({
-    assignment: assignment as any,
-    job: (job as any) ?? null,
-    paper: (paper as any) ?? null,
+    assignment: typedAssignment,
+    job: typedJob,
+    paper: typedPaper,
   });
 
   res.json({
@@ -34,10 +41,10 @@ router.get('/job/:assignmentId', asyncHandler(async (req, res) => {
       status: job?.status ?? 'queued',
       error: job?.error ?? null,
       jobRecordId: job?._id?.toString() ?? null,
-      generationSeq: (job as any)?.generationSeq ?? (assignment as any)?.generationSeq ?? 0,
-      version: (job as any)?.progressVersion ?? 0,
+      generationSeq: typedJob?.generationSeq ?? typedAssignment?.generationSeq ?? 0,
+      version: typedJob?.progressVersion ?? 0,
       paperId: paper?._id?.toString() ?? null,
-      ts: (job as any)?.updatedAt ? new Date((job as any).updatedAt).getTime() : Date.now(),
+      ts: typedJob?.updatedAt ? new Date(typedJob.updatedAt).getTime() : Date.now(),
       ...state,
     },
   });

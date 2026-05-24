@@ -111,12 +111,12 @@ const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
   const errors = parsed.error.flatten().fieldErrors;
-  console.error(' FAILED TO START — Invalid or missing environment variables:');
+  process.stderr.write(' FAILED TO START — Invalid or missing environment variables:\n');
   for (const [key, messages] of Object.entries(errors)) {
-    console.error(`  ${key}: ${messages?.join(', ')}`);
+    process.stderr.write(`  ${key}: ${messages?.join(', ')}\n`);
   }
-  if ((parsed.data as Record<string, string> | undefined)?.NODE_ENV === 'production') {
-    console.error('Production environment validation failed. Fix env vars and redeploy.');
+  if (process.env.NODE_ENV === 'production') {
+    process.stderr.write('Production environment validation failed. Fix env vars and redeploy.\n');
   }
   process.exit(1);
 }
@@ -127,14 +127,14 @@ export type Env = typeof env;
 // ── Production-specific checks ──
 if (parsed.data.NODE_ENV === 'production') {
   if (parsed.data.JWT_SECRET === 'veda-ai-dev-secret-change-in-production') {
-    console.error('CRITICAL: JWT_SECRET is still set to the development default. Set a strong random secret.');
+    process.stderr.write('CRITICAL: JWT_SECRET is still set to the development default. Set a strong random secret.\n');
     process.exit(1);
   }
 
   const urls = parsed.data.FRONTEND_URL.split(',').map((s) => s.trim()).filter(Boolean);
   const hasLocalhost = urls.some((url) => url.includes('localhost') || url.includes('127.0.0.1'));
   if (urls.length === 1 && hasLocalhost) {
-    console.error('CRITICAL: FRONTEND_URL is set to localhost in production mode. Set the real frontend domain.');
+    process.stderr.write('CRITICAL: FRONTEND_URL is set to localhost in production mode. Set the real frontend domain.\n');
     process.exit(1);
   }
 }
@@ -147,8 +147,8 @@ if (
   !parsed.data.NVIDIA_API_KEY &&
   !parsed.data.GROQ_API_KEY
 ) {
-  console.warn(
+  process.stderr.write(
     '⚠️  No AI provider API key configured. Assignment generation will fail. ' +
-    'Set at least one of: OPENAI_API_KEY, ANTHROPIC_API_KEY, NVIDIA_API_KEY, GROQ_API_KEY'
+    'Set at least one of: OPENAI_API_KEY, ANTHROPIC_API_KEY, NVIDIA_API_KEY, GROQ_API_KEY\n'
   );
 }

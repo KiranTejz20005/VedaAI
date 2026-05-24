@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   LayoutGrid,
@@ -150,9 +151,9 @@ export function Sidebar() {
             <span>Settings</span>
           </Link>
 
-          <div className="sidebar-profile" role="button" tabIndex={0} aria-label="Account settings">
+          <div className="sidebar-profile" role="button" tabIndex={0} aria-label="Account settings" onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); } }}>
             <div className="sidebar-profile-avatar" aria-hidden="true">
-              <img src="/monkey-avatar.png" alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <Image src="/monkey-avatar.png" alt="" fill sizes="48px" style={{ objectFit: 'cover' }} />
             </div>
             <div className="sidebar-profile-info">
               <div className="sidebar-profile-name">Delhi Public School</div>

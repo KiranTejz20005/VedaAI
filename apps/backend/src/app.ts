@@ -36,17 +36,19 @@ const STALL_MONITOR_INTERVAL_MS = env.STALL_MONITOR_INTERVAL_MS;
 
 function logBoot(phase: string, message: string) {
   bootstrapPhase = phase;
-  console.log(`[BOOT:${phase}] ${message}`);
+  logger.info(`[BOOT:${phase}] ${message}`);
 }
 
 process.on('uncaughtException', (error) => {
-  console.error(`[FATAL:uncaughtException] ${error.message}`);
-  console.error(error.stack);
+  logger.error(`[FATAL:uncaughtException] ${error.message}`);
+  if (error.stack) logger.error(error.stack);
+  process.exit(1);
 });
 
 process.on('unhandledRejection', (reason) => {
-  console.error(`[FATAL:unhandledRejection] ${reason}`);
-  if (reason instanceof Error) console.error(reason.stack);
+  logger.error(`[FATAL:unhandledRejection] ${String(reason)}`);
+  if (reason instanceof Error && reason.stack) logger.error(reason.stack);
+  process.exit(1);
 });
 
 function parseCorsOrigins(raw: string): string[] {
@@ -233,7 +235,7 @@ function createApp() {
 
 async function bootstrap() {
   if (isBootstrapping) {
-    console.warn('[BOOT] Bootstrap already running — skipping');
+    logger.warn('[BOOT] Bootstrap already running — skipping');
     return;
   }
   isBootstrapping = true;
@@ -325,9 +327,9 @@ async function bootstrap() {
   // ── Step 5: Start HTTP server ──
   const port = env.PORT;
   httpServer.listen(port, () => {
-    console.log(`[BOOT:ready] Backend running on port ${port}`);
-    console.log(`[BOOT:ready] Socket.IO ready`);
-    console.log(`[BOOT:ready] Environment: ${env.NODE_ENV} | Mode: ${env.RENDER_WORKER_MODE}`);
+    logger.info(`[BOOT:ready] Backend running on port ${port}`);
+    logger.info('[BOOT:ready] Socket.IO ready');
+    logger.info(`[BOOT:ready] Environment: ${env.NODE_ENV} | Mode: ${env.RENDER_WORKER_MODE}`);
     logBoot('ready', `Listening on port ${port}`);
   });
 
@@ -348,7 +350,7 @@ async function bootstrap() {
 
   // ── Step 7: Graceful shutdown ──
   const shutdown = async (signal: string) => {
-    console.log(`[SHUTDOWN] ${signal} received. Shutting down...`);
+    logger.info(`[SHUTDOWN] ${signal} received. Shutting down...`);
     isBootstrapping = false;
     if (queueTimeoutMonitor) { clearInterval(queueTimeoutMonitor); queueTimeoutMonitor = null; }
     if (stallMonitorInterval) { clearInterval(stallMonitorInterval); stallMonitorInterval = null; }
@@ -363,11 +365,11 @@ async function bootstrap() {
     await Promise.allSettled([closeRedis(), closeBullRedis()]);
 
     httpServer.close(() => {
-      console.log('[SHUTDOWN] HTTP server closed');
+      logger.info('[SHUTDOWN] HTTP server closed');
       process.exit(0);
     });
     setTimeout(() => {
-      console.warn('[SHUTDOWN] Timed out — forcing exit');
+      logger.warn('[SHUTDOWN] Timed out — forcing exit');
       process.exit(1);
     }, 15_000).unref();
   };
@@ -384,7 +386,7 @@ async function bootstrap() {
 
 logBoot('start', 'Calling bootstrap()');
 bootstrap().catch((error) => {
-  console.error(`[BOOT:FATAL] ${error instanceof Error ? error.message : error}`);
-  if (error instanceof Error) console.error(error.stack);
+  logger.error(`[BOOT:FATAL] ${error instanceof Error ? error.message : error}`);
+  if (error instanceof Error && error.stack) logger.error(error.stack);
   process.exit(1);
 });
