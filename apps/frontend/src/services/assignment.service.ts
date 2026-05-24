@@ -1,4 +1,5 @@
 import { apiClient, deduplicateRequest } from './api.client';
+import axios from 'axios';
 import type { Assignment, CanonicalGenerationState } from '../types/assignment.types';
 import type { CreateAssignmentFormValues } from '../schemas/create-assignment.schema';
 
@@ -14,8 +15,28 @@ export async function fetchAssignments(
 ): Promise<AssignmentListResponse> {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) });
   if (status) params.set('status', status);
-  const res = await apiClient.get<AssignmentListResponse>(`/assignments?${params}`);
-  return res.data;
+  const endpoint = `/assignments?${params}`;
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await apiClient.get<AssignmentListResponse>(endpoint, { timeout: 30000 });
+      return res.data;
+    } catch (error) {
+      const isLast = attempt === maxAttempts;
+      const statusCode = axios.isAxiosError(error) ? error.response?.status : undefined;
+      const isRetriable = statusCode === undefined || statusCode >= 500;
+
+      if (isLast || !isRetriable) {
+        throw error;
+      }
+
+      const delayMs = 1000 * Math.pow(2, attempt - 1);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  throw new Error('Failed to load assignments');
 }
 
 export async function fetchAssignment(id: string): Promise<Assignment> {

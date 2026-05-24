@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import {
   Brain, CheckCircle2, XCircle, AlertCircle, Clock, FileText, Zap, RefreshCw, Star,
@@ -12,12 +13,14 @@ import { fetchPaper } from '@/services/paper.service';
 import { useGenerationSocket } from '@/hooks/useSocket';
 import { useGenerationStore } from '@/store/generation.store';
 import { GenerationScreen } from '@/components/generation/GenerationScreen';
+import { useAssignmentPhase } from '@/hooks/useAssignmentPhase';
 import type { Assignment } from '@/types/assignment.types';
 import type { GeneratedPaper } from '@/types/paper.types';
 import type { GenerationStage } from '@/types/socket.types';
 
 export default function AssignmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [paper, setPaper] = useState<GeneratedPaper | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,6 +48,14 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     if (!assignment || (assignment.status !== 'completed' && assignment.status !== 'partially_generated')) return;
     fetchPaper(id).then(setPaper).catch(() => {});
   }, [assignment, id]);
+
+  useEffect(() => {
+    if (!assignment) return;
+    const isDone = assignment.status === 'completed' || assignment.status === 'partially_generated';
+    if (!isDone) return;
+    // Production UX: skip intermediate success screen and go directly to paper view.
+    router.replace(`/assignments/${id}/paper`);
+  }, [assignment, id, router]);
 
   useEffect(() => { return () => { reset(); }; }, [reset]);
 
@@ -125,13 +136,19 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   const generatedQuestionCount = canonical?.generatedQuestionCount ?? genMeta?.generatedQuestionCount ?? null;
   const generatedMarks = canonical?.generatedMarks ?? genMeta?.generatedMarks ?? null;
   const requestedMarks = canonical?.requestedMarks ?? assignment?.totalMarks;
-  const schoolName = canonical?.schoolName;
-  const className = canonical?.className;
+  const schoolName = canonical?.schoolName?.trim() ? canonical.schoolName : 'Delhi Public School';
+  const className = canonical?.className?.trim() ? canonical.className : 'Class 8';
   const isPartial = assignment?.status === 'partially_generated';
   const failureReason = genMeta?.failureReason || error || null;
 
   const isGenActive = showGeneration || showGenScreen ||
     (stage !== null && status !== 'completed' && status !== 'partial_success' && status !== 'failed');
+  const phase = useAssignmentPhase({
+    isLoading: loading,
+    error: fetchError,
+    isProcessing: isGenActive,
+    isComplete: !isGenActive && (assignment?.status === 'completed' || assignment?.status === 'partially_generated'),
+  });
 
   if (loading) {
     return (
@@ -166,7 +183,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   return (
     <>
       <AnimatePresence>
-        {isGenActive && (
+        {phase === 'processing' && (
           <GenerationScreen
             assignmentTitle={assignment.title}
             assignmentSubject={assignment.subject}
@@ -186,7 +203,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
       </AnimatePresence>
 
       <AnimatePresence>
-        {!isGenActive && (
+        {phase !== 'processing' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

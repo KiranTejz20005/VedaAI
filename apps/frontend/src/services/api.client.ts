@@ -1,20 +1,8 @@
-import axios from 'axios';
-
-// NEXT_PUBLIC_API_URL must be set via Vercel env vars in production
-// In development, it defaults to localhost
-// Next.js replaces NEXT_PUBLIC_* at build time — missing vars in production
-// will result in 'undefined' string, which we detect
-const rawUrl = process.env.NEXT_PUBLIC_API_URL;
-const API_URL = rawUrl && rawUrl !== 'undefined' ? rawUrl : 'http://localhost:5000';
-
-export const apiClient = axios.create({
-  baseURL: `${API_URL}/api`,
-  timeout: 60000,
-  withCredentials: true,
-  // No default Content-Type — axios auto-detects JSON vs FormData
-});
+import { api as apiClient } from '@/lib/api';
 
 const inFlightRequests = new Map<string, Promise<unknown>>();
+
+export { apiClient };
 
 export function deduplicateRequest<T>(key: string, factory: () => Promise<T>): Promise<T> {
   const existing = inFlightRequests.get(key);
@@ -23,17 +11,3 @@ export function deduplicateRequest<T>(key: string, factory: () => Promise<T>): P
   inFlightRequests.set(key, promise);
   return promise;
 }
-
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (axios.isAxiosError(error)) {
-      const message =
-        (error.response?.data as { error?: string })?.error ??
-        error.message ??
-        'An unexpected error occurred';
-      return Promise.reject(new Error(message));
-    }
-    return Promise.reject(error);
-  }
-);

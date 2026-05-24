@@ -197,7 +197,7 @@ export default function DashboardPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
   const effectiveStatus = statusFilter === 'All' ? undefined : statusFilter;
-  const { assignments, isLoading, error, reload } = useAssignments(1, effectiveStatus);
+  const { assignments, isLoading, error, phase, reload } = useAssignments(1, effectiveStatus);
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -310,17 +310,22 @@ export default function DashboardPage() {
           <div className="assignment-grid assignment-grid-v3">
             {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
-      ) : error ? (
+      ) : phase === 'error' && error ? (
         <div className="empty-state">
           <div className="empty-illustration" aria-hidden="true">
             <img src="/empty-state.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
           <h2 className="empty-title">Failed to load assignments</h2>
-          <p className="empty-desc">Something went wrong while retrieving your assignments.</p>
-          <button onClick={() => void reload()} className="btn btn-dark btn-pill">
-            <RefreshCw size={14} />
-            Retry loading
-          </button>
+          <p className="empty-desc">Could not connect to server. {error}</p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button onClick={() => void reload()} className="btn btn-dark btn-pill">
+              <RefreshCw size={14} />
+              Retry loading
+            </button>
+            <button onClick={() => window.history.back()} className="btn btn-secondary btn-pill">
+              Go back
+            </button>
+          </div>
         </div>
       ) : assignments.length === 0 || filtered.length === 0 ? (
         <EmptyState isFiltered={isFiltered} assignmentsCount={assignments.length} />

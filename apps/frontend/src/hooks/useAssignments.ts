@@ -2,6 +2,7 @@
 import { useEffect, useCallback } from 'react';
 import { useAssignmentStore } from '../store/assignment.store';
 import { fetchAssignments } from '../services/assignment.service';
+import { useAssignmentPhase } from './useAssignmentPhase';
 
 export function useAssignments(page = 1, status?: string) {
   const { assignments, totalCount, isLoading, error, setAssignments, setLoading, setError } =
@@ -24,5 +25,12 @@ export function useAssignments(page = 1, status?: string) {
     void load();
   }, [load]);
 
-  return { assignments, totalCount, isLoading, error, reload: load };
+  const phase = useAssignmentPhase({
+    isLoading,
+    error,
+    isProcessing: false,
+    isComplete: !isLoading && !error,
+  });
+
+  return { assignments, totalCount, isLoading, error, phase, reload: load };
 }

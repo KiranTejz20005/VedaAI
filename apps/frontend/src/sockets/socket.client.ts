@@ -1,9 +1,15 @@
 import { io, type Socket } from 'socket.io-client';
+import { normalizeBaseUrl } from '@/utils/url';
 
 // In production, NEXT_PUBLIC_SOCKET_URL must be set via Vercel env vars
 // In development, NEXT_PUBLIC_SOCKET_URL defaults to localhost
 // If the env var is missing in production, this fails at build time via Next.js static analysis
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL;
+const rawSocketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
+const SOCKET_URL =
+  rawSocketUrl && rawSocketUrl !== 'undefined'
+    ? normalizeBaseUrl(rawSocketUrl)
+    : 'http://localhost:5000';
+const isSocketDebugEnabled = process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_API_DEBUG === 'true';
 
 if (!SOCKET_URL && typeof window !== 'undefined') {
   console.error('[SOCKET] NEXT_PUBLIC_SOCKET_URL is not set. Socket.IO will not connect.');
@@ -16,6 +22,10 @@ const subscriptions = new Set<string>();
 
 export function getSocket(): Socket {
   if (!socket) {
+    if (isSocketDebugEnabled) {
+      console.log('[SOCKET CONNECT]', { socketURL: SOCKET_URL });
+    }
+
     socket = io(SOCKET_URL || undefined, {
       // websocket first for lower latency, polling fallback for restricted networks
       transports: ['websocket', 'polling'],

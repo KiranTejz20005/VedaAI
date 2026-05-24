@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Download, RefreshCw, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fetchPaper } from '@/services/paper.service';
+import { API_ORIGIN } from '@/lib/api';
+import { joinUrl } from '@/utils/url';
 import type { GeneratedPaper, Question, Section } from '@/types/paper.types';
 import type { DifficultyLevel } from '@/types/assignment.types';
 
@@ -101,9 +103,8 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
     if (!paper?.pdfUrl) { window.print(); return; }
     setDownloading(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
       const link = document.createElement('a');
-      link.href = `${apiUrl}${paper.pdfUrl}`;
+      link.href = joinUrl(API_ORIGIN, paper.pdfUrl);
       link.download = `${paper.title.replace(/\s+/g, '_')}.pdf`;
       link.click();
     } finally { setDownloading(false); }
@@ -150,9 +151,9 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
   }
 
   const meta = paper.canonicalMetadata;
-  const schoolName = meta?.schoolName || 'School';
+  const schoolName = meta?.schoolName?.trim() || 'Delhi Public School';
   const subject = meta?.subject || paper.title;
-  const className = meta?.className || '';
+  const className = meta?.className?.trim() || 'Class 8';
   const duration = meta?.durationMinutes || paper.duration || 45;
   const totalMarks = meta?.generatedMarks || paper.totalMarks;
 

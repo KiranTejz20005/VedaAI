@@ -45,6 +45,22 @@ const stateStyles: Record<string, { border: string; bg: string; shadow: string; 
 
 export function GenerationTile({ tile, state, message, index }: GenerationTileProps) {
   const s = stateStyles[state];
+  const stateTag =
+    state === 'completed'
+      ? '[COMPLETE]'
+      : state === 'active'
+        ? '[PROCESSING]'
+        : state === 'failed'
+          ? '[FAILED]'
+          : '[WAITING]';
+  const tagClass =
+    state === 'completed'
+      ? 'bg-emerald-100 text-emerald-700'
+      : state === 'active'
+        ? 'bg-orange-100 text-orange-700'
+        : state === 'failed'
+          ? 'bg-red-100 text-red-700'
+          : 'bg-gray-100 text-gray-400';
 
   return (
     <motion.div
@@ -52,7 +68,7 @@ export function GenerationTile({ tile, state, message, index }: GenerationTilePr
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ delay: index * 0.06, duration: 0.4, ease: 'easeOut' }}
-      className={`relative rounded-2xl border ${s.border} ${s.bg} ${s.shadow} p-5 transition-all duration-500`}
+      className={`relative rounded-2xl border ${s.border} ${s.bg} ${s.shadow} p-4 transition-all duration-500`}
     >
       {state === 'active' && (
         <motion.div
@@ -66,14 +82,14 @@ export function GenerationTile({ tile, state, message, index }: GenerationTilePr
         />
       )}
 
-      <div className="flex items-start gap-4">
-        <div className={`relative flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-gray-50 text-xl transition-all duration-500 ${s.iconFilter}`}>
+      <div className="flex items-start gap-3">
+        <div className={`relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gray-50 text-base transition-all duration-500 ${s.iconFilter}`}>
           {state === 'completed' ? (
             <motion.div
               initial={{ scale: 0, rotate: -45 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-              className="flex h-full w-full items-center justify-center rounded-xl bg-emerald-100"
+              className="flex h-full w-full items-center justify-center rounded-lg bg-emerald-100"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
@@ -85,7 +101,7 @@ export function GenerationTile({ tile, state, message, index }: GenerationTilePr
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2">
             <h3 className={`text-sm font-semibold transition-colors duration-300 ${
               state === 'completed' ? 'text-emerald-700' :
               state === 'active' ? 'text-gray-900' :
@@ -94,15 +110,17 @@ export function GenerationTile({ tile, state, message, index }: GenerationTilePr
             }`}>
               {tile.label}
             </h3>
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${tagClass}`}>
+              {stateTag}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 mt-0.5">
             {state === 'active' && (
               <span className="flex gap-0.5">
                 <motion.span className="h-1.5 w-1.5 rounded-full bg-orange-500" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0 }} />
                 <motion.span className="h-1.5 w-1.5 rounded-full bg-orange-500" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }} />
                 <motion.span className="h-1.5 w-1.5 rounded-full bg-orange-500" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0.4 }} />
               </span>
-            )}
-            {state === 'completed' && (
-              <span className="text-emerald-500 text-xs font-medium">Done</span>
             )}
           </div>
           <p className={`text-xs mt-0.5 transition-colors duration-300 ${
