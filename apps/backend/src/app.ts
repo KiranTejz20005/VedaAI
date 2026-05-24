@@ -59,7 +59,7 @@ function parseCorsOrigins(raw: string): string[] {
       if (s.startsWith('https://*.')) {
         return s.replace('https://*.', 'https://');
       }
-      return s;
+      return s.replace(/\/+$/, '');
     });
 }
 
@@ -197,7 +197,26 @@ function createApp() {
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
   app.use(compression());
   app.use(cors({
-    origin: corsOrigins,
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      const normalizedOrigin = origin.replace(/\/+$/, '');
+      const allowed = corsOrigins.some((allowedOrigin) => {
+        if (allowedOrigin === normalizedOrigin) return true;
+        // Wildcard entry is normalized as "https://vercel.app", match subdomains.
+        if (allowedOrigin === 'https://vercel.app') {
+          try {
+            return /\.vercel\.app$/i.test(new URL(normalizedOrigin).hostname);
+          } catch {
+            return false;
+          }
+        }
+        return false;
+      });
+      callback(allowed ? null : new Error('Not allowed by CORS'), allowed);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

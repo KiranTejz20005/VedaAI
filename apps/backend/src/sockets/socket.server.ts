@@ -18,7 +18,8 @@ function parseOrigins(raw: string): string[] {
   return raw
     .split(',')
     .map((s) => s.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((s) => s.replace(/\/+$/, ''));
 }
 
 export function initializeSocketServer(
