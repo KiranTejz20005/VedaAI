@@ -22,12 +22,30 @@ const envSchema = z.object({
   PORT: z.string().default('5000').transform(Number),
 
   // Database
-  MONGODB_URI: z.string().min(1, 'MONGODB_URI is required'),
+  MONGODB_URI: z
+    .string()
+    .min(1, 'MONGODB_URI is required')
+    .refine(
+      (v) => v.startsWith('mongodb://') || v.startsWith('mongodb+srv://'),
+      'MONGODB_URI must start with mongodb:// or mongodb+srv://'
+    ),
 
   // Redis (general — caching, sessions, pub/sub)
-  REDIS_URL: z.string().min(1, 'REDIS_URL is required'),
+  REDIS_URL: z
+    .string()
+    .min(1, 'REDIS_URL is required')
+    .refine(
+      (v) => v.startsWith('redis://') || v.startsWith('rediss://') || v.startsWith('redis+tls://'),
+      'REDIS_URL must be a TCP Redis URL (redis://, rediss://, or redis+tls://). Do not use https:// REST endpoints.'
+    ),
   // Redis for BullMQ — requires TCP-compatible Redis (Upstash TCP endpoint works, REST does not)
-  REDIS_BULLMQ_URL: z.string().min(1, 'REDIS_BULLMQ_URL is required'),
+  REDIS_BULLMQ_URL: z
+    .string()
+    .min(1, 'REDIS_BULLMQ_URL is required')
+    .refine(
+      (v) => v.startsWith('redis://') || v.startsWith('rediss://') || v.startsWith('redis+tls://'),
+      'REDIS_BULLMQ_URL must be a TCP Redis URL (redis://, rediss://, or redis+tls://). Do not use https:// REST endpoints.'
+    ),
 
   // AI Providers (at least one required for generation)
   OPENAI_API_KEY: z
