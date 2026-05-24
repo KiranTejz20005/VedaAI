@@ -1,5 +1,7 @@
 # VedaAI — AI Assessment Creator Platform
 
+> **Canonical documentation:** See **[README.md](./README.md)** in this directory for the up-to-date end-to-end setup, API, deployment, and operations guide. This file is retained as extended historical/reference material and may not match the current codebase in every detail.
+
 A production-grade full-stack AI-powered platform enabling educators to generate intelligent exam papers with structured question hierarchies, real-time processing, and PDF export capabilities.
 
 **Live Demo:** [Deployed Link](#deployment)  

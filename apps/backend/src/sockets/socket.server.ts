@@ -22,6 +22,20 @@ function parseOrigins(raw: string): string[] {
     .map((s) => s.replace(/\/+$/, ''));
 }
 
+function isAllowedVercelPreview(hostname: string): boolean {
+  return /^vedaai[\w-]*\.vercel\.app$/i.test(hostname);
+}
+
+function isAllowedSocketOrigin(origin: string, allowedOrigins: string[]): boolean {
+  const normalized = origin.replace(/\/+$/, '');
+  if (allowedOrigins.includes(normalized)) return true;
+  try {
+    return isAllowedVercelPreview(new URL(normalized).hostname);
+  } catch {
+    return false;
+  }
+}
+
 export function initializeSocketServer(
   httpServer: HTTPServer
 ): SocketIOServer<ClientToServerEvents, ServerToClientEvents> {
@@ -30,13 +44,18 @@ export function initializeSocketServer(
     return io;
   }
 
-  const corsOrigins = env.SOCKET_CORS_ORIGIN
-    ? parseOrigins(env.SOCKET_CORS_ORIGIN)
-    : parseOrigins(env.FRONTEND_URL);
+  const corsOrigins = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    ...(env.SOCKET_CORS_ORIGIN ? parseOrigins(env.SOCKET_CORS_ORIGIN) : parseOrigins(env.FRONTEND_URL)),
+  ];
 
   io = new SocketIOServer<ClientToServerEvents, ServerToClientEvents>(httpServer, {
     cors: {
-      origin: corsOrigins,
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        callback(null, isAllowedSocketOrigin(origin, corsOrigins));
+      },
       methods: ['GET', 'POST'],
       credentials: true,
     },
@@ -53,6 +72,7 @@ export function initializeSocketServer(
       name: 'vedaai-socket',
       httpOnly: true,
       sameSite: 'lax',
+      secure: env.NODE_ENV === 'production',
     },
   });
 
@@ -111,11 +131,12 @@ export function getSocketServer(): SocketIOServer<ClientToServerEvents, ServerTo
   return io;
 }
 
-export function emitToAssignment(
+export function emitToAssignment<E extends keyof ServerToClientEvents>(
   assignmentId: string,
-  event: keyof ServerToClientEvents,
-  payload: any
+  event: E,
+  payload: Parameters<ServerToClientEvents[E]>[0]
 ): void {
   if (!io) return;
-  io.to(`assignment:${assignmentId}`).emit(event, payload);
+  // Socket.IO's emit typings don't accept generic event maps cleanly; payload is validated at call sites.
+  (io.to(`assignment:${assignmentId}`) as { emit: (ev: string, data: unknown) => void }).emit(event, payload);
 }

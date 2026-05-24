@@ -1,42 +1,31 @@
 import { io, type Socket } from 'socket.io-client';
-import { normalizeBaseUrl } from '@/utils/url';
+import { resolveSocketUrl } from '@/utils/url';
 
-// In production, NEXT_PUBLIC_SOCKET_URL must be set via Vercel env vars
-// In development, NEXT_PUBLIC_SOCKET_URL defaults to localhost
-// If the env var is missing in production, this fails at build time via Next.js static analysis
-const rawSocketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
-const SOCKET_URL =
-  rawSocketUrl && rawSocketUrl !== 'undefined'
-    ? normalizeBaseUrl(rawSocketUrl)
-    : 'http://localhost:5000';
-const isSocketDebugEnabled = process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_API_DEBUG === 'true';
-
-if (!SOCKET_URL && typeof window !== 'undefined') {
-  console.error('[SOCKET] NEXT_PUBLIC_SOCKET_URL is not set. Socket.IO will not connect.');
-}
+const isSocketDebugEnabled =
+  process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_API_DEBUG === 'true';
 
 let socket: Socket | null = null;
 let reconnectCount = 0;
-const MAX_RECONNECT_ATTEMPTS = 20;
 const subscriptions = new Set<string>();
 
 export function getSocket(): Socket {
   if (!socket) {
+    const socketURL = resolveSocketUrl();
+
     if (isSocketDebugEnabled) {
-      console.log('[SOCKET CONNECT]', { socketURL: SOCKET_URL });
+      console.log('[SOCKET CONNECT]', { socketURL });
     }
 
-    socket = io(SOCKET_URL || undefined, {
-      // websocket first for lower latency, polling fallback for restricted networks
+    socket = io(socketURL, {
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
+      reconnectionAttempts: 20,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 15000,
       randomizationFactor: 0.5,
       timeout: 20000,
-      // Disable auto-unix socket, force HTTP
       autoConnect: false,
+      withCredentials: true,
     });
 
     socket.on('connect', () => {
@@ -48,17 +37,16 @@ export function getSocket(): Socket {
 
     socket.on('disconnect', (reason) => {
       if (reason === 'io server disconnect') {
-        // Server initiated disconnect — reconnect manually
         socket?.connect();
       }
     });
 
-    socket.on('reconnect_attempt', () => {
+    socket.io.on('reconnect_attempt', () => {
       reconnectCount++;
     });
 
-    socket.on('reconnect_error', () => {
-      if (reconnectCount >= MAX_RECONNECT_ATTEMPTS) {
+    socket.io.on('reconnect_error', () => {
+      if (reconnectCount >= 20) {
         socket?.close();
       }
     });

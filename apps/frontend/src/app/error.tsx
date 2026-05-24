@@ -23,12 +23,12 @@ export default function Error({
       <p className="empty-desc">
         An unexpected error occurred. Please try again.
       </p>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-        <button onClick={() => reset()} className="btn btn-dark btn-pill">
+      <div className="empty-state-actions">
+        <button type="button" onClick={() => reset()} className="btn btn-dark btn-pill">
           <RefreshCw size={14} />
           Try again
         </button>
-        <button onClick={() => window.history.back()} className="btn btn-secondary btn-pill">
+        <button type="button" onClick={() => window.history.back()} className="btn btn-secondary btn-pill">
           <ArrowLeft size={14} />
           Go back
         </button>

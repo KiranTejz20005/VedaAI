@@ -4,6 +4,7 @@ import { getBullRedisClient } from '../config/redis';
 import { GeneratedPaper } from '../models/GeneratedPaper.model';
 import { generatePdf } from '../services/pdf.service';
 import { updatePaperPdf } from '../services/paper.service';
+import { emitToAssignment } from '../sockets/socket.server';
 import type { PdfJobData } from '../types/queue.types';
 import { logger } from '../utils/logger';
 
@@ -26,6 +27,12 @@ export function createPdfWorker() {
 
       const { pdfPath, pdfUrl } = await generatePdf(paper);
       await updatePaperPdf(paperId, pdfPath, pdfUrl);
+      emitToAssignment(assignmentId, 'generation:pdf_ready', {
+        assignmentId,
+        paperId,
+        pdfUrl,
+        ts: Date.now(),
+      });
       logger.info(`[WORKER:PDF:COMPLETE] Job ${job.id} | assignment=${assignmentId} | pdf=${pdfUrl}`);
     },
     {

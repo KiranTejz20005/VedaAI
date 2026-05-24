@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAssignmentStore } from '@/store/assignment.store';
+import { useMounted } from '@/hooks/useMounted';
 
 // Custom high-precision folder-user SVG to match "My Groups" reference icon
 function MyGroupsIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -65,6 +66,7 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const mounted = useMounted();
   const { isOpen, close } = useSidebarStore();
   const totalCount = useAssignmentStore((s) => s.totalCount);
 
@@ -133,7 +135,7 @@ export function Sidebar() {
               >
                 <Icon size={18} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
                 <span>{label}</span>
-                {isAssignments && totalCount > 0 && (
+                {mounted && isAssignments && totalCount > 0 && (
                   <span className="sidebar-nav-badge">{totalCount}</span>
                 )}
               </Link>

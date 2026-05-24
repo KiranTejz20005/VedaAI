@@ -1,17 +1,16 @@
-import axios from 'axios';
-import { joinUrl, normalizeBaseUrl } from '@/utils/url';
+'use client';
 
-const FALLBACK_API_ORIGIN = 'http://localhost:5000';
-const rawApiOrigin = process.env.NEXT_PUBLIC_API_URL;
-const apiOrigin =
-  rawApiOrigin && rawApiOrigin !== 'undefined'
-    ? normalizeBaseUrl(rawApiOrigin)
-    : FALLBACK_API_ORIGIN;
-const baseURL = joinUrl(apiOrigin, '/api');
-const isApiDebugEnabled = process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_API_DEBUG === 'true';
+import axios from 'axios';
+import { joinUrl, resolveApiOrigin } from '@/utils/url';
+
+const isApiDebugEnabled =
+  process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_API_DEBUG === 'true';
+
+function getBaseURL(): string {
+  return joinUrl(resolveApiOrigin(), '/api');
+}
 
 export const api = axios.create({
-  baseURL,
   withCredentials: true,
   timeout: 60000,
   headers: {
@@ -20,6 +19,14 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
+  config.baseURL = getBaseURL();
+
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    if (config.headers) {
+      delete config.headers['Content-Type'];
+    }
+  }
+
   const endpoint = config.url ?? '';
   const finalURL = config.baseURL ? joinUrl(config.baseURL, endpoint) : endpoint;
   (config as typeof config & { metadata?: { startedAt: number } }).metadata = {
@@ -68,7 +75,10 @@ api.interceptors.response.use(
           method: error.config?.method?.toUpperCase(),
           baseURL: error.config?.baseURL,
           endpoint: error.config?.url,
-          finalURL: error.config?.baseURL && error.config?.url ? joinUrl(error.config.baseURL, error.config.url) : error.config?.url,
+          finalURL:
+            error.config?.baseURL && error.config?.url
+              ? joinUrl(error.config.baseURL, error.config.url)
+              : error.config?.url,
           code: error.code,
           message: error.message,
           response: error.response?.data,
@@ -87,5 +97,10 @@ api.interceptors.response.use(
   }
 );
 
-export const API_ORIGIN = apiOrigin;
-export const API_BASE_URL = baseURL;
+export function getApiOrigin(): string {
+  return resolveApiOrigin();
+}
+
+export function getApiBaseUrl(): string {
+  return getBaseURL();
+}
