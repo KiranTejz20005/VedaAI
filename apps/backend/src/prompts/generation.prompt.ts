@@ -37,8 +37,19 @@ function extractKeyConcepts(text: string): string {
   return unique.join('\n');
 }
 
+function stripControlChars(input: string): string {
+  let out = '';
+  for (let i = 0; i < input.length; i++) {
+    const code = input.charCodeAt(i);
+    const isAllowedWhitespace = code === 9 || code === 10 || code === 13;
+    const isControl = code < 32 && !isAllowedWhitespace;
+    if (!isControl) out += input[i];
+  }
+  return out;
+}
+
 function summarizeContent(text: string): string {
-  let clean = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ' ').trim();
+  let clean = stripControlChars(text).trim();
   clean = extractKeyConcepts(clean);
   if (clean.length <= MAX_UPLOAD_CHARS) return clean;
   const keepFront = Math.floor(MAX_UPLOAD_CHARS * 0.7);

@@ -23,14 +23,16 @@ function fileFilter(
   file: Express.Multer.File,
   cb: multer.FileFilterCallback
 ): void {
-  const allowedMimes = ['application/pdf', 'text/plain', 'application/octet-stream'];
-  const allowedExts = ['.pdf', '.txt'];
   const fileExt = path.extname(file.originalname).toLowerCase();
+  const mime = (file.mimetype || '').toLowerCase();
+  const allowedByExtAndMime =
+    (fileExt === '.pdf' && (mime === 'application/pdf' || mime === 'application/octet-stream')) ||
+    (fileExt === '.txt' && (mime === 'text/plain' || mime === 'application/octet-stream'));
 
-  if (allowedMimes.includes(file.mimetype) || allowedExts.includes(fileExt)) {
+  if (allowedByExtAndMime) {
     cb(null, true);
   } else {
-    cb(new Error(`File type ${file.mimetype} is not allowed. Only PDF and TXT files accepted.`));
+    cb(new Error(`File type ${file.mimetype} with extension ${fileExt || '(none)'} is not allowed. Only PDF and TXT files accepted.`));
   }
 }
 

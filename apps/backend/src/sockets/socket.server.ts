@@ -5,6 +5,14 @@ import { env } from '../config/env';
 import { logger } from '../utils/logger';
 
 let io: SocketIOServer<ClientToServerEvents, ServerToClientEvents> | null = null;
+const ASSIGNMENT_ID_RE = /^[a-f\d]{24}$/i;
+const SUBSCRIBE_WINDOW_MS = 10_000;
+const MAX_SUBSCRIBES_PER_WINDOW = 30;
+const MAX_ROOMS_PER_SOCKET = 50;
+
+function isValidAssignmentId(value: unknown): value is string {
+  return typeof value === 'string' && ASSIGNMENT_ID_RE.test(value.trim());
+}
 
 function parseOrigins(raw: string): string[] {
   return raw
@@ -49,19 +57,44 @@ export function initializeSocketServer(
 
   io.on('connection', (socket) => {
     logger.debug(`Socket connected: ${socket.id} (transport: ${socket.conn.transport.name})`);
+    let subscribeCount = 0;
+    let windowStart = Date.now();
+
+    const canSubscribe = (): boolean => {
+      const now = Date.now();
+      if (now - windowStart > SUBSCRIBE_WINDOW_MS) {
+        windowStart = now;
+        subscribeCount = 0;
+      }
+      subscribeCount += 1;
+      return subscribeCount <= MAX_SUBSCRIBES_PER_WINDOW;
+    };
 
     socket.on('subscribe:assignment', ({ assignmentId }) => {
-      if (assignmentId && typeof assignmentId === 'string') {
-        socket.join(`assignment:${assignmentId}`);
-        logger.debug(`Socket ${socket.id} subscribed to assignment:${assignmentId}`);
+      if (!canSubscribe()) {
+        logger.warn(`Socket ${socket.id} exceeded subscribe rate limit and was disconnected`);
+        socket.disconnect(true);
+        return;
       }
+      if (!isValidAssignmentId(assignmentId)) {
+        logger.warn(`Socket ${socket.id} attempted invalid assignment subscription: ${String(assignmentId)}`);
+        return;
+      }
+      if (socket.rooms.size > MAX_ROOMS_PER_SOCKET) {
+        logger.warn(`Socket ${socket.id} exceeded room cap and was disconnected`);
+        socket.disconnect(true);
+        return;
+      }
+      const normalized = assignmentId.trim();
+      socket.join(`assignment:${normalized}`);
+      logger.debug(`Socket ${socket.id} subscribed to assignment:${normalized}`);
     });
 
     socket.on('unsubscribe:assignment', ({ assignmentId }) => {
-      if (assignmentId && typeof assignmentId === 'string') {
-        socket.leave(`assignment:${assignmentId}`);
-        logger.debug(`Socket ${socket.id} unsubscribed from assignment:${assignmentId}`);
-      }
+      if (!isValidAssignmentId(assignmentId)) return;
+      const normalized = assignmentId.trim();
+      socket.leave(`assignment:${normalized}`);
+      logger.debug(`Socket ${socket.id} unsubscribed from assignment:${normalized}`);
     });
 
     socket.on('disconnect', (reason) => {
