@@ -1542,6 +1542,30 @@ hr { border: none; border-top: 1px solid var(--border); }
 /* ── Toasts ── */
 .toast-container { font-family: 'Inter', sans-serif; }
 
+/* ── Generation Screen Animations ── */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes shimmer-tile {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(232, 83, 29, 0.08); }
+  50% { box-shadow: 0 0 24px rgba(232, 83, 29, 0.18); }
+}
+
+.animate-float-slow { animation: float-slow 3s ease-in-out infinite; }
+.animate-shimmer-tile {
+  background: linear-gradient(90deg, transparent 25%, rgba(232,83,29,0.04) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer-tile 2s linear infinite;
+}
+.animate-glow-pulse { animation: glow-pulse 2s ease-in-out infinite; }
+
 /* ════════════════════════════════════════════════════════════
    RESPONSIVE: Mobile (< 640px)
    ════════════════════════════════════════════════════════════ */
