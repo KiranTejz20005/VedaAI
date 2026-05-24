@@ -82,16 +82,16 @@ export function GenerationTile({ tile, state, message, index }: GenerationTilePr
         />
       )}
 
-      <div className="flex items-start gap-3">
-        <div className={`relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gray-50 text-base transition-all duration-500 ${s.iconFilter}`}>
+      <div className="flex items-start gap-4">
+        <div className={`relative flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gray-50 text-xl transition-all duration-500 ${s.iconFilter}`}>
           {state === 'completed' ? (
             <motion.div
               initial={{ scale: 0, rotate: -45 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-              className="flex h-full w-full items-center justify-center rounded-lg bg-emerald-100"
+              className="flex h-full w-full items-center justify-center rounded-xl bg-emerald-100"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
             </motion.div>
@@ -100,9 +100,9 @@ export function GenerationTile({ tile, state, message, index }: GenerationTilePr
           )}
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className={`text-sm font-semibold transition-colors duration-300 ${
+        <div className="flex-1 min-w-0 py-0.5">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className={`text-base font-bold transition-colors duration-300 ${
               state === 'completed' ? 'text-emerald-700' :
               state === 'active' ? 'text-gray-900' :
               state === 'failed' ? 'text-red-700' :
@@ -110,23 +110,23 @@ export function GenerationTile({ tile, state, message, index }: GenerationTilePr
             }`}>
               {tile.label}
             </h3>
-            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${tagClass}`}>
+            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md tracking-wide ${tagClass}`}>
               {stateTag}
             </span>
           </div>
-          <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center gap-2 mt-1">
             {state === 'active' && (
-              <span className="flex gap-0.5">
-                <motion.span className="h-1.5 w-1.5 rounded-full bg-orange-500" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0 }} />
-                <motion.span className="h-1.5 w-1.5 rounded-full bg-orange-500" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }} />
-                <motion.span className="h-1.5 w-1.5 rounded-full bg-orange-500" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0.4 }} />
+              <span className="flex gap-1">
+                <motion.span className="h-2 w-2 rounded-full bg-orange-500" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0 }} />
+                <motion.span className="h-2 w-2 rounded-full bg-orange-500" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }} />
+                <motion.span className="h-2 w-2 rounded-full bg-orange-500" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0.4 }} />
               </span>
             )}
           </div>
-          <p className={`text-xs mt-0.5 transition-colors duration-300 ${
-            state === 'completed' ? 'text-emerald-600/70' :
-            state === 'active' ? 'text-gray-500' :
-            'text-gray-300'
+          <p className={`text-sm mt-1 transition-colors duration-300 font-medium ${
+            state === 'completed' ? 'text-emerald-600/80' :
+            state === 'active' ? 'text-gray-600' :
+            'text-gray-400'
           }`}>
             {state === 'active' && message ? message : tile.description}
           </p>

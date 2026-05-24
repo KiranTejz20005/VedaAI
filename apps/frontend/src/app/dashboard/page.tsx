@@ -120,7 +120,7 @@ function AssignmentCard({
       className="assignment-card assignment-card-v3"
     >
       {isLive && (
-        <div style={{ position: 'absolute', inset: 0, borderRadius: 'var(--radius-lg)', border: '2px solid var(--brand)', opacity: 0.4, animation: 'pulse-ring 2s ease-in-out infinite', pointerEvents: 'none' }} aria-hidden="true" />
+        <div style={{ position: 'absolute', inset: 0, borderRadius: 'var(--radius-lg)', boxShadow: '0 0 15px 2px rgba(234, 88, 12, 0.4)', animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite', pointerEvents: 'none', zIndex: -1 }} aria-hidden="true" />
       )}
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>

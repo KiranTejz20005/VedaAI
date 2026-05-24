@@ -87,7 +87,8 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
 
 export async function generateAssignmentHandler(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
-  logger.debug(`[generateHandler] START | assignmentId=${id}`);
+  const force = req.query.force === 'true';
+  logger.debug(`[generateHandler] START | assignmentId=${id} | force=${force}`);
 
   const assignment = await getAssignment(id);
   if (!assignment) {
@@ -97,7 +98,7 @@ export async function generateAssignmentHandler(req: Request, res: Response): Pr
   }
   logger.debug(`[generateHandler] Assignment found: status=${assignment.status} title="${assignment.title}"`);
 
-  if (['queued', 'generating'].includes(assignment.status)) {
+  if (!force && ['queued', 'generating'].includes(assignment.status)) {
     logger.warn(`[generateHandler] Generation already in progress (status=${assignment.status}) — returning 409`);
     sendError(res, 'Generation already in progress', 409);
     return;
@@ -111,7 +112,7 @@ export async function generateAssignmentHandler(req: Request, res: Response): Pr
   const activeId = (assignment as any).activeGenerationJobId ? String((assignment as any).activeGenerationJobId) : '';
   if (activeId) {
     const activeJob = await GenerationJob.findById(activeId).lean();
-    if (activeJob && ['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'].includes(activeJob.status)) {
+    if (!force && activeJob && ['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'].includes(activeJob.status)) {
       logger.warn(`[generateHandler] Active GenerationJob in progress (${activeJob._id}, status=${activeJob.status}) — returning 409`);
       sendError(res, 'Generation already in progress', 409);
       return;

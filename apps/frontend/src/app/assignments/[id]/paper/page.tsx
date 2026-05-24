@@ -22,6 +22,14 @@ function formatMarks(marks: number) {
   return `${marks} ${marks === 1 ? 'Mark' : 'Marks'}`;
 }
 
+function normalizeField(value: string | undefined, fallback: string, invalidValues: string[] = []) {
+  const cleaned = value?.trim();
+  if (!cleaned) return fallback;
+  const normalized = cleaned.toLowerCase();
+  if (invalidValues.some((invalid) => normalized === invalid.toLowerCase())) return fallback;
+  return cleaned;
+}
+
 function DifficultyTag({ difficulty }: { difficulty: DifficultyLevel }) {
   return (
     <span style={{ fontSize: 'clamp(11px, 0.9vw, 12px)', fontWeight: 600, color: '#888', marginRight: 6, background: '#f3f4f6', padding: '1px 7px', borderRadius: 3, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
@@ -115,7 +123,7 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
     setRegenerating(true);
     try {
       const { generateAssignment } = await import('@/services/assignment.service');
-      await generateAssignment(id);
+      await generateAssignment(id, true);
       toast.success('Regeneration started!', { id: 'regen-toast' });
       router.push(`/assignments/${id}`);
     } catch (err) {
@@ -152,9 +160,9 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
   }
 
   const meta = paper.canonicalMetadata;
-  const schoolName = meta?.schoolName?.trim() || 'Delhi Public School';
-  const subject = meta?.subject || paper.title;
-  const className = meta?.className?.trim() || 'Class 8';
+  const schoolName = normalizeField(meta?.schoolName, 'Delhi Public School', ['school', 'not specified']);
+  const subject = normalizeField(meta?.subject, paper.title || 'General', ['subject', 'not specified']);
+  const className = normalizeField(meta?.className, 'Class 8', ['class', 'class not specified', 'not specified']);
   const duration = meta?.durationMinutes || paper.duration || 45;
   const totalMarks = meta?.generatedMarks || paper.totalMarks;
 
@@ -202,12 +210,12 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
             </h1>
             {subject && (
               <h2 style={{ fontSize: 'clamp(16px, 1.6vw, 19px)', fontWeight: 700, margin: '6px 0 0 0' }}>
-                Subject: {subject}
+                {subject}
               </h2>
             )}
             {className && (
               <h3 style={{ fontSize: 'clamp(16px, 1.6vw, 19px)', fontWeight: 700, margin: '4px 0 0 0' }}>
-                Class: {className}
+                {className}
               </h3>
             )}
           </div>
@@ -221,10 +229,19 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
             All questions are compulsory unless stated otherwise.
           </p>
 
-          <div className="student-fields-grid" style={{ marginBottom: 'clamp(28px, 3.5vw, 36px)', fontSize: 'clamp(14px, 1.2vw, 16px)', fontWeight: 700 }}>
-            <div>Name: <span style={{ borderBottom: '2px solid #111827', display: 'inline-block', minWidth: 'clamp(120px, 18vw, 160px)' }}>&nbsp;</span></div>
-            <div>Roll Number: <span style={{ borderBottom: '2px solid #111827', display: 'inline-block', minWidth: 'clamp(120px, 18vw, 160px)' }}>&nbsp;</span></div>
-            <div>Section: <span style={{ borderBottom: '2px solid #111827', display: 'inline-block', minWidth: 'clamp(80px, 12vw, 100px)' }}>&nbsp;</span></div>
+          <div className="student-fields-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(220px, 1fr))', gap: 'clamp(16px, 2vw, 22px)', marginBottom: 'clamp(28px, 3.5vw, 36px)', fontSize: 'clamp(14px, 1.2vw, 16px)', fontWeight: 700 }}>
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              <span>Name</span>
+              <span style={{ borderBottom: '2px solid #111827', display: 'inline-block', minWidth: 'clamp(120px, 18vw, 160px)' }}>&nbsp;</span>
+            </div>
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              <span>Roll Number</span>
+              <span style={{ borderBottom: '2px solid #111827', display: 'inline-block', minWidth: 'clamp(120px, 18vw, 160px)' }}>&nbsp;</span>
+            </div>
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              <span>Section</span>
+              <span style={{ borderBottom: '2px solid #111827', display: 'inline-block', minWidth: 'clamp(80px, 12vw, 100px)' }}>&nbsp;</span>
+            </div>
           </div>
 
           {paper.sections.map((section, index) => (
