@@ -20,7 +20,7 @@ import {
   Zap,
   File as FileIcon,
 } from 'lucide-react';
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import type { GenerationStage } from '@/types/socket.types';
 
@@ -357,15 +357,8 @@ export function GenerationTimeline({
   onRetry,
   isRetrying,
 }: GenerationTimelineProps) {
-  const lastActiveStageRef = useRef<string | null>(null);
   const stagesRef = useRef<HTMLDivElement>(null);
   const activeNodeRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (stage && stage !== 'failed' && stage !== 'completed') {
-      lastActiveStageRef.current = stage;
-    }
-  }, [stage]);
 
   useEffect(() => {
     if (activeNodeRef.current && stagesRef.current) {
@@ -379,7 +372,7 @@ export function GenerationTimeline({
   }, [stage]);
 
   const effectiveStage = useMemo(() => {
-    if (!stage || stage === 'failed') return lastActiveStageRef.current;
+    if (!stage || stage === 'failed') return null;
     return stage;
   }, [stage]);
 
@@ -423,6 +416,7 @@ export function GenerationTimeline({
           </p>
           <p className="timeline-header-sub">
             {message || (stage === 'queued' ? 'Queued for processing...' : '')}
+            {!message && status === 'queued' && stage !== 'queued' && 'Queued for processing...'}
             {isRunning && !message && stage && stage !== 'queued' && STAGE_META[stage]?.description}
             {isRunning && (stage === 'batch_generating' || stage === 'answer_key_generating') && (
               <TypingDots />

@@ -78,7 +78,7 @@ export default function ToolkitPage() {
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div className="status-dot" aria-hidden="true" />
-          <h1 className="page-title">AI Teacher's Toolkit</h1>
+          <h1 className="page-title">AI Teachers Toolkit</h1>
         </div>
         <p className="page-subtitle">Powerful AI tools to supercharge your teaching workflow.</p>
       </div>

@@ -13,7 +13,7 @@ export const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-const inFlightRequests = new Map<string, Promise<any>>();
+const inFlightRequests = new Map<string, Promise<unknown>>();
 
 export function deduplicateRequest<T>(key: string, factory: () => Promise<T>): Promise<T> {
   const existing = inFlightRequests.get(key);
