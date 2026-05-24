@@ -101,6 +101,9 @@ Requirements:
 - Do NOT include an id field. The server assigns question IDs internally.
 - Do NOT include options on short-answer, long-answer, or true-false questions.
 - Do NOT include blanks on short-answer or long-answer questions.
+- Treat assignment instructions as hard constraints (grade level, exam duration, style, and scope).
+- Questions must be age-appropriate and depth-appropriate to the learner level in instructions.
+- Keep expected solving time consistent with the requested exam duration.
 
 Assignment context:
 Subject: ${assignment.subject}

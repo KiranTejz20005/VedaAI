@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { ChevronRight, Bell, Menu, ChevronDown, Grid2x2 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
@@ -26,9 +27,29 @@ export function TopBar() {
   const { parent, current } = getBreadcrumb(pathname);
   const toggle = useSidebarStore((s) => s.toggle);
   const showBackButton = pathname === '/dashboard' || pathname.startsWith('/assignments/');
+  const [hiddenOnScroll, setHiddenOnScroll] = useState(false);
+
+  useEffect(() => {
+    let lastY = window.scrollY;
+    const onScroll = () => {
+      const currentY = window.scrollY;
+      const delta = currentY - lastY;
+      if (currentY <= 8) {
+        setHiddenOnScroll(false);
+      } else if (delta > 8) {
+        setHiddenOnScroll(true);
+      } else if (delta < -8) {
+        setHiddenOnScroll(false);
+      }
+      lastY = currentY;
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
-    <header className="topbar" role="banner">
+    <header className={`topbar ${hiddenOnScroll ? 'topbar-hidden' : ''}`} role="banner">
       {/* Desktop content */}
       <div className="desktop-topbar-content">
         <button className="topbar-hamburger" onClick={toggle} aria-label="Toggle navigation menu">
@@ -39,7 +60,7 @@ export function TopBar() {
           {showBackButton && (
             <button
               onClick={() => window.history.back()}
-              className="topbar-icon-btn"
+              className="topbar-icon-btn topbar-back-btn"
               aria-label="Go back"
               style={{ width: 32, height: 32 }}
             >

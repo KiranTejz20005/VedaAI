@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
-  Upload,
   X,
   Plus,
   ChevronLeft,
@@ -14,6 +13,7 @@ import {
   Minus,
   Calendar,
   Mic,
+  ChevronDown,
 } from 'lucide-react';
 import { createAssignment } from '@/services/assignment.service';
 import { useAssignmentStore } from '@/store/assignment.store';
@@ -52,6 +52,37 @@ interface FormData {
   subject: string;
   dueDate: string;
   additionalInfo: string;
+}
+
+function parseDurationFromText(input: string): number | null {
+  const text = input.toLowerCase();
+  const hourMatch = text.match(/(\d+(?:\.\d+)?)\s*(hour|hours|hr|hrs)\b/);
+  if (hourMatch) {
+    const hours = Number(hourMatch[1]);
+    if (Number.isFinite(hours) && hours > 0) {
+      return Math.min(600, Math.max(1, Math.round(hours * 60)));
+    }
+  }
+
+  const minuteMatch = text.match(/(\d+)\s*(minute|minutes|min|mins)\b/);
+  if (minuteMatch) {
+    const mins = Number(minuteMatch[1]);
+    if (Number.isFinite(mins) && mins > 0) {
+      return Math.min(600, Math.max(1, Math.round(mins)));
+    }
+  }
+  return null;
+}
+
+function extractGradeHint(input: string): string | null {
+  const text = input.toLowerCase();
+  const gradeMatch =
+    text.match(/\b(?:class|grade|std|standard)\s*(\d{1,2})(?:st|nd|rd|th)?\b/) ||
+    text.match(/\b(\d{1,2})(?:st|nd|rd|th)\s*(?:class|grade|standard)\b/);
+  if (!gradeMatch) return null;
+  const gradeNum = Number(gradeMatch[1]);
+  if (!Number.isFinite(gradeNum) || gradeNum < 1 || gradeNum > 12) return null;
+  return `Grade ${gradeNum}`;
 }
 
 // ─── Counter component ──────────────────────────────────────
@@ -260,6 +291,7 @@ function QuestionTypeRow({
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
+          <ChevronDown size={16} className="question-select-chevron" aria-hidden="true" />
         </div>
 
         <button
@@ -290,16 +322,19 @@ function QuestionTypeRow({
       {/* Mobile view */}
       <div className="mobile-question-row">
         <div className="mobile-row-top">
-          <select
-            value={row.type}
-            onChange={(e) => onChange({ ...row, type: e.target.value as QuestionTypeOption })}
-            className="input question-select"
-            aria-label="Question type"
-          >
-            {QUESTION_TYPE_OPTIONS.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
+          <div className="question-select-wrap">
+            <select
+              value={row.type}
+              onChange={(e) => onChange({ ...row, type: e.target.value as QuestionTypeOption })}
+              className="input question-select"
+              aria-label="Question type"
+            >
+              {QUESTION_TYPE_OPTIONS.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <ChevronDown size={16} className="question-select-chevron" aria-hidden="true" />
+          </div>
           <button
             type="button"
             onClick={onRemove}
@@ -408,20 +443,30 @@ export default function CreateAssignmentPage() {
         count: r.count,
         marksPerQuestion: r.marks,
       }));
+      const inferredDuration = parseDurationFromText(formData.additionalInfo);
+      const gradeHint = extractGradeHint(formData.additionalInfo);
+      const durationMinutes = inferredDuration ?? 60;
+      const enrichedInstructions = [
+        formData.additionalInfo?.trim(),
+        gradeHint ? `Target learner level: ${gradeHint}.` : '',
+        `Exam duration: ${durationMinutes} minutes.`,
+      ]
+        .filter(Boolean)
+        .join('\n');
 
       const payload = {
         title: formData.title || 'Assignment',
         subject: formData.subject || 'General',
         description: formData.additionalInfo,
         dueDate: formData.dueDate,
-        duration: 60,
+        duration: durationMinutes,
         totalMarks,
         questionConfig: {
           types: uniqueTypes,
           count: totalQuestions,
           difficulty: { easy: 34, medium: 33, hard: 33 },
         },
-        additionalInstructions: formData.additionalInfo,
+        additionalInstructions: enrichedInstructions,
         typeBreakdown: JSON.stringify(typeBreakdown),
       };
 
