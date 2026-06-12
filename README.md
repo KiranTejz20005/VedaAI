@@ -760,8 +760,4 @@ When in doubt, **this `README.md` and the source code** take precedence over old
 
 ## License & contributing
 
-Private project (`"private": true` in `package.json`). Contact repository owners for contribution and licensing terms.
-
----
-
-**Last updated:** May 2026 — aligned with Next.js 16.2, Render deployment, and NVIDIA → Groq → Anthropic provider chain.
+Private project (`"private": true` in `package.json`). Contact repository owners for contribution and licensing term
