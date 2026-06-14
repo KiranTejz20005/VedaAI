@@ -6,27 +6,25 @@ import { ChevronRight, Bell, Menu, ChevronDown, Grid2x2 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 
 const BREADCRUMB_MAP: Record<string, string> = {
-  '/': 'Home',
-  '/dashboard': 'Assignment',
-  '/assignments/create': 'Assignment',
-  '/toolkit': "AI Teacher's Toolkit",
-  '/library': 'My Library',
+  '/': 'Dashboard',
+  '/question-bank': 'Question Bank',
+  '/papers': 'Paper Mgmt',
+  '/generate': 'Generate Assessment',
+  '/analytics': 'Analytics',
 };
 
 function getBreadcrumb(pathname: string): { parent?: string; current: string } {
-  if (pathname === '/') return { current: 'Home' };
-  if (pathname.startsWith('/assignments/') && pathname.endsWith('/paper'))
-    return { parent: 'Assignment', current: 'Paper View' };
-  if (pathname.startsWith('/assignments/') && pathname !== '/assignments/create')
-    return { parent: 'Assignment', current: 'Details' };
-  return { current: BREADCRUMB_MAP[pathname] ?? 'Assignment' };
+  if (pathname === '/') return { current: 'Dashboard' };
+  if (pathname.startsWith('/generate'))
+    return { parent: 'Generate', current: 'Assessment' };
+  return { current: BREADCRUMB_MAP[pathname] ?? 'Dashboard' };
 }
 
 export function TopBar() {
   const pathname = usePathname();
   const { parent, current } = getBreadcrumb(pathname);
   const toggle = useSidebarStore((s) => s.toggle);
-  const showBackButton = pathname === '/dashboard' || pathname.startsWith('/assignments/');
+  const showBackButton = pathname !== '/';
   const [hiddenOnScroll, setHiddenOnScroll] = useState(false);
 
   useEffect(() => {
@@ -87,7 +85,7 @@ export function TopBar() {
               </div>
             ) : (
               <span className="topbar-breadcrumb-current" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                {current === 'Assignment' && <Grid2x2 size={14} color="#9CA3AF" />}
+                {current === 'Dashboard' && <Grid2x2 size={14} color="#9CA3AF" />}
                 {current}
               </span>
             )}
@@ -122,7 +120,7 @@ export function TopBar() {
               <path d="M4 4H8.5L12 15L15.5 4H20L14.5 20H9.5L4 4Z" fill="white" stroke="white" strokeWidth="0.5" strokeLinejoin="round"/>
             </svg>
           </div>
-          <span style={{ fontSize: 18, fontWeight: 800, color: '#111827', letterSpacing: '-0.5px' }}>VedaAI</span>
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#111827', letterSpacing: '-0.5px' }}>Bloom Verify</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

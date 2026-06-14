@@ -1,0 +1,135 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Institution {
+  id        String   @id @default(uuid())
+  name      String
+  domain    String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+  departments Department[]
+}
+
+model Department {
+  id            String   @id @default(uuid())
+  name          String
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  users         User[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+enum Role {
+  SUPER_ADMIN
+  INSTITUTION_ADMIN
+  DEPARTMENT_ADMIN
+  HOD
+  FACULTY
+  REVIEWER
+  EXAM_CELL
+  EXTERNAL_AUDITOR
+  STUDENT
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  firstName     String
+  lastName      String
+  role          Role     @default(FACULTY)
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  questions     Question[] @relation("QuestionAuthor")
+  reviews       QuestionReview[]
+  assessments   Assessment[]
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum BloomLevel {
+  REMEMBER
+  UNDERSTAND
+  APPLY
+  ANALYZE
+  EVALUATE
+  CREATE
+}
+
+model Question {
+  id          String   @id @default(uuid())
+  content     String   // markdown or rich text
+  options     Json?    // for MCQs
+  answer      String?  
+  subjectId   String?
+  unitId      String?
+  difficulty  Difficulty
+  bloomLevel  BloomLevel
+  
+  authorId    String
+  author      User     @relation("QuestionAuthor", fields: [authorId], references: [id])
+  
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  reviews     QuestionReview[]
+  assessments AssessmentQuestion[]
+}
+
+model QuestionReview {
+  id          String   @id @default(uuid())
+  questionId  String
+  question    Question @relation(fields: [questionId], references: [id])
+  reviewerId  String
+  reviewer    User     @relation(fields: [reviewerId], references: [id])
+  status      String   // APPROVED, REJECTED, CHANGES_REQUESTED
+  comments    String?
+  createdAt   DateTime @default(now())
+}
+
+model Assessment {
+  id          String   @id @default(uuid())
+  title       String
+  subjectId   String?
+  totalMarks  Int      @default(100)
+  status      String   @default("DRAFT") // DRAFT, PUBLISHED
+  
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  questions   AssessmentQuestion[]
+}
+
+model AssessmentQuestion {
+  id           String     @id @default(uuid())
+  assessmentId String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id])
+  questionId   String
+  question     Question   @relation(fields: [questionId], references: [id])
+  marks        Int        @default(1)
+  order        Int        @default(0)
+}
