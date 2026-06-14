@@ -4,6 +4,12 @@ import { isRedisConnected, isBullRedisConnected } from '../config/redis';
 import { getActiveAiJobCount, getStalledAiJobCount } from '../workers/aiGeneration.worker';
 import assignmentRoutes from './assignment.routes';
 import paperRoutes from './paper.routes';
+import questionRoutes from './question.routes';
+import reviewRoutes from './review.routes';
+import documentRoutes from './document.routes';
+import assessmentRoutes from './assessment.routes';
+import analyticsRoutes from './analytics.routes';
+import exportRoutes from './export.routes';
 
 const apiRouter = Router();
 
@@ -46,9 +52,16 @@ apiRouter.get('/health/providers', asyncHandler(async (_req, res) => {
 // Versioned API routes
 apiRouter.use('/v1/assignments', assignmentRoutes);
 apiRouter.use('/v1/papers', paperRoutes);
+apiRouter.use('/v1/questions', questionRoutes);
+apiRouter.use('/v1/reviews', reviewRoutes);
+apiRouter.use('/v1/documents', documentRoutes);
+apiRouter.use('/v1/assessments', assessmentRoutes);
+apiRouter.use('/v1/analytics', analyticsRoutes);
+apiRouter.use('/v1/exports', exportRoutes);
 
 // Backward compatible legacy aliases
 apiRouter.use('/assignments', assignmentRoutes);
 apiRouter.use('/papers', paperRoutes);
+apiRouter.use('/questions', questionRoutes);
 
 export default apiRouter;
