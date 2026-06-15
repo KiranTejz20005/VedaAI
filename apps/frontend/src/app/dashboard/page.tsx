@@ -185,9 +185,9 @@ function EmptyState({ isFiltered, assignmentsCount }: { isFiltered: boolean; ass
       </p>
       {!(isFiltered && assignmentsCount > 0) && (
         <div className="empty-state-actions">
-          <Link href="/assignments/create" className="btn btn-dark btn-pill">
+          <Link href="/generate" className="btn btn-dark btn-pill">
             <span style={{ fontSize: 18, fontWeight: 500, lineHeight: 1 }}>+</span>
-            Create Your First Assignment
+            Create Your First Assessment
           </Link>
         </div>
       )}
@@ -257,9 +257,9 @@ export default function DashboardPage() {
       <div className="desktop-page-header dashboard-header-v3">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div className="status-dot" aria-hidden="true" />
-          <h1 className="page-title">Assignments</h1>
+          <h1 className="page-title">Assessments</h1>
         </div>
-        <p className="page-subtitle">Manage and create assignments for your classes.</p>
+        <p className="page-subtitle">Manage and create assessments for your classes.</p>
       </div>
 
       <div className="mobile-page-header">
@@ -269,7 +269,7 @@ export default function DashboardPage() {
             <polyline points="12 19 5 12 12 5" />
           </svg>
         </button>
-        <h1 className="mobile-header-title">Assignments</h1>
+        <h1 className="mobile-header-title">Assessments</h1>
         <div style={{ width: 32 }} />
       </div>
 
@@ -315,7 +315,7 @@ export default function DashboardPage() {
 
         <div className="search-wrap">
               <Search size={15} className="search-icon" aria-hidden="true" />
-              <input type="text" placeholder="Search Assignment" value={search} onChange={(e) => setSearch(e.target.value)} className="input search-input" aria-label="Search assignments" />
+              <input type="text" placeholder="Search Assessment" value={search} onChange={(e) => setSearch(e.target.value)} className="input search-input" aria-label="Search assessments" />
         </div>
       </div>
 
@@ -360,10 +360,10 @@ export default function DashboardPage() {
       )}
 
       {showFab && (
-        <div className="dashboard-fab-v3" aria-label="Create assignment actions">
-          <Link href="/assignments/create" className="dashboard-fab-btn">
+        <div className="dashboard-fab-v3" aria-label="Create assessment actions">
+          <Link href="/generate" className="dashboard-fab-btn">
             <Plus size={16} strokeWidth={2.5} aria-hidden />
-            Create Assignment
+            Create Assessment
           </Link>
         </div>
       )}

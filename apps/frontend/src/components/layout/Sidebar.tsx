@@ -57,11 +57,11 @@ function ToolkitIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 const NAV_ITEMS = [
-  { href: '/', label: 'Home', icon: LayoutGrid, exact: true },
-  { href: '/groups', label: 'My Groups', icon: MyGroupsIcon },
-  { href: '/dashboard', label: 'Assignments', icon: FileText },
-  { href: '/toolkit', label: "AI Teacher's Toolkit", icon: ToolkitIcon },
-  { href: '/library', label: 'My Library', icon: PieChart },
+  { href: '/', label: 'Dashboard', icon: LayoutGrid, exact: true },
+  { href: '/question-bank', label: 'Question Bank', icon: MyGroupsIcon },
+  { href: '/papers', label: 'Paper Mgmt', icon: FileText },
+  { href: '/generate', label: 'Generate', icon: Sparkles },
+  { href: '/analytics', label: 'Analytics', icon: PieChart },
 ];
 
 export function Sidebar() {
@@ -102,7 +102,7 @@ export function Sidebar() {
               <path d="M4 4H8.5L12 15L15.5 4H20L14.5 20H9.5L4 4Z" fill="white" stroke="white" strokeWidth="0.5" strokeLinejoin="round"/>
             </svg>
           </div>
-          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>VedaAI</span>
+          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>Bloom Verify</span>
           <button
             className="sidebar-close-btn"
             onClick={close}
@@ -113,18 +113,18 @@ export function Sidebar() {
         </div>
 
         <Link
-          href="/assignments/create"
+          href="/generate"
           className="sidebar-create-btn"
           onClick={close}
         >
           <Sparkles size={14} fill="white" stroke="white" />
-          Create Assignment
+          Create Assessment
         </Link>
 
         <nav className="sidebar-nav" aria-label="Pages">
           {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
             const active = isActive(href, exact);
-            const isAssignments = label === 'Assignments';
+            const isAssignments = label === 'Paper Mgmt';
             return (
               <Link
                 key={href}
@@ -158,8 +158,8 @@ export function Sidebar() {
               <Image src="/monkey-avatar.png" alt="" fill sizes="48px" style={{ objectFit: 'cover' }} />
             </div>
             <div className="sidebar-profile-info">
-              <div className="sidebar-profile-name">Delhi Public School</div>
-              <div className="sidebar-profile-sub">Bokaro Steel City</div>
+              <div className="sidebar-profile-name">Admin User</div>
+              <div className="sidebar-profile-sub">Demo Institution</div>
             </div>
           </div>
         </div>
