@@ -7,18 +7,55 @@ import { useSidebarStore } from '@/store/sidebar.store';
 
 const BREADCRUMB_MAP: Record<string, string> = {
   '/': 'Dashboard',
+  '/dashboard': 'Dashboard',
   '/question-bank': 'Question Bank',
   '/papers': 'Paper Mgmt',
-  '/generate': 'Generate Assessment',
+  '/generate': 'Quick Generate',
   '/analytics': 'Analytics',
+  '/library': 'Library',
+  '/reviews': 'Reviews',
+  '/groups': 'Groups',
+  '/syllabus': 'Syllabus',
+  '/toolkit': 'AI Toolkit',
+  '/settings': 'Settings',
+  '/assignments/create': 'Create Assessment',
 };
 
 function getBreadcrumb(pathname: string): { parent?: string; current: string } {
-  if (pathname === '/') return { current: 'Dashboard' };
-  if (pathname.startsWith('/generate'))
-    return { parent: 'Generate', current: 'Assessment' };
-  return { current: BREADCRUMB_MAP[pathname] ?? 'Dashboard' };
+  if (pathname === '/' || pathname === '/dashboard') return { current: 'Dashboard' };
+  
+  if (BREADCRUMB_MAP[pathname]) {
+    return { current: BREADCRUMB_MAP[pathname] };
+  }
+
+  const parts = pathname.split('/').filter(Boolean);
+  if (parts.length > 0) {
+    if (parts[0] === 'assignments' && parts.length > 2) {
+      if (parts[2] === 'paper') return { parent: 'Paper', current: 'View Exam Paper' };
+      return { parent: 'Assignments', current: 'Details' };
+    }
+    
+    const currentSegment = parts[parts.length - 1];
+    // Ignore UUIDs for breadcrumbs
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentSegment);
+    const currentLabel = isUuid ? 'Details' : currentSegment
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+    
+    if (parts.length > 1) {
+      const parentSegment = parts[parts.length - 2];
+      const isParentUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parentSegment);
+      const parentLabel = isParentUuid ? 'Assignment' : parentSegment
+        .replace(/-/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+      return { parent: parentLabel, current: currentLabel };
+    }
+    return { current: currentLabel };
+  }
+
+  return { current: 'Dashboard' };
 }
+
 
 export function TopBar() {
   const pathname = usePathname();
