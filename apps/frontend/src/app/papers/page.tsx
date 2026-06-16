@@ -19,7 +19,8 @@ import {
   List as ListIcon,
   Eye,
   Download,
-  FileText
+  FileText,
+  Trash2
 } from 'lucide-react';
 import { useAssignments } from '@/hooks/useAssignments';
 import { deleteAssignment as deleteAssignmentRequest } from '@/services/assignment.service';
@@ -474,11 +475,12 @@ export default function PapersPage() {
                           )}
                           <button
                             className="btn btn-secondary btn-sm danger"
-                            style={{ border: 'none', background: 'transparent' }}
+                            style={{ border: 'none', background: 'transparent', gap: 4 }}
                             onClick={() => void handleDelete(p.id)}
                             disabled={deletingId === p.id}
                             aria-label="Delete paper"
                           >
+                            {deletingId === p.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                             Delete
                           </button>
                         </div>
