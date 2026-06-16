@@ -43,7 +43,7 @@ function QuestionItem({ question, number }: { question: Question; number: number
   return (
     <div className="question-item" style={{ marginBottom: 'clamp(12px, 1.2vw, 16px)' }}>
       <span className="question-num">{number}.</span>
-      <div className="question-text-block">
+      <div className="question-text-block" style={{ whiteSpace: 'pre-wrap' }}>
         <div>
           <DifficultyTag difficulty={question.difficulty} />
           {question.question}

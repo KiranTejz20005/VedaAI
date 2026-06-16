@@ -317,8 +317,8 @@ export default function LandingPage() {
       <nav className="landing-nav">
         <div className="landing-nav-container">
           <Link href="/" className="landing-logo">
-            <div className="landing-logo-icon">V</div>
-            <span>VedaAI</span>
+            <div className="landing-logo-icon">S</div>
+            <span>Shiksha AI</span>
           </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <Link href="/dashboard" className="landing-btn landing-btn-outline">
@@ -387,7 +387,7 @@ export default function LandingPage() {
             lineHeight: 1.6,
           }}
         >
-          VedaAI enables schools and universities to instantly generate syllabus-aligned exam sheets. Customize cognitive distributions, configure marks, and export pixel-perfect print layouts.
+          Shiksha AI enables schools and universities to instantly generate syllabus-aligned exam sheets. Customize cognitive distributions, configure marks, and export pixel-perfect print layouts.
         </motion.p>
 
         <motion.div
@@ -416,7 +416,7 @@ export default function LandingPage() {
             <div className="mockup-dot" style={{ backgroundColor: '#EF4444' }} />
             <div className="mockup-dot" style={{ backgroundColor: '#F59E0B' }} />
             <div className="mockup-dot" style={{ backgroundColor: '#10B981' }} />
-            <div style={{ marginLeft: 12, fontSize: 11, color: '#9ca3af', fontFamily: 'monospace' }}>app.vedaai.com/dashboard</div>
+            <div style={{ marginLeft: 12, fontSize: 11, color: '#9ca3af', fontFamily: 'monospace' }}>app.shikshaai.com/dashboard</div>
           </div>
           <div className="mockup-body">
             {/* Visual simulation of a light-themed dashboard */}
@@ -523,7 +523,7 @@ export default function LandingPage() {
       <section style={{ background: '#ffffff', borderTop: '1px solid rgba(0,0,0,0.04)', borderBottom: '1px solid rgba(0,0,0,0.04)', padding: '80px 24px', position: 'relative', zIndex: 10 }}>
         <div style={{ maxWidth: 900, margin: '0 auto', textAlign: 'center' }}>
           <h2 style={{ fontSize: '32px', fontWeight: 800, color: '#111827', letterSpacing: '-0.5px' }}>
-            How VedaAI Works
+            How Shiksha AI Works
           </h2>
           <p style={{ color: '#4b5563', fontSize: '15px', marginTop: 8, marginBottom: 48 }}>
             Generate classroom-ready materials in three steps.
@@ -609,7 +609,7 @@ export default function LandingPage() {
             Gain full control over question paper distributions and save hours of manual typing and evaluation formatting.
           </p>
           <Link href="/dashboard" className="landing-btn landing-btn-primary" style={{ padding: '14px 36px', fontSize: '15px' }}>
-            <Sparkles size={16} /> Enter VedaAI Workspace
+            <Sparkles size={16} /> Enter Shiksha AI Workspace
           </Link>
         </motion.div>
       </section>
@@ -617,7 +617,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer style={{ borderTop: '1px solid rgba(0, 0, 0, 0.05)', padding: '32px 24px', textAlign: 'center', position: 'relative', zIndex: 10 }}>
         <p style={{ fontSize: '13px', color: '#6b7280' }}>
-          &copy; 2026 VedaAI. Rebuilt from scratch. Designed with visual excellence.
+          &copy; 2026 Shiksha AI. Rebuilt from scratch. Designed with visual excellence.
         </p>
       </footer>
     </div>

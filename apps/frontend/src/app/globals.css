@@ -418,9 +418,11 @@ img, svg, video, canvas { max-width: 100%; height: auto; display: block; }
   align-items: center;
   justify-content: space-between;
   padding: 0 clamp(16px, 2vw, 24px);
+  max-width: var(--page-max-w);
+  width: calc(100% - calc(var(--page-pad) * 2));
   margin-top: clamp(16px, 2vw, 24px);
   margin-left: var(--page-pad);
-  margin-right: var(--page-pad);
+  margin-right: auto;
   gap: 12px;
   transition: transform 0.22s ease, opacity 0.22s ease;
 }
@@ -538,7 +540,9 @@ img, svg, video, canvas { max-width: 100%; height: auto; display: block; }
 .page-container {
   flex: 1;
   padding: var(--page-pad) var(--page-pad) var(--page-pad-bottom) var(--page-pad);
-  max-width: 100%;
+  max-width: var(--page-max-w);
+  margin-left: 0;
+  margin-right: auto;
   overflow-x: hidden;
   width: 100%;
 }
@@ -1522,8 +1526,9 @@ img, svg, video, canvas { max-width: 100%; height: auto; display: block; }
 
 /* ── Create form layout ── */
 .create-form-layout {
-  max-width: min(1220px, 100%);
-  margin: 0 auto;
+  max-width: var(--page-max-w);
+  margin-left: 0;
+  margin-right: auto;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -2541,12 +2546,10 @@ hr { border: none; border-top: 1px solid var(--border); }
   :root {
     --sidebar-w: 280px;
     --topbar-h: 64px;
+    --page-max-w: 92%;
   }
   .main-wrapper {
     margin-left: calc(var(--sidebar-w) + 42px);
-  }
-  .page-container {
-    max-width: 1600px;
   }
 }
 
@@ -2556,16 +2559,10 @@ hr { border: none; border-top: 1px solid var(--border); }
 @media (min-width: 1920px) {
   :root {
     --sidebar-w: 260px;
-  }
-  .page-container {
-    max-width: 1400px;
+    --page-max-w: 95%;
   }
   .assignment-grid {
     grid-template-columns: repeat(3, 1fr);
-  }
-
-  .create-form-layout {
-    max-width: 1360px;
   }
 
   .create-form-main {
@@ -2576,11 +2573,8 @@ hr { border: none; border-top: 1px solid var(--border); }
 
 @media (min-width: 2300px) {
   html { font-size: 18px; }
-  .page-container {
-    max-width: 1820px;
-  }
-  .create-form-layout {
-    max-width: 1500px;
+  :root {
+    --page-max-w: 95%;
   }
 }
 

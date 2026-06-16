@@ -57,7 +57,6 @@ const SECONDARY_NAV = [
 
 const TERTIARY_NAV = [
   { href: '/generate', label: 'Quick Generate', icon: Sparkles },
-  { href: '/analytics', label: 'Analytics', icon: PieChart },
 ];
 
 export function Sidebar() {
@@ -79,12 +78,12 @@ export function Sidebar() {
 
       <aside className={`sidebar${isOpen ? ' open' : ''}`} role="navigation" aria-label="Main navigation">
         <div className="sidebar-logo">
-          <div className="sidebar-logo-icon" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #F97316 0%, #E8531D 50%, #C2410C 100%)' }}>
+          <div className="sidebar-logo-icon" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #F97316 0%, #E8531D 50%, #C2410C 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M4 4H8.5L12 15L15.5 4H20L14.5 20H9.5L4 4Z" fill="white" stroke="white" strokeWidth="0.5" strokeLinejoin="round"/>
+              <text x="50%" y="55%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="16" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif">S</text>
             </svg>
           </div>
-          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>Bloom Verify</span>
+          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>Shiksha AI</span>
           <button className="sidebar-close-btn" onClick={close} aria-label="Close navigation"><X size={18} /></button>
         </div>
 
