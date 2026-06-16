@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import { asyncHandler } from '../utils/async-handler';
-import { getPaperHandler, downloadPdfHandler } from '../controllers/paper.controller';
+import { getPaperHandler, downloadPdfHandler, downloadPdfByAssignmentIdHandler } from '../controllers/paper.controller';
 import prisma from '../config/prisma';
 import { getPaper } from '../services/paper.service';
 import { buildCanonicalGenerationState } from '../services/canonical-metadata.service';
 
 const router = Router();
+
+// GET /api/papers/:assignmentId/pdf - PDF download by assignmentId
+router.get('/:assignmentId/pdf', asyncHandler(downloadPdfByAssignmentIdHandler));
 
 // GET /api/papers/job/:assignmentId - job status for polling (must be before /:assignmentId)
 router.get('/job/:assignmentId', asyncHandler(async (req, res) => {

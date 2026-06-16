@@ -39,3 +39,29 @@ export async function downloadPdfHandler(req: Request, res: Response): Promise<v
     sendError(res, 'PDF file not found', 404);
   }
 }
+
+export async function downloadPdfByAssignmentIdHandler(req: Request, res: Response): Promise<void> {
+  const { assignmentId } = req.params;
+  try {
+    const paper = await prisma.generatedPaper.findFirst({ where: { assignmentId } });
+    if (!paper || !paper.pdfUrl) {
+      sendError(res, 'PDF not yet available. Generate the paper first.', 404);
+      return;
+    }
+
+    const filename = path.basename(paper.pdfUrl);
+    const storage = getPdfStorage();
+    const data = await storage.get(filename);
+    if (!data) {
+      sendError(res, 'PDF file not found in storage', 404);
+      return;
+    }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(data);
+  } catch (err) {
+    sendError(res, 'Failed to download PDF', 500);
+  }
+}
+
