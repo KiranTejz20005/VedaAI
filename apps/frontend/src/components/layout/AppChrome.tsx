@@ -1,12 +1,20 @@
 'use client';
 
 import { Toaster } from 'react-hot-toast';
+import { usePathname } from 'next/navigation';
 import { ClientOnly } from '@/components/ui/ClientOnly';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { MobileBottomNav } from './MobileBottomNav';
 
 export function AppChrome({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isLanding = pathname === '/';
+
+  if (isLanding) {
+    return <>{children}</>;
+  }
+
   return (
     <div className="app-shell">
       <Sidebar />

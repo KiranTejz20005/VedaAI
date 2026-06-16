@@ -24,7 +24,7 @@ export function TopBar() {
   const pathname = usePathname();
   const { parent, current } = getBreadcrumb(pathname);
   const toggle = useSidebarStore((s) => s.toggle);
-  const showBackButton = pathname !== '/';
+  const showBackButton = pathname !== '/' && pathname !== '/dashboard';
   const [hiddenOnScroll, setHiddenOnScroll] = useState(false);
 
   useEffect(() => {

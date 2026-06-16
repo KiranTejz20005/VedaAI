@@ -10,25 +10,20 @@ import {
   PieChart,
   Settings,
   X,
+  BookOpen,
+  GraduationCap,
+  Users,
+  Library,
+  ClipboardCheck,
+  PenSquare,
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAssignmentStore } from '@/store/assignment.store';
 import { useMounted } from '@/hooks/useMounted';
 
-// Custom high-precision folder-user SVG to match "My Groups" reference icon
 function MyGroupsIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={props.strokeWidth || 2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={props.strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" {...props}>
       <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
       <circle cx="12" cy="11" r="2" />
       <path d="M8 16c0-1.5 1.5-2.5 4-2.5s4 1 4 2.5" />
@@ -36,31 +31,32 @@ function MyGroupsIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-// Custom high-precision tablet screen SVG to match "AI Teacher's Toolkit" reference icon
 function ToolkitIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={props.strokeWidth || 2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={props.strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" {...props}>
       <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
       <line x1="12" y1="18" x2="12.01" y2="18" strokeWidth={(props.strokeWidth as number || 2) * 1.5} />
     </svg>
   );
 }
 
-const NAV_ITEMS = [
-  { href: '/', label: 'Dashboard', icon: LayoutGrid, exact: true },
+const PRIMARY_NAV = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true },
+  { href: '/assignments/create', label: 'Create Question Paper', icon: PenSquare, exact: true },
   { href: '/question-bank', label: 'Question Bank', icon: MyGroupsIcon },
   { href: '/papers', label: 'Paper Mgmt', icon: FileText },
-  { href: '/generate', label: 'Generate', icon: Sparkles },
+  { href: '/syllabus', label: 'Syllabus', icon: GraduationCap },
+];
+
+const SECONDARY_NAV = [
+  { href: '/library', label: 'Library', icon: Library },
+  { href: '/reviews', label: 'Reviews', icon: ClipboardCheck },
+  { href: '/groups', label: 'Groups', icon: Users },
+  { href: '/toolkit', label: 'AI Toolkit', icon: ToolkitIcon },
+];
+
+const TERTIARY_NAV = [
+  { href: '/generate', label: 'Quick Generate', icon: Sparkles },
   { href: '/analytics', label: 'Analytics', icon: PieChart },
 ];
 
@@ -78,61 +74,32 @@ export function Sidebar() {
   return (
     <>
       {isOpen && (
-        <div
-          className="sidebar-overlay"
-          onClick={close}
-          aria-hidden="true"
-        />
+        <div className="sidebar-overlay" onClick={close} aria-hidden="true" />
       )}
 
-      <aside
-        className={`sidebar${isOpen ? ' open' : ''}`}
-        role="navigation"
-        aria-label="Main navigation"
-      >
+      <aside className={`sidebar${isOpen ? ' open' : ''}`} role="navigation" aria-label="Main navigation">
         <div className="sidebar-logo">
-          <div
-            className="sidebar-logo-icon"
-            aria-hidden="true"
-            style={{
-              background: 'linear-gradient(135deg, #F97316 0%, #E8531D 50%, #C2410C 100%)',
-            }}
-          >
+          <div className="sidebar-logo-icon" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #F97316 0%, #E8531D 50%, #C2410C 100%)' }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M4 4H8.5L12 15L15.5 4H20L14.5 20H9.5L4 4Z" fill="white" stroke="white" strokeWidth="0.5" strokeLinejoin="round"/>
             </svg>
           </div>
           <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>Bloom Verify</span>
-          <button
-            className="sidebar-close-btn"
-            onClick={close}
-            aria-label="Close navigation"
-          >
-            <X size={18} />
-          </button>
+          <button className="sidebar-close-btn" onClick={close} aria-label="Close navigation"><X size={18} /></button>
         </div>
 
-        <Link
-          href="/generate"
-          className="sidebar-create-btn"
-          onClick={close}
-        >
+        <Link href="/assignments/create" className="sidebar-create-btn" onClick={close}>
           <Sparkles size={14} fill="white" stroke="white" />
           Create Assessment
         </Link>
 
         <nav className="sidebar-nav" aria-label="Pages">
-          {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
+          <div className="sidebar-nav-section-label">Main</div>
+          {PRIMARY_NAV.map(({ href, label, icon: Icon, exact }) => {
             const active = isActive(href, exact);
             const isAssignments = label === 'Paper Mgmt';
             return (
-              <Link
-                key={href}
-                href={href}
-                className={`sidebar-nav-item${active ? ' active' : ''}`}
-                aria-current={active ? 'page' : undefined}
-                onClick={close}
-              >
+              <Link key={href} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>
                 <Icon size={18} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
                 <span>{label}</span>
                 {mounted && isAssignments && totalCount > 0 && (
@@ -141,14 +108,32 @@ export function Sidebar() {
               </Link>
             );
           })}
+
+          <div className="sidebar-nav-section-label">Management</div>
+          {SECONDARY_NAV.map(({ href, label, icon: Icon }) => {
+            const active = isActive(href);
+            return (
+              <Link key={href} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>
+                <Icon size={18} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
+                <span>{label}</span>
+              </Link>
+            );
+          })}
+
+          <div className="sidebar-nav-section-label">Tools</div>
+          {TERTIARY_NAV.map(({ href, label, icon: Icon }) => {
+            const active = isActive(href);
+            return (
+              <Link key={href} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>
+                <Icon size={18} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
+                <span>{label}</span>
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="sidebar-bottom">
-          <Link
-            href="/settings"
-            className="sidebar-settings"
-            onClick={close}
-          >
+          <Link href="/settings" className="sidebar-settings" onClick={close}>
             <Settings size={18} aria-hidden="true" />
             <span>Settings</span>
           </Link>

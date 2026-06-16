@@ -42,13 +42,13 @@ export const useAssignmentStore = create<AssignmentState>()(
 
     removeAssignment: (id) =>
       set((state) => {
-        state.assignments = state.assignments.filter((a) => a._id !== id);
+        state.assignments = state.assignments.filter((a) => a.id !== id);
         state.totalCount -= 1;
       }),
 
     updateAssignmentStatus: (id, status) =>
       set((state) => {
-        const found = state.assignments.find((a) => a._id === id);
+        const found = state.assignments.find((a) => a.id === id);
         if (found) found.status = status;
       }),
 

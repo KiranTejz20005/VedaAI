@@ -87,7 +87,7 @@ export interface CanonicalGenerationState {
 }
 
 export interface Assignment {
-  _id: string;
+  id: string;
   title: string;
   subject: string;
   description: string;

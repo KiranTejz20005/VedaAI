@@ -25,7 +25,7 @@ export interface Section {
 }
 
 export interface GeneratedPaper {
-  _id: string;
+  id: string;
   assignmentId: string;
   title: string;
   totalMarks: number;
