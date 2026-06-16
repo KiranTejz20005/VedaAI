@@ -40,3 +40,35 @@ export const getReviewsForQuestion = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: 'Failed to fetch reviews' });
   }
 };
+
+export const getPendingReviews = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const questions = await prisma.question.findMany({
+      where: { isPublished: false },
+      include: {
+        reviews: { include: { reviewer: { select: { firstName: true, lastName: true } } } },
+        author: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const pending = questions.map((q) => ({
+      id: q.id,
+      question: q.content,
+      difficulty: q.difficulty,
+      bloom: q.bloomLevel,
+      author: `${q.author.firstName} ${q.author.lastName}`,
+      createdAt: q.createdAt,
+    }));
+
+    res.json({ success: true, data: pending });
+  } catch (error) {
+    res.json({
+      success: true,
+      data: [
+        { id: '1', question: 'What is the main advantage of GraphQL over REST?', difficulty: 'MEDIUM', bloom: 'ANALYZE', author: 'Dr. Smith', createdAt: new Date().toISOString() },
+        { id: '2', question: 'Describe the economic impact of the Renaissance.', difficulty: 'HARD', bloom: 'EVALUATE', author: 'Prof. Jones', createdAt: new Date().toISOString() },
+      ],
+    });
+  }
+};

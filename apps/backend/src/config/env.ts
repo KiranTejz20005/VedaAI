@@ -22,13 +22,11 @@ const envSchema = z.object({
   PORT: z.string().default('5000').transform(Number),
 
   // Database
-  MONGODB_URI: z
+  DATABASE_URL: z
     .string()
-    .min(1, 'MONGODB_URI is required')
-    .refine(
-      (v) => v.startsWith('mongodb://') || v.startsWith('mongodb+srv://'),
-      'MONGODB_URI must start with mongodb:// or mongodb+srv://'
-    ),
+    .optional()
+    .default('postgresql://postgres:password@localhost:5432/bloom_verify?schema=public'),
+  MONGODB_URI: z.string().optional(),
 
   // Redis (general — caching, sessions, pub/sub)
   REDIS_URL: z

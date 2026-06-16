@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import path from 'path';
 import { getPaper } from '../services/paper.service';
 import { sendSuccess, sendError } from '../utils/api-response';
-import { Assignment } from '../models/Assignment.model';
+import prisma from '../config/prisma';
 import { buildCanonicalPaperMetadata } from '../services/canonical-metadata.service';
 import { getPdfStorage } from '../services/storage';
 
@@ -10,7 +10,7 @@ export async function getPaperHandler(req: Request, res: Response): Promise<void
   const { assignmentId } = req.params;
   const [paper, assignment] = await Promise.all([
     getPaper(assignmentId),
-    Assignment.findById(assignmentId),
+    prisma.assignment.findUnique({ where: { id: assignmentId } }),
   ]);
   if (!paper) {
     sendError(res, 'Paper not found for this assignment', 404);

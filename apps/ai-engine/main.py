@@ -5,6 +5,37 @@ import os
 import json
 from openai import OpenAI
 
+# Simple .env loader
+if os.path.exists(".env"):
+    with open(".env") as f:
+        for line in f:
+            if line.strip() and not line.startswith("#"):
+                try:
+                    key, val = line.strip().split("=", 1)
+                    os.environ[key.strip()] = val.strip().strip('"').strip("'")
+                except ValueError:
+                    pass
+
+def get_client_and_model():
+    openai_key = os.environ.get("OPENAI_API_KEY")
+    nvidia_key = os.environ.get("NVIDIA_API_KEY")
+    groq_key = os.environ.get("GROQ_API_KEY")
+    
+    if openai_key and len(openai_key.strip()) > 5:
+        return OpenAI(api_key=openai_key.strip()), "gpt-4o-mini"
+    elif nvidia_key and len(nvidia_key.strip()) > 5:
+        return OpenAI(
+            api_key=nvidia_key.strip(),
+            base_url="https://integrate.api.nvidia.com/v1"
+        ), "meta/llama-3.1-8b-instruct"
+    elif groq_key and len(groq_key.strip()) > 5:
+        return OpenAI(
+            api_key=groq_key.strip(),
+            base_url="https://api.groq.com/openai/v1"
+        ), "llama-3.3-70b-versatile"
+    else:
+        return OpenAI(api_key="dummy"), "gpt-4o-mini"
+
 app = FastAPI(
     title="Bloom Verify AI Engine",
     description="AI services for question generation, Bloom classification, and RAG validation.",
@@ -32,7 +63,7 @@ def health_check():
 
 @app.post("/api/v1/generate", response_model=QuestionGenerationResponse)
 def generate_question(req: QuestionGenerationRequest):
-    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", "dummy"))
+    client, model = get_client_and_model()
     
     system_prompt = f"""You are an expert assessment generator. 
     Generate a {req.difficulty} difficulty question about {req.topic} for the subject {req.subject}.
@@ -44,7 +75,7 @@ def generate_question(req: QuestionGenerationRequest):
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             response_format={ "type": "json_object" },
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -81,7 +112,7 @@ class BloomClassificationResponse(BaseModel):
 
 @app.post("/api/v1/classify-bloom", response_model=BloomClassificationResponse)
 def classify_bloom_level(question_text: str):
-    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", "dummy"))
+    client, model = get_client_and_model()
     
     system_prompt = """You are an expert assessment auditor. 
     Analyze the provided question and classify it into one of the Bloom's Taxonomy levels: 
@@ -91,7 +122,7 @@ def classify_bloom_level(question_text: str):
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             response_format={ "type": "json_object" },
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -119,7 +150,7 @@ class DifficultyPredictionResponse(BaseModel):
 
 @app.post("/api/v1/predict-difficulty", response_model=DifficultyPredictionResponse)
 def predict_difficulty(question_text: str):
-    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", "dummy"))
+    client, model = get_client_and_model()
     
     system_prompt = """You are an expert assessment auditor. 
     Analyze the provided question and predict its difficulty level: EASY, MEDIUM, or HARD.
@@ -128,7 +159,7 @@ def predict_difficulty(question_text: str):
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             response_format={ "type": "json_object" },
             messages=[
                 {"role": "system", "content": system_prompt},

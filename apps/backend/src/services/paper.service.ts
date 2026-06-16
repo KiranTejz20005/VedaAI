@@ -1,6 +1,5 @@
-import { GeneratedPaper, type IGeneratedPaper } from '../models/GeneratedPaper.model';
+import prisma from '../config/prisma';
 import { validatePaperOrThrow, type ValidatedPaper } from '../validators/paper.validator';
-import mongoose from 'mongoose';
 import { logger } from '../utils/logger';
 import type { CanonicalPaperMetadata } from '../types/canonical.types';
 
@@ -9,40 +8,41 @@ export async function savePaper(
   paper: ValidatedPaper,
   duration?: number,
   canonicalMetadata?: CanonicalPaperMetadata
-): Promise<IGeneratedPaper> {
+) {
   const t0 = Date.now();
   const validatedPaper = validatePaperOrThrow(paper);
   logger.debug(`[savePaper] START | assignmentId=${assignmentId} title="${paper.title}" sections=${paper.sections.length}`);
 
-  // Delete existing paper for this assignment
-  logger.debug(`[savePaper] Checking for existing paper...`);
-  const existing = await GeneratedPaper.findOneAndDelete({ assignmentId: new mongoose.Types.ObjectId(assignmentId) });
+  const existing = await prisma.generatedPaper.findFirst({ where: { assignmentId } });
   if (existing) {
-    logger.debug(`[savePaper] Deleted existing paper: ${existing._id}`);
-    if (existing?.pdfPath) {
+    logger.debug(`[savePaper] Deleted existing paper: ${existing.id}`);
+    if (existing.pdfPath) {
       const fs = await import('fs/promises');
       fs.unlink(existing.pdfPath).catch(() => undefined);
     }
+    await prisma.generatedPaper.delete({ where: { id: existing.id } });
   } else {
     logger.debug(`[savePaper] No existing paper to delete`);
   }
 
   logger.debug(`[savePaper] Creating new GeneratedPaper...`);
-  const saved = await GeneratedPaper.create({
-    assignmentId: new mongoose.Types.ObjectId(assignmentId),
-    title: validatedPaper.title,
-    totalMarks: validatedPaper.totalMarks,
-    duration: duration ?? 45,
-    sections: validatedPaper.sections,
-    canonicalMetadata,
-    generatedAt: new Date(),
+  const saved = await prisma.generatedPaper.create({
+    data: {
+      assignmentId,
+      title: validatedPaper.title,
+      totalMarks: validatedPaper.totalMarks,
+      duration: duration ?? 45,
+      sections: validatedPaper.sections as any,
+      canonicalMetadata: canonicalMetadata as any ?? undefined,
+      generatedAt: new Date(),
+    },
   });
-  logger.info(`[savePaper] COMPLETE in ${Date.now() - t0}ms | id=${saved._id} sections=${saved.sections.length}`);
+  logger.info(`[savePaper] COMPLETE in ${Date.now() - t0}ms | id=${saved.id} sections=${(saved.sections as any[]).length}`);
   return saved;
 }
 
-export async function getPaper(assignmentId: string): Promise<IGeneratedPaper | null> {
-  return GeneratedPaper.findOne({ assignmentId: new mongoose.Types.ObjectId(assignmentId) });
+export async function getPaper(assignmentId: string) {
+  return prisma.generatedPaper.findFirst({ where: { assignmentId } });
 }
 
 export async function updatePaperPdf(
@@ -50,5 +50,8 @@ export async function updatePaperPdf(
   pdfPath: string,
   pdfUrl: string
 ): Promise<void> {
-  await GeneratedPaper.findByIdAndUpdate(paperId, { pdfPath, pdfUrl });
+  await prisma.generatedPaper.update({
+    where: { id: paperId },
+    data: { pdfPath, pdfUrl },
+  });
 }

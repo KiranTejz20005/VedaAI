@@ -25,7 +25,15 @@ export const createAssessment = async (req: Request, res: Response) => {
 
 export const getAssessments = async (req: Request, res: Response) => {
   try {
+    const limit = parseInt(req.query.limit as string) || 50;
+    const skip = parseInt(req.query.skip as string) || 0;
+    const subjectId = req.query.subject as string;
+
     const assessments = await prisma.assessment.findMany({
+      where: subjectId ? { subjectId } : undefined,
+      take: limit,
+      skip: skip,
+      orderBy: { createdAt: 'desc' },
       include: {
         author: { select: { firstName: true, lastName: true } },
         _count: { select: { questions: true } }

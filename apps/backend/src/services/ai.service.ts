@@ -784,11 +784,11 @@ export async function generatePaper(
 
       const fallbackBatch: PlannedBatch = {
         id: `rescue-${rescueAttempts}`,
-        type: (assignment.questionConfig.types[0] ?? 'short-answer') as PlannedBatch['type'],
+        type: (assignment.questionConfig.types[0] ?? 'short-answer') as any,
         count: remaining,
         marksPerQuestion: Math.max(1, Math.round(assignment.totalMarks / Math.max(1, assignment.questionConfig.count))),
         totalMarks: Math.max(1, Math.round(assignment.totalMarks / Math.max(1, assignment.questionConfig.count))) * remaining,
-        allowedTypes: assignment.questionConfig.types,
+        allowedTypes: assignment.questionConfig.types as any,
         sectionTitle: 'Recovery Questions',
         difficultyHint: 'medium',
       };

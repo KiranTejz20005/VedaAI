@@ -1,10 +1,7 @@
-import type { IAssignment } from '../models/Assignment.model';
-import type { IGeneratedPaper } from '../models/GeneratedPaper.model';
-import type { IGenerationJob } from '../models/GenerationJob.model';
 import type { CanonicalGenerationState, CanonicalPaperMetadata } from '../types/canonical.types';
 import type { ValidatedPaper } from '../validators/paper.validator';
 
-function computeRequestedFromAssignment(assignment: IAssignment): {
+function computeRequestedFromAssignment(assignment: any): {
   requestedMarks: number;
   requestedQuestionCount: number;
 } {
@@ -13,7 +10,7 @@ function computeRequestedFromAssignment(assignment: IAssignment): {
   return { requestedMarks, requestedQuestionCount };
 }
 
-type PaperLike = Pick<IGeneratedPaper, 'sections' | 'pdfUrl' | 'duration'> | Pick<ValidatedPaper, 'sections'>;
+type PaperLike = { sections: any[]; pdfUrl?: string; duration?: number } | Pick<ValidatedPaper, 'sections'>;
 
 function computeGeneratedFromPaper(paper: PaperLike | null): {
   generatedMarks: number;
@@ -30,8 +27,8 @@ function computeGeneratedFromPaper(paper: PaperLike | null): {
     };
   }
 
-  const sections = (paper.sections ?? []).map((section) => {
-    const sectionMarks = (section.questions ?? []).reduce((sum, q) => sum + (q.marks ?? 0), 0);
+  const sections = (paper.sections ?? []).map((section: any) => {
+    const sectionMarks = (section.questions ?? []).reduce((sum: number, q: any) => sum + (q.marks ?? 0), 0);
     return {
       title: section.title,
       questionCount: section.questions.length,
@@ -39,9 +36,9 @@ function computeGeneratedFromPaper(paper: PaperLike | null): {
     };
   });
 
-  const questions = (paper.sections ?? []).flatMap((s) => s.questions ?? []);
+  const questions = (paper.sections ?? []).flatMap((s: any) => s.questions ?? []);
   const generatedQuestionCount = questions.length;
-  const generatedMarks = questions.reduce((sum, q) => sum + (q.marks ?? 0), 0);
+  const generatedMarks = questions.reduce((sum: number, q: any) => sum + (q.marks ?? 0), 0);
   const answerKeyReady = generatedQuestionCount > 0 && questions.every((q) => Boolean(q.answer?.text?.trim()));
 
   return { generatedMarks, generatedQuestionCount, answerKeyReady, sections };
@@ -52,8 +49,8 @@ function clampProgress(value: number): number {
 }
 
 export function buildCanonicalPaperMetadata(
-  assignment: IAssignment,
-  paper: IGeneratedPaper | null
+  assignment: any,
+  paper: any | null
 ): CanonicalPaperMetadata {
   const { requestedMarks, requestedQuestionCount } = computeRequestedFromAssignment(assignment);
   const generated = computeGeneratedFromPaper(paper);
@@ -61,23 +58,23 @@ export function buildCanonicalPaperMetadata(
   return {
     title: assignment.title,
     subject: assignment.subject,
-    className: (assignment as unknown as { className?: string }).className ?? 'Not Specified',
+    className: assignment.className ?? 'Not Specified',
     durationMinutes: assignment.duration ?? paper?.duration ?? 45,
     requestedMarks,
     generatedMarks: generated.generatedMarks,
     requestedQuestionCount,
     generatedQuestionCount: generated.generatedQuestionCount,
-    schoolName: (assignment as unknown as { schoolName?: string }).schoolName ?? 'School',
+    schoolName: assignment.schoolName ?? 'School',
     sections: generated.sections,
     answerKeyReady: generated.answerKeyReady,
-    pdfReady: Boolean('pdfUrl' in (paper ?? {}) ? (paper as IGeneratedPaper).pdfUrl : false),
+    pdfReady: Boolean(paper?.pdfUrl),
   };
 }
 
 export function buildCanonicalGenerationState(input: {
-  assignment: IAssignment;
-  paper: IGeneratedPaper | null;
-  job: IGenerationJob | null;
+  assignment: any;
+  paper: any | null;
+  job: any | null;
 }): CanonicalGenerationState {
   const { assignment, paper, job } = input;
   const canonicalMetadata = buildCanonicalPaperMetadata(assignment, paper);
