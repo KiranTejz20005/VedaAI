@@ -14,6 +14,7 @@ interface GeneratedQuestion {
   difficulty: string;
   bloomLevel: string;
   ai_confidence_score: number;
+  hint?: string;
 }
 
 interface Quiz {
@@ -67,6 +68,7 @@ interface ApiQuizSession {
     difficulty: string;
     bloomLevel: string;
     aiConfidenceScore: number;
+    hint?: string;
   }>;
 }
 
@@ -106,6 +108,7 @@ export default function GeneratePage() {
       difficulty: q.difficulty,
       bloomLevel: q.bloomLevel,
       ai_confidence_score: q.aiConfidenceScore,
+      hint: q.hint,
     })),
     timeLimitSeconds: s.timeLimitSeconds,
     timeTakenSeconds: s.timeTakenSeconds,
@@ -569,6 +572,35 @@ export default function GeneratePage() {
                         {q.question_text}
                       </p>
 
+                      {q.hint && (
+                        <div style={{ marginBottom: 16 }}>
+                          <button
+                            type="button"
+                            onClick={() => toggleRevealAnswer(`hint-active-${qIdx}`)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '4px 10px',
+                              background: '#FEF3C7',
+                              border: '1px solid #FCD34D',
+                              borderRadius: 6,
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: '#D97706',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            💡 {revealedAnswers[`hint-active-${qIdx}`] ? 'Hide Hint' : 'Show Hint'}
+                          </button>
+                          {revealedAnswers[`hint-active-${qIdx}`] && (
+                            <p style={{ marginTop: 8, fontSize: 13, color: '#B45309', background: '#FFFDF5', padding: 8, borderRadius: 6, borderLeft: '3px solid #F59E0B' }}>
+                              {q.hint}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
                       {q.options && q.options.length > 0 && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
                           {q.options.map((opt, i) => {
@@ -841,6 +873,35 @@ export default function GeneratePage() {
                               <p style={{ fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.5, marginBottom: 12, fontWeight: 500, whiteSpace: 'pre-wrap' }}>
                                 {q.question_text}
                               </p>
+
+                              {q.hint && (
+                                <div style={{ marginBottom: 12 }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleRevealAnswer(`hint-history-${hQuiz.id}-${qIdx}`)}
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      padding: '2px 8px',
+                                      background: '#FEF3C7',
+                                      border: '1px solid #FCD34D',
+                                      borderRadius: 4,
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      color: '#D97706',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    💡 {revealedAnswers[`hint-history-${hQuiz.id}-${qIdx}`] ? 'Hide Hint' : 'Show Hint'}
+                                  </button>
+                                  {revealedAnswers[`hint-history-${hQuiz.id}-${qIdx}`] && (
+                                    <p style={{ marginTop: 6, fontSize: 12, color: '#B45309', background: '#FFFDF5', padding: 6, borderRadius: 4, borderLeft: '3px solid #F59E0B' }}>
+                                      {q.hint}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
 
                               {q.options && q.options.length > 0 && (
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8, marginBottom: 12 }}>

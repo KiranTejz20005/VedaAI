@@ -30,6 +30,7 @@ export const generateQuestion = async (req: Request, res: Response): Promise<voi
           content: question.question_text,
           options: question.options as any,
           answer: question.answer,
+          hint: question.hint,
           difficulty: (difficulty || 'MEDIUM') as any,
           bloomLevel: (bloomLevel || 'APPLY') as any,
           author: {
@@ -107,6 +108,7 @@ export const saveQuizSession = async (req: Request, res: Response): Promise<void
             questionText: q.question_text,
             options: q.options || [],
             answer: q.answer || '',
+            hint: q.hint || '',
             difficulty: q.difficulty || difficulty || 'MEDIUM',
             bloomLevel: q.bloomLevel || bloomLevel || 'APPLY',
             aiConfidenceScore: q.ai_confidence_score || 0.85,

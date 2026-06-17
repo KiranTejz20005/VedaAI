@@ -10,6 +10,7 @@ interface GeneratedQuestion {
   difficulty: string;
   bloomLevel: string;
   ai_confidence_score: number;
+  hint?: string;
 }
 
 let nvidiaClient: OpenAI | null = null;
@@ -44,8 +45,9 @@ Rules:
 - Question must be clear, specific, and test meaningful knowledge
 - Include 4 plausible options (A, B, C, D)
 - Mark the correct answer clearly
+- Include a helpful, subtle hint (max 1 sentence) that guides the user without directly giving away the correct option
 - Return ONLY valid JSON with NO markdown formatting
-- Output format: {"question_text":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}
+- Output format: {"question_text":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","hint":"..."}
 
 The answer value must be exactly "A", "B", "C", or "D".`;
 
@@ -148,5 +150,6 @@ export async function generateSingleQuestion(params: {
     difficulty: params.difficulty,
     bloomLevel: params.bloomLevel,
     ai_confidence_score: 0.85,
+    hint: (parsed.hint as string) || undefined,
   };
 }

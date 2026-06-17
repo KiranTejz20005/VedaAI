@@ -153,6 +153,7 @@ model Question {
   content     String   // markdown or rich text
   options     Json?    // for MCQs
   answer      String?  
+  hint        String?
   subjectId   String?
   unitId      String?
   difficulty  Difficulty
@@ -307,6 +308,7 @@ model QuizSessionQuestion {
   questionText     String
   options          Json        // string[]
   answer           String
+  hint             String?
   difficulty       String
   bloomLevel       String
   aiConfidenceScore Float      @default(0.85)
