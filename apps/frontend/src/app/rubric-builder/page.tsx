@@ -69,12 +69,6 @@ export default function RubricBuilderPage() {
     }
   };
 
-  const handleSave = () => {
-    if (!title.trim()) { toast.error('Enter a rubric title'); return; }
-    localStorage.setItem(`rubric-${Date.now()}`, JSON.stringify({ title, criteria }));
-    toast.success('Rubric saved locally');
-  };
-
   const totalPoints = criteria[0]?.levels.length
     ? Math.max(...criteria[0].levels.map((l) => l.points)) * criteria.length
     : 0;
@@ -94,9 +88,6 @@ export default function RubricBuilderPage() {
         <button className="btn btn-secondary" onClick={handleAISuggest} disabled={generating} style={{ gap: 6 }}>
           {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
           AI Suggest
-        </button>
-        <button className="btn btn-primary" onClick={handleSave} style={{ gap: 6 }}>
-          Save Rubric
         </button>
       </div>
 

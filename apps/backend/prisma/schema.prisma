@@ -52,6 +52,7 @@ model User {
   institution   Institution? @relation(fields: [institutionId], references: [id])
   departmentId  String?
   department    Department? @relation(fields: [departmentId], references: [id])
+  preferences   Json?    // { emailNotifications, darkMode, autoSave, weeklyDigest, ... }
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -59,6 +60,78 @@ model User {
   reviews       QuestionReview[]
   assessments   Assessment[]
 }
+
+// ── Classes & Students ──
+
+model ClassGroup {
+  id        String    @id @default(uuid())
+  name      String
+  subject   String    @default("General")
+  userId    String    @default("demo-faculty-id")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  students  Student[]
+
+  @@index([userId])
+}
+
+model Student {
+  id        String     @id @default(uuid())
+  groupId   String
+  group     ClassGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name      String
+  rollNo    String
+  email     String
+  isActive  Boolean    @default(true)
+  joinedAt  DateTime   @default(now())
+
+  @@index([groupId])
+}
+
+// ── Syllabus ──
+
+model Syllabus {
+  id        String          @id @default(uuid())
+  title     String
+  subject   String
+  grade     String
+  status    String          @default("active") // active | draft | archived
+  userId    String          @default("demo-faculty-id")
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  topics    SyllabusTopic[]
+
+  @@index([userId])
+}
+
+model SyllabusTopic {
+  id          String             @id @default(uuid())
+  syllabusId  String
+  syllabus    Syllabus           @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  duration    Int               @default(60)
+  completed   Boolean           @default(false)
+  topicOrder  Int               @default(0)
+  subtopics   SyllabusSubtopic[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([syllabusId])
+}
+
+model SyllabusSubtopic {
+  id          String        @id @default(uuid())
+  topicId     String
+  topic       SyllabusTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  title       String
+  completed   Boolean       @default(false)
+  topicOrder  Int           @default(0)
+  createdAt   DateTime      @default(now())
+
+  @@index([topicId])
+}
+
 
 enum Difficulty {
   EASY
@@ -202,4 +275,42 @@ model GenerationJob {
   @@index([assignmentId, status])
   @@index([assignmentId, generationSeq, createdAt])
   @@index([status, createdAt])
+}
+
+// ── Quiz Sessions (for /generate quiz feature) ──
+
+model QuizSession {
+  id               String              @id @default(uuid())
+  topic            String
+  subject          String
+  difficulty       String
+  bloomLevel       String
+  timeLimitSeconds Int
+  timeTakenSeconds Int
+  totalQuestions   Int
+  score            Int
+  attempts         Json                // { questionIndex: chosenLetter }
+  userId           String              @default("demo-faculty-id")
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  questions        QuizSessionQuestion[]
+
+  @@index([userId, createdAt])
+}
+
+model QuizSessionQuestion {
+  id               String      @id @default(uuid())
+  sessionId        String
+  session          QuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionIndex    Int
+  questionText     String
+  options          Json        // string[]
+  answer           String
+  difficulty       String
+  bloomLevel       String
+  aiConfidenceScore Float      @default(0.85)
+  createdAt        DateTime   @default(now())
+
+  @@index([sessionId])
 }

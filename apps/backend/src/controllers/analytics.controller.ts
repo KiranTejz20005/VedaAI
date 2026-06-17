@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 
-export const getDashboardStats = async (req: Request, res: Response) => {
+export const getDashboardStats = async (_req: Request, res: Response) => {
   try {
     // 1. Get total counts
     const totalQuestions = await prisma.question.count();
@@ -20,12 +20,12 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       _count: { difficulty: true }
     });
 
-    const bloomData = bloomDistribution.map(b => ({
+    const bloomData = bloomDistribution.map((b: any) => ({
       level: b.bloomLevel,
       count: b._count.bloomLevel
     }));
 
-    const difficultyData = difficultyDistribution.map(d => ({
+    const difficultyData = difficultyDistribution.map((d: any) => ({
       level: d.difficulty,
       count: d._count.difficulty
     }));

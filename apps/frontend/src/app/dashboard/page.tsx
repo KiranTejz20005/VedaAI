@@ -31,8 +31,7 @@ export default function DashboardPage() {
       setError(null);
       const data = await fetchDashboardStats();
       setStats(data);
-    } catch (err) {
-      console.error('Failed to load dashboard stats:', err);
+    } catch {
       setError('Could not connect to the API server.');
       toast.error('Failed to load dashboard stats');
     } finally {

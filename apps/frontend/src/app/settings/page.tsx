@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Bell, Shield, Palette, Database, ChevronRight, Building2,
-  Loader2, AlertCircle, Check, X, Eye, EyeOff, Moon, Sun, Globe,
-  Key, Smartphone, Download, Trash2, Save,
+  Loader2, Check, Moon, Sun, Globe, Key, Smartphone, Download, Trash2, Save,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/services/api.client';
@@ -17,6 +16,8 @@ interface UserProfile {
   firstName: string;
   lastName: string;
   institutionName: string;
+  departmentName?: string;
+  preferences?: Record<string, boolean>;
 }
 
 type SectionId = 'account' | 'school' | 'notifications' | 'appearance' | 'privacy' | 'data';
@@ -38,16 +39,16 @@ function Toggle({ enabled, onChange }: { enabled: boolean; onChange: () => void 
   );
 }
 
-function SectionPanel({ id, onClose }: { id: SectionId; onClose: () => void }) {
+function SectionPanel({ id, onClose, profile, onProfileUpdate }: { id: SectionId; onClose: () => void; profile: UserProfile | null; onProfileUpdate: () => void }) {
   switch (id) {
     case 'account':
-      return <AccountPanel onClose={onClose} />;
+      return <AccountPanel onClose={onClose} profile={profile} onProfileUpdate={onProfileUpdate} />;
     case 'school':
-      return <SchoolPanel onClose={onClose} />;
+      return <SchoolPanel onClose={onClose} profile={profile} onProfileUpdate={onProfileUpdate} />;
     case 'notifications':
-      return <NotificationsPanel onClose={onClose} />;
+      return <NotificationsPanel onClose={onClose} profile={profile} onProfileUpdate={onProfileUpdate} />;
     case 'appearance':
-      return <AppearancePanel onClose={onClose} />;
+      return <AppearancePanel onClose={onClose} profile={profile} onProfileUpdate={onProfileUpdate} />;
     case 'privacy':
       return <PrivacyPanel onClose={onClose} />;
     case 'data':
@@ -57,16 +58,27 @@ function SectionPanel({ id, onClose }: { id: SectionId; onClose: () => void }) {
   }
 }
 
-function AccountPanel({ onClose }: { onClose: () => void }) {
-  const [name, setName] = useState(() => localStorage.getItem('settings_name') || 'Admin User');
-  const [email, setEmail] = useState(() => localStorage.getItem('settings_email') || 'admin@example.com');
+function AccountPanel({ onClose, profile, onProfileUpdate }: { onClose: () => void; profile: UserProfile | null; onProfileUpdate: () => void }) {
+  const fullName = profile ? `${profile.firstName} ${profile.lastName}` : '';
+  const [name, setName] = useState(fullName);
+  const [email, setEmail] = useState(profile?.email || '');
   const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    localStorage.setItem('settings_name', name);
-    localStorage.setItem('settings_email', email);
-    setTimeout(() => { setSaving(false); toast.success('Profile updated'); onClose(); }, 300);
+    const parts = name.trim().split(/\s+/);
+    const firstName = parts[0] || 'User';
+    const lastName = parts.slice(1).join(' ') || 'Name';
+    try {
+      await apiClient.put('/auth/me', { firstName, lastName, email: email.trim() });
+      toast.success('Profile updated');
+      onProfileUpdate();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update profile');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -94,17 +106,28 @@ function AccountPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
-function SchoolPanel({ onClose }: { onClose: () => void }) {
-  const [school, setSchool] = useState(() => localStorage.getItem('settings_school') || 'Demo International School');
-  const [dept, setDept] = useState(() => localStorage.getItem('settings_dept') || 'Science');
-  const [year, setYear] = useState(() => localStorage.getItem('settings_year') || '2025-2026');
+function SchoolPanel({ onClose, profile, onProfileUpdate }: { onClose: () => void; profile: UserProfile | null; onProfileUpdate: () => void }) {
+  const [school, setSchool] = useState(profile?.institutionName || '');
+  const [dept, setDept] = useState(profile?.departmentName || 'Science');
+  const [year, setYear] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    localStorage.setItem('settings_school', school);
-    localStorage.setItem('settings_dept', dept);
-    localStorage.setItem('settings_year', year);
-    toast.success('School settings saved');
-    onClose();
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await apiClient.put('/auth/me/institution', {
+        institutionName: school,
+        department: dept,
+        academicYear: year,
+      });
+      toast.success('School settings saved');
+      onProfileUpdate();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to save school settings');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -126,27 +149,40 @@ function SchoolPanel({ onClose }: { onClose: () => void }) {
       </div>
       <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
         <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary" onClick={handleSave} style={{ gap: 6 }}><Save size={14} /> Save</button>
+        <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ gap: 6 }}>
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save
+        </button>
       </div>
     </div>
   );
 }
 
-function NotificationsPanel({ onClose }: { onClose: () => void }) {
-  const [prefs, setPrefs] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('settings_notifications') || '{}'); } catch { return {}; }
-  });
+function NotificationsPanel({ onClose, profile, onProfileUpdate }: { onClose: () => void; profile: UserProfile | null; onProfileUpdate: () => void }) {
+  const [prefs, setPrefs] = useState<Record<string, boolean>>(profile?.preferences || {});
+  const [saving, setSaving] = useState(false);
   const items = [
-    { key: 'emailNotif', label: 'Email Notifications', desc: 'Receive email updates' },
-    { key: 'inApp', label: 'In-App Alerts', desc: 'Show notifications in app' },
+    { key: 'emailNotifications', label: 'Email Notifications', desc: 'Receive email updates' },
+    { key: 'inAppAlerts', label: 'In-App Alerts', desc: 'Show notifications in app' },
     { key: 'weeklyDigest', label: 'Weekly Digest', desc: 'Weekly summary email' },
     { key: 'assignmentUpdates', label: 'Assignment Updates', desc: 'Status changes on assignments' },
   ];
 
   const handleToggle = (key: string) => {
-    const next = { ...prefs, [key]: !prefs[key] };
-    setPrefs(next);
-    localStorage.setItem('settings_notifications', JSON.stringify(next));
+    setPrefs(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await apiClient.put('/auth/me/preferences', { preferences: prefs });
+      toast.success('Notification preferences saved');
+      onProfileUpdate();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to save preferences');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -164,23 +200,35 @@ function NotificationsPanel({ onClose }: { onClose: () => void }) {
         ))}
       </div>
       <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
-        <button className="btn btn-primary" onClick={() => { toast.success('Notification preferences saved'); onClose(); }} style={{ gap: 6 }}><Save size={14} /> Save</button>
+        <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ gap: 6 }}>
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save
+        </button>
       </div>
     </div>
   );
 }
 
-function AppearancePanel({ onClose }: { onClose: () => void }) {
-  const [theme, setTheme] = useState(() => localStorage.getItem('settings_theme') || 'light');
-  const [fontSize, setFontSize] = useState(() => localStorage.getItem('settings_font') || 'medium');
-  const [lang, setLang] = useState(() => localStorage.getItem('settings_lang') || 'english');
+function AppearancePanel({ onClose, profile, onProfileUpdate }: { onClose: () => void; profile: UserProfile | null; onProfileUpdate: () => void }) {
+  const prefs = profile?.preferences || {};
+  const [theme, setTheme] = useState(prefs.darkMode ? 'dark' : 'light');
+  const [fontSize, setFontSize] = useState('medium');
+  const [lang, setLang] = useState('english');
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    localStorage.setItem('settings_theme', theme);
-    localStorage.setItem('settings_font', fontSize);
-    localStorage.setItem('settings_lang', lang);
-    toast.success('Appearance settings saved');
-    onClose();
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await apiClient.put('/auth/me/preferences', {
+        preferences: { ...prefs, darkMode: theme === 'dark' },
+      });
+      toast.success('Appearance settings saved');
+      onProfileUpdate();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to save appearance');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -222,7 +270,9 @@ function AppearancePanel({ onClose }: { onClose: () => void }) {
       </div>
       <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
         <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary" onClick={handleSave} style={{ gap: 6 }}><Save size={14} /> Save</button>
+        <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ gap: 6 }}>
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save
+        </button>
       </div>
     </div>
   );
@@ -302,18 +352,34 @@ function DataPanel({ onClose }: { onClose: () => void }) {
 export default function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [toggles, setToggles] = useState([true, false, true, false]);
   const [activeSection, setActiveSection] = useState<SectionId | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    apiClient.get<{ success: boolean; data: UserProfile }>('/auth/me')
-      .then((res) => { if (!cancelled) setProfile(res.data.data); })
-      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load profile'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+  const loadProfile = useCallback(async () => {
+    try {
+      const res = await apiClient.get<{ success: boolean; data: UserProfile }>('/auth/me');
+      setProfile(res.data.data);
+    } catch {
+      // will show empty state
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { void loadProfile(); }, [loadProfile]);
+
+  const prefs = profile?.preferences || {};
+  const [toggles, setToggles] = useState([true, false, true, false]);
+  // Sync toggles from profile prefs once loaded
+  useEffect(() => {
+    if (profile?.preferences) {
+      setToggles([
+        !!prefs.emailNotifications,
+        !!prefs.darkMode,
+        !!prefs.autoSave,
+        !!prefs.weeklyDigest,
+      ]);
+    }
+  }, [profile]);
 
   const handleToggleChange = async (index: number) => {
     const newToggles = toggles.map((v, j) => (j === index ? !v : v));
@@ -422,9 +488,9 @@ export default function SettingsPage() {
 
       <AnimatePresence>
         {activeSection && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setActiveSection(null)}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setActiveSection(null)}>
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} style={{ background: 'white', borderRadius: 20, width: '100%', maxWidth: 520, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
-              <SectionPanel id={activeSection} onClose={() => setActiveSection(null)} />
+              <SectionPanel id={activeSection} onClose={() => setActiveSection(null)} profile={profile} onProfileUpdate={loadProfile} />
             </motion.div>
           </motion.div>
         )}

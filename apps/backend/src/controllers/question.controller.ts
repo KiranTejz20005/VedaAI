@@ -38,7 +38,7 @@ export const createQuestion = async (req: Request, res: Response) => {
   }
 };
 
-export const getQuestions = async (req: Request, res: Response) => {
+export const getQuestions = async (_req: Request, res: Response) => {
   try {
     const questions = await prisma.question.findMany({
       include: {
@@ -60,11 +60,14 @@ export const getQuestionById = async (req: Request, res: Response) => {
       }
     });
     if (!question) {
-      return res.status(404).json({ success: false, error: 'Question not found' });
+      res.status(404).json({ success: false, error: 'Question not found' });
+      return;
     }
     res.json({ success: true, data: question });
+    return;
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to fetch question' });
+    return;
   }
 };
 

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Loader2, CheckCircle, AlertCircle, ImageOff, Check, X, Eye, History, Trash2, RotateCcw, Clock, Award, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import { Sparkles, Loader2, CheckCircle, AlertCircle, ImageOff, Check, X, Eye, History, Trash2, RotateCcw, Clock, Award, BookOpen, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/services/api.client';
 
@@ -34,12 +34,40 @@ interface HistoryQuiz {
   id: string;
   topic: string;
   subject: string;
+  difficulty: string;
+  bloomLevel: string;
   questions: GeneratedQuestion[];
   timeLimitSeconds: number;
   timeTakenSeconds: number;
   attempts: Record<number, string>;
   score: number;
   timestamp: number;
+}
+
+// Shape returned by GET /api/v1/generate/history
+interface ApiQuizSession {
+  id: string;
+  topic: string;
+  subject: string;
+  difficulty: string;
+  bloomLevel: string;
+  timeLimitSeconds: number;
+  timeTakenSeconds: number;
+  totalQuestions: number;
+  score: number;
+  attempts: Record<string, string>;
+  userId: string;
+  createdAt: string;
+  questions: Array<{
+    id: string;
+    questionIndex: number;
+    questionText: string;
+    options: string[];
+    answer: string;
+    difficulty: string;
+    bloomLevel: string;
+    aiConfidenceScore: number;
+  }>;
 }
 
 export default function GeneratePage() {
@@ -58,29 +86,67 @@ export default function GeneratePage() {
   
   // History State
   const [history, setHistory] = useState<HistoryQuiz[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'generate' | 'history'>('generate');
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [revealedAnswers, setRevealedAnswers] = useState<Record<string, boolean>>({});
 
-  // Load history on mount
-  useEffect(() => {
+  // Convert API session to HistoryQuiz
+  const mapSessionToHistory = (s: ApiQuizSession): HistoryQuiz => ({
+    id: s.id,
+    topic: s.topic,
+    subject: s.subject,
+    difficulty: s.difficulty,
+    bloomLevel: s.bloomLevel,
+    questions: s.questions.map((q) => ({
+      id: q.id,
+      question_text: q.questionText,
+      options: q.options,
+      answer: q.answer,
+      difficulty: q.difficulty,
+      bloomLevel: q.bloomLevel,
+      ai_confidence_score: q.aiConfidenceScore,
+    })),
+    timeLimitSeconds: s.timeLimitSeconds,
+    timeTakenSeconds: s.timeTakenSeconds,
+    attempts: s.attempts as Record<number, string>,
+    score: s.score,
+    timestamp: new Date(s.createdAt).getTime(),
+  });
+
+  // Load history from database
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
     try {
-      const stored = localStorage.getItem('shiksha_generate_quizzes');
-      if (stored) {
-        setHistory(JSON.parse(stored));
-      }
-    } catch (e) {
-      console.error('Failed to load history', e);
+      const res = await apiClient.get<{ success: boolean; data: ApiQuizSession[] }>('/generate/history');
+      setHistory(res.data.data.map(mapSessionToHistory));
+    } catch {
+      setHistory([]);
+    } finally {
+      setHistoryLoading(false);
     }
   }, []);
 
-  // Save history helper
-  const saveHistory = (newHistory: HistoryQuiz[]) => {
-    setHistory(newHistory);
+  // Load history on mount
+  useEffect(() => { void loadHistory(); }, [loadHistory]);
+
+  // Save a completed quiz session to database
+  const persistSession = async (quiz: Quiz, score: number, timeTaken: number): Promise<string | null> => {
     try {
-      localStorage.setItem('shiksha_generate_quizzes', JSON.stringify(newHistory));
-    } catch (e) {
-      console.error('Failed to save history', e);
+      const res = await apiClient.post<{ success: boolean; data: { id: string } }>('/generate/session', {
+        topic: quiz.topic,
+        subject: quiz.subject,
+        difficulty: formData.difficulty,
+        bloomLevel: formData.bloom_level,
+        timeLimitSeconds: quiz.timeLimitSeconds,
+        timeTakenSeconds: timeTaken,
+        score,
+        attempts: quiz.attempts,
+        questions: quiz.questions,
+      });
+      return res.data.data.id;
+    } catch {
+      return null;
     }
   };
 
@@ -127,10 +193,14 @@ export default function GeneratePage() {
     });
 
     const timeTaken = quiz.timeLimitSeconds - quiz.timeRemainingSeconds;
+
+    // Build optimistic history entry for immediate UI update
     const historyQuiz: HistoryQuiz = {
       id: quiz.id,
       topic: quiz.topic,
       subject: quiz.subject,
+      difficulty: formData.difficulty,
+      bloomLevel: formData.bloom_level,
       questions: quiz.questions,
       timeLimitSeconds: quiz.timeLimitSeconds,
       timeTakenSeconds: timeTaken,
@@ -139,7 +209,10 @@ export default function GeneratePage() {
       timestamp: Date.now()
     };
 
-    saveHistory([historyQuiz, ...history]);
+    // Optimistic UI update, then persist to DB
+    setHistory(prev => [historyQuiz, ...prev]);
+    void persistSession(quiz, score, timeTaken).then(() => { void loadHistory(); });
+
     setActiveQuiz(prev => prev ? { ...prev, isSubmitted: true, score, timeTakenSeconds: timeTaken } : null);
     toast.success(`Quiz Completed! You scored ${score}/${quiz.questions.length}`);
   };
@@ -260,10 +333,14 @@ export default function GeneratePage() {
     toast.success('Retrying past quiz! Timer started.');
   };
 
-  const handleClearHistory = () => {
-    if (window.confirm('Are you sure you want to clear your quiz history?')) {
-      saveHistory([]);
+  const handleClearHistory = async () => {
+    if (!window.confirm('Are you sure you want to clear your quiz history?')) return;
+    try {
+      await apiClient.delete('/generate/history');
+      setHistory([]);
       toast.success('History cleared.');
+    } catch {
+      toast.error('Failed to clear history');
     }
   };
 
@@ -616,6 +693,15 @@ export default function GeneratePage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
               <History size={18} /> Quiz History ({history.length})
+              <button
+                type="button"
+                onClick={() => void loadHistory()}
+                disabled={historyLoading}
+                title="Refresh history from database"
+                style={{ background: 'none', border: 'none', cursor: historyLoading ? 'default' : 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+              >
+                <RefreshCw size={14} style={{ opacity: 0.5, animation: historyLoading ? 'spin 1s linear infinite' : 'none' }} />
+              </button>
             </h2>
             {history.length > 0 && (
               <button 
