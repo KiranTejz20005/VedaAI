@@ -1032,6 +1032,8 @@ img, svg, video, canvas { max-width: 100%; height: auto; display: block; }
 }
 
 @media (max-width: 639px) {
+  .hide-mobile { display: none !important; }
+
   .search-filter-row-v3 {
     flex-wrap: nowrap;
     min-height: 50px;
@@ -2518,6 +2520,7 @@ hr { border: none; border-top: 1px solid var(--border); }
    RESPONSIVE: Desktop (1024px+)
    ════════════════════════════════════════════════════════════ */
 @media (min-width: 1024px) {
+  .hide-desktop { display: none !important; }
   .sidebar-overlay { display: none; }
   .sidebar-close-btn, .topbar-hamburger { display: none; }
   .mobile-bottom-nav { display: none; }

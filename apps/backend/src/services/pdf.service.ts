@@ -83,14 +83,14 @@ function buildPaperHtml(paper: IGeneratedPaper): string {
         <ol class="questions" start="${getStartNumber(paper, sIdx)}">
           ${section.questions
             .map(
-              (q) => `
+              (q: any) => `
             <li class="question">
               <div class="q-header">
                 <span class="q-text"><span class="difficulty">[${formatDifficulty(q.difficulty)}]</span> ${escapeHtml(q.question)}</span>
                 <span class="q-marks">[${formatMarks(q.marks)}]</span>
               </div>
               ${q.type === 'mcq' && q.options
-                ? `<ul class="options">${q.options.map((o) => `<li><strong>${escapeHtml(o.key)}.</strong> ${escapeHtml(o.text)}</li>`).join('')}</ul>`
+                ? `<ul class="options">${q.options.map((o: any) => `<li><strong>${escapeHtml(o.key)}.</strong> ${escapeHtml(o.text)}</li>`).join('')}</ul>`
                 : ''}
             </li>`
             )

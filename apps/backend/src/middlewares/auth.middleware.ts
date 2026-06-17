@@ -16,7 +16,7 @@ declare global {
 
 // In a real app, this would verify a JWT token
 // For MVP/Phase 2, we simulate an authenticated user via a custom header or fallback
-export const authenticate = (req: Request, res: Response, next: NextFunction) => {
+export const authenticate = (req: Request, _res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   const mockRole = req.headers['x-mock-role'] as string;
   const mockUserId = req.headers['x-mock-userid'] as string;

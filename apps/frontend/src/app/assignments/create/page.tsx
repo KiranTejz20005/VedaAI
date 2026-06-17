@@ -700,9 +700,6 @@ export default function CreateAssignmentPage() {
         typeBreakdown: JSON.stringify(typeBreakdown),
       };
 
-      console.log('[CreateAssignment] Submitting payload:', JSON.stringify(payload, null, 2));
-      console.log('[CreateAssignment] Files:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
-
       const created = await createAssignment(payload, files);
       const { assignment } = created;
       addAssignment(assignment);
@@ -716,7 +713,6 @@ export default function CreateAssignmentPage() {
       if (e instanceof Error) {
         errorMsg = e.message;
       }
-      console.error('[CreateAssignment] Error:', e);
       toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);

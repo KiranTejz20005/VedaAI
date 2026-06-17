@@ -67,6 +67,17 @@ export default function GroupsPage() {
 
   // Tab state in detail view
   const [activeTab, setActiveTab] = useState<'students' | 'assignments'>('students');
+  const [students, setStudents] = useState<Student[]>([]);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!selectedGroup) return;
+    setStudentsLoading(true);
+    apiClient.get<{ success: boolean; data: Student[] }>(`/groups/${selectedGroup.id}/students`)
+      .then((res) => setStudents(res.data.data))
+      .catch(() => toast.error('Failed to load student roster'))
+      .finally(() => setStudentsLoading(false));
+  }, [selectedGroup]);
 
   // Close card menu when clicking outside
   useEffect(() => {
@@ -119,11 +130,16 @@ export default function GroupsPage() {
     }
   };
 
-  const handleDeleteGroup = (id: string, name: string) => {
+  const handleDeleteGroup = async (id: string, name: string) => {
     if (!window.confirm(`Are you sure you want to delete ${name}?`)) return;
     setGroups(prev => prev.filter(g => g.id !== id));
-    toast.success('Class group deleted');
     setActiveMenuId(null);
+    try {
+      await apiClient.delete(`/groups/${id}`);
+      toast.success('Class group deleted');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to delete group');
+    }
   };
 
   // Generate realistic roster list for selected class
@@ -429,12 +445,16 @@ export default function GroupsPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {getMockStudents(selectedGroup.students).map((student) => (
+                        {studentsLoading ? (
+                          <tr><td colSpan={5} style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}><Loader2 size={16} className="animate-spin" /> Loading students...</td></tr>
+                        ) : students.length === 0 ? (
+                          <tr><td colSpan={5} style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>No students in this group yet.</td></tr>
+                        ) : students.map((student) => (
                           <tr key={student.id} style={{ borderBottom: '1px solid #F3F4F6', fontSize: 14 }}>
                             <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-secondary)' }}>{student.rollNo}</td>
                             <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-primary)' }}>{student.name}</td>
                             <td style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>{student.email}</td>
-                            <td style={{ padding: '14px 16px', color: 'var(--text-muted)' }}>{student.joinedAt}</td>
+                            <td style={{ padding: '14px 16px', color: 'var(--text-muted)' }}>{new Date(student.joinedAt).toLocaleDateString()}</td>
                             <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                               <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 100, background: '#D1FAE5', color: '#059669', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                 <CheckCircle size={10} /> Active

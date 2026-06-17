@@ -3,32 +3,17 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Plus,
-  Search,
-  GraduationCap,
-  BookOpen,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  MoreVertical,
-  ChevronDown,
-  ChevronRight,
-  TrendingUp,
-  Atom,
-  FlaskConical,
-  Activity,
-  Calculator,
-  Compass,
-  FileText,
-  Trash2,
-  Check
+  Plus, Search, GraduationCap, BookOpen,
+  AlertCircle, Loader2, MoreVertical,
+  ChevronDown, ChevronRight,
+  Atom, FlaskConical, Activity, Calculator, Compass,
+  FileText, Trash2, Check,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { fetchSyllabuses, createSyllabus, deleteSyllabus, updateSyllabus } from '@/services/syllabus.service';
+import { fetchSyllabuses, createSyllabus, deleteSyllabus, updateSyllabus, addTopic, updateTopic } from '@/services/syllabus.service';
 import type { Syllabus, SyllabusTopic } from '@/types/syllabus.types';
 
-const GRADES = ['Class 9', 'Class 10', 'Class 11', 'Class 12'];
+const GRADES = ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
 const SUBJECTS = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'Computer Science', 'English', 'History', 'Geography', 'Economics'];
 
 // Helper to get nice icons for subjects
@@ -42,34 +27,46 @@ const getSubjectIcon = (subject: string) => {
   return <BookOpen size={22} color="#6B7280" />;
 };
 
-function CreateSyllabusModal({ onClose, onCreated }: { onClose: () => void; onCreated: (s: Syllabus) => void }) {
-  const [title, setTitle] = useState('');
-  const [subject, setSubject] = useState('');
-  const [grade, setGrade] = useState('Class 10');
-  const [creating, setCreating] = useState(false);
+function CreateSyllabusModal({ onClose, onCreated, defaultGrade = 'Class 10', editSyllabus }: {
+  onClose: () => void;
+  onCreated: (s: Syllabus) => void;
+  defaultGrade?: string;
+  editSyllabus?: Syllabus;
+}) {
+  const [title, setTitle] = useState(editSyllabus?.title || '');
+  const [subject, setSubject] = useState(editSyllabus?.subject || '');
+  const [grade, setGrade] = useState(editSyllabus?.grade || defaultGrade);
+  const [saving, setSaving] = useState(false);
+  const isEdit = !!editSyllabus;
 
-  const handleCreate = async () => {
+  const handleSave = async () => {
     if (!title.trim() || !subject || !grade) {
       toast.error('Please fill all fields');
       return;
     }
-    setCreating(true);
+    setSaving(true);
     try {
-      const created = await createSyllabus({ title: title.trim(), subject, grade });
-      toast.success('Syllabus created');
-      onCreated(created);
+      if (isEdit && editSyllabus) {
+        const updated = await updateSyllabus(editSyllabus.id, { title: title.trim(), subject, grade });
+        toast.success('Syllabus updated');
+        onCreated(updated);
+      } else {
+        const created = await createSyllabus({ title: title.trim(), subject, grade });
+        toast.success('Syllabus created');
+        onCreated(created);
+      }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to create syllabus');
+      toast.error(e instanceof Error ? e.message : 'Failed');
     } finally {
-      setCreating(false);
+      setSaving(false);
     }
   };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} style={{ background: 'white', borderRadius: 20, padding: 28, width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Create Subject Syllabus</h2>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>Define a new syllabus for your class subjects.</p>
+        <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{isEdit ? 'Edit Syllabus' : 'Create Subject Syllabus'}</h2>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>{isEdit ? 'Update syllabus details.' : 'Define a new syllabus for your class subjects.'}</p>
 
         <div className="input-group" style={{ marginBottom: 14 }}>
           <label className="label">Syllabus Title</label>
@@ -93,8 +90,8 @@ function CreateSyllabusModal({ onClose, onCreated }: { onClose: () => void; onCr
 
         <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleCreate} disabled={creating}>
-            {creating ? <><Loader2 size={14} className="animate-spin" /> Creating...</> : 'Create Syllabus'}
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+            {saving ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : isEdit ? 'Update' : 'Create Syllabus'}
           </button>
         </div>
       </motion.div>
@@ -122,6 +119,7 @@ export default function SyllabusPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [editSyllabus, setEditSyllabus] = useState<Syllabus | null>(null);
   
   const [selectedGrade, setSelectedGrade] = useState('Class 10');
   const [expandedSyllabusId, setExpandedSyllabusId] = useState<string | null>(null);
@@ -168,25 +166,17 @@ export default function SyllabusPage() {
   };
 
   const handleToggleTopic = async (syllabusId: string, topicId: string, currentCompleted: boolean) => {
-    const syllabus = syllabuses.find(s => s.id === syllabusId);
-    if (!syllabus) return;
-
-    const updatedTopics = syllabus.topics.map(t => {
-      if (t.id === topicId) {
-        return { ...t, completed: !currentCompleted };
-      }
-      return t;
-    });
-
+    const newCompleted = !currentCompleted;
+    // Optimistic update
+    setSyllabuses(prev => prev.map(s =>
+      s.id === syllabusId
+        ? { ...s, topics: s.topics.map(t => t.id === topicId ? { ...t, completed: newCompleted } : t) }
+        : s
+    ));
     try {
-      // Optimistic update
-      setSyllabuses(prev => prev.map(s => s.id === syllabusId ? { ...s, topics: updatedTopics } : s));
-      
-      await updateSyllabus(syllabusId, { topics: updatedTopics });
-      toast.success('Topic status updated successfully!');
+      await updateTopic(syllabusId, topicId, newCompleted);
     } catch (e) {
       toast.error('Failed to sync status with server');
-      // Revert
       loadSyllabuses();
     }
   };
@@ -201,20 +191,10 @@ export default function SyllabusPage() {
     const syllabus = syllabuses.find(s => s.id === syllabusId);
     if (!syllabus) return;
 
-    const newTopic: SyllabusTopic = {
-      id: `topic-${Date.now()}`,
-      title,
-      duration: 60,
-      completed: false,
-      subtopics: []
-    };
-
-    const updatedTopics = [...syllabus.topics, newTopic];
-
     setAddingChapterId(syllabusId);
     try {
-      await updateSyllabus(syllabusId, { topics: updatedTopics });
-      setSyllabuses(prev => prev.map(s => s.id === syllabusId ? { ...s, topics: updatedTopics } : s));
+      const newTopic = await addTopic(syllabusId, { title, duration: 60 });
+      setSyllabuses(prev => prev.map(s => s.id === syllabusId ? { ...s, topics: [...s.topics, newTopic] } : s));
       setNewChapterTitle(prev => ({ ...prev, [syllabusId]: '' }));
       toast.success('Chapter added successfully!');
     } catch (e) {
@@ -260,7 +240,7 @@ export default function SyllabusPage() {
       </div>
 
       {/* Class Level Tabs */}
-      <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, marginBottom: 24, scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {GRADES.map((grade) => (
           <button
             key={grade}
@@ -270,16 +250,17 @@ export default function SyllabusPage() {
               setExpandedSyllabusId(null);
             }}
             style={{
-              padding: '8px 18px',
-              borderRadius: 'var(--radius-pill)',
+              padding: '8px 20px',
+              borderRadius: 100,
               fontSize: 13,
               fontWeight: 700,
-              background: selectedGrade === grade ? 'var(--brand)' : 'transparent',
-              color: selectedGrade === grade ? '#FFFFFF' : 'var(--text-muted)',
-              border: `1px solid ${selectedGrade === grade ? 'var(--brand)' : 'transparent'}`,
+              flexShrink: 0,
+              background: selectedGrade === grade ? 'var(--brand)' : '#FFFFFF',
+              color: selectedGrade === grade ? '#FFFFFF' : 'var(--text-secondary)',
+              border: `1px solid ${selectedGrade === grade ? 'var(--brand)' : 'var(--border)'}`,
               cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              transition: 'all 0.2s ease'
+              boxShadow: selectedGrade === grade ? '0 2px 8px rgba(232,83,29,0.25)' : '0 1px 2px rgba(0,0,0,0.04)',
+              transition: 'all 0.2s ease',
             }}
           >
             {grade}
@@ -330,7 +311,7 @@ export default function SyllabusPage() {
                 {/* Subject Header Row */}
                 <div 
                   onClick={() => setExpandedSyllabusId(isExpanded ? null : syllabus.id)}
-                  style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', background: '#F9FAFB' }}
+                  style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', background: isExpanded ? '#F9FAFB' : '#FFFFFF', borderBottom: isExpanded ? '1px solid var(--border)' : 'none', transition: 'background 0.2s' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1, minWidth: 0 }}>
                     <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--brand-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -349,7 +330,7 @@ export default function SyllabusPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 16 }} onClick={e => e.stopPropagation()}>
                     {/* Progress indicator */}
                     {syllabus.topics.length > 0 && (
-                      <div style={{ width: 140, display: 'none', md: 'block' } as any}>
+                      <div className="hide-mobile" style={{ width: 140 }}>
                         <TopicProgress topics={syllabus.topics} />
                       </div>
                     )}
@@ -374,6 +355,10 @@ export default function SyllabusPage() {
                       <AnimatePresence>
                         {isMenuOpen && (
                           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="dropdown-menu" style={{ right: 0, left: 'auto', zIndex: 10 }}>
+                            <button className="dropdown-item" onClick={() => { setMenuOpenId(null); setEditSyllabus(syllabus); }}>
+                              <FileText size={14} style={{ marginRight: 6 }} /> Edit Syllabus
+                            </button>
+                            <div className="dropdown-divider" />
                             <button className="dropdown-item danger" onClick={() => { setMenuOpenId(null); handleDelete(syllabus.id); }}>
                               <Trash2 size={14} style={{ marginRight: 6 }} /> Delete Syllabus
                             </button>
@@ -384,9 +369,9 @@ export default function SyllabusPage() {
                   </div>
                 </div>
 
-                {/* Progress bar for mobile */}
-                {syllabus.topics.length > 0 && (
-                  <div style={{ padding: '0 24px 12px 24px', background: '#F9FAFB', borderBottom: isExpanded ? '1px solid var(--border)' : 'none' }}>
+                {/* Progress bar for mobile (collapsed only) */}
+                {!isExpanded && syllabus.topics.length > 0 && (
+                  <div className="hide-desktop" style={{ padding: '0 24px 16px 24px' }}>
                     <TopicProgress topics={syllabus.topics} />
                   </div>
                 )}
@@ -502,16 +487,26 @@ export default function SyllabusPage() {
         </div>
       )}
 
-      {/* Create Modal */}
+      {/* Create / Edit Modal */}
       <AnimatePresence>
         {showCreate && (
           <CreateSyllabusModal
+            defaultGrade={selectedGrade}
             onClose={() => setShowCreate(false)}
             onCreated={(s) => { 
               setSyllabuses((prev) => [s, ...prev]); 
               setShowCreate(false); 
-              setSelectedGrade(s.grade);
               setExpandedSyllabusId(s.id);
+            }}
+          />
+        )}
+        {editSyllabus && (
+          <CreateSyllabusModal
+            editSyllabus={editSyllabus}
+            onClose={() => setEditSyllabus(null)}
+            onCreated={(updated) => {
+              setSyllabuses((prev) => prev.map(s => s.id === updated.id ? updated : s));
+              setEditSyllabus(null);
             }}
           />
         )}

@@ -1,5 +1,5 @@
 import { apiClient, deduplicateRequest } from './api.client';
-import type { Syllabus, SyllabusListResponse, SyllabusDetailResponse } from '@/types/syllabus.types';
+import type { Syllabus, SyllabusTopic, SyllabusListResponse, SyllabusDetailResponse } from '@/types/syllabus.types';
 
 export async function fetchSyllabuses(): Promise<Syllabus[]> {
   const res = await apiClient.get<SyllabusListResponse>('/syllabus');
@@ -25,4 +25,13 @@ export async function updateSyllabus(id: string, data: Partial<Syllabus>): Promi
 
 export async function deleteSyllabus(id: string): Promise<void> {
   await apiClient.delete(`/syllabus/${id}`);
+}
+
+export async function addTopic(syllabusId: string, data: { title: string; duration?: number; description?: string }): Promise<SyllabusTopic> {
+  const res = await apiClient.post<{ success: boolean; data: SyllabusTopic }>(`/syllabus/${syllabusId}/topics`, data);
+  return res.data.data;
+}
+
+export async function updateTopic(syllabusId: string, topicId: string, completed: boolean): Promise<void> {
+  await apiClient.patch(`/syllabus/${syllabusId}/topics/${topicId}`, { completed });
 }

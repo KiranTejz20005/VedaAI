@@ -15,7 +15,8 @@ export const exportAssessmentPdf = async (req: Request, res: Response) => {
     });
 
     if (!assessment) {
-      return res.status(404).json({ success: false, error: 'Assessment not found' });
+      res.status(404).json({ success: false, error: 'Assessment not found' });
+      return;
     }
 
     // MVP: Instead of actually spinning up Puppeteer, we return raw HTML or a success flag
@@ -29,7 +30,9 @@ export const exportAssessmentPdf = async (req: Request, res: Response) => {
         downloadUrl: `/api/v1/exports/${assessmentId}/download.pdf` // Mock URL
       }
     });
+    return;
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to export assessment' });
+    return;
   }
 };
