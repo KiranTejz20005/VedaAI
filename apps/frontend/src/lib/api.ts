@@ -7,7 +7,8 @@ const isApiDebugEnabled =
   process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_API_DEBUG === 'true';
 
 function getBaseURL(): string {
-  return resolveApiOrigin();
+  const origin = resolveApiOrigin();
+  return origin.endsWith('/api/v1') ? origin : `${origin}/api/v1`;
 }
 
 export const api = axios.create({
