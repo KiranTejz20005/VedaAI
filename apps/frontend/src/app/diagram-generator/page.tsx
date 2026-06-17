@@ -20,6 +20,19 @@ export default function DiagramGeneratorPage() {
   const [type, setType] = useState('flowchart');
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'visual' | 'code'>('visual');
+
+  const getMermaidUrl = (code: string) => {
+    try {
+      const cleaned = code.trim();
+      const encoded = btoa(encodeURIComponent(cleaned).replace(/%([0-9A-F]{2})/g, (match, p1) => {
+        return String.fromCharCode(parseInt(p1, 16));
+      }));
+      return `https://mermaid.ink/svg/${encoded}`;
+    } catch {
+      return '';
+    }
+  };
 
   const handleGenerate = async () => {
     if (!topic.trim()) { toast.error('Enter a topic'); return; }
@@ -69,31 +82,71 @@ export default function DiagramGeneratorPage() {
           className="card"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          style={{ textAlign: 'center' }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
             <h3 style={{ fontSize: 14, fontWeight: 700 }}>Generated Diagram: {topic}</h3>
-            <button className="btn btn-secondary btn-sm" style={{ gap: 4 }} onClick={() => toast.success('PDF export coming soon')}>
-              <Download size={13} /> Export
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button 
+                className="btn btn-secondary btn-sm" 
+                style={{
+                  background: viewMode === 'visual' ? '#E5E7EB' : 'transparent',
+                  fontWeight: viewMode === 'visual' ? 700 : 500
+                }}
+                onClick={() => setViewMode('visual')}
+              >
+                Visual
+              </button>
+              <button 
+                className="btn btn-secondary btn-sm" 
+                style={{
+                  background: viewMode === 'code' ? '#E5E7EB' : 'transparent',
+                  fontWeight: viewMode === 'code' ? 700 : 500
+                }}
+                onClick={() => setViewMode('code')}
+              >
+                Code
+              </button>
+              {viewMode === 'visual' && getMermaidUrl(result) && (
+                <a 
+                  href={getMermaidUrl(result)} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="btn btn-secondary btn-sm" 
+                  style={{ gap: 4, textDecoration: 'none', display: 'flex', alignItems: 'center', height: 28 }}
+                >
+                  <Download size={13} /> Export SVG
+                </a>
+              )}
+            </div>
           </div>
-          <pre style={{
-            fontFamily: 'monospace',
-            fontSize: 14,
-            lineHeight: 1.5,
-            background: '#F9FAFB',
-            borderRadius: 12,
-            padding: 24,
-            textAlign: 'center',
-            overflowX: 'auto',
-            margin: 0,
-            color: 'var(--text-primary)',
-          }}>
-            {result}
-          </pre>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 12 }}>
-            Visual rendering and export features coming soon.
-          </p>
+          
+          {viewMode === 'visual' ? (
+            <div style={{ background: '#FFFFFF', borderRadius: 12, padding: 24, display: 'flex', justifyContent: 'center', alignItems: 'center', border: '1px solid var(--border)', minHeight: 300 }}>
+              <img 
+                src={getMermaidUrl(result)} 
+                alt={`${type} diagram about ${topic}`}
+                style={{ maxWidth: '100%', maxHeight: 400, objectFit: 'contain' }}
+                onError={() => {
+                  toast.error('Failed to render visual diagram. Please check the Code view.');
+                }}
+              />
+            </div>
+          ) : (
+            <pre style={{
+              fontFamily: 'monospace',
+              fontSize: 14,
+              lineHeight: 1.5,
+              background: '#F9FAFB',
+              borderRadius: 12,
+              padding: 24,
+              textAlign: 'left',
+              overflowX: 'auto',
+              margin: 0,
+              color: 'var(--text-primary)',
+            }}>
+              {result}
+            </pre>
+          )}
         </motion.div>
       )}
     </div>

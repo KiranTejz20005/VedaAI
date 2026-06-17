@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { callAI } from '../services/question-generation.service';
 
 export const generateRubric = async (req: Request, res: Response): Promise<void> => {
   const { title } = req.body;
@@ -98,13 +99,38 @@ export const generateDiagram = async (req: Request, res: Response): Promise<void
     res.status(400).json({ success: false, error: 'topic and type are required' });
     return;
   }
-  const diagrams: Record<string, string> = {
-    flowchart: `[Start] → [Input: ${topic}] → [Process] → [Decision?] → [Yes: Output] / [No: Revise] → [End]`,
-    venn: `┌──────────┐   ┌──────────┐\n│ Concept A │   │ Concept B │\n│  + Both   │   │  + Both   │\n└──────────┘   └──────────┘`,
-    cycle: `Stage 1 → Stage 2 → Stage 3 → Stage 4 → (back to Stage 1)`,
-    timeline: `Start ── Milestone 1 ── Milestone 2 ── Milestone 3 ── Goal`,
-    pyramid: `▲ Top Level\n▲▲ Middle Level\n▲▲▲ Foundation Level`,
-    network: `A ── B ── C\n│    │    │\nD ── E ── F`,
-  };
-  res.json({ success: true, data: { topic, type, diagram: diagrams[type] || diagrams.flowchart } });
+  try {
+    const prompt = `You are an expert technical illustrator. Generate a clean and correct Mermaid.js diagram of type "${type}" for the topic: "${topic}".
+
+Rules:
+- Do not write any markdown code blocks (e.g. \`\`\`mermaid or \`\`\`).
+- Output ONLY valid Mermaid.js syntax.
+- Keep the diagram clean, labeled, and easy to read.
+- For flowchart, use standard 'graph TD' or 'graph LR' syntax.
+- For venn, since Mermaid doesn't support Venn directly, render it as a clean Mindmap or a Class/Flowchart diagram that represents Venn logic.
+- For cycle, use a loop flowchart structure.
+- For timeline, use 'timeline' diagram type if supported, or a standard linear flowchart.
+- For pyramid, render it using a flowchart with layered nodes.
+- For network, render it using standard graph layout connections.
+
+Mermaid code:`;
+
+    let diagram = await callAI(prompt);
+    // Strip code fences if the model still generated them
+    diagram = diagram.replace(/```mermaid/g, '').replace(/```/g, '').trim();
+
+    res.json({ success: true, data: { topic, type, diagram } });
+  } catch (error) {
+    // Fallback to static diagrams if AI generation fails
+    const diagrams: Record<string, string> = {
+      flowchart: `graph TD\n  Start([Start]) --> Input[Input: ${topic}] --> Process[Process] --> End([End])`,
+      venn: `graph TD\n  subgraph Venn Diagram\n    A[Concept A] --- Both[Overlap Area] --- B[Concept B]\n  end`,
+      cycle: `graph LR\n  Stage1[Stage 1] --> Stage2[Stage 2] --> Stage3[Stage 3] --> Stage1`,
+      timeline: `graph LR\n  Start --> M1[Milestone 1] --> M2[Milestone 2] --> End`,
+      pyramid: `graph TD\n  Top[Top Level] --> Mid[Middle Level] --> Base[Foundation Level]`,
+      network: `graph TD\n  A --- B --- C\n  A --- D\n  B --- E`,
+    };
+    const fallback = diagrams[type] || diagrams.flowchart;
+    res.json({ success: true, data: { topic, type, diagram: fallback } });
+  }
 };

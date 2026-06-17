@@ -74,7 +74,7 @@ function sanitizePrompt(text: string): string {
   return cleaned;
 }
 
-async function callAI(prompt: string): Promise<string> {
+export async function callAI(prompt: string): Promise<string> {
   const provider = pickProvider();
   if (!provider) throw new NoProviderError();
 
