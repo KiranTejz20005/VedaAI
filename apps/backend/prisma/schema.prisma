@@ -7,7 +7,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Institution {
@@ -95,6 +94,11 @@ model Question {
 
   reviews     QuestionReview[]
   assessments AssessmentQuestion[]
+
+  @@index([bloomLevel])
+  @@index([difficulty])
+  @@index([isPublished])
+  @@index([subjectId])
 }
 
 model QuestionReview {
@@ -132,4 +136,70 @@ model AssessmentQuestion {
   question     Question   @relation(fields: [questionId], references: [id])
   marks        Int        @default(1)
   order        Int        @default(0)
+}
+
+model Assignment {
+  id                     String             @id @default(uuid())
+  title                  String
+  subject                String
+  description            String             @default("")
+  dueDate                DateTime
+  duration               Int
+  totalMarks             Int
+  questionConfig         Json
+  uploadedFiles          Json               @default("[]")
+  additionalInstructions String             @default("")
+  typeBreakdown          String?
+  status                 String             @default("draft")
+  generationMeta         Json?
+  generationSeq          Int                @default(0)
+  activeGenerationJobId  String?
+  finalizedAt            DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  generatedPapers GeneratedPaper[]
+  generationJobs  GenerationJob[]
+
+  @@index([status, createdAt])
+  @@index([subject])
+}
+
+model GeneratedPaper {
+  id                String   @id @default(uuid())
+  assignmentId      String
+  assignment        Assignment @relation(fields: [assignmentId], references: [id])
+  title             String
+  totalMarks        Int
+  duration          Int      @default(45)
+  sections          Json
+  canonicalMetadata Json?
+  pdfPath           String?
+  pdfUrl            String?
+  generatedAt       DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([assignmentId, generatedAt])
+}
+
+model GenerationJob {
+  id              String   @id @default(uuid())
+  assignmentId    String
+  assignment      Assignment @relation(fields: [assignmentId], references: [id])
+  bullmqJobId     String   @default("")
+  generationSeq   Int      @default(0)
+  progressVersion Int      @default(0)
+  stageIndex      Int      @default(0)
+  status          String   @default("queued")
+  progress        Int      @default(0)
+  error           String?
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([assignmentId, status])
+  @@index([assignmentId, generationSeq, createdAt])
+  @@index([status, createdAt])
 }

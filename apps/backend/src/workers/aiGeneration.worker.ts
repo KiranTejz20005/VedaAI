@@ -3,9 +3,7 @@ import fs from 'fs/promises';
 import pdfParse from 'pdf-parse';
 import { env } from '../config/env';
 import { getBullRedisClient } from '../config/redis';
-import { Assignment } from '../models/Assignment.model';
-import { GenerationJob } from '../models/GenerationJob.model';
-import { GeneratedPaper } from '../models/GeneratedPaper.model';
+import prisma from '../config/prisma';
 import { generatePaper, generateAnswersForPaper } from '../services/ai.service';
 import { savePaper } from '../services/paper.service';
 import { getPdfQueue } from '../queues/pdf.queue';
@@ -160,11 +158,11 @@ export function createAiGenerationWorker() {
         // ── STEP 0: Validate job record and acquire lock ──
         logger.debug(`[STEP 0] Fetching GenerationJob: ${jobRecordId}`);
         const t0 = Date.now();
-        const jobRecord = await GenerationJob.findById(jobRecordId).lean();
-        generationSeq = Number((jobRecord as any)?.generationSeq ?? 0);
-        progressVersion = Number((jobRecord as any)?.progressVersion ?? 0);
-        lastStageIndex = Number((jobRecord as any)?.stageIndex ?? 0);
-        lastProgress = Number((jobRecord as any)?.progress ?? 0);
+        const jobRecord = await prisma.generationJob.findUnique({ where: { id: jobRecordId } });
+        generationSeq = Number(jobRecord?.generationSeq ?? 0);
+        progressVersion = Number(jobRecord?.progressVersion ?? 0);
+        lastStageIndex = Number(jobRecord?.stageIndex ?? 0);
+        lastProgress = Number(jobRecord?.progress ?? 0);
         logger.debug(
           `[STEP 0] GenerationJob fetched in ${Date.now() - t0}ms | status=${jobRecord?.status} ` +
           `assignmentId=${assignmentId}`
@@ -175,9 +173,12 @@ export function createAiGenerationWorker() {
         }
 
         // Hard guard: only the Assignment's activeGenerationJobId is allowed to mutate state.
-        const ownerCheck = await Assignment.findById(assignmentId).select({ activeGenerationJobId: 1, generationSeq: 1, status: 1 }).lean();
-        const activeJobId = ownerCheck?.activeGenerationJobId ? String(ownerCheck.activeGenerationJobId) : '';
-        const activeSeq = Number((ownerCheck as any)?.generationSeq ?? 0);
+        const ownerCheck = await prisma.assignment.findUnique({
+          where: { id: assignmentId },
+          select: { activeGenerationJobId: true, generationSeq: true, status: true },
+        });
+        const activeJobId = ownerCheck?.activeGenerationJobId ?? '';
+        const activeSeq = Number(ownerCheck?.generationSeq ?? 0);
         const jobSeq = generationSeq;
         if (!ownerCheck || activeJobId !== String(jobRecordId) || activeSeq !== jobSeq) {
           logger.warn(
@@ -196,7 +197,10 @@ export function createAiGenerationWorker() {
         }
 
         // Verify we still own the job after acquiring lock
-        const recheck = await Assignment.findById(assignmentId).select({ activeGenerationJobId: 1, generationSeq: 1 }).lean();
+        const recheck = await prisma.assignment.findUnique({
+          where: { id: assignmentId },
+          select: { activeGenerationJobId: true, generationSeq: true },
+        });
         if (!recheck || String(recheck.activeGenerationJobId ?? '') !== String(jobRecordId)) {
           logger.warn(`[LOCK] Lost ownership race for assignment=${assignmentId} — returning`);
           return;
@@ -229,14 +233,18 @@ export function createAiGenerationWorker() {
             ts: Date.now(),
           });
           try {
-            await GenerationJob.findOneAndUpdate(
-              { _id: jobRecordId, generationSeq },
-              {
-                $inc: { progressVersion: 1 },
-                $max: { progress: guardedProgress, stageIndex: guardedStageIndex },
-                ...(nextStageIndex >= prevStageIndex ? { $set: { status: stage } } : {}),
-              } as any
-            ).exec();
+            const updateData: any = {
+              progressVersion: { increment: 1 },
+              progress: guardedProgress,
+              stageIndex: guardedStageIndex,
+            };
+            if (nextStageIndex >= prevStageIndex) {
+              updateData.status = stage;
+            }
+            await prisma.generationJob.update({
+              where: { id: jobRecordId, generationSeq },
+              data: updateData,
+            });
             logger.debug(`[EMIT] ${stage} ${progress}% "${message}" in ${Date.now() - e0}ms`);
           } catch (emitErr) {
             logger.warn(`[EMIT] DB update failed for ${stage}: ${emitErr}`);
@@ -253,7 +261,7 @@ export function createAiGenerationWorker() {
         // ── STEP 3: Fetch assignment ──
         logger.debug(`[STEP 3] Fetching Assignment: ${assignmentId}`);
         const t3 = Date.now();
-        assignment = await Assignment.findById(assignmentId).lean();
+        assignment = await prisma.assignment.findUnique({ where: { id: assignmentId } });
         logger.debug(
           `[STEP 3] Assignment fetched in ${Date.now() - t3}ms | title="${assignment?.title}" status=${assignment?.status}`
         );
@@ -261,23 +269,23 @@ export function createAiGenerationWorker() {
           logger.error(`[STEP 3] Assignment ${assignmentId} not found`);
           throw new Error(`Assignment ${assignmentId} not found`);
         }
-        logger.debug(`[STEP 3] Assignment has ${assignment.uploadedFiles?.length ?? 0} uploaded files, totalMarks=${assignment.totalMarks}`);
+        logger.debug(`[STEP 3] Assignment has ${(assignment.uploadedFiles as any[])?.length ?? 0} uploaded files, totalMarks=${assignment.totalMarks}`);
 
         // ── STEP 4: Update status to generating ──
         logger.debug(`[STEP 4] Setting assignment status to 'generating'`);
         const t4 = Date.now();
-        await Assignment.findOneAndUpdate(
-          { _id: assignmentId, activeGenerationJobId: jobRecordId },
-          { status: 'generating' }
-        );
+        await prisma.assignment.updateMany({
+          where: { id: assignmentId, activeGenerationJobId: jobRecordId },
+          data: { status: 'generating' },
+        });
         await job.updateProgress(5);
         logger.debug(`[STEP 4] Status updated in ${Date.now() - t4}ms`);
 
         // ── STEP 5: Extract uploaded content ──
-        logger.debug(`[STEP 5] Extracting uploaded content from ${assignment.uploadedFiles?.length ?? 0} files`);
+        logger.debug(`[STEP 5] Extracting uploaded content from ${(assignment.uploadedFiles as any[])?.length ?? 0} files`);
         const t5 = Date.now();
         const { content: uploadedContent, wasSanitized } = await extractUploadedContent(
-          (assignment.uploadedFiles ?? []).map((f: { path: string; mimeType: string }) => ({ path: f.path, mimeType: f.mimeType }))
+          (assignment.uploadedFiles as any[] ?? []).map((f: { path: string; mimeType: string }) => ({ path: f.path, mimeType: f.mimeType }))
         );
         await job.updateProgress(15);
         logger.debug(`[STEP 5] Content extracted in ${Date.now() - t5}ms | ${uploadedContent.length} chars`);
@@ -287,9 +295,9 @@ export function createAiGenerationWorker() {
 
         // ── STEP 6: Parse typeBreakdown ──
         let typeBreakdown: any[] | undefined;
-        if ((assignment as any).typeBreakdown) {
+        if (assignment.typeBreakdown) {
           try {
-            typeBreakdown = JSON.parse((assignment as any).typeBreakdown);
+            typeBreakdown = JSON.parse(assignment.typeBreakdown);
             logger.debug(`[STEP 6] typeBreakdown parsed: ${typeBreakdown?.length} items`);
           } catch (parseErr) {
             logger.warn(`[STEP 6] typeBreakdown JSON parse failed: ${parseErr}`);
@@ -376,7 +384,10 @@ export function createAiGenerationWorker() {
         const t9 = Date.now();
         let savedPaper: any;
         try {
-          const owner = await Assignment.findById(assignmentId).select({ activeGenerationJobId: 1, generationSeq: 1 }).lean();
+          const owner = await prisma.assignment.findUnique({
+            where: { id: assignmentId },
+            select: { activeGenerationJobId: true, generationSeq: true },
+          });
           if (!owner || String(owner.activeGenerationJobId ?? '') !== String(jobRecordId)) {
             logger.warn(
               `[STALE JOB] Skipping savePaper for non-owner jobRecord=${jobRecordId} assignment=${assignmentId}`
@@ -386,7 +397,7 @@ export function createAiGenerationWorker() {
           const provisionalMetadata = buildCanonicalPaperMetadata(assignment as any, paper as any);
           savedPaper = await savePaper(assignmentId, paper, assignment.duration, provisionalMetadata);
           await job.updateProgress(92);
-          logger.info(`[STEP 9] GeneratedPaper saved in ${Date.now() - t9}ms | id=${savedPaper._id}`);
+          logger.info(`[STEP 9] GeneratedPaper saved in ${Date.now() - t9}ms | id=${savedPaper.id}`);
         } catch (saveErr) {
           logger.error(
             `[STEP 9 FAILED] savePaper() threw after ${Date.now() - t9}ms: ` +
@@ -407,7 +418,7 @@ export function createAiGenerationWorker() {
           const pdfQueue = getPdfQueue();
           await pdfQueue.add('generate-pdf', {
             assignmentId,
-            paperId: savedPaper._id.toString(),
+            paperId: savedPaper.id,
             jobRecordId,
           });
           logger.debug(`[STEP 11] PDF job enqueued in ${Date.now() - t11}ms`);
@@ -416,13 +427,13 @@ export function createAiGenerationWorker() {
         }
 
         // ── STEP 12: Check for partial vs complete generation ──
-        const requestedQty = assignment.questionConfig.count;
+        const questionConfig = assignment.questionConfig as any;
+        const requestedQty = questionConfig?.count ?? 0;
         const generatedQty = paper.sections.reduce((s: number, sec: any) => s + sec.questions.length, 0);
         const generatedMarks = paper.sections.reduce((s: number, sec: any) =>
           s + sec.questions.reduce((ms: number, q: any) => ms + (q.marks || 0), 0), 0);
         const isPartial = generationOutcome === 'partial_success';
         const isFailed = generationOutcome === 'failed';
-        // If we generated usable content, treat it as partial success instead of hard failure.
         const hasUsablePartial = isFailed && generatedQty > 0;
         const shouldFinalizeAsPartial = isPartial || hasUsablePartial;
 
@@ -447,16 +458,19 @@ export function createAiGenerationWorker() {
             partialPaper: null,
             completedAt: new Date(),
           };
-          await Assignment.findOneAndUpdate(
-            { _id: assignmentId, activeGenerationJobId: jobRecordId, status: { $ne: 'completed' } },
-            { status: 'partially_generated', generationMeta: genMeta }
-          );
+          const current = await prisma.assignment.findUnique({ where: { id: assignmentId } });
+          if (current && current.activeGenerationJobId === jobRecordId && current.status !== 'completed') {
+            await prisma.assignment.update({
+              where: { id: assignmentId },
+              data: { status: 'partially_generated', generationMeta: genMeta as any },
+            });
+          }
           logger.info(`[STEP 12] Assignment marked as partially_generated (${generatedQty}/${requestedQty})`);
         } else if (!isFailed) {
-          await Assignment.findOneAndUpdate(
-            { _id: assignmentId, activeGenerationJobId: jobRecordId },
-            { status: 'completed', finalizedAt: new Date() }
-          );
+          await prisma.assignment.updateMany({
+            where: { id: assignmentId, activeGenerationJobId: jobRecordId },
+            data: { status: 'completed', finalizedAt: new Date() },
+          });
           logger.debug(`[STEP 12] Assignment status updated to 'completed' in ${Date.now() - t12}ms`);
         } else {
           const genMeta: GenerationMeta = {
@@ -474,10 +488,13 @@ export function createAiGenerationWorker() {
             partialPaper: paper.sections,
             completedAt: new Date(),
           };
-          await Assignment.findOneAndUpdate(
-            { _id: assignmentId, activeGenerationJobId: jobRecordId, status: { $ne: 'completed' } },
-            { status: 'failed', generationMeta: genMeta }
-          );
+          const current = await prisma.assignment.findUnique({ where: { id: assignmentId } });
+          if (current && current.activeGenerationJobId === jobRecordId && current.status !== 'completed') {
+            await prisma.assignment.update({
+              where: { id: assignmentId },
+              data: { status: 'failed', generationMeta: genMeta as any },
+            });
+          }
           logger.warn(`[STEP 12] Assignment marked failed with partial paper (${generatedQty}/${requestedQty})`);
         }
         await job.updateProgress(99);
@@ -488,14 +505,17 @@ export function createAiGenerationWorker() {
         progressVersion += 1;
         lastStageIndex = Math.max(lastStageIndex, STAGE_ORDER.completed);
         lastProgress = Math.max(lastProgress, 100);
-        await GenerationJob.findOneAndUpdate(
-          { _id: jobRecordId, generationSeq },
-          {
-            $set: { status: shouldFinalizeAsPartial ? 'completed' : (isFailed ? 'failed' : 'completed'), completedAt: new Date() },
-            $inc: { progressVersion: 1 },
-            $max: { progress: 100, stageIndex: shouldFinalizeAsPartial ? STAGE_ORDER.completed : (isFailed ? STAGE_ORDER.failed : STAGE_ORDER.completed) },
-          } as any
-        );
+        const finalStatus = shouldFinalizeAsPartial ? 'completed' : (isFailed ? 'failed' : 'completed');
+        await prisma.generationJob.update({
+          where: { id: jobRecordId, generationSeq },
+          data: {
+            status: finalStatus,
+            completedAt: new Date(),
+            progressVersion: { increment: 1 },
+            progress: 100,
+            stageIndex: finalStatus === 'failed' ? STAGE_ORDER.failed : STAGE_ORDER.completed,
+          },
+        });
         logger.debug(`[STEP 13] GenerationJob updated in ${Date.now() - t13}ms`);
 
         // ── STEP 14: Emit terminal WebSocket event ──
@@ -513,7 +533,7 @@ export function createAiGenerationWorker() {
         } else {
           emitToAssignment(assignmentId, 'generation:completed', {
             assignmentId,
-            paperId: savedPaper._id.toString(),
+            paperId: savedPaper.id,
             jobRecordId,
             generationSeq,
             partial: shouldFinalizeAsPartial,
@@ -538,7 +558,6 @@ export function createAiGenerationWorker() {
         const message = error instanceof Error ? error.message : 'Unknown error';
         const isFinalAttempt = job.attemptsMade >= (job.opts.attempts ?? 2) - 1;
 
-        // Abort any running generation for this assignment
         abortManager.abort(assignmentId, jobRecordId, `Worker failure: ${message}`);
 
         logger.error(
@@ -549,7 +568,10 @@ export function createAiGenerationWorker() {
           logger.error(`[WORKER FAIL STACK] ${error.stack.split('\n').slice(0, 8).join('\n')}`);
         }
 
-        const owner = await Assignment.findById(assignmentId).select({ activeGenerationJobId: 1, status: 1 }).lean().catch(() => null);
+        const owner = await prisma.assignment.findUnique({
+          where: { id: assignmentId },
+          select: { activeGenerationJobId: true, status: true },
+        }).catch(() => null);
         const isOwner = !!owner && String(owner.activeGenerationJobId ?? '') === String(jobRecordId);
         const isFinalized = owner?.status === 'completed';
 
@@ -565,7 +587,9 @@ export function createAiGenerationWorker() {
           const { category, userMessage } = classifyError(error instanceof Error ? error : new Error(message));
           logger.debug(`[WORKER FAIL] Final attempt — checking for partial paper`);
           const f0 = Date.now();
-          const existingPaper = await GeneratedPaper.findOne({ assignmentId } as any).lean().catch(() => null);
+          const existingPaper = await prisma.generatedPaper.findFirst({
+            where: { assignmentId },
+          }).catch(() => null);
           const hasPartial = !!existingPaper;
 
           const a = assignment as any;
@@ -581,34 +605,40 @@ export function createAiGenerationWorker() {
             failureCategory: category,
             failureReason: userMessage,
             diagnostics: null,
-            partialPaper: existingPaper ? (existingPaper as any).sections : null,
+            partialPaper: existingPaper ? (existingPaper.sections as any) : null,
             completedAt: new Date(),
           };
           if (hasPartial) {
-            const paperSections = (existingPaper as any).sections || [];
+            const paperSections = (existingPaper.sections as any[]) || [];
             const pqty = paperSections.reduce((s: number, sec: any) => s + (sec.questions?.length || 0), 0);
             genMeta.generatedQuestionCount = pqty;
             genMeta.generatedMarks = paperSections.reduce((s: number, sec: any) =>
               s + (sec.questions || []).reduce((ms: number, q: any) => ms + (q.marks || 0), 0), 0);
           }
 
-          await Promise.allSettled([
-            Assignment.findOneAndUpdate(
-              { _id: assignmentId, activeGenerationJobId: jobRecordId, status: { $ne: 'completed' } },
-              {
-                status: hasPartial ? 'partially_generated' : 'failed',
-                generationMeta: genMeta,
-              }
-            ),
-            GenerationJob.findOneAndUpdate(
-              { _id: jobRecordId, generationSeq },
-              {
-                $set: { status: 'failed', error: message, completedAt: new Date() },
-                $inc: { progressVersion: 1 },
-                $max: { progress: lastProgress, stageIndex: STAGE_ORDER.failed },
-              } as any
-            ),
-          ]);
+          const current = await prisma.assignment.findUnique({ where: { id: assignmentId } });
+          if (current && current.activeGenerationJobId === jobRecordId && current.status !== 'completed') {
+            await Promise.allSettled([
+              prisma.assignment.update({
+                where: { id: assignmentId },
+                data: {
+                  status: hasPartial ? 'partially_generated' : 'failed',
+                  generationMeta: genMeta as any,
+                },
+              }),
+              prisma.generationJob.update({
+                where: { id: jobRecordId, generationSeq },
+                data: {
+                  status: 'failed',
+                  error: message,
+                  completedAt: new Date(),
+                  progressVersion: { increment: 1 },
+                  progress: lastProgress,
+                  stageIndex: STAGE_ORDER.failed,
+                },
+              }),
+            ]);
+          }
           logger.debug(`[WORKER FAIL] DB updates done in ${Date.now() - f0}ms | finalStatus=${hasPartial ? 'partially_generated' : 'failed'}`);
           progressVersion += 1;
           if (hasPartial) {
@@ -637,20 +667,18 @@ export function createAiGenerationWorker() {
         } else {
           logger.debug(`[WORKER FAIL] Non-final attempt — requeueing job`);
           await Promise.allSettled([
-            GenerationJob.findOneAndUpdate(
-              { _id: jobRecordId, generationSeq },
-              { $set: { error: message }, $inc: { progressVersion: 1 } } as any
-            ),
+            prisma.generationJob.update({
+              where: { id: jobRecordId, generationSeq },
+              data: { error: message, progressVersion: { increment: 1 } },
+            }).catch(() => {}),
           ]);
           progressVersion += 1;
         }
 
         throw error;
       } finally {
-        // Release abort controller
         abortManager.release(assignmentId, jobRecordId);
 
-        // Release distributed lock
         if (lockAcquired) {
           await lock.release(assignmentId).catch((err) => {
             logger.warn(`[LOCK] Release error assignment=${assignmentId}: ${err}`);
@@ -698,41 +726,44 @@ export function createAiGenerationWorker() {
     if (perJobCount < 2) return;
 
     try {
-      const jobRecord = await GenerationJob.findOne({
-        bullmqJobId: key,
-        status: { $in: ['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'] },
-      }).lean();
+      const jobRecord = await prisma.generationJob.findFirst({
+        where: {
+          bullmqJobId: key,
+          status: { in: ['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'] },
+        },
+      });
 
       if (!jobRecord) return;
 
-      const assignmentId = jobRecord.assignmentId.toString();
-      const jrId = String((jobRecord as any)._id ?? '');
+      const assignmentId = jobRecord.assignmentId;
+      const jrId = jobRecord.id;
 
-      // Abort any running work for this job
       abortManager.abort(assignmentId, jrId, `BullMQ stalled ${perJobCount} times`);
 
       await Promise.allSettled([
-        Assignment.findOneAndUpdate(
-          { _id: assignmentId, activeGenerationJobId: jrId, status: { $ne: 'completed' } },
-          { status: 'failed' }
-        ),
-        GenerationJob.findOneAndUpdate(
-          { _id: jobRecord._id, generationSeq: Number((jobRecord as any).generationSeq ?? 0) },
-          {
-            $set: { status: 'failed', error: `BullMQ stalled ${perJobCount} times (auto-failed)`, completedAt: new Date() },
-            $inc: { progressVersion: 1 },
-            $max: { stageIndex: STAGE_ORDER.failed },
-          } as any
-        ),
+        prisma.assignment.updateMany({
+          where: { id: assignmentId, activeGenerationJobId: jrId, NOT: { status: 'completed' } },
+          data: { status: 'failed' },
+        }),
+        prisma.generationJob.update({
+          where: { id: jobRecord.id, generationSeq: Number(jobRecord.generationSeq ?? 0) },
+          data: {
+            status: 'failed',
+            error: `BullMQ stalled ${perJobCount} times (auto-failed)`,
+            completedAt: new Date(),
+            progressVersion: { increment: 1 },
+            stageIndex: STAGE_ORDER.failed,
+          },
+        }).catch(() => {}),
       ]);
 
-      const nextVersion = Number((jobRecord as any).progressVersion ?? 0) + 1;
+      const nextVersion = Number(jobRecord.progressVersion ?? 0) + 1;
       emitToAssignment(assignmentId, 'generation:failed', {
         assignmentId,
         error: `Generation stalled ${perJobCount} times and was auto-failed`,
         retryable: true,
         jobRecordId: jrId,
-        generationSeq: Number((jobRecord as any).generationSeq ?? 0),
+        generationSeq: Number(jobRecord.generationSeq ?? 0),
         version: nextVersion,
         ts: Date.now(),
       });

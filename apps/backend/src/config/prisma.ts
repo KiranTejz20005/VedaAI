@@ -1,17 +1,20 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 
-let prisma: PrismaClient;
+function createPrisma(): PrismaClient {
+  const connectionString = process.env.DATABASE_URL ?? 'postgresql://postgres:password@localhost:5432/bloom_verify?schema=public';
+  const adapter = new PrismaPg({ connectionString });
+  const client = new PrismaClient({ adapter });
 
-if (process.env.NODE_ENV === 'production') {
-  prisma = new PrismaClient();
-} else {
-  // @ts-ignore
-  if (!global.prisma) {
-    // @ts-ignore
-    global.prisma = new PrismaClient();
+  if (process.env.NODE_ENV !== 'production') {
+    const globalForPrisma = global as typeof globalThis & { __prisma?: PrismaClient };
+    if (globalForPrisma.__prisma) return globalForPrisma.__prisma;
+    globalForPrisma.__prisma = client;
   }
-  // @ts-ignore
-  prisma = global.prisma;
+
+  return client;
 }
+
+const prisma = createPrisma();
 
 export default prisma;

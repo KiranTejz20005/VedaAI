@@ -43,9 +43,20 @@ function QuestionItem({ question, number }: { question: Question; number: number
   return (
     <div className="question-item" style={{ marginBottom: 'clamp(12px, 1.2vw, 16px)' }}>
       <span className="question-num">{number}.</span>
-      <div className="question-text-block">
-        <DifficultyTag difficulty={question.difficulty} />
-        {question.question}
+      <div className="question-text-block" style={{ whiteSpace: 'pre-wrap' }}>
+        <div>
+          <DifficultyTag difficulty={question.difficulty} />
+          {question.question}
+        </div>
+        {question.type === 'mcq' && question.options && question.options.length > 0 && (
+          <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '6px 16px' }}>
+            {question.options.map((opt) => (
+              <div key={opt.key} style={{ fontSize: 'clamp(13px, 1.1vw, 15px)', color: '#374151' }}>
+                <strong>{opt.key}.</strong> {opt.text}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       <span className="question-marks">[{formatMarks(question.marks)}]</span>
     </div>

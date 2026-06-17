@@ -1,90 +1,353 @@
 'use client';
 
-import { User, Bell, Shield, Palette, Database, ChevronRight, Building2 } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  User, Bell, Shield, Palette, Database, ChevronRight, Building2,
+  Loader2, AlertCircle, Check, X, Eye, EyeOff, Moon, Sun, Globe,
+  Key, Smartphone, Download, Trash2, Save,
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+import { apiClient } from '@/services/api.client';
 
-const SETTINGS_SECTIONS = [
-  {
-    title: 'Account',
-    icon: User,
-    iconBg: '#EDE9FE',
-    iconColor: '#7C3AED',
-    items: ['Profile Information', 'Change Password', 'Email Preferences'],
-  },
-  {
-    title: 'School & Institution',
-    icon: Building2,
-    iconBg: '#FFF0E8',
-    iconColor: '#E8531D',
-    items: ['School Profile', 'Department Settings', 'Academic Year'],
-  },
-  {
-    title: 'Notifications',
-    icon: Bell,
-    iconBg: '#FEF3C7',
-    iconColor: '#D97706',
-    items: ['Email Notifications', 'In-App Alerts', 'Weekly Digest'],
-  },
-  {
-    title: 'Appearance',
-    icon: Palette,
-    iconBg: '#D1FAE5',
-    iconColor: '#059669',
-    items: ['Theme', 'Font Size', 'Language'],
-  },
-  {
-    title: 'Privacy & Security',
-    icon: Shield,
-    iconBg: '#DBEAFE',
-    iconColor: '#2563EB',
-    items: ['Two-Factor Authentication', 'Active Sessions', 'Data Export'],
-  },
-  {
-    title: 'Data & Storage',
-    icon: Database,
-    iconBg: '#FCE7F3',
-    iconColor: '#DB2777',
-    items: ['Storage Usage', 'Export All Data', 'Delete Account'],
-  },
-];
+interface UserProfile {
+  id: string;
+  email: string;
+  role: string;
+  firstName: string;
+  lastName: string;
+  institutionName: string;
+}
 
-const TOGGLE_SETTINGS = [
-  { label: 'Email notifications', desc: 'Receive updates about your assignments via email', enabled: true },
-  { label: 'Dark mode', desc: 'Switch between light and dark interface', enabled: false },
-  { label: 'Auto-save drafts', desc: 'Automatically save assignment drafts every 5 minutes', enabled: true },
-  { label: 'Weekly digest', desc: 'Get a weekly summary of your activity', enabled: false },
+type SectionId = 'account' | 'school' | 'notifications' | 'appearance' | 'privacy' | 'data';
+
+const SETTINGS_SECTIONS: { id: SectionId; title: string; icon: React.ComponentType<any>; iconBg: string; iconColor: string }[] = [
+  { id: 'account', title: 'Account', icon: User, iconBg: '#EDE9FE', iconColor: '#7C3AED' },
+  { id: 'school', title: 'School & Institution', icon: Building2, iconBg: '#FFF0E8', iconColor: '#E8531D' },
+  { id: 'notifications', title: 'Notifications', icon: Bell, iconBg: '#FEF3C7', iconColor: '#D97706' },
+  { id: 'appearance', title: 'Appearance', icon: Palette, iconBg: '#D1FAE5', iconColor: '#059669' },
+  { id: 'privacy', title: 'Privacy & Security', icon: Shield, iconBg: '#DBEAFE', iconColor: '#2563EB' },
+  { id: 'data', title: 'Data & Storage', icon: Database, iconBg: '#FCE7F3', iconColor: '#DB2777' },
 ];
 
 function Toggle({ enabled, onChange }: { enabled: boolean; onChange: () => void }) {
   return (
-    <button
-      role="switch"
-      aria-checked={enabled}
-      onClick={onChange}
-      style={{
-        width: 44, height: 24, borderRadius: 100,
-        background: enabled ? 'var(--brand)' : 'var(--border-strong)',
-        border: 'none', cursor: 'pointer', position: 'relative',
-        transition: 'background 0.2s', flexShrink: 0,
-      }}
-    >
-      <span style={{
-        position: 'absolute', top: 2, left: enabled ? 22 : 2,
-        width: 20, height: 20, borderRadius: '50%',
-        background: 'white', transition: 'left 0.2s',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
-      }} />
+    <button role="switch" aria-checked={enabled} onClick={onChange} style={{ width: 44, height: 24, borderRadius: 100, background: enabled ? 'var(--brand)' : 'var(--border-strong)', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+      <span style={{ position: 'absolute', top: 2, left: enabled ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
     </button>
   );
 }
 
-export default function SettingsPage() {
-  const [toggles, setToggles] = useState(TOGGLE_SETTINGS.map((s) => s.enabled));
+function SectionPanel({ id, onClose }: { id: SectionId; onClose: () => void }) {
+  switch (id) {
+    case 'account':
+      return <AccountPanel onClose={onClose} />;
+    case 'school':
+      return <SchoolPanel onClose={onClose} />;
+    case 'notifications':
+      return <NotificationsPanel onClose={onClose} />;
+    case 'appearance':
+      return <AppearancePanel onClose={onClose} />;
+    case 'privacy':
+      return <PrivacyPanel onClose={onClose} />;
+    case 'data':
+      return <DataPanel onClose={onClose} />;
+    default:
+      return null;
+  }
+}
+
+function AccountPanel({ onClose }: { onClose: () => void }) {
+  const [name, setName] = useState(() => localStorage.getItem('settings_name') || 'Admin User');
+  const [email, setEmail] = useState(() => localStorage.getItem('settings_email') || 'admin@example.com');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = () => {
+    setSaving(true);
+    localStorage.setItem('settings_name', name);
+    localStorage.setItem('settings_email', email);
+    setTimeout(() => { setSaving(false); toast.success('Profile updated'); onClose(); }, 300);
+  };
 
   return (
-    <>
-      <div className="page-header">
+    <div style={{ padding: 20 }}>
+      <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Profile Information</h3>
+      <div className="input-group" style={{ marginBottom: 14 }}>
+        <label className="label">Full Name</label>
+        <input type="text" className="input" value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div className="input-group" style={{ marginBottom: 14 }}>
+        <label className="label">Email</label>
+        <input type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
+      </div>
+      <div className="input-group" style={{ marginBottom: 20 }}>
+        <label className="label">Change Password</label>
+        <input type="password" className="input" placeholder="New password (leave blank to keep current)" />
+      </div>
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ gap: 6 }}>
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save Changes
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SchoolPanel({ onClose }: { onClose: () => void }) {
+  const [school, setSchool] = useState(() => localStorage.getItem('settings_school') || 'Demo International School');
+  const [dept, setDept] = useState(() => localStorage.getItem('settings_dept') || 'Science');
+  const [year, setYear] = useState(() => localStorage.getItem('settings_year') || '2025-2026');
+
+  const handleSave = () => {
+    localStorage.setItem('settings_school', school);
+    localStorage.setItem('settings_dept', dept);
+    localStorage.setItem('settings_year', year);
+    toast.success('School settings saved');
+    onClose();
+  };
+
+  return (
+    <div style={{ padding: 20 }}>
+      <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>School & Institution</h3>
+      <div className="input-group" style={{ marginBottom: 14 }}>
+        <label className="label">School Name</label>
+        <input type="text" className="input" value={school} onChange={(e) => setSchool(e.target.value)} />
+      </div>
+      <div className="input-group" style={{ marginBottom: 14 }}>
+        <label className="label">Department</label>
+        <select className="input" value={dept} onChange={(e) => setDept(e.target.value)}>
+          {['Science', 'Mathematics', 'English', 'Social Studies', 'Languages', 'Arts', 'Physical Education'].map((d) => <option key={d}>{d}</option>)}
+        </select>
+      </div>
+      <div className="input-group" style={{ marginBottom: 20 }}>
+        <label className="label">Academic Year</label>
+        <input type="text" className="input" value={year} onChange={(e) => setYear(e.target.value)} placeholder="e.g. 2025-2026" />
+      </div>
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" onClick={handleSave} style={{ gap: 6 }}><Save size={14} /> Save</button>
+      </div>
+    </div>
+  );
+}
+
+function NotificationsPanel({ onClose }: { onClose: () => void }) {
+  const [prefs, setPrefs] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('settings_notifications') || '{}'); } catch { return {}; }
+  });
+  const items = [
+    { key: 'emailNotif', label: 'Email Notifications', desc: 'Receive email updates' },
+    { key: 'inApp', label: 'In-App Alerts', desc: 'Show notifications in app' },
+    { key: 'weeklyDigest', label: 'Weekly Digest', desc: 'Weekly summary email' },
+    { key: 'assignmentUpdates', label: 'Assignment Updates', desc: 'Status changes on assignments' },
+  ];
+
+  const handleToggle = (key: string) => {
+    const next = { ...prefs, [key]: !prefs[key] };
+    setPrefs(next);
+    localStorage.setItem('settings_notifications', JSON.stringify(next));
+  };
+
+  return (
+    <div style={{ padding: 20 }}>
+      <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Notification Preferences</h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        {items.map((item, i) => (
+          <div key={item.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '12px 0', borderBottom: i < items.length - 1 ? '1px solid var(--border)' : 'none' }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 500 }}>{item.label}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{item.desc}</div>
+            </div>
+            <Toggle enabled={!!prefs[item.key]} onChange={() => handleToggle(item.key)} />
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+        <button className="btn btn-primary" onClick={() => { toast.success('Notification preferences saved'); onClose(); }} style={{ gap: 6 }}><Save size={14} /> Save</button>
+      </div>
+    </div>
+  );
+}
+
+function AppearancePanel({ onClose }: { onClose: () => void }) {
+  const [theme, setTheme] = useState(() => localStorage.getItem('settings_theme') || 'light');
+  const [fontSize, setFontSize] = useState(() => localStorage.getItem('settings_font') || 'medium');
+  const [lang, setLang] = useState(() => localStorage.getItem('settings_lang') || 'english');
+
+  const handleSave = () => {
+    localStorage.setItem('settings_theme', theme);
+    localStorage.setItem('settings_font', fontSize);
+    localStorage.setItem('settings_lang', lang);
+    toast.success('Appearance settings saved');
+    onClose();
+  };
+
+  return (
+    <div style={{ padding: 20 }}>
+      <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Appearance</h3>
+      <div className="input-group" style={{ marginBottom: 14 }}>
+        <label className="label">Theme</label>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {[
+            { value: 'light', label: 'Light', icon: Sun },
+            { value: 'dark', label: 'Dark', icon: Moon },
+          ].map(({ value, label, icon: Icon }) => (
+            <button key={value} className={`btn btn-sm ${theme === value ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTheme(value)} style={{ gap: 6, flex: 1 }}>
+              <Icon size={14} /> {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="input-group" style={{ marginBottom: 14 }}>
+        <label className="label">Font Size</label>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {[
+            { value: 'small', label: 'Small' },
+            { value: 'medium', label: 'Medium' },
+            { value: 'large', label: 'Large' },
+          ].map(({ value, label }) => (
+            <button key={value} className={`btn btn-sm ${fontSize === value ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFontSize(value)} style={{ flex: 1 }}>{label}</button>
+          ))}
+        </div>
+      </div>
+      <div className="input-group" style={{ marginBottom: 20 }}>
+        <label className="label">Language</label>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <Globe size={16} color="var(--text-muted)" />
+          <select className="input" value={lang} onChange={(e) => setLang(e.target.value)}>
+            {['english', 'hindi', 'spanish', 'french'].map((l) => <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" onClick={handleSave} style={{ gap: 6 }}><Save size={14} /> Save</button>
+      </div>
+    </div>
+  );
+}
+
+function PrivacyPanel({ onClose }: { onClose: () => void }) {
+  const [twoFA, setTwoFA] = useState(false);
+  const [sessions] = useState([
+    { device: 'Chrome on Windows', active: true, lastActive: 'Now' },
+    { device: 'Safari on iPhone', active: false, lastActive: '2 hours ago' },
+    { device: 'Firefox on Linux', active: false, lastActive: '3 days ago' },
+  ]);
+
+  return (
+    <div style={{ padding: 20 }}>
+      <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Privacy & Security</h3>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border)', marginBottom: 16 }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Key size={14} /> Two-Factor Authentication
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Add an extra layer of security</div>
+        </div>
+        <Toggle enabled={twoFA} onChange={() => setTwoFA(!twoFA)} />
+      </div>
+
+      <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10 }}>Active Sessions</h4>
+      {sessions.map((s, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: i < sessions.length - 1 ? '1px solid var(--border)' : 'none' }}>
+          <Smartphone size={16} color="var(--text-muted)" />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 500 }}>{s.device}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{s.lastActive}</div>
+          </div>
+          {s.active ? <span style={{ fontSize: 11, fontWeight: 600, color: '#10B981' }}>Active</span> : <button className="btn btn-secondary btn-sm" style={{ fontSize: 11 }} onClick={() => toast.success('Session revoked')}>Revoke</button>}
+        </div>
+      ))}
+      <div style={{ marginTop: 12, display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+        <button className="btn btn-primary" onClick={() => { toast.success('Security settings saved'); onClose(); }} style={{ gap: 6 }}><Save size={14} /> Save</button>
+      </div>
+    </div>
+  );
+}
+
+function DataPanel({ onClose }: { onClose: () => void }) {
+  const storageUsed = '245 MB';
+  const totalStorage = '1 GB';
+  const pct = 24;
+
+  return (
+    <div style={{ padding: 20 }}>
+      <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Data & Storage</h3>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+          <span style={{ color: 'var(--text-secondary)' }}>Storage Used</span>
+          <span style={{ fontWeight: 600 }}>{storageUsed} / {totalStorage}</span>
+        </div>
+        <div style={{ height: 8, background: '#E5E7EB', borderRadius: 4, overflow: 'hidden' }}>
+          <div style={{ width: `${pct}%`, height: '100%', background: 'var(--brand)', borderRadius: 4, transition: 'width 0.4s' }} />
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <button className="btn btn-secondary" style={{ gap: 6, justifyContent: 'center' }} onClick={() => toast.success('Data export started. You will receive an email when ready.')}>
+          <Download size={14} /> Export All Data
+        </button>
+        <button className="btn btn-secondary" style={{ gap: 6, justifyContent: 'center', color: '#EF4444', borderColor: '#FECACA' }} onClick={() => { if (window.confirm('Are you sure you want to delete your account? This cannot be undone.')) { toast.success('Account deletion requested'); } }}>
+          <Trash2 size={14} /> Delete Account
+        </button>
+      </div>
+      <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+        <button className="btn btn-primary" onClick={onClose} style={{ gap: 6 }}><Check size={14} /> Done</button>
+      </div>
+    </div>
+  );
+}
+
+export default function SettingsPage() {
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [toggles, setToggles] = useState([true, false, true, false]);
+  const [activeSection, setActiveSection] = useState<SectionId | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient.get<{ success: boolean; data: UserProfile }>('/auth/me')
+      .then((res) => { if (!cancelled) setProfile(res.data.data); })
+      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load profile'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleToggleChange = async (index: number) => {
+    const newToggles = toggles.map((v, j) => (j === index ? !v : v));
+    setToggles(newToggles);
+    try {
+      await apiClient.put('/auth/me/preferences', {
+        preferences: {
+          emailNotifications: newToggles[0],
+          darkMode: newToggles[1],
+          autoSave: newToggles[2],
+          weeklyDigest: newToggles[3],
+        },
+      });
+    } catch {
+      setToggles(toggles);
+      toast.error('Failed to save preference');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="dashboard-view">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 40, color: 'var(--text-muted)' }}>
+          <Loader2 size={18} className="animate-spin" /> Loading settings...
+        </div>
+      </div>
+    );
+  }
+
+  const initials = profile ? `${profile.firstName[0]}${profile.lastName[0]}` : 'JD';
+
+  return (
+    <div className="dashboard-view">
+      <div className="desktop-page-header dashboard-header-v3">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div className="status-dot" aria-hidden="true" />
           <h1 className="page-title">Settings</h1>
@@ -92,109 +355,80 @@ export default function SettingsPage() {
         <p className="page-subtitle">Manage your account preferences and application settings.</p>
       </div>
 
+      <div className="mobile-page-header">
+        <button onClick={() => window.history.back()} aria-label="Go back" className="topbar-icon-btn" style={{ width: 32, height: 32, flexShrink: 0, cursor: 'pointer' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
+        </button>
+        <h1 className="mobile-header-title">Settings</h1>
+        <div style={{ width: 32 }} />
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: 16, marginBottom: 24 }}>
-        {/* Profile card */}
-        <motion.div
-          className="card"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          style={{ display: 'flex', alignItems: 'center', gap: 16, gridColumn: 'span 2' }}
-        >
-          <div style={{
-            width: 64, height: 64, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #E8531D, #F97316)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 22, fontWeight: 800, color: 'white', flexShrink: 0,
-          }}>
-            JD
+        <motion.div className="card" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', alignItems: 'center', gap: 16, gridColumn: 'span 2' }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg, #E8531D, #F97316)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: 'white', flexShrink: 0 }}>
+            {initials}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>John Doe</div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>john.doe@dps-bokaro.edu.in</div>
+            <div style={{ fontSize: 17, fontWeight: 700 }}>{profile?.firstName} {profile?.lastName}</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{profile?.email}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
               <Building2 size={13} color="var(--text-muted)" />
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Delhi Public School, Bokaro Steel City</span>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{profile?.institutionName}</span>
             </div>
           </div>
-          <button className="btn btn-secondary btn-sm">Edit Profile</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setActiveSection('account')}>Edit Profile</button>
         </motion.div>
       </div>
 
-      {/* Quick toggles */}
-      <motion.div
-        className="card"
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.05 }}
-        style={{ marginBottom: 16 }}
-      >
-        <h2 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16 }}>Quick Settings</h2>
+      <motion.div className="card" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} style={{ marginBottom: 16 }}>
+        <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Quick Settings</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-          {TOGGLE_SETTINGS.map((setting, i) => (
-            <div
-              key={setting.label}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                gap: 16, padding: '14px 0',
-                borderBottom: i < TOGGLE_SETTINGS.length - 1 ? '1px solid var(--border)' : 'none',
-              }}
-            >
+          {[
+            { label: 'Email notifications', desc: 'Receive updates about your assignments via email' },
+            { label: 'Dark mode', desc: 'Switch between light and dark interface' },
+            { label: 'Auto-save drafts', desc: 'Automatically save assignment drafts every 5 minutes' },
+            { label: 'Weekly digest', desc: 'Get a weekly summary of your activity' },
+          ].map((setting, i) => (
+            <div key={setting.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '14px 0', borderBottom: i < 3 ? '1px solid var(--border)' : 'none' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>{setting.label}</div>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>{setting.label}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{setting.desc}</div>
               </div>
-              <Toggle
-                enabled={toggles[i]}
-                onChange={() => setToggles((prev) => prev.map((v, j) => (j === i ? !v : v)))}
-              />
+              <Toggle enabled={toggles[i]} onChange={() => handleToggleChange(i)} />
             </div>
           ))}
         </div>
       </motion.div>
 
-      {/* Settings sections */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))', gap: 12 }}>
         {SETTINGS_SECTIONS.map((section, i) => {
           const Icon = section.icon;
           return (
-            <motion.div
-              key={section.title}
-              className="card"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 + i * 0.04 }}
-              style={{ cursor: 'pointer' }}
-            >
+            <motion.div key={section.id} className="card" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.04 }} style={{ cursor: 'pointer' }} onClick={() => setActiveSection(section.id)}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: 10,
-                  background: section.iconBg, display: 'flex',
-                  alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: section.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <Icon size={17} color={section.iconColor} />
                 </div>
-                <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>{section.title}</span>
+                <span style={{ fontWeight: 700, fontSize: 14 }}>{section.title}</span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                {section.items.map((item, j) => (
-                  <button
-                    key={item}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '9px 0', background: 'none', border: 'none', cursor: 'pointer',
-                      borderBottom: j < section.items.length - 1 ? '1px solid var(--border)' : 'none',
-                      width: '100%', textAlign: 'left',
-                    }}
-                  >
-                    <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{item}</span>
-                    <ChevronRight size={14} color="var(--text-muted)" />
-                  </button>
-                ))}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-muted)' }}>
+                <span>Click to configure</span>
+                <ChevronRight size={14} />
               </div>
             </motion.div>
           );
         })}
       </div>
-    </>
+
+      <AnimatePresence>
+        {activeSection && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setActiveSection(null)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} style={{ background: 'white', borderRadius: 20, width: '100%', maxWidth: 520, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
+              <SectionPanel id={activeSection} onClose={() => setActiveSection(null)} />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

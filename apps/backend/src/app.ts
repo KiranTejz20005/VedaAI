@@ -1,3 +1,4 @@
+// Restart trigger comment
 import 'express-async-errors';
 import express from 'express';
 import http from 'http';
@@ -8,13 +9,11 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { QueueEvents } from 'bullmq';
 import { env } from './config/env';
-import { connectDatabase, disconnectDatabase } from './config/db';
 import { closeRedis, closeBullRedis, getBullRedisClient, getBullRedisDiagnostics, getRedisClient, isBullRedisConnected, isRedisConnected } from './config/redis';
 import { initializeSocketServer, getSocketServer } from './sockets/socket.server';
 import { createAiGenerationWorker, getActiveAiJobCount, getStalledAiJobCount } from './workers/aiGeneration.worker';
 import { createPdfWorker } from './workers/pdf.worker';
-import { GenerationJob } from './models/GenerationJob.model';
-import { Assignment } from './models/Assignment.model';
+import prisma from './config/prisma';
 import { emitToAssignment } from './sockets/socket.server';
 import apiRouter from './routes';
 import { errorMiddleware } from './middlewares/error.middleware';
@@ -23,7 +22,7 @@ import { logger } from './utils/logger';
 // ── Bootstrap phase tracking ──
 let isBootstrapping = false;
 let bootstrapPhase = 'init';
-const healthState = { db: 'disconnected', redis: 'disconnected', bullmqRedis: 'disconnected', workers: 'none' };
+const healthState = { redis: 'disconnected', bullmqRedis: 'disconnected', workers: 'none' };
 let queueTimeoutMonitor: NodeJS.Timeout | null = null;
 let stallMonitorInterval: NodeJS.Timeout | null = null;
 let generationQueueEvents: QueueEvents | null = null;
@@ -61,20 +60,20 @@ function parseCorsOrigins(raw: string): string[] {
 
 async function failStaleQueuedJobs(): Promise<void> {
   const cutoff = new Date(Date.now() - QUEUE_TIMEOUT_MS);
-  const staleJobs = await GenerationJob.find({
-    status: 'queued',
-    createdAt: { $lte: cutoff },
-  }).sort({ createdAt: 1 }).limit(25).lean();
+  const staleJobs = await prisma.generationJob.findMany({
+    where: { status: 'queued', createdAt: { lte: cutoff } },
+    orderBy: { createdAt: 'asc' },
+    take: 25,
+  });
 
   for (const job of staleJobs) {
-    const assignmentId = job.assignmentId.toString();
+    const assignmentId = job.assignmentId;
 
     await Promise.allSettled([
-      Assignment.findByIdAndUpdate(assignmentId, { status: 'failed' }),
-      GenerationJob.findByIdAndUpdate(job._id, {
-        status: 'failed',
-        error: 'Generation timed out while waiting in queue',
-        completedAt: new Date(),
+      prisma.assignment.update({ where: { id: assignmentId }, data: { status: 'failed' } }),
+      prisma.generationJob.update({
+        where: { id: job.id },
+        data: { status: 'failed', error: 'Generation timed out while waiting in queue', completedAt: new Date() },
       }),
     ]);
 
@@ -82,32 +81,35 @@ async function failStaleQueuedJobs(): Promise<void> {
       assignmentId,
       error: 'Generation timed out while waiting in queue',
       retryable: true,
-      jobRecordId: job._id.toString(),
+      jobRecordId: job.id,
       generationSeq: job.generationSeq ?? 0,
       version: job.progressVersion ?? 0,
       ts: Date.now(),
     });
 
-    logger.warn(`Generation job ${job._id.toString()} timed out in queue and was marked failed`);
+    logger.warn(`Generation job ${job.id} timed out in queue and was marked failed`);
   }
 }
 
 async function failStaleInProgressJobs(): Promise<void> {
   const cutoff = new Date(Date.now() - IN_PROGRESS_STUCK_TIMEOUT_MS);
-  const staleJobs = await GenerationJob.find({
-    status: { $in: ['extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'] },
-    updatedAt: { $lte: cutoff },
-  }).sort({ updatedAt: 1 }).limit(25).lean();
+  const staleJobs = await prisma.generationJob.findMany({
+    where: {
+      status: { in: ['extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'] },
+      updatedAt: { lte: cutoff },
+    },
+    orderBy: { updatedAt: 'asc' },
+    take: 25,
+  });
 
   for (const job of staleJobs) {
-    const assignmentId = job.assignmentId.toString();
+    const assignmentId = job.assignmentId;
 
     await Promise.allSettled([
-      Assignment.findByIdAndUpdate(assignmentId, { status: 'failed' }),
-      GenerationJob.findByIdAndUpdate(job._id, {
-        status: 'failed',
-        error: 'Generation appears stuck and was automatically failed',
-        completedAt: new Date(),
+      prisma.assignment.update({ where: { id: assignmentId }, data: { status: 'failed' } }),
+      prisma.generationJob.update({
+        where: { id: job.id },
+        data: { status: 'failed', error: 'Generation appears stuck and was automatically failed', completedAt: new Date() },
       }),
     ]);
 
@@ -115,13 +117,13 @@ async function failStaleInProgressJobs(): Promise<void> {
       assignmentId,
       error: 'Generation appears stuck and was automatically failed',
       retryable: true,
-      jobRecordId: job._id.toString(),
+      jobRecordId: job.id,
       generationSeq: job.generationSeq ?? 0,
       version: job.progressVersion ?? 0,
       ts: Date.now(),
     });
 
-    logger.warn(`Generation job ${job._id.toString()} was stale in-progress and marked failed`);
+    logger.warn(`Generation job ${job.id} was stale in-progress and marked failed`);
   }
 }
 
@@ -256,22 +258,7 @@ async function bootstrap() {
   isBootstrapping = true;
   logBoot('init', `Starting backend — mode=${env.RENDER_WORKER_MODE}, env=${env.NODE_ENV}`);
 
-  // ── Step 1: Connect to MongoDB (fail fast) ──
-  logBoot('mongodb', 'Connecting to MongoDB...');
-  try {
-    await connectDatabase();
-    healthState.db = 'connected';
-    logBoot('mongodb', 'Connected successfully');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    healthState.db = 'error';
-    logger.error(`[BOOT:mongodb] Connection failed: ${message}`);
-    if (env.NODE_ENV === 'production') {
-      process.exit(1);
-    }
-  }
-
-  // ── Step 2: Connect to Redis (fail fast) ──
+  // ── Step 1: Connect to Redis (fail fast) ──
   logBoot('redis', 'Connecting to Redis...');
   try {
     const generalRedis = getRedisClient();
@@ -315,6 +302,7 @@ async function bootstrap() {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       services: {
+        db: 'prisma-postgresql',
         ...healthState,
         redis: isRedisConnected() ? 'connected' : healthState.redis,
         bullmqRedis: isBullRedisConnected() ? 'connected' : healthState.bullmqRedis,
@@ -376,7 +364,6 @@ async function bootstrap() {
     if (generationQueueEvents) { await generationQueueEvents.close().catch(() => {}); generationQueueEvents = null; }
     if (pdfQueueEvents) { await pdfQueueEvents.close().catch(() => {}); pdfQueueEvents = null; }
 
-    await disconnectDatabase();
     await Promise.allSettled([closeRedis(), closeBullRedis()]);
 
     httpServer.close(() => {

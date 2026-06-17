@@ -710,7 +710,7 @@ export default function CreateAssignmentPage() {
         setQueued(created.jobRecordId, created.generationSeq, 0, Date.now());
       }
       toast.success('Assignment created! Generation started…', { duration: 4000 });
-      router.push(`/assignments/${assignment._id}`);
+      router.push(`/assignments/${assignment.id}`);
     } catch (e: unknown) {
       let errorMsg = 'Failed to create assignment';
       if (e instanceof Error) {

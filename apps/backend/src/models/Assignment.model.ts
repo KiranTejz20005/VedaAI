@@ -1,13 +1,7 @@
-import mongoose, { type Document, Schema } from 'mongoose';
-import type {
-  AssignmentStatus,
-  QuestionType,
-  DifficultyDistribution,
-  FileRef,
-} from '../types/assignment.types';
-import type { GenerationMeta } from '../types/generation.types';
-
-export interface IAssignment extends Document {
+// Type-only for backward compatibility.
+// All runtime operations now use Prisma (see config/prisma.ts).
+export interface IAssignment {
+  id: string;
   title: string;
   subject: string;
   description: string;
@@ -15,69 +9,26 @@ export interface IAssignment extends Document {
   duration: number;
   totalMarks: number;
   questionConfig: {
-    types: QuestionType[];
+    types: string[];
     count: number;
-    difficulty: DifficultyDistribution;
+    difficulty: { easy: number; medium: number; hard: number };
   };
-  uploadedFiles: FileRef[];
+  uploadedFiles: Array<{
+    originalName: string;
+    storedName: string;
+    mimeType: string;
+    size: number;
+    path: string;
+  }>;
   additionalInstructions: string;
   typeBreakdown?: string;
-  status: AssignmentStatus;
-  generationMeta?: GenerationMeta;
-  // Monotonic generation sequence. Incremented every time we enqueue a new generation run.
+  status: string;
+  generationMeta?: any;
   generationSeq: number;
-  // The GenerationJob currently allowed to mutate this assignment's generation state.
-  activeGenerationJobId?: mongoose.Types.ObjectId;
-  // Once completed, we treat the result as immutable unless a new generationSeq is started explicitly.
+  activeGenerationJobId?: string;
   finalizedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  className?: string;
+  schoolName?: string;
 }
-
-const AssignmentSchema = new Schema<IAssignment>(
-  {
-    title: { type: String, required: true, trim: true, maxlength: 200 },
-    subject: { type: String, required: true, trim: true, maxlength: 100 },
-    description: { type: String, default: '', maxlength: 2000 },
-    dueDate: { type: Date, required: true },
-    duration: { type: Number, required: true, min: 1, max: 600 },
-    totalMarks: { type: Number, required: true, min: 1, max: 1000 },
-    questionConfig: {
-      types: [{ type: String, enum: ['short-answer', 'long-answer', 'mcq', 'true-false', 'fill-blank'] }],
-      count: { type: Number, required: true, min: 1, max: 100 },
-      difficulty: {
-        easy: { type: Number, default: 33 },
-        medium: { type: Number, default: 34 },
-        hard: { type: Number, default: 33 },
-      },
-    },
-    uploadedFiles: [{
-      originalName: String,
-      storedName: String,
-      mimeType: String,
-      size: Number,
-      path: String,
-    }],
-    additionalInstructions: { type: String, default: '', maxlength: 2000 },
-    typeBreakdown: { type: String, default: undefined },
-    status: {
-      type: String,
-      enum: ['draft', 'queued', 'generating', 'completed', 'failed', 'partially_generated'],
-      default: 'draft',
-    },
-    generationMeta: {
-      type: Schema.Types.Mixed,
-      default: undefined,
-    },
-    generationSeq: { type: Number, default: 0, min: 0 },
-    activeGenerationJobId: { type: Schema.Types.ObjectId, ref: 'GenerationJob', default: undefined, index: true },
-    finalizedAt: { type: Date, default: null },
-  },
-  { timestamps: true }
-);
-
-AssignmentSchema.index({ status: 1, createdAt: -1 });
-AssignmentSchema.index({ subject: 1 });
-AssignmentSchema.index({ _id: 1, generationSeq: -1 });
-
-export const Assignment = mongoose.model<IAssignment>('Assignment', AssignmentSchema);

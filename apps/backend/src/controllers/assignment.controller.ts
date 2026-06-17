@@ -10,7 +10,7 @@ import {
 import { sendSuccess, sendError } from '../utils/api-response';
 import { emitToAssignment } from '../sockets/socket.server';
 import type { FileRef } from '../types/assignment.types';
-import { GenerationJob } from '../models/GenerationJob.model';
+import prisma from '../config/prisma';
 import { logger } from '../utils/logger';
 import { getPaper } from '../services/paper.service';
 import { buildCanonicalGenerationState } from '../services/canonical-metadata.service';
@@ -71,11 +71,11 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
   }));
 
   const assignment = await createAssignment(parsed.data, files);
-  const { jobId, position, jobRecordId, generationSeq } = await enqueueGeneration(assignment._id.toString());
+  const { jobId, position, jobRecordId, generationSeq } = await enqueueGeneration(assignment.id);
   assignment.status = 'queued';
 
-  emitToAssignment(assignment._id.toString(), 'generation:queued', {
-    assignmentId: assignment._id.toString(),
+  emitToAssignment(assignment.id, 'generation:queued', {
+    assignmentId: assignment.id,
     jobId,
     jobRecordId,
     generationSeq,
@@ -109,13 +109,11 @@ export async function generateAssignmentHandler(req: Request, res: Response): Pr
     logger.debug(`[generateHandler] Assignment has partial generation — allowing regeneration`);
   }
 
-  // Only the Assignment's activeGenerationJobId counts as "in progress". This avoids stale
-  // GenerationJob rows from older runs blocking regeneration.
   const activeId = (assignment as any).activeGenerationJobId ? String((assignment as any).activeGenerationJobId) : '';
   if (activeId) {
-    const activeJob = await GenerationJob.findById(activeId).lean();
+    const activeJob = await prisma.generationJob.findUnique({ where: { id: activeId } });
     if (!force && activeJob && ['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'].includes(activeJob.status)) {
-      logger.warn(`[generateHandler] Active GenerationJob in progress (${activeJob._id}, status=${activeJob.status}) — returning 409`);
+      logger.warn(`[generateHandler] Active GenerationJob in progress (${activeJob.id}, status=${activeJob.status}) — returning 409`);
       sendError(res, 'Generation already in progress', 409);
       return;
     }
@@ -180,7 +178,10 @@ export async function getAssignmentHandler(req: Request, res: Response): Promise
     return;
   }
   const [job, paper] = await Promise.all([
-    GenerationJob.findOne({ assignmentId: req.params.id }).sort({ generationSeq: -1, createdAt: -1 }),
+    prisma.generationJob.findFirst({
+      where: { assignmentId: req.params.id },
+      orderBy: [{ generationSeq: 'desc' }, { createdAt: 'desc' }],
+    }),
     getPaper(req.params.id),
   ]);
   const generationState = buildCanonicalGenerationState({
@@ -200,7 +201,7 @@ export async function deleteAssignmentHandler(req: Request, res: Response): Prom
 
   if (['queued', 'generating', 'partially_generated'].includes(assignment.status)) {
     const activeId = (assignment as any).activeGenerationJobId ? String((assignment as any).activeGenerationJobId) : '';
-    const activeJob = activeId ? await GenerationJob.findById(activeId).lean() : null;
+    const activeJob = activeId ? await prisma.generationJob.findUnique({ where: { id: activeId } }) : null;
 
     if (activeJob && ['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'].includes(activeJob.status)) {
       sendError(res, 'Cannot delete assignment while generation is in progress', 409);

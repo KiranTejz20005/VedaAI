@@ -74,11 +74,11 @@ function buildFallbackBatches(assignment: IAssignment, maxBatchQuestions: number
     const count = Math.min(maxBatchQuestions, remaining);
     batches.push({
       id: `mixed-${index}`,
-      type: types[0] ?? 'short-answer',
+      type: (types[0] ?? 'short-answer') as any,
       count,
       marksPerQuestion,
       totalMarks: count * marksPerQuestion,
-      allowedTypes: types,
+      allowedTypes: types as any,
       sectionTitle: types.join(', '),
       difficultyHint,
     });

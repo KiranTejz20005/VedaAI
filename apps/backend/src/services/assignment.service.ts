@@ -1,12 +1,11 @@
-import { Assignment, type IAssignment } from '../models/Assignment.model';
-import { GenerationJob } from '../models/GenerationJob.model';
-import { getGenerationQueue } from '../queues/generation.queue';
+import prisma from '../config/prisma';
 import type { CreateAssignmentInput } from '../validators/assignment.validator';
 import type { FileRef } from '../types/assignment.types';
 import { logger } from '../utils/logger';
+import { getGenerationQueue } from '../queues/generation.queue';
 
 export interface AssignmentListResult {
-  assignments: IAssignment[];
+  assignments: unknown[];
   total: number;
   page: number;
   limit: number;
@@ -15,62 +14,66 @@ export interface AssignmentListResult {
 export async function createAssignment(
   input: CreateAssignmentInput,
   files: FileRef[]
-): Promise<IAssignment> {
+) {
   const { typeBreakdown, ...rest } = input;
-  const assignment = await Assignment.create({
-    ...rest,
-    ...(typeBreakdown ? { typeBreakdown } : {}),
-    dueDate: new Date(input.dueDate),
-    uploadedFiles: files,
-    status: 'draft',
+  const assignment = await prisma.assignment.create({
+    data: {
+      ...rest,
+      ...(typeBreakdown ? { typeBreakdown } : {}),
+      dueDate: new Date(input.dueDate),
+      uploadedFiles: files as any,
+      status: 'draft',
+      questionConfig: rest.questionConfig as any,
+    },
   });
 
-  logger.info(`Assignment created: ${assignment._id.toString()}`);
+  logger.info(`Assignment created: ${assignment.id}`);
   return assignment;
 }
 
 export async function enqueueGeneration(assignmentId: string): Promise<{ jobId: string; position: number; jobRecordId: string; generationSeq: number }> {
-  const assignment = await Assignment.findById(assignmentId);
+  const assignment = await prisma.assignment.findUnique({ where: { id: assignmentId } });
   if (!assignment) throw new Error(`Assignment ${assignmentId} not found`);
 
-  // If a run has already finalized successfully, do not allow a stale enqueue path
-  // to mutate it implicitly. The controller layer decides when regeneration is allowed.
   const nextSeq = (assignment.generationSeq ?? 0) + 1;
-  await Assignment.findByIdAndUpdate(assignmentId, {
-    generationSeq: nextSeq,
-    status: 'queued',
-    finalizedAt: null,
+  await prisma.assignment.update({
+    where: { id: assignmentId },
+    data: { generationSeq: nextSeq, status: 'queued', finalizedAt: null },
   });
 
-  // Create job record in DB
-  const jobRecord = await GenerationJob.create({
-    assignmentId: assignment._id,
-    generationSeq: nextSeq,
-    progressVersion: 0,
-    stageIndex: 0,
-    status: 'queued',
-    progress: 0,
-    startedAt: new Date(),
+  const jobRecord = await prisma.generationJob.create({
+    data: {
+      assignmentId,
+      generationSeq: nextSeq,
+      progressVersion: 0,
+      stageIndex: 0,
+      status: 'queued',
+      progress: 0,
+      startedAt: new Date(),
+    },
   });
 
-  // Mark this job as the ONLY job allowed to mutate assignment generation state.
-  await Assignment.findByIdAndUpdate(assignmentId, { activeGenerationJobId: jobRecord._id });
+  await prisma.assignment.update({
+    where: { id: assignmentId },
+    data: { activeGenerationJobId: jobRecord.id },
+  });
 
-  // Add to BullMQ with unique jobId to avoid BullMQ's silent dedup rejection
   const queue = getGenerationQueue();
   const job = await queue.add(
     'generate-paper',
-    { assignmentId, jobRecordId: jobRecord._id.toString() },
+    { assignmentId, jobRecordId: jobRecord.id },
     { jobId: `gen-${assignmentId}-seq-${nextSeq}` }
   );
 
-  // Update job record with bullmq job id
-  await GenerationJob.findByIdAndUpdate(jobRecord._id, { bullmqJobId: job.id ?? '' });
+  await prisma.generationJob.update({
+    where: { id: jobRecord.id },
+    data: { bullmqJobId: job.id ?? '' },
+  });
 
   const waiting = await queue.getWaitingCount();
   logger.info(`Enqueued generation job ${job.id} for assignment ${assignmentId}`);
 
-  return { jobId: job.id ?? '', position: waiting, jobRecordId: jobRecord._id.toString(), generationSeq: nextSeq };
+  return { jobId: job.id ?? '', position: waiting, jobRecordId: jobRecord.id, generationSeq: nextSeq };
 }
 
 export async function listAssignments(
@@ -82,17 +85,22 @@ export async function listAssignments(
   const skip = (page - 1) * limit;
 
   const [assignments, total] = await Promise.all([
-    Assignment.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-    Assignment.countDocuments(filter),
+    prisma.assignment.findMany({
+      where: filter,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+    prisma.assignment.count({ where: filter }),
   ]);
 
-  return { assignments: assignments as unknown as IAssignment[], total, page, limit };
+  return { assignments, total, page, limit };
 }
 
-export async function getAssignment(id: string): Promise<IAssignment | null> {
-  return Assignment.findById(id);
+export async function getAssignment(id: string) {
+  return prisma.assignment.findUnique({ where: { id } });
 }
 
 export async function deleteAssignment(id: string): Promise<void> {
-  await Assignment.findByIdAndDelete(id);
+  await prisma.assignment.delete({ where: { id } });
 }

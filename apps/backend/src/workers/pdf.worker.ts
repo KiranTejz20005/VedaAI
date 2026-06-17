@@ -1,7 +1,7 @@
 import { Worker } from 'bullmq';
 import { env } from '../config/env';
 import { getBullRedisClient } from '../config/redis';
-import { GeneratedPaper } from '../models/GeneratedPaper.model';
+import prisma from '../config/prisma';
 import { generatePdf } from '../services/pdf.service';
 import { updatePaperPdf } from '../services/paper.service';
 import { emitToAssignment } from '../sockets/socket.server';
@@ -19,13 +19,13 @@ export function createPdfWorker() {
       const { paperId, assignmentId } = job.data;
       logger.info(`[WORKER:PDF:START] Job ${job.id} | assignment=${assignmentId}`);
 
-      const paper = await GeneratedPaper.findById(paperId);
+      const paper = await prisma.generatedPaper.findUnique({ where: { id: paperId } });
       if (!paper) {
         logger.warn(`[WORKER:PDF] Paper ${paperId} not found for assignment ${assignmentId}`);
         return;
       }
 
-      const { pdfPath, pdfUrl } = await generatePdf(paper);
+      const { pdfPath, pdfUrl } = await generatePdf(paper as any);
       await updatePaperPdf(paperId, pdfPath, pdfUrl);
       emitToAssignment(assignmentId, 'generation:pdf_ready', {
         assignmentId,
