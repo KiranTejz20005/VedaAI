@@ -103,6 +103,9 @@ const envSchema = z.object({
   // Queue / Retry tuning
   QUEUE_SWEEP_INTERVAL_MS: z.coerce.number().int().min(30_000).default(120_000),
   STALL_MONITOR_INTERVAL_MS: z.coerce.number().int().min(60_000).default(300_000),
+
+  // AI Engine
+  AI_ENGINE_URL: z.string().url().default('http://localhost:8000'),
 });
 
 const parsed = envSchema.safeParse(process.env);
