@@ -239,17 +239,15 @@ export default function GeneratePage() {
     setRevealedAnswers({});
     try {
       const count = formData.numQuestions;
-      const promises = Array.from({ length: count }).map(() =>
-        apiClient.post<{ success: boolean; data: GeneratedQuestion }>('/generate/question', {
-          topic: formData.topic,
-          subject: formData.subject,
-          difficulty: formData.difficulty,
-          bloomLevel: formData.bloom_level,
-          context: formData.context || undefined,
-        })
-      );
-      const responses = await Promise.all(promises);
-      const questions = responses.map(res => res.data.data);
+      const res = await apiClient.post<{ success: boolean; data: GeneratedQuestion[] }>('/generate/questions', {
+        topic: formData.topic,
+        subject: formData.subject,
+        difficulty: formData.difficulty,
+        bloomLevel: formData.bloom_level,
+        context: formData.context || undefined,
+        count,
+      });
+      const questions = res.data.data;
 
       const timeLimit = count * 60; // 1 minute per question
       const newQuiz: Quiz = {

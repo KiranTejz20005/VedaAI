@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { generateSingleQuestion } from '../services/question-generation.service';
+import { generateSingleQuestion, generateMultipleQuestions } from '../services/question-generation.service';
 import prisma from '../config/prisma';
 import { logger } from '../utils/logger';
 
@@ -57,6 +57,74 @@ export const generateQuestion = async (req: Request, res: Response): Promise<voi
     res.status(201).json({ success: true, data: question });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to generate question';
+    if (message.includes('AI provider') || message.includes('API key')) {
+      res.status(503).json({ success: false, error: message });
+    } else {
+      res.status(500).json({ success: false, error: message });
+    }
+  }
+};
+
+export const generateQuestions = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { topic, subject, difficulty, bloomLevel, context, count } = req.body;
+
+    if (!topic || !subject) {
+      res.status(400).json({ success: false, error: 'Topic and subject are required' });
+      return;
+    }
+
+    const numQuestions = Number(count) || 5;
+
+    const questions = await generateMultipleQuestions({
+      topic,
+      subject,
+      difficulty: difficulty || 'MEDIUM',
+      bloomLevel: bloomLevel || 'APPLY',
+      context: context || undefined,
+      count: numQuestions,
+    });
+
+    // Persist to DB so questions survive localStorage clears
+    const userId = (req as any).user?.id || 'demo-faculty-id';
+    await Promise.all(
+      questions.map(async (question) => {
+        try {
+          await prisma.question.upsert({
+            where: { id: question.id },
+            create: {
+              id: question.id,
+              content: question.question_text,
+              options: question.options as any,
+              answer: question.answer,
+              hint: question.hint,
+              difficulty: (difficulty || 'MEDIUM') as any,
+              bloomLevel: (bloomLevel || 'APPLY') as any,
+              author: {
+                connectOrCreate: {
+                  where: { id: userId },
+                  create: {
+                    id: userId,
+                    email: 'demo@bloomverify.com',
+                    passwordHash: 'demo-hash',
+                    firstName: 'Demo',
+                    lastName: 'User',
+                  },
+                },
+              },
+              isPublished: false,
+            },
+            update: {},
+          });
+        } catch (dbErr) {
+          logger.warn(`[generateQuestions] Failed to persist question to DB: ${dbErr instanceof Error ? dbErr.message : dbErr}`);
+        }
+      })
+    );
+
+    res.status(201).json({ success: true, data: questions });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to generate questions';
     if (message.includes('AI provider') || message.includes('API key')) {
       res.status(503).json({ success: false, error: message });
     } else {
