@@ -143,3 +143,37 @@ export async function updateQuestionBankQuestion(params: {
 
   return updated;
 }
+
+export async function createQuestionCollection(params: {
+  name: string;
+  description?: string;
+  userId: string;
+  questionIds: string[];
+}) {
+  return prisma.questionCollection.create({
+    data: {
+      name: params.name,
+      description: params.description,
+      userId: params.userId,
+      questions: {
+        connect: params.questionIds.map((id) => ({ id })),
+      },
+    },
+    include: { questions: true },
+  });
+}
+
+export async function listQuestionCollections(userId: string) {
+  return prisma.questionCollection.findMany({
+    where: { userId },
+    include: { questions: true },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+export async function getQuestionCollection(id: string) {
+  return prisma.questionCollection.findUnique({
+    where: { id },
+    include: { questions: true },
+  });
+}

@@ -13,6 +13,12 @@ import authRoutes from './auth.routes';
 import groupRoutes from './group.routes';
 import generationRoutes from './generation.routes';
 import syllabusRoutes from './syllabus.routes';
+import graderRoutes from './grader.routes';
+import questionBankRoutes from './question-bank.routes';
+import lessonRoutes from './lessons.routes';
+import worksheetRoutes from './worksheets.routes';
+import tutorRoutes from './tutor.routes';
+import notesRoutes from './notes.routes';
 
 const apiRouter = Router();
 
@@ -66,6 +72,12 @@ apiRouter.use('/v1/auth', authRoutes);
 apiRouter.use('/v1/groups', groupRoutes);
 apiRouter.use('/v1/generate', generationRoutes);
 apiRouter.use('/v1/syllabus', syllabusRoutes);
+apiRouter.use('/v1/grader', graderRoutes);
+apiRouter.use('/v1/question-bank', questionBankRoutes);
+apiRouter.use('/v1/lessons', lessonRoutes);
+apiRouter.use('/v1/worksheets', worksheetRoutes);
+apiRouter.use('/v1/tutor', tutorRoutes);
+apiRouter.use('/v1/notes', notesRoutes);
 
 // Backward compatible legacy aliases
 apiRouter.use('/assignments', assignmentRoutes);

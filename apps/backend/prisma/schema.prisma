@@ -421,6 +421,7 @@ model QuestionBank {
   tags          String[]
   isActive      Boolean             @default(true)
   versions      QuestionVersion[]
+  collections   QuestionCollection[]
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 }
@@ -458,6 +459,127 @@ model Subscription {
   expiresAt      DateTime
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
+}
+
+model Rubric {
+  id             String            @id @default(uuid())
+  title          String
+  description    String?
+  institutionId  String?
+  authorId       String
+  criteria       RubricCriterion[]
+  configs        AssignmentGradingConfig[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+model RubricCriterion {
+  id             String   @id @default(uuid())
+  rubricId       String
+  rubric         Rubric   @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  name           String
+  description    String
+  maxMarks       Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model AssignmentGradingConfig {
+  id             String      @id @default(uuid())
+  assignmentId   String      @unique
+  rubricId       String?
+  rubric         Rubric?     @relation(fields: [rubricId], references: [id], onDelete: SetNull)
+  answerKeyText  String      @default("")
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+model StudentSubmission {
+  id             String                @id @default(uuid())
+  assignmentId   String
+  studentId      String
+  fileUrl        String
+  fileType       String                // PDF, DOCX, TXT, IMG
+  status         String                @default("SUBMITTED") // SUBMITTED, GRADED, REVIEWED
+  submittedAt    DateTime              @default(now())
+  evaluations    SubmissionEvaluation[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@index([assignmentId])
+  @@index([studentId])
+}
+
+model SubmissionEvaluation {
+  id              String            @id @default(uuid())
+  submissionId    String            @unique
+  submission      StudentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  score           Float
+  totalMarks      Float
+  generalFeedback String
+  criteriaGrades  Json              // Array of { criteriaId, name, score, explanation }
+  teacherOverride Json?             // { originalScore, overrideScore, reason, updatedAt }
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model QuestionCollection {
+  id             String            @id @default(uuid())
+  name           String
+  description    String?
+  userId         String
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  questions      QuestionBank[]
+}
+
+model AIRecommendation {
+  id             String            @id @default(uuid())
+  studentId      String?
+  groupId        String?
+  type           String            // STUDENT | CLASS
+  content        String
+  suggestedTopics Json
+  createdAt      DateTime          @default(now())
+}
+
+model LessonPlan {
+  id             String            @id @default(uuid())
+  title          String
+  subject        String
+  grade          String
+  duration       String            // DAILY | WEEKLY | MONTHLY
+  objectives     String
+  activities     Json
+  assessments    Json
+  content        String
+  userId         String            @default("demo-faculty-id")
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+model Worksheet {
+  id             String            @id @default(uuid())
+  title          String
+  subject        String
+  topic          String
+  difficulty     String
+  content        String
+  answerKey      String
+  userId         String            @default("demo-faculty-id")
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+model GeneratedNotes {
+  id             String            @id @default(uuid())
+  title          String
+  subject        String
+  topic          String
+  type           String            // SUMMARY | REVISION | FLASHCARDS
+  content        String
+  userId         String            @default("demo-faculty-id")
+  createdAt      DateTime          @default(now())
 }
 
 

@@ -62,6 +62,18 @@ export default function GroupsPage() {
   const [newGroupSubject, setNewGroupSubject] = useState('Computer Science');
   const [creating, setCreating] = useState(false);
 
+  // Student dialog states
+  const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
+  const [singleName, setSingleName] = useState('');
+  const [singleRoll, setSingleRoll] = useState('');
+  const [singleEmail, setSingleEmail] = useState('');
+  const [addingStudent, setAddingStudent] = useState(false);
+
+  // CSV Import states
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [csvText, setCsvText] = useState('');
+  const [importing, setImporting] = useState(false);
+
   // Card menu dropdown states
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -140,6 +152,117 @@ export default function GroupsPage() {
       toast.success('Class group deleted');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to delete group');
+    }
+  };
+
+  const handleAddStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedGroup) return;
+    if (!singleName.trim() || !singleRoll.trim() || !singleEmail.trim()) {
+      toast.error('All fields are required');
+      return;
+    }
+    setAddingStudent(true);
+    try {
+      const res = await apiClient.post<{ success: boolean; data: Student }>(`/groups/${selectedGroup.id}/students`, {
+        name: singleName,
+        rollNo: singleRoll,
+        email: singleEmail,
+      });
+      setStudents(prev => [...prev, res.data.data]);
+      toast.success('Student added successfully!');
+      setIsAddStudentOpen(false);
+      setSingleName('');
+      setSingleRoll('');
+      setSingleEmail('');
+      // Update local count
+      setGroups(prev => prev.map(g => g.id === selectedGroup.id ? { ...g, students: g.students + 1 } : g));
+      setSelectedGroup(prev => prev ? { ...prev, students: prev.students + 1 } : null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to add student');
+    } finally {
+      setAddingStudent(false);
+    }
+  };
+
+  const handleBulkImport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedGroup) return;
+    if (!csvText.trim()) {
+      toast.error('Please paste CSV content');
+      return;
+    }
+    setImporting(true);
+    try {
+      // Basic CSV Parser: split by line, then comma
+      // Formats expected: name,email,rollNo  OR  name,rollNo,email
+      const lines = csvText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+      const parsedStudents: { name: string; email: string; rollNo: string }[] = [];
+
+      for (let i = 0; i < lines.length; i++) {
+        const parts = lines[i].split(',').map(p => p.trim());
+        if (parts.length < 2) continue; // need at least name and email or rollNo
+        
+        // Skip header line if present
+        if (i === 0 && (parts[0].toLowerCase().includes('name') || parts[1].toLowerCase().includes('email') || parts[1].toLowerCase().includes('roll'))) {
+          continue;
+        }
+
+        const name = parts[0];
+        let email = '';
+        let rollNo = '';
+
+        if (parts.length >= 3) {
+          // If third part contains @, treat it as email, else parts[1] as email
+          if (parts[2].includes('@')) {
+            email = parts[2];
+            rollNo = parts[1];
+          } else {
+            email = parts[1];
+            rollNo = parts[2];
+          }
+        } else {
+          // 2 parts: name, email
+          if (parts[1].includes('@')) {
+            email = parts[1];
+            rollNo = `R-${Date.now()}-${i}`;
+          } else {
+            rollNo = parts[1];
+            email = `${name.toLowerCase().replace(/\s+/g, '.')}@school.edu`;
+          }
+        }
+
+        parsedStudents.push({ name, email, rollNo });
+      }
+
+      if (parsedStudents.length === 0) {
+        toast.error('No valid student rows found in CSV');
+        setImporting(false);
+        return;
+      }
+
+      const res = await apiClient.post<{ success: boolean; data: { count: number }; message: string }>(
+        `/groups/${selectedGroup.id}/students/bulk`, 
+        { students: parsedStudents }
+      );
+
+      toast.success(res.data.message || `Imported ${res.data.data.count} students`);
+      
+      // Reload roster
+      const rosterRes = await apiClient.get<{ success: boolean; data: Student[] }>(`/groups/${selectedGroup.id}/students`);
+      setStudents(rosterRes.data.data);
+      
+      // Update count
+      const count = res.data.data.count;
+      setGroups(prev => prev.map(g => g.id === selectedGroup.id ? { ...g, students: g.students + count } : g));
+      setSelectedGroup(prev => prev ? { ...prev, students: prev.students + count } : null);
+      
+      setIsImportOpen(false);
+      setCsvText('');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Import failed');
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -433,7 +556,19 @@ export default function GroupsPage() {
             <div>
               {activeTab === 'students' ? (
                 // Students Roster Table
-                <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)' }}>Roster List</span>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button className="btn btn-secondary btn-pill btn-sm" onClick={() => setIsImportOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Plus size={13} /> Import CSV
+                      </button>
+                      <button className="btn btn-dark btn-pill btn-sm" onClick={() => setIsAddStudentOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Plus size={13} /> Add Student
+                      </button>
+                    </div>
+                  </div>
+                  <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                       <thead>
@@ -467,6 +602,7 @@ export default function GroupsPage() {
                     </table>
                   </div>
                 </div>
+              </div>
               ) : (
                 // Assignments List
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -599,6 +735,192 @@ export default function GroupsPage() {
                     style={{ minWidth: 100 }}
                   >
                     {creating ? 'Creating...' : 'Create'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Custom Add Student Dialog Modal */}
+      <AnimatePresence>
+        {isAddStudentOpen && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            {/* Modal Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAddStudentOpen(false)}
+              style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(2px)' }} 
+            />
+            
+            {/* Modal Content */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              className="card"
+              style={{ width: '100%', maxWidth: 460, position: 'relative', zIndex: 101, padding: 24, boxShadow: 'var(--shadow-lg)' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Plus size={20} color="var(--brand)" />
+                  Add Student
+                </h3>
+                <button 
+                  onClick={() => setIsAddStudentOpen(false)}
+                  style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
+                  aria-label="Close modal"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddStudent} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <label htmlFor="studentName" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                    Full Name
+                  </label>
+                  <input
+                    id="studentName"
+                    type="text"
+                    required
+                    placeholder="e.g. John Doe"
+                    className="input"
+                    style={{ width: '100%' }}
+                    value={singleName}
+                    onChange={(e) => setSingleName(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="studentRoll" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                    Roll Number
+                  </label>
+                  <input
+                    id="studentRoll"
+                    type="text"
+                    required
+                    placeholder="e.g. CS-101"
+                    className="input"
+                    style={{ width: '100%' }}
+                    value={singleRoll}
+                    onChange={(e) => setSingleRoll(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="studentEmail" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                    Email Address
+                  </label>
+                  <input
+                    id="studentEmail"
+                    type="email"
+                    required
+                    placeholder="e.g. john.doe@school.edu"
+                    className="input"
+                    style={{ width: '100%' }}
+                    value={singleEmail}
+                    onChange={(e) => setSingleEmail(e.target.value)}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 10 }}>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary btn-pill" 
+                    onClick={() => setIsAddStudentOpen(false)}
+                    disabled={addingStudent}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="btn btn-dark btn-pill"
+                    disabled={addingStudent}
+                    style={{ minWidth: 100 }}
+                  >
+                    {addingStudent ? 'Adding...' : 'Add'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Custom CSV Import Dialog Modal */}
+      <AnimatePresence>
+        {isImportOpen && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            {/* Modal Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsImportOpen(false)}
+              style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(2px)' }} 
+            />
+            
+            {/* Modal Content */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              className="card"
+              style={{ width: '100%', maxWidth: 520, position: 'relative', zIndex: 101, padding: 24, boxShadow: 'var(--shadow-lg)' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Plus size={20} color="var(--brand)" />
+                  Import Students (CSV)
+                </h3>
+                <button 
+                  onClick={() => setIsImportOpen(false)}
+                  style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
+                  aria-label="Close modal"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleBulkImport} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <label htmlFor="csvContent" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                    Paste CSV Data
+                  </label>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
+                    Format: <code>Name, Email, Roll Number</code> (One student per line. Header is optional).
+                  </div>
+                  <textarea
+                    id="csvContent"
+                    required
+                    placeholder="Alice Smith, alice@school.edu, R-101&#10;Bob Jones, bob@school.edu, R-102"
+                    className="input"
+                    style={{ width: '100%', minHeight: 180, fontFamily: 'monospace', fontSize: 13 }}
+                    value={csvText}
+                    onChange={(e) => setCsvText(e.target.value)}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 10 }}>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary btn-pill" 
+                    onClick={() => setIsImportOpen(false)}
+                    disabled={importing}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="btn btn-dark btn-pill"
+                    disabled={importing}
+                    style={{ minWidth: 100 }}
+                  >
+                    {importing ? 'Importing...' : 'Import Roster'}
                   </button>
                 </div>
               </form>

@@ -4,9 +4,12 @@ import { use, useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Download, RefreshCw, Loader2 } from 'lucide-react';
+import { 
+  Download, RefreshCw, Loader2, Edit, Save, Eye, ArrowUp, ArrowDown, Sparkles, X, Check, BookOpen 
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fetchPaper } from '@/services/paper.service';
+import { apiClient } from '@/services/api.client';
 import { getSocket, subscribeToAssignment, unsubscribeFromAssignment } from '@/sockets/socket.client';
 import { resolveAssetUrl } from '@/utils/url';
 import type { GenerationPdfReadyPayload } from '@/types/socket.types';
@@ -19,94 +22,6 @@ const DIFFICULTY_LABELS: Record<DifficultyLevel, string> = {
   hard: 'Challenging',
 };
 
-function formatMarks(marks: number) {
-  return `${marks} ${marks === 1 ? 'Mark' : 'Marks'}`;
-}
-
-function normalizeField(value: string | undefined, fallback: string, invalidValues: string[] = []) {
-  const cleaned = value?.trim();
-  if (!cleaned) return fallback;
-  const normalized = cleaned.toLowerCase();
-  if (invalidValues.some((invalid) => normalized === invalid.toLowerCase())) return fallback;
-  return cleaned;
-}
-
-function DifficultyTag({ difficulty }: { difficulty: DifficultyLevel }) {
-  return (
-    <span style={{ fontSize: 'clamp(11px, 0.9vw, 12px)', fontWeight: 600, color: '#888', marginRight: 6, background: '#f3f4f6', padding: '1px 7px', borderRadius: 3, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
-      {DIFFICULTY_LABELS[difficulty]}
-    </span>
-  );
-}
-
-function QuestionItem({ question, number }: { question: Question; number: number }) {
-  return (
-    <div className="question-item" style={{ marginBottom: 'clamp(12px, 1.2vw, 16px)' }}>
-      <span className="question-num">{number}.</span>
-      <div className="question-text-block" style={{ whiteSpace: 'pre-wrap' }}>
-        <div>
-          <DifficultyTag difficulty={question.difficulty} />
-          {question.question}
-        </div>
-        {question.type === 'mcq' && question.options && question.options.length > 0 && (
-          <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '6px 16px' }}>
-            {question.options.map((opt) => (
-              <div key={opt.key} style={{ fontSize: 'clamp(13px, 1.1vw, 15px)', color: '#374151' }}>
-                <strong>{opt.key}.</strong> {opt.text}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      <span className="question-marks">[{formatMarks(question.marks)}]</span>
-    </div>
-  );
-}
-
-function SectionBlock({ section, startNumber }: { section: Section; startNumber: number }) {
-  return (
-    <div style={{ marginBottom: 'clamp(36px, 5vw, 48px)' }}>
-      <h3 style={{ fontSize: 'clamp(16px, 1.5vw, 19px)', fontWeight: 700, color: '#111', textAlign: 'center', marginBottom: 'clamp(14px, 1.5vw, 18px)' }}>
-        {section.title}
-      </h3>
-      {section.instruction && (
-        <p style={{ fontSize: 'clamp(13px, 1.1vw, 15px)', color: '#6b7280', fontStyle: 'italic', textAlign: 'left', marginBottom: 'clamp(12px, 1.5vw, 16px)' }}>
-          {section.instruction}
-        </p>
-      )}
-      {section.questions.map((q, qi) => (
-        <QuestionItem key={`${section.title}-${startNumber + qi}-${qi}`} question={q} number={startNumber + qi} />
-      ))}
-    </div>
-  );
-}
-
-function AnswerKey({ sections }: { sections: Section[] }) {
-  const answers = sections
-    .flatMap((s) => s.questions)
-    .map((q, i) => ({
-      number: i + 1,
-      answer: typeof q.answer === 'string' ? q.answer : q.answer?.text,
-    }))
-    .filter((item) => item.answer);
-
-  if (answers.length === 0) return null;
-
-  return (
-    <div style={{ marginTop: 'clamp(28px, 4vw, 36px)', paddingTop: 'clamp(16px, 2.5vw, 24px)', borderTop: '2px solid #111827' }}>
-      <h4 style={{ fontSize: 'clamp(16px, 1.5vw, 19px)', fontWeight: 700, color: '#111', marginBottom: 'clamp(14px, 1.8vw, 18px)' }}>Answer Key</h4>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(12px, 1.5vw, 16px)' }}>
-        {answers.map(({ number, answer }) => (
-          <div key={number} className="question-item">
-            <span className="question-num">{number}.</span>
-            <div className="question-text-block" style={{ color: '#4B5563', whiteSpace: 'pre-line' }}>{answer}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export default function PaperViewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -114,12 +29,47 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
 
-  useEffect(() => { if (error) toast.error(error, { id: 'paper-error', position: 'bottom-center' }); }, [error]);
+  // Regeneration panel states
+  const [regenTarget, setRegenTarget] = useState<{ sIdx: number; qIdx: number } | null>(null);
+  const [regenDiff, setRegenDiff] = useState<string>('medium');
+  const [regenBloom, setRegenBloom] = useState<string>('APPLY');
+  const [regenContext, setRegenContext] = useState<string>('');
+  const [regeneratingQ, setRegeneratingQ] = useState(false);
+
+  // Header metadata states (local edits before save)
+  const [schoolName, setSchoolName] = useState('');
+  const [paperTitle, setPaperTitle] = useState('');
+  const [duration, setDuration] = useState(45);
+  const [totalMarks, setTotalMarks] = useState(100);
+
+  const loadPaper = async () => {
+    try {
+      const p = await fetchPaper(id);
+      setPaper(p);
+      if (p.canonicalMetadata) {
+        setSchoolName(p.canonicalMetadata.schoolName || 'Delhi Public School');
+        setPaperTitle(p.title || p.canonicalMetadata.subject || 'Assessment');
+        setDuration(p.canonicalMetadata.durationMinutes || p.duration || 45);
+        setTotalMarks(p.canonicalMetadata.generatedMarks || p.totalMarks || 100);
+      } else {
+        setSchoolName('Delhi Public School');
+        setPaperTitle(p.title || 'Assessment');
+        setDuration(p.duration || 45);
+        setTotalMarks(p.totalMarks || 100);
+      }
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load paper');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetchPaper(id).then(setPaper).catch((e) => setError(e instanceof Error ? e.message : 'Failed to load paper')).finally(() => setLoading(false));
+    loadPaper();
   }, [id]);
 
   useEffect(() => {
@@ -139,17 +89,103 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
     };
   }, [id]);
 
-  useEffect(() => {
-    if (!paper || paper.pdfUrl) return;
-    const interval = setInterval(() => {
-      fetchPaper(id)
-        .then((p) => {
-          if (p.pdfUrl) setPaper(p);
-        })
-        .catch(() => {});
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [id, paper]);
+  // Handle reordering questions locally
+  const moveQuestion = (sectionIdx: number, questionIdx: number, direction: 'up' | 'down') => {
+    if (!paper) return;
+    const updatedSections = JSON.parse(JSON.stringify(paper.sections)) as Section[];
+    const section = updatedSections[sectionIdx];
+    if (!section) return;
+
+    const targetIdx = direction === 'up' ? questionIdx - 1 : questionIdx + 1;
+    if (targetIdx < 0 || targetIdx >= section.questions.length) return;
+
+    // Swap questions
+    const temp = section.questions[questionIdx];
+    section.questions[questionIdx] = section.questions[targetIdx];
+    section.questions[targetIdx] = temp;
+
+    setPaper({ ...paper, sections: updatedSections });
+  };
+
+  // Handle local text edit of a question text
+  const editQuestionText = (sectionIdx: number, questionIdx: number, text: string) => {
+    if (!paper) return;
+    const updatedSections = JSON.parse(JSON.stringify(paper.sections)) as Section[];
+    if (updatedSections[sectionIdx]?.questions[questionIdx]) {
+      updatedSections[sectionIdx].questions[questionIdx].question = text;
+      setPaper({ ...paper, sections: updatedSections });
+    }
+  };
+
+  // Handle local text edit of a question marks
+  const editQuestionMarks = (sectionIdx: number, questionIdx: number, marksVal: number) => {
+    if (!paper) return;
+    const updatedSections = JSON.parse(JSON.stringify(paper.sections)) as Section[];
+    if (updatedSections[sectionIdx]?.questions[questionIdx]) {
+      updatedSections[sectionIdx].questions[questionIdx].marks = marksVal;
+      setPaper({ ...paper, sections: updatedSections });
+    }
+  };
+
+  // Save all modified details (metadata + questions/order) to backend
+  const handleSavePaper = async () => {
+    if (!paper) return;
+    setSaving(true);
+    try {
+      const updatedMeta = {
+        ...paper.canonicalMetadata,
+        schoolName,
+        subject: paperTitle,
+        durationMinutes: duration,
+        generatedMarks: totalMarks,
+      };
+
+      await apiClient.put(`/papers/${paper.id}`, {
+        title: paperTitle,
+        totalMarks: totalMarks,
+        sections: paper.sections,
+        canonicalMetadata: updatedMeta,
+      });
+
+      toast.success('Paper saved successfully! Regerating PDF...');
+      setIsEditMode(false);
+      await loadPaper();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save paper');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Call AI regeneration for a single target question
+  const handleRegenerateQuestion = async () => {
+    if (!paper || !regenTarget) return;
+    setRegeneratingQ(true);
+    try {
+      const { sIdx, qIdx } = regenTarget;
+      const res = await apiClient.post<{ 
+        success: boolean; 
+        data: { paper: GeneratedPaper; newQuestion: Question } 
+      }>(`/papers/${paper.id}/regenerate-question`, {
+        sectionIndex: sIdx,
+        questionIndex: qIdx,
+        difficulty: regenDiff,
+        bloomLevel: regenBloom,
+        context: regenContext,
+      });
+
+      toast.success('Question replaced successfully!');
+      
+      // Update local paper state with new sections/questions
+      setPaper(res.data.data.paper);
+      setRegenTarget(null);
+      setRegenContext('');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to regenerate question');
+    } finally {
+      setRegeneratingQ(false);
+    }
+  };
 
   const handleDownload = async () => {
     if (!paper?.pdfUrl) { window.print(); return; }
@@ -165,141 +201,329 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
     } finally { setDownloading(false); }
   };
 
-  const handleRegenerate = useCallback(async () => {
-    setRegenerating(true);
-    try {
-      const { generateAssignment } = await import('@/services/assignment.service');
-      await generateAssignment(id, true);
-      toast.success('Regeneration started!', { id: 'regen-toast' });
-      router.push(`/assignments/${id}`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to regenerate', { id: 'regen-err' });
-    } finally {
-      setRegenerating(false);
-    }
-  }, [id, router]);
-
   if (loading) {
     return (
-      <>
-        <div className="skeleton" style={{ height: 24, width: 'clamp(120px, 25vw, 180px)', borderRadius: 6, marginBottom: 16 }} />
+      <div style={{ padding: 40 }}>
+        <div className="skeleton" style={{ height: 24, width: 180, borderRadius: 6, marginBottom: 16 }} />
         <div className="skeleton" style={{ height: 56, borderRadius: 12, marginBottom: 16 }} />
-        <div className="skeleton" style={{ height: 'clamp(400px, 60vh, 600px)', borderRadius: 16 }} />
-      </>
+        <div className="skeleton" style={{ height: 500, borderRadius: 16 }} />
+      </div>
     );
   }
 
   if (error || !paper) {
     return (
       <div className="empty-state">
-        <div className="empty-illustration" aria-hidden="true">
-          <Image src="/empty-state.png" alt="" fill sizes="(max-width: 768px) 100vw, 320px" style={{ objectFit: 'contain' }} />
-        </div>
         <h2 className="empty-title">Failed to load question paper</h2>
         <p className="empty-desc">The question paper could not be retrieved.</p>
         <div className="empty-state-actions">
           <Link href={`/assignments/${id}`} className="btn btn-dark btn-pill">Back to Assignment</Link>
-          <button onClick={() => window.location.reload()} className="btn btn-secondary btn-pill" style={{ cursor: 'pointer' }}>Reload Page</button>
+          <button onClick={() => window.location.reload()} className="btn btn-secondary btn-pill">Reload Page</button>
         </div>
       </div>
     );
   }
 
-  const meta = paper.canonicalMetadata;
-  const schoolName = normalizeField(meta?.schoolName, 'Delhi Public School', ['school', 'not specified']);
-  const subject = normalizeField(meta?.subject, paper.title || 'General', ['subject', 'not specified']);
-  const className = normalizeField(meta?.className, 'Class 8', ['class', 'class not specified', 'not specified']);
-  const duration = meta?.durationMinutes || paper.duration || 45;
-  const totalMarks = meta?.generatedMarks || paper.totalMarks;
-
-  const sectionStarts = paper.sections.reduce<Array<{ title: string; start: number }>>((acc, section) => {
-    const start = acc.length === 0 ? 1 : acc[acc.length - 1]!.start + paper.sections[acc.length - 1]!.questions.length;
-    acc.push({ title: section.title, start });
-    return acc;
-  }, []);
+  // Calculate question numbers
+  let globalQuestionNumber = 1;
 
   return (
-    <div style={{ width: '100%' }}>
-      <div className="outer-paper-container">
-        <div className="dark-banner-card print-hidden" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <p style={{ fontSize: 'clamp(15px, 1.3vw, 17px)', margin: 0, lineHeight: 1.7, fontWeight: 500, flex: '1 1 auto' }}>
-            Here is your customized <u><strong>Question Paper</strong></u>:
-          </p>
-          <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-            <button
-              onClick={() => void handleRegenerate()}
-              disabled={regenerating}
-              style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 'var(--radius-pill)', color: '#FFFFFF', padding: 'clamp(8px, 1vw, 10px) clamp(16px, 2vw, 20px)', fontSize: 'var(--text-sm)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.22)')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.12)')}
-            >
-              {regenerating ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
-              Regenerate
-            </button>
-            <button
-              onClick={() => void handleDownload()}
-              disabled={downloading}
-              style={{ background: '#FFFFFF', border: 'none', borderRadius: 'var(--radius-pill)', color: '#111827', padding: 'clamp(8px, 1vw, 10px) clamp(16px, 2vw, 20px)', fontSize: 'var(--text-sm)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = '#F3F4F6')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = '#FFFFFF')}
-            >
-              {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-              Download as PDF
-            </button>
-          </div>
+    <div style={{ width: '100%', padding: 'var(--page-pad)', maxWidth: 'var(--page-max-w)', margin: '0 auto' }}>
+      {/* Banner / Actions */}
+      <div className="dark-banner-card print-hidden" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <BookOpen size={18} />
+          <span style={{ fontSize: 16, fontWeight: 700 }}>
+            {isEditMode ? 'Regeneration Studio (Editing)' : 'Question Paper Preview'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {isEditMode ? (
+            <>
+              <button
+                onClick={() => { setIsEditMode(false); loadPaper(); }}
+                className="btn btn-secondary btn-pill"
+                style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSavePaper}
+                disabled={saving}
+                className="btn btn-pill"
+                style={{ background: '#10B981', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                Save Changes
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setIsEditMode(true)}
+                className="btn btn-pill"
+                style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <Edit size={15} />
+                Edit Paper
+              </button>
+              <button
+                onClick={handleDownload}
+                disabled={downloading}
+                className="btn btn-pill"
+                style={{ background: '#FFFFFF', color: '#111827', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+                Download PDF
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Editor Panel & Preview split-layout or single layout */}
+      <div style={{ display: 'grid', gridTemplateColumns: isEditMode ? '1fr 340px' : '1fr', gap: 20 }}>
+        {/* Main Paper Layout */}
+        <div className="paper-card" style={{ fontFamily: '"Times New Roman", Times, serif', color: '#111827', background: '#fff', borderRadius: 8, padding: 32, border: '1px solid #e5e7eb', boxShadow: 'var(--shadow-sm)' }}>
+          {/* Header info */}
+          {isEditMode ? (
+            <div style={{ display: 'grid', gap: 12, marginBottom: 24, paddingBottom: 20, borderBottom: '2px solid #111827' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>School/Institution Name</label>
+                <input
+                  type="text"
+                  className="input"
+                  style={{ width: '100%', fontFamily: '"Times New Roman", Times, serif', fontSize: 18, fontWeight: 700, textAlign: 'center' }}
+                  value={schoolName}
+                  onChange={(e) => setSchoolName(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Subject/Title</label>
+                  <input
+                    type="text"
+                    className="input"
+                    style={{ width: '100%', fontFamily: '"Times New Roman", Times, serif', fontWeight: 700 }}
+                    value={paperTitle}
+                    onChange={(e) => setPaperTitle(e.target.value)}
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Duration (Mins)</label>
+                    <input
+                      type="number"
+                      className="input"
+                      value={duration}
+                      onChange={(e) => setDuration(Number(e.target.value))}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Max Marks</label>
+                    <input
+                      type="number"
+                      className="input"
+                      value={totalMarks}
+                      onChange={(e) => setTotalMarks(Number(e.target.value))}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', marginBottom: 28 }}>
+              <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>{schoolName}</h1>
+              <h2 style={{ fontSize: 18, fontWeight: 700, margin: '6px 0 0 0' }}>{paperTitle}</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 700, borderBottom: '2px solid #111827', paddingBottom: 12, marginTop: 16 }}>
+                <span>Time Allowed: {duration} minutes</span>
+                <span>Maximum Marks: {totalMarks}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Sections list */}
+          {paper.sections.map((section, sIdx) => {
+            const sectionNumberStart = globalQuestionNumber;
+            globalQuestionNumber += section.questions.length;
+
+            return (
+              <div key={sIdx} style={{ marginBottom: 36 }}>
+                <h3 style={{ fontSize: 18, fontWeight: 700, textAlign: 'center', marginBottom: 14 }}>
+                  {section.title}
+                </h3>
+                {section.instruction && (
+                  <p style={{ fontSize: 14, color: '#6b7280', fontStyle: 'italic', marginBottom: 12 }}>
+                    {section.instruction}
+                  </p>
+                )}
+
+                {/* Questions */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {section.questions.map((q, qIdx) => {
+                    const qNum = sectionNumberStart + qIdx;
+                    return (
+                      <div 
+                        key={q.id || qIdx} 
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'flex-start', 
+                          gap: 12, 
+                          padding: isEditMode ? 10 : 0, 
+                          borderRadius: 6,
+                          background: isEditMode ? '#f9fafb' : 'transparent',
+                          border: isEditMode ? '1px dashed #e5e7eb' : 'none',
+                        }}
+                      >
+                        <span style={{ fontWeight: 700, fontSize: 16, minWidth: 20 }}>{qNum}.</span>
+                        <div style={{ flex: 1 }}>
+                          {isEditMode ? (
+                            <textarea
+                              className="input"
+                              style={{ width: '100%', minHeight: 60, fontFamily: '"Times New Roman", Times, serif', fontSize: 15, padding: 8 }}
+                              value={q.question}
+                              onChange={(e) => editQuestionText(sIdx, qIdx, e.target.value)}
+                            />
+                          ) : (
+                            <div style={{ fontSize: 15, whiteSpace: 'pre-wrap' }}>{q.question}</div>
+                          )}
+
+                          {q.type === 'mcq' && q.options && q.options.length > 0 && (
+                            <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                              {q.options.map((opt) => (
+                                <div key={opt.key} style={{ fontSize: 14 }}>
+                                  <strong>{opt.key}.</strong> {opt.text}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Marks & Actions */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, minWidth: 100 }}>
+                          {isEditMode ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <input
+                                type="number"
+                                className="input"
+                                style={{ width: 50, padding: '2px 4px', height: 26, fontSize: 12, textAlign: 'center' }}
+                                value={q.marks}
+                                onChange={(e) => editQuestionMarks(sIdx, qIdx, Number(e.target.value))}
+                              />
+                              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>M</span>
+                            </div>
+                          ) : (
+                            <span style={{ fontWeight: 700, fontSize: 14 }}>[{q.marks} Marks]</span>
+                          )}
+
+                          {isEditMode && (
+                            <div style={{ display: 'flex', gap: 4 }}>
+                              <button 
+                                className="btn btn-secondary btn-sm"
+                                style={{ padding: 4 }}
+                                disabled={qIdx === 0}
+                                onClick={() => moveQuestion(sIdx, qIdx, 'up')}
+                                title="Move Up"
+                              >
+                                <ArrowUp size={12} />
+                              </button>
+                              <button 
+                                className="btn btn-secondary btn-sm"
+                                style={{ padding: 4 }}
+                                disabled={qIdx === section.questions.length - 1}
+                                onClick={() => moveQuestion(sIdx, qIdx, 'down')}
+                                title="Move Down"
+                              >
+                                <ArrowDown size={12} />
+                              </button>
+                              <button 
+                                className="btn btn-secondary btn-sm"
+                                style={{ padding: '4px 8px', gap: 4, display: 'flex', alignItems: 'center', background: '#EEF2FF', border: '1px solid #C7D2FE', color: '#4F46E5' }}
+                                onClick={() => setRegenTarget({ sIdx, qIdx })}
+                                title="AI Regenerate"
+                              >
+                                <Sparkles size={12} /> Swap
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        <div className="paper-card" style={{ fontFamily: '"Times New Roman", Times, serif', color: '#111827' }}>
-          <div style={{ textAlign: 'center', marginBottom: 'clamp(20px, 3vw, 28px)' }}>
-            <h1 style={{ fontSize: 'clamp(22px, 2.5vw, 28px)', fontWeight: 700, letterSpacing: '0.5px', margin: 0 }}>
-              {schoolName}
-            </h1>
-            {subject && (
-              <h2 style={{ fontSize: 'clamp(16px, 1.6vw, 19px)', fontWeight: 700, margin: '6px 0 0 0' }}>
-                {subject}
-              </h2>
-            )}
-            {className && (
-              <h3 style={{ fontSize: 'clamp(16px, 1.6vw, 19px)', fontWeight: 700, margin: '4px 0 0 0' }}>
-                {className}
+        {/* Edit mode side panel (Regeneration Options) */}
+        {isEditMode && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="card" style={{ padding: 16, border: '1px solid var(--border)' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Sparkles size={16} color="var(--brand)" /> AI Studio Panel
               </h3>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'clamp(14px, 1.2vw, 16px)', fontWeight: 700, borderBottom: '2px solid #111827', paddingBottom: 'clamp(10px, 1.2vw, 14px)', marginBottom: 'clamp(16px, 2vw, 20px)', gap: 12, flexWrap: 'wrap' }}>
-            <span>Time Allowed: {duration} minutes</span>
-            <span>Maximum Marks: {totalMarks}</span>
-          </div>
-
-          <p style={{ fontSize: 'clamp(14px, 1.2vw, 16px)', fontWeight: 700, margin: '0 0 clamp(20px, 2.5vw, 24px) 0' }}>
-            All questions are compulsory unless stated otherwise.
-          </p>
-
-          <div className="student-fields-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(220px, 1fr))', gap: 'clamp(16px, 2vw, 22px)', marginBottom: 'clamp(28px, 3.5vw, 36px)', fontSize: 'clamp(14px, 1.2vw, 16px)', fontWeight: 700 }}>
-            <div style={{ display: 'grid', gap: '0.5rem' }}>
-              <span>Name</span>
-              <span style={{ borderBottom: '2px solid #111827', display: 'inline-block', minWidth: 'clamp(120px, 18vw, 160px)' }}>&nbsp;</span>
+              {regenTarget ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ fontSize: 12, background: 'var(--brand-light)', color: 'var(--brand)', padding: 8, borderRadius: 6 }}>
+                    Regenerating Section {regenTarget.sIdx + 1}, Question {regenTarget.qIdx + 1}
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Select Difficulty</label>
+                    <select className="input" style={{ width: '100%' }} value={regenDiff} onChange={(e) => setRegenDiff(e.target.value)}>
+                      <option value="easy">Easy</option>
+                      <option value="medium">Medium</option>
+                      <option value="hard">Hard</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Bloom Taxonomy level</label>
+                    <select className="input" style={{ width: '100%' }} value={regenBloom} onChange={(e) => setRegenBloom(e.target.value)}>
+                      <option value="REMEMBER">Remember</option>
+                      <option value="UNDERSTAND">Understand</option>
+                      <option value="APPLY">Apply</option>
+                      <option value="ANALYZE">Analyze</option>
+                      <option value="EVALUATE">Evaluate</option>
+                      <option value="CREATE">Create</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 4 }}>AI Prompt Context (Optional)</label>
+                    <textarea
+                      placeholder="e.g. Focus on Newtonian physics, add a real-life example..."
+                      className="input"
+                      style={{ width: '100%', minHeight: 60, fontSize: 12 }}
+                      value={regenContext}
+                      onChange={(e) => setRegenContext(e.target.value)}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <button 
+                      className="btn btn-secondary btn-sm" 
+                      style={{ flex: 1 }}
+                      onClick={() => setRegenTarget(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      className="btn btn-dark btn-sm" 
+                      style={{ flex: 1, gap: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      onClick={handleRegenerateQuestion}
+                      disabled={regeneratingQ}
+                    >
+                      {regeneratingQ ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                      Swap now
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 10px' }}>
+                  Click "Swap" on any question to load options and regenerate it using AI.
+                </div>
+              )}
             </div>
-            <div style={{ display: 'grid', gap: '0.5rem' }}>
-              <span>Roll Number</span>
-              <span style={{ borderBottom: '2px solid #111827', display: 'inline-block', minWidth: 'clamp(120px, 18vw, 160px)' }}>&nbsp;</span>
-            </div>
-            <div style={{ display: 'grid', gap: '0.5rem' }}>
-              <span>Section</span>
-              <span style={{ borderBottom: '2px solid #111827', display: 'inline-block', minWidth: 'clamp(80px, 12vw, 100px)' }}>&nbsp;</span>
-            </div>
           </div>
-
-          {paper.sections.map((section, index) => (
-            <SectionBlock key={`${section.title}-${index}`} section={section} startNumber={sectionStarts[index]?.start ?? 1} />
-          ))}
-
-          <p style={{ fontSize: 'clamp(15px, 1.3vw, 17px)', fontWeight: 700, textAlign: 'center', margin: '0 0 clamp(28px, 4vw, 36px) 0', borderBottom: '2px solid #111827', paddingBottom: 'clamp(20px, 2.5vw, 24px)' }}>
-            End of Question Paper
-          </p>
-
-          <AnswerKey sections={paper.sections} />
-        </div>
+        )}
       </div>
     </div>
   );

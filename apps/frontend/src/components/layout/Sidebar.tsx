@@ -51,10 +51,16 @@ const PRIMARY_NAV = [
 const SECONDARY_NAV = [
   { href: '/reviews', label: 'Reviews', icon: ClipboardCheck },
   { href: '/groups', label: 'Groups', icon: Users },
+  { href: '/grader', label: 'AI Grader', icon: ClipboardCheck },
+  { href: '/lessons', label: 'Lesson Planner', icon: BookOpen },
+  { href: '/worksheets', label: 'Worksheets', icon: FileText },
 ];
 
 const TERTIARY_NAV = [
-  { href: '/generate', label: 'Quick Generate', icon: Sparkles },
+  { href: '/generate', label: 'AI Quiz Gen', icon: Sparkles },
+  { href: '/tutor', label: 'AI Tutor', icon: Sparkles },
+  { href: '/notes', label: 'AI Notes Gen', icon: Library },
+  { href: '/analytics', label: 'Analytics Dashboard', icon: PieChart },
 ];
 
 export function Sidebar() {
