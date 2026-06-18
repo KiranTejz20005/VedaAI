@@ -3,6 +3,8 @@ import path from 'path';
 import crypto from 'crypto';
 import fs from 'fs';
 import { env } from '../config/env';
+import { logger } from '../utils/logger';
+import { v4 as uuidv4 } from 'uuid';
 
 const uploadDir = path.resolve(env.UPLOAD_DIR);
 if (!fs.existsSync(uploadDir)) {
@@ -19,21 +21,36 @@ const storage = multer.diskStorage({
 });
 
 function fileFilter(
-  _req: Express.Request,
+  req: any,
   file: Express.Multer.File,
   cb: multer.FileFilterCallback
 ): void {
   const fileExt = path.extname(file.originalname).toLowerCase();
   const mime = (file.mimetype || '').toLowerCase();
+  
   const allowedByExtAndMime =
     (fileExt === '.pdf' && (mime === 'application/pdf' || mime === 'application/octet-stream')) ||
     (fileExt === '.txt' && (mime === 'text/plain' || mime === 'application/octet-stream')) ||
-    (['.jpg', '.jpeg', '.png'].includes(fileExt) && mime.startsWith('image/'));
+    (fileExt === '.docx' && (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || mime === 'application/octet-stream'));
 
   if (allowedByExtAndMime) {
     cb(null, true);
   } else {
-    cb(new Error(`File type ${file.mimetype} with extension ${fileExt || '(none)'} is not allowed. Only PDF, TXT, JPEG, and PNG files accepted.`));
+    const userId = req.user?.id || 'anonymous';
+    const institutionId = req.user?.institutionId || 'no-institution';
+    const requestId = (req.headers['x-request-id'] as string) || uuidv4();
+    
+    logger.warn({
+      action: 'Upload Rejected',
+      userId,
+      institutionId,
+      requestId,
+      fileName: file.originalname,
+      reason: `File type ${file.mimetype} with extension ${fileExt || '(none)'} is not allowed.`,
+      timestamp: new Date().toISOString(),
+    });
+
+    cb(new Error(`File type ${file.mimetype} with extension ${fileExt || '(none)'} is not allowed. Only PDF, DOCX, and TXT files are accepted.`));
   }
 }
 
@@ -41,7 +58,7 @@ export const uploadMiddleware = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: env.MAX_FILE_SIZE_MB * 1024 * 1024,
+    fileSize: 10 * 1024 * 1024, // Enforce strict 10MB limit
     files: 10,
   },
 });
