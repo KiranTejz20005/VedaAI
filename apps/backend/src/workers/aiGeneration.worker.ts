@@ -109,7 +109,7 @@ async function extractUploadedContent(files: Array<{ path: string; mimeType: str
         }
       }
     } catch (e) {
-      logger.warn(`[TRACE] Failed to read uploaded file: ${file.path}`, e);
+      logger.warn(e, `[TRACE] Failed to read uploaded file: ${file.path}`);
     }
   }
   const combined = texts.join('\n\n').trim();
@@ -137,7 +137,7 @@ export function createAiGenerationWorker() {
     'generation',
     async (job) => {
       activeJobCount++;
-      const { assignmentId, jobRecordId } = job.data;
+      const { assignmentId, jobRecordId, userId, institutionId } = job.data;
       const jobStartTime = Date.now();
       const workerId = `worker-${process.pid}-${job.id}`;
       const lock = new GenerationLock();
@@ -518,6 +518,25 @@ export function createAiGenerationWorker() {
         });
         logger.debug(`[STEP 13] GenerationJob updated in ${Date.now() - t13}ms`);
 
+        if (finalStatus === 'failed') {
+          logger.error({
+            action: 'Generation Failed',
+            userId: userId || 'anon',
+            institutionId: institutionId || 'no-institution',
+            requestId: jobRecordId,
+            error: 'Generation failed or did not meet minimum quality criteria',
+            timestamp: new Date().toISOString()
+          }, 'Generation Failed');
+        } else {
+          logger.info({
+            action: 'Generation Completed',
+            userId: userId || 'anon',
+            institutionId: institutionId || 'no-institution',
+            requestId: jobRecordId,
+            timestamp: new Date().toISOString()
+          }, 'Generation Completed');
+        }
+
         // ── STEP 14: Emit terminal WebSocket event ──
         const t14 = Date.now();
         if (isFailed && !shouldFinalizeAsPartial) {
@@ -559,6 +578,15 @@ export function createAiGenerationWorker() {
         const isFinalAttempt = job.attemptsMade >= (job.opts.attempts ?? 2) - 1;
 
         abortManager.abort(assignmentId, jobRecordId, `Worker failure: ${message}`);
+
+        logger.error({
+          action: 'Generation Failed',
+          userId: userId || 'anon',
+          institutionId: institutionId || 'no-institution',
+          requestId: jobRecordId,
+          error: message,
+          timestamp: new Date().toISOString()
+        }, 'Generation Failed');
 
         logger.error(
           `[WORKER FAIL] Job ${job.id} failed at ${elapsed}ms (attempt ${job.attemptsMade + 1}, final=${isFinalAttempt}): ${message} ` +

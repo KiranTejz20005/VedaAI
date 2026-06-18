@@ -31,9 +31,34 @@ export async function createAssignment(
   return assignment;
 }
 
-export async function enqueueGeneration(assignmentId: string): Promise<{ jobId: string; position: number; jobRecordId: string; generationSeq: number }> {
+import crypto from 'crypto';
+
+export async function enqueueGeneration(
+  assignmentId: string,
+  userId: string,
+  institutionId: string
+): Promise<{ jobId: string; position: number; jobRecordId: string; generationSeq: number }> {
   const assignment = await prisma.assignment.findUnique({ where: { id: assignmentId } });
   if (!assignment) throw new Error(`Assignment ${assignmentId} not found`);
+
+  // BullMQ Queue Protection (Idempotency)
+  const queue = getGenerationQueue();
+  const syllabusString = JSON.stringify(assignment.uploadedFiles);
+  const configString = JSON.stringify(assignment.questionConfig) + (assignment.additionalInstructions ?? '') + assignment.totalMarks;
+  
+  const syllabusHash = crypto.createHash('sha256').update(syllabusString).digest('hex');
+  const configHash = crypto.createHash('sha256').update(configString).digest('hex');
+  
+  const jobIdString = `${userId || 'anon'}-${syllabusHash}-${configHash}`;
+  const customJobId = crypto.createHash('sha256').update(jobIdString).digest('hex');
+
+  const existingJob = await queue.getJob(customJobId);
+  if (existingJob) {
+    const state = await existingJob.getState();
+    if (state === 'active' || state === 'waiting' || state === 'delayed') {
+      throw new Error('A duplicate generation job with identical configuration is already in progress.');
+    }
+  }
 
   const nextSeq = (assignment.generationSeq ?? 0) + 1;
   await prisma.assignment.update({
@@ -58,11 +83,10 @@ export async function enqueueGeneration(assignmentId: string): Promise<{ jobId: 
     data: { activeGenerationJobId: jobRecord.id },
   });
 
-  const queue = getGenerationQueue();
   const job = await queue.add(
     'generate-paper',
-    { assignmentId, jobRecordId: jobRecord.id },
-    { jobId: `gen-${assignmentId}-seq-${nextSeq}` }
+    { assignmentId, jobRecordId: jobRecord.id, userId, institutionId },
+    { jobId: customJobId }
   );
 
   await prisma.generationJob.update({
