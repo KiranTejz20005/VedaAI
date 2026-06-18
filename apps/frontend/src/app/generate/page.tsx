@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -153,38 +154,6 @@ export default function GeneratePage() {
     }
   };
 
-  // Timer Effect
-  useEffect(() => {
-    if (!activeQuiz || activeQuiz.isSubmitted) return;
-
-    const timer = setInterval(() => {
-      setActiveQuiz(prev => {
-        if (!prev) return null;
-        if (prev.timeRemainingSeconds <= 1) {
-          clearInterval(timer);
-          // Auto submit
-          handleAutoSubmit(prev);
-          return {
-            ...prev,
-            timeRemainingSeconds: 0,
-            isSubmitted: true
-          };
-        }
-        return {
-          ...prev,
-          timeRemainingSeconds: prev.timeRemainingSeconds - 1
-        };
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [activeQuiz?.id, activeQuiz?.isSubmitted]);
-
-  const handleAutoSubmit = (quiz: Quiz) => {
-    toast.error("Time is up! Quiz submitted automatically.");
-    submitQuizData(quiz);
-  };
-
   const submitQuizData = (quiz: Quiz) => {
     // Calculate score
     let score = 0;
@@ -219,6 +188,38 @@ export default function GeneratePage() {
     setActiveQuiz(prev => prev ? { ...prev, isSubmitted: true, score, timeTakenSeconds: timeTaken } : null);
     toast.success(`Quiz Completed! You scored ${score}/${quiz.questions.length}`);
   };
+
+  const handleAutoSubmit = (quiz: Quiz) => {
+    toast.error("Time is up! Quiz submitted automatically.");
+    submitQuizData(quiz);
+  };
+
+  // Timer Effect
+  useEffect(() => {
+    if (!activeQuiz || activeQuiz.isSubmitted) return;
+
+    const timer = setInterval(() => {
+      setActiveQuiz(prev => {
+        if (!prev) return null;
+        if (prev.timeRemainingSeconds <= 1) {
+          clearInterval(timer);
+          // Auto submit
+          handleAutoSubmit(prev);
+          return {
+            ...prev,
+            timeRemainingSeconds: 0,
+            isSubmitted: true
+          };
+        }
+        return {
+          ...prev,
+          timeRemainingSeconds: prev.timeRemainingSeconds - 1
+        };
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [activeQuiz?.id, activeQuiz?.isSubmitted]);
 
   const handleSubmitQuiz = () => {
     if (!activeQuiz) return;

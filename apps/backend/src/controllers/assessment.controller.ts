@@ -4,7 +4,6 @@ import prisma from '../config/prisma';
 export const createAssessment = async (req: Request, res: Response) => {
   try {
     const { title, subjectId, totalMarks } = req.body;
-    // @ts-ignore
     const authorId = req.user?.id || 'demo-author-id';
     
     const assessment = await prisma.assessment.create({

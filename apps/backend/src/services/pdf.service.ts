@@ -1,5 +1,5 @@
 import { env } from '../config/env';
-import type { IGeneratedPaper } from '../models/GeneratedPaper.model';
+import type { IGeneratedPaper } from '../types/models.types';
 import { logger } from '../utils/logger';
 import { validatePaperOrThrow } from '../validators/paper.validator';
 import { getPdfStorage } from './storage';
@@ -76,7 +76,7 @@ function buildPaperHtml(paper: IGeneratedPaper): string {
   const maxMarks = meta?.generatedMarks || paper.totalMarks;
   const sectionsHtml = paper.sections
     .map(
-      (section, sIdx) => `
+      (section: any, sIdx: number) => `
       <section class="section">
         <h2>${escapeHtml(section.title)}</h2>
         ${section.instruction ? `<p class="instruction">${escapeHtml(section.instruction)}</p>` : ''}
@@ -194,9 +194,9 @@ function formatDifficulty(value: string): string {
 
 function buildAnswerKeyHtml(paper: IGeneratedPaper): string {
   const answers = paper.sections
-    .flatMap((section) => section.questions)
-    .map((question, index) => ({ number: index + 1, answer: question.answer }))
-    .filter((item) => item.answer?.text);
+    .flatMap((section: any) => section.questions)
+    .map((question: any, index: number) => ({ number: index + 1, answer: question.answer }))
+    .filter((item: any) => item.answer?.text);
 
   if (answers.length === 0) return '';
 
@@ -205,7 +205,7 @@ function buildAnswerKeyHtml(paper: IGeneratedPaper): string {
       <h2>Answer Key</h2>
       <ol>
         ${answers
-          .map(({ answer }) => `<li>${escapeHtml(answer?.text)}${answer?.explanation ? `<br><span>${escapeHtml(answer.explanation)}</span>` : ''}</li>`)
+          .map(({ answer }: any) => `<li>${escapeHtml(answer?.text)}${answer?.explanation ? `<br><span>${escapeHtml(answer.explanation)}</span>` : ''}</li>`)
           .join('')}
       </ol>
     </section>`;

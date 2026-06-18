@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { generateSingleQuestion, generateMultipleQuestions } from '../services/question-generation.service';
 import prisma from '../config/prisma';
 import { logger } from '../utils/logger';
+import { v4 as uuidv4 } from 'uuid';
 
 export const generateQuestion = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -185,6 +186,15 @@ export const saveQuizSession = async (req: Request, res: Response): Promise<void
       },
       include: { questions: true },
     });
+
+    logger.info({
+      action: 'Quiz Created',
+      userId,
+      institutionId: (req as any).user?.institutionId || 'no-institution',
+      requestId: req.headers['x-request-id'] || uuidv4(),
+      quizId: session.id,
+      timestamp: new Date().toISOString()
+    }, 'Quiz Created');
 
     res.status(201).json({ success: true, data: session });
   } catch (error) {

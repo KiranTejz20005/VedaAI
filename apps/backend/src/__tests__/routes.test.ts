@@ -33,6 +33,13 @@ vi.mock('../sockets/socket.server', () => ({
   initializeSocketServer: vi.fn(),
 }));
 
+// Mock Rate Limiting
+vi.mock('../middlewares/rate-limit.middleware', () => ({
+  paperGenerationRateLimiter: vi.fn((_req, _res, next) => next()),
+  quizGenerationRateLimiter: vi.fn((_req, _res, next) => next()),
+  uploadRateLimiter: vi.fn((_req, _res, next) => next()),
+}));
+
 describe('API Route Registry and Error Handling Integration Tests', () => {
   let app: express.Express;
 

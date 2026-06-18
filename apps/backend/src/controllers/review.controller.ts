@@ -4,7 +4,6 @@ import prisma from '../config/prisma';
 export const submitReview = async (req: Request, res: Response) => {
   try {
     const { questionId, status, comments } = req.body;
-    // @ts-ignore
     const reviewerId = req.user?.id || 'demo-reviewer-id';
     
     const review = await prisma.questionReview.create({

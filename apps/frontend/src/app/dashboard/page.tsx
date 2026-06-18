@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -202,7 +203,7 @@ export default function DashboardPage() {
         <div className="card" style={{ padding: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
             <Brain size={18} color="var(--brand)" />
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Bloom's Taxonomy Levels</h3>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Bloom&apos;s Taxonomy Levels</h3>
           </div>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

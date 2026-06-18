@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import type { Job } from 'bullmq';
 import { env } from '../config/env';
-import type { IAssignment } from '../models/Assignment.model';
+import type { IAssignment } from '../types/models.types';
 import { SYSTEM_PROMPT, buildBatchGenerationPrompt, type QuestionTypeBreakdown } from '../prompts/generation.prompt';
 import type { ValidatedPaper } from '../validators/paper.validator';
 import type { GenerationJobData } from '../types/queue.types';

@@ -12,11 +12,9 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/papers': 'Paper Mgmt',
   '/generate': 'Quick Generate',
   '/analytics': 'Analytics',
-  '/library': 'Library',
   '/reviews': 'Reviews',
   '/groups': 'Groups',
   '/syllabus': 'Syllabus',
-  '/toolkit': 'AI Toolkit',
   '/settings': 'Settings',
   '/assignments/create': 'Create Assessment',
 };

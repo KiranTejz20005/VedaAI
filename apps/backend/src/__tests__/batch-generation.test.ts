@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { IAssignment } from '../models/Assignment.model';
+import type { IAssignment } from '../types/models.types';
 import { createGenerationPlan } from '../services/ai/generation-planner';
 import { validateBatchResponse } from '../services/ai/batch-validator';
 import { assemblePaperFromBatches } from '../services/ai/paper-assembler';

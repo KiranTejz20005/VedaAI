@@ -1,4 +1,4 @@
-import type { IAssignment } from '../../models/Assignment.model';
+import type { IAssignment } from '../../types/models.types';
 import type { ValidatedPaper } from '../../validators/paper.validator';
 import type { BatchQuestion } from './batch-validator';
 import type { PlannedBatch } from './generation-planner';

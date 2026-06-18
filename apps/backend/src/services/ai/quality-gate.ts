@@ -1,4 +1,4 @@
-import type { IAssignment } from '../../models/Assignment.model';
+import type { IAssignment } from '../../types/models.types';
 import { generatedPaperSchema, type ValidatedPaper } from '../../validators/paper.validator';
 export interface QualityGateResult {
   status: 'complete' | 'partial_success' | 'failed';

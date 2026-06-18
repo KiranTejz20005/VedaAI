@@ -49,10 +49,8 @@ const PRIMARY_NAV = [
 ];
 
 const SECONDARY_NAV = [
-  { href: '/library', label: 'Library', icon: Library },
   { href: '/reviews', label: 'Reviews', icon: ClipboardCheck },
   { href: '/groups', label: 'Groups', icon: Users },
-  { href: '/toolkit', label: 'AI Toolkit', icon: ToolkitIcon },
 ];
 
 const TERTIARY_NAV = [

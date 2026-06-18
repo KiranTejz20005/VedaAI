@@ -1,4 +1,4 @@
-import type { IAssignment } from '../../models/Assignment.model';
+import type { IAssignment } from '../../types/models.types';
 import type { QuestionType } from '../../types/assignment.types';
 import type { QuestionTypeBreakdown } from '../../prompts/generation.prompt';
 

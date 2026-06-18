@@ -6,7 +6,6 @@ import assignmentRoutes from './assignment.routes';
 import paperRoutes from './paper.routes';
 import questionRoutes from './question.routes';
 import reviewRoutes from './review.routes';
-import documentRoutes from './document.routes';
 import assessmentRoutes from './assessment.routes';
 import analyticsRoutes from './analytics.routes';
 import exportRoutes from './export.routes';
@@ -14,7 +13,6 @@ import authRoutes from './auth.routes';
 import groupRoutes from './group.routes';
 import generationRoutes from './generation.routes';
 import syllabusRoutes from './syllabus.routes';
-import aiToolsRoutes from './ai-tools.routes';
 
 const apiRouter = Router();
 
@@ -59,7 +57,6 @@ apiRouter.use('/v1/assignments', assignmentRoutes);
 apiRouter.use('/v1/papers', paperRoutes);
 apiRouter.use('/v1/questions', questionRoutes);
 apiRouter.use('/v1/reviews', reviewRoutes);
-apiRouter.use('/v1/documents', documentRoutes);
 apiRouter.use('/v1/assessments', assessmentRoutes);
 apiRouter.use('/v1/analytics', analyticsRoutes);
 apiRouter.use('/v1/exports', exportRoutes);
@@ -68,7 +65,6 @@ apiRouter.use('/v1/exports', exportRoutes);
 apiRouter.use('/v1/auth', authRoutes);
 apiRouter.use('/v1/groups', groupRoutes);
 apiRouter.use('/v1/generate', generationRoutes);
-apiRouter.use('/v1/ai-tools', aiToolsRoutes);
 apiRouter.use('/v1/syllabus', syllabusRoutes);
 
 // Backward compatible legacy aliases

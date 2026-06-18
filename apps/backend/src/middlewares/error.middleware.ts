@@ -9,7 +9,7 @@ export function errorMiddleware(
   res: Response,
   _next: NextFunction
 ): void {
-  logger.error('Unhandled error:', { message: error.message, stack: error.stack });
+  logger.error(error, 'Unhandled error');
 
   // Handle Zod Schema validation errors
   if (error instanceof ZodError) {

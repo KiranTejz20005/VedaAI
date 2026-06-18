@@ -49,7 +49,7 @@ export function getRedisClient(): Redis {
     if (err.message.includes('ECONNREFUSED')) {
       logger.warn('[REDIS] Connection refused — workers will be unavailable');
     } else {
-      logger.error('[REDIS] Error:', err.message);
+      logger.error(err, '[REDIS] Error');
     }
   });
   redisClient.on('close', () => logger.warn('[REDIS] Connection closed'));
@@ -171,7 +171,7 @@ export function getBullRedisClient(): Redis {
     if (err.message.includes('ECONNREFUSED')) {
       logger.error(`[REDIS:BullMQ] Connection REFUSED. Workers UNAVAILABLE.`);
     } else {
-      logger.error('[REDIS:BullMQ] Error:', err.message);
+      logger.error(err, '[REDIS:BullMQ] Error');
     }
   });
   bullRedisClient.on('close', () => logger.warn('[REDIS:BullMQ] Connection closed'));

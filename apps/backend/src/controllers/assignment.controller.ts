@@ -14,6 +14,7 @@ import prisma from '../config/prisma';
 import { logger } from '../utils/logger';
 import { getPaper } from '../services/paper.service';
 import { buildCanonicalGenerationState } from '../services/canonical-metadata.service';
+import { v4 as uuidv4 } from 'uuid';
 
 export async function createAssignmentHandler(req: Request, res: Response): Promise<void> {
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -71,7 +72,34 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
   }));
 
   const assignment = await createAssignment(parsed.data, files);
-  const { jobId, position, jobRecordId, generationSeq } = await enqueueGeneration(assignment.id);
+  
+  let jobId: string, position: number, jobRecordId: string, generationSeq: number;
+  const userId = req.user?.id || 'anon';
+  const institutionId = req.user?.institutionId || 'no-institution';
+  const requestId = (req.headers['x-request-id'] as string) || uuidv4();
+
+  try {
+    const result = await enqueueGeneration(assignment.id, userId, institutionId);
+    jobId = result.jobId;
+    position = result.position;
+    jobRecordId = result.jobRecordId;
+    generationSeq = result.generationSeq;
+  } catch (err: any) {
+    if (err.message.includes('already in progress')) {
+      res.status(409).json({ success: false, error: err.message });
+      return;
+    }
+    throw err;
+  }
+
+  logger.info({
+    action: 'Generation Started',
+    userId,
+    institutionId,
+    requestId,
+    timestamp: new Date().toISOString()
+  }, 'Generation Started');
+
   assignment.status = 'queued';
 
   emitToAssignment(assignment.id, 'generation:queued', {
@@ -121,7 +149,34 @@ export async function generateAssignmentHandler(req: Request, res: Response): Pr
 
   logger.debug(`[generateHandler] Enqueuing generation...`);
   const t0 = Date.now();
-  const { jobId, position, jobRecordId, generationSeq } = await enqueueGeneration(id);
+  
+  let jobId: string, position: number, jobRecordId: string, generationSeq: number;
+  const userId = req.user?.id || 'anon';
+  const institutionId = req.user?.institutionId || 'no-institution';
+  const requestId = (req.headers['x-request-id'] as string) || uuidv4();
+
+  try {
+    const result = await enqueueGeneration(id, userId, institutionId);
+    jobId = result.jobId;
+    position = result.position;
+    jobRecordId = result.jobRecordId;
+    generationSeq = result.generationSeq;
+  } catch (err: any) {
+    if (err.message.includes('already in progress')) {
+      res.status(409).json({ success: false, error: err.message });
+      return;
+    }
+    throw err;
+  }
+
+  logger.info({
+    action: 'Generation Started',
+    userId,
+    institutionId,
+    requestId,
+    timestamp: new Date().toISOString()
+  }, 'Generation Started');
+  
   logger.debug(`[generateHandler] Enqueued in ${Date.now() - t0}ms | jobId=${jobId} position=${position}`);
 
   logger.debug(`[generateHandler] Emitting generation:queued via WebSocket`);

@@ -8,8 +8,7 @@ const MOBILE_NAV = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true },
   { href: '/papers', label: 'Papers', icon: FileText },
   { href: '/syllabus', label: 'Syllabus', icon: GraduationCap },
-  { href: '/library', label: 'Library', icon: Library },
-  { href: '/toolkit', label: 'Toolkit', icon: Sparkles },
+  { href: '/generate', label: 'Quiz Room', icon: Sparkles },
 ];
 
 export function MobileBottomNav() {
