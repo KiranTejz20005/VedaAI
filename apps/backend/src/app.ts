@@ -1,12 +1,14 @@
 // Restart trigger comment
 import 'express-async-errors';
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
+
 import { QueueEvents } from 'bullmq';
 import { env } from './config/env';
 import { closeRedis, closeBullRedis, getBullRedisClient, getBullRedisDiagnostics, getRedisClient, isBullRedisConnected, isRedisConnected } from './config/redis';
@@ -196,7 +198,9 @@ async function startBackgroundWorkers() {
 
 function createApp() {
   const app = express();
+  app.use(cookieParser());
   app.set('trust proxy', 1);
+
 
   const corsOrigins = parseCorsOrigins(env.FRONTEND_URL);
   const ALLOWED_ORIGINS = [

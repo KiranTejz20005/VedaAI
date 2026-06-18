@@ -24,7 +24,7 @@ export const questionConfigSchema = z.object({
 });
 
 export const createAssignmentSchema = z.object({
-  title: z.string().min(1).max(200).trim(),
+  title: z.string().min(3).max(200).trim(),
   subject: z.string().min(1).max(100).trim(),
   description: z.string().max(2000).optional().default(''),
   dueDate: z.string().refine((d) => !isNaN(Date.parse(d)), { message: 'Invalid date' }),

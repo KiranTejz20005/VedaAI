@@ -1,6 +1,12 @@
 import { Router } from 'express';
 import { asyncHandler } from '../utils/async-handler';
-import { getPaperHandler, downloadPdfHandler, downloadPdfByAssignmentIdHandler } from '../controllers/paper.controller';
+import {
+  getPaperHandler,
+  downloadPdfHandler,
+  downloadPdfByAssignmentIdHandler,
+  updatePaperHandler,
+  regenerateQuestionHandler,
+} from '../controllers/paper.controller';
 import prisma from '../config/prisma';
 import { getPaper } from '../services/paper.service';
 import { buildCanonicalGenerationState } from '../services/canonical-metadata.service';
@@ -54,4 +60,11 @@ router.get('/download/:filename', asyncHandler(downloadPdfHandler));
 // GET /api/papers/:assignmentId
 router.get('/:assignmentId', asyncHandler(getPaperHandler));
 
+// PUT /api/papers/:id - Save paper changes
+router.put('/:id', asyncHandler(updatePaperHandler));
+
+// POST /api/papers/:id/regenerate-question - Regenerate single question
+router.post('/:id/regenerate-question', asyncHandler(regenerateQuestionHandler));
+
 export default router;
+

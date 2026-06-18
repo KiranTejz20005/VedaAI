@@ -1,46 +1,35 @@
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { env } from '../../config/env';
 import type { StorageAdapter } from './storage-adapter';
-
-let S3Client: any;
-let PutObjectCommand: any;
-let GetObjectCommand: any;
-let DeleteObjectCommand: any;
-let HeadObjectCommand: any;
+import { logger } from '../../utils/logger';
 
 export class S3StorageAdapter implements StorageAdapter {
-  private client: any;
+  private client: S3Client;
   private bucket: string;
 
   constructor() {
     this.bucket = env.S3_BUCKET || 'vedaai-uploads';
-    this.client = this.createClient();
-  }
+    const accountId = process.env.R2_ACCOUNT_ID || '';
+    const accessKeyId = env.S3_ACCESS_KEY_ID || '';
+    const secretAccessKey = env.S3_SECRET_ACCESS_KEY || '';
 
-  private async createClient() {
-    try {
-      // @ts-expect-error - @aws-sdk/client-s3 is an optional peer dependency
-      const mod = await import('@aws-sdk/client-s3');
-      S3Client = mod.S3Client;
-      PutObjectCommand = mod.PutObjectCommand;
-      GetObjectCommand = mod.GetObjectCommand;
-      DeleteObjectCommand = mod.DeleteObjectCommand;
-      HeadObjectCommand = mod.HeadObjectCommand;
+    const endpoint = accountId
+      ? `https://${accountId}.r2.cloudflarestorage.com`
+      : process.env.R2_ENDPOINT_URL || undefined;
 
-      return new S3Client({
-        region: env.S3_REGION || 'us-east-1',
-        credentials: {
-          accessKeyId: env.S3_ACCESS_KEY_ID || '',
-          secretAccessKey: env.S3_SECRET_ACCESS_KEY || '',
-        },
-      });
-    } catch {
-      throw new Error('S3 storage requires @aws-sdk/client-s3 to be installed');
-    }
+    this.client = new S3Client({
+      region: env.S3_REGION || 'auto',
+      endpoint,
+      credentials: {
+        accessKeyId,
+        secretAccessKey,
+      },
+    });
   }
 
   async save(key: string, data: Buffer | Uint8Array, contentType: string): Promise<string> {
-    const client = await this.client;
-    await client.send(new PutObjectCommand({
+    await this.client.send(new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
       Body: data,
@@ -51,37 +40,37 @@ export class S3StorageAdapter implements StorageAdapter {
 
   async get(key: string): Promise<Buffer | null> {
     try {
-      const client = await this.client;
-      const response = await client.send(new GetObjectCommand({
+      const response = await this.client.send(new GetObjectCommand({
         Bucket: this.bucket,
         Key: key,
       }));
+      if (!response.Body) return null;
       const chunks: Uint8Array[] = [];
-      for await (const chunk of response.Body) {
+      const stream = response.Body as any;
+      for await (const chunk of stream) {
         chunks.push(chunk);
       }
       return Buffer.concat(chunks);
-    } catch {
+    } catch (err) {
+      logger.error(`[S3Storage] Get error for key=${key}: ${err}`);
       return null;
     }
   }
 
   async delete(key: string): Promise<void> {
     try {
-      const client = await this.client;
-      await client.send(new DeleteObjectCommand({
+      await this.client.send(new DeleteObjectCommand({
         Bucket: this.bucket,
         Key: key,
       }));
-    } catch {
-      // noop
+    } catch (err) {
+      logger.error(`[S3Storage] Delete error for key=${key}: ${err}`);
     }
   }
 
   async exists(key: string): Promise<boolean> {
     try {
-      const client = await this.client;
-      await client.send(new HeadObjectCommand({
+      await this.client.send(new HeadObjectCommand({
         Bucket: this.bucket,
         Key: key,
       }));
@@ -92,6 +81,21 @@ export class S3StorageAdapter implements StorageAdapter {
   }
 
   getPublicUrl(key: string): string {
+    // Generate pre-signed URL synchronously or asynchronously.
+    // For interface compatibility, if keys aren't defined, return local path helper.
+    if (!env.S3_ACCESS_KEY_ID) {
+      return `/api/v1/papers/download/${key}`;
+    }
+    // Return a signed URL or public URL. Since getPublicUrl is sync,
+    // we return the public URL structure, but we also support async pre-signing where needed.
     return `https://${this.bucket}.s3.${env.S3_REGION || 'us-east-1'}.amazonaws.com/${key}`;
+  }
+
+  async getPresignedUrl(key: string): Promise<string> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+    });
+    return getSignedUrl(this.client, command, { expiresIn: 900 });
   }
 }

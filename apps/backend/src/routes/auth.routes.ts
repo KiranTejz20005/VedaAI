@@ -1,10 +1,26 @@
 import { Router } from 'express';
 import { asyncHandler } from '../utils/async-handler';
-import { getMe, updateProfile, updatePreferences, updateInstitution } from '../controllers/auth.controller';
+import {
+  getMe,
+  updateProfile,
+  updatePreferences,
+  updateInstitution,
+  signup,
+  login,
+  refresh,
+  logout,
+} from '../controllers/auth.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 
 const router = Router();
 
+// Public auth endpoints
+router.post('/signup', asyncHandler(signup));
+router.post('/login', asyncHandler(login));
+router.post('/refresh', asyncHandler(refresh));
+router.post('/logout', asyncHandler(logout));
+
+// Protected auth endpoints
 router.use(authenticate);
 
 router.get('/me', asyncHandler(getMe));

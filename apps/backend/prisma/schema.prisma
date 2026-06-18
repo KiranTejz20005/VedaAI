@@ -17,6 +17,7 @@ model Institution {
   updatedAt DateTime @updatedAt
   users     User[]
   departments Department[]
+  subscription Subscription?
 }
 
 model Department {
@@ -59,7 +60,12 @@ model User {
   questions     Question[] @relation("QuestionAuthor")
   reviews       QuestionReview[]
   assessments   Assessment[]
+  sessions      Session[]
+  refreshTokens RefreshToken[]
+  loginHistories LoginHistory[]
+  passwordResets PasswordResetToken[]
 }
+
 
 // ── Classes & Students ──
 
@@ -316,3 +322,143 @@ model QuizSessionQuestion {
 
   @@index([sessionId])
 }
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent    String?
+  ipAddress    String?
+  isActive     Boolean  @default(true)
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isRevoked Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model LoginHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String
+  userAgent String
+  country   String?
+  status    String   // SUCCESS, FAILED_PASSWORD, ACCOUNT_LOCKED
+  createdAt DateTime @default(now())
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model PromptTemplate {
+  id           String      @id @default(uuid())
+  name         String      @unique
+  description  String?
+  versions     PromptVersion[]
+}
+
+model PromptVersion {
+  id           String          @id @default(uuid())
+  templateId   String
+  template     PromptTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  systemPrompt String
+  userPrompt   String
+  isActive     Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+  executions   PromptExecution[]
+}
+
+model PromptExecution {
+  id              String         @id @default(uuid())
+  promptVersionId String
+  promptVersion   PromptVersion  @relation(fields: [promptVersionId], references: [id])
+  providerName    String
+  modelName       String
+  tokensPrompt    Int
+  tokensCompletion Int
+  costUsd         Float
+  durationMs      Int
+  status          String         // SUCCESS, FAILED
+  errorMessage    String?
+  userId          String
+  institutionId   String
+  createdAt       DateTime       @default(now())
+}
+
+model QuestionBank {
+  id            String              @id @default(uuid())
+  content       String
+  options       Json?
+  answer        String?
+  hint          String?
+  subject       String
+  topic         String
+  difficulty    Difficulty
+  bloomLevel    BloomLevel
+  tags          String[]
+  isActive      Boolean             @default(true)
+  versions      QuestionVersion[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+}
+
+model QuestionVersion {
+  id             String         @id @default(uuid())
+  questionId     String
+  question       QuestionBank   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  versionNumber  Int
+  content        String
+  options        Json?
+  answer         String?
+  updatedBy      String
+  createdAt      DateTime       @default(now())
+}
+
+model AuditLog {
+  id             String      @id @default(uuid())
+  userId         String?
+  action         String
+  ipAddress      String
+  userAgent      String
+  metadata       Json?
+  createdAt      DateTime    @default(now())
+}
+
+model Subscription {
+  id             String      @id @default(uuid())
+  institutionId  String      @unique
+  institution    Institution @relation(fields: [institutionId], references: [id])
+  plan           String      // FREE, STARTER, PRO, ENTERPRISE
+  status         String      // ACTIVE, CANCELED, PAST_DUE
+  stripeCustomerId String?
+  stripeSubId    String?
+  expiresAt      DateTime
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+
+
