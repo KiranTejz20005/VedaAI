@@ -24,6 +24,7 @@ import { Card } from '@/design-system/Card';
 import { LoadingState } from '@/design-system/LoadingState';
 import { ErrorState } from '@/design-system/ErrorState';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
+import { useAuthStore } from '@/store/auth.store';
 
 interface DashboardData {
   stats: {
@@ -50,8 +51,17 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const activeOrganizationId = useAdminAuthStore((s) => s.activeOrganizationId);
+  const user = useAuthStore((s) => s.user);
+  
+  // Check if user is an admin
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'ORG_ADMIN';
 
   useEffect(() => {
+    if (!isAdmin) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     (async () => {
@@ -68,10 +78,44 @@ export default function AdminDashboard() {
         setLoading(false);
       }
     })();
-  }, [activeOrganizationId]);
+  }, [activeOrganizationId, isAdmin]);
 
   if (loading) return <LoadingState lines={8} />;
   if (error) return <ErrorState message={error} onRetry={() => { setLoading(true); setError(null); }} />;
+
+  // Non-admin users see a different dashboard
+  if (!isAdmin) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <PageHeader
+          title="Dashboard"
+          subtitle="Welcome to your dashboard."
+        />
+        <Card padding="clamp(16px, 2vw, 20px)">
+          <p style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>
+            You don't have access to the admin analytics dashboard. Please contact your administrator if you need to view organizational statistics.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <ActionCard
+              icon={<BookOpen size={16} />}
+              label="View My Lessons"
+              href="/lessons"
+            />
+            <ActionCard
+              icon={<Users size={16} />}
+              label="My Classes"
+              href="/classes"
+            />
+            <ActionCard
+              icon={<CheckCircle size={16} />}
+              label="View Assignments"
+              href="/assignments"
+            />
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   const stats = data?.stats || { totalFaculty: 0, totalStudents: 0, totalClasses: 0, pendingApprovals: 0 };
   const activity = data?.recentActivity || [];

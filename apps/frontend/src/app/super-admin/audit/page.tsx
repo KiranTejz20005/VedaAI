@@ -2,10 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import {
-  Search, Terminal, X, Calendar, ChevronLeft, ChevronRight
-} from 'lucide-react';
+import { Search, Terminal, X, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { PageHeader } from '@/design-system/PageHeader';
+import { Card } from '@/design-system/Card';
+import { Badge } from '@/design-system/Badge';
+import { LoadingState } from '@/design-system/LoadingState';
+import { EmptyState } from '@/design-system/EmptyState';
+import { Button } from '@/design-system/Button';
 
 interface AuditEntry {
   id: string;
@@ -53,90 +57,101 @@ export default function SuperAdminAudit() {
     finally { setLoading(false); }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
   useEffect(() => { loadLogs(); }, [page, actionFilter, dateFrom, dateTo, search]);
 
   const handleFilter = () => { setPage(1); loadLogs(); };
 
-  const getActionColor = (action: string) => {
-    if (action.includes('FAIL') || action.includes('ERR')) return 'bg-red-50 text-red-700 border-red-200';
-    if (action.includes('CREATE') || action.includes('RESET')) return 'bg-blue-50 text-blue-700 border-blue-200';
-    if (action.includes('DELETE')) return 'bg-red-50 text-red-700 border-red-200';
-    if (action.includes('UPDATE') || action.includes('EDIT')) return 'bg-amber-50 text-amber-700 border-amber-200';
-    return 'bg-gray-100 text-gray-700 border-gray-200';
+  const getActionVariant = (action: string): 'error' | 'info' | 'warning' | 'success' | 'draft' => {
+    if (action.includes('FAIL') || action.includes('ERR') || action.includes('DELETE')) return 'error';
+    if (action.includes('CREATE') || action.includes('RESET')) return 'info';
+    if (action.includes('UPDATE') || action.includes('EDIT')) return 'warning';
+    if (action.includes('LOGIN') || action.includes('APPROVE')) return 'success';
+    return 'draft';
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl md:text-2xl font-bold text-gray-900">Audit Log Viewer</h2>
-        <p className="text-gray-500 text-xs md:text-sm">Track all platform-wide actions, changes, and administrative operations.</p>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <PageHeader
+        title="Audit Log Viewer"
+        subtitle="Track all platform-wide actions, changes, and administrative operations."
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 lg:col-span-2 space-y-4">
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
-              <input type="text" placeholder="Search by user, action, or IP..." value={search} onChange={e => setSearch(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-blue-500" />
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '2fr 1fr',
+        gap: 16,
+        alignItems: 'start',
+      }}>
+        <Card padding="clamp(16px, 2vw, 20px)">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+                <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input type="text" placeholder="Search by user, action, or IP..." value={search} onChange={e => setSearch(e.target.value)}
+                  style={{ width: '100%', padding: '8px 14px 8px 36px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', fontSize: 'var(--text-sm)', fontFamily: 'inherit', background: 'var(--bg-input)', outline: 'none', boxSizing: 'border-box' }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--border-focus)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(232, 83, 29, 0.1)'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+                />
+              </div>
+              <select value={actionFilter} onChange={e => { setActionFilter(e.target.value); setPage(1); }}
+                style={{ padding: '8px 32px 8px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', fontSize: 'var(--text-sm)', fontFamily: 'inherit', background: 'var(--bg-input)', outline: 'none', appearance: 'none', minWidth: 140, cursor: 'pointer' }}>
+                <option value="">All Actions</option>
+                {actions.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
             </div>
-            <select value={actionFilter} onChange={e => { setActionFilter(e.target.value); setPage(1); }}
-              className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 min-w-[140px]">
-              <option value="">All Actions</option>
-              {actions.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex items-center gap-2">
-              <Calendar size={14} className="text-gray-400" />
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Calendar size={14} color="var(--text-muted)" />
               <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500" />
-              <span className="text-gray-400">to</span>
+                style={{ padding: '8px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', fontSize: 'var(--text-sm)', fontFamily: 'inherit', background: 'var(--bg-input)', outline: 'none' }} />
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>to</span>
               <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500" />
+                style={{ padding: '8px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', fontSize: 'var(--text-sm)', fontFamily: 'inherit', background: 'var(--bg-input)', outline: 'none' }} />
+              <Button variant="primary" size="sm" onClick={handleFilter}>Apply</Button>
             </div>
-            <button onClick={handleFilter} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-4 rounded-xl text-xs transition-colors">Apply</button>
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            </div>
+            <LoadingState lines={8} />
           ) : logs.length === 0 ? (
-            <div className="text-center py-12 text-gray-400 text-xs">No audit logs found.</div>
+            <EmptyState
+              icon={<Terminal size={32} />}
+              title="No audit logs found"
+              description="Try adjusting your filters or search terms."
+            />
           ) : (
             <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
                   <thead>
-                    <tr className="border-b border-gray-100 text-gray-400 font-semibold uppercase tracking-wider">
-                      <th className="py-2.5">Timestamp</th>
-                      <th className="py-2.5">User</th>
-                      <th className="py-2.5">Action</th>
-                      <th className="py-2.5">Entity / ID</th>
-                      <th className="py-2.5">IP Address</th>
-                      <th className="py-2.5 text-right">Details</th>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      {['Timestamp', 'User', 'Action', 'Entity / ID', 'IP Address', ''].map(h => (
+                        <th key={h} style={{ textAlign: h === '' ? 'right' : 'left', padding: '10px 14px', fontWeight: 600, color: 'var(--text-muted)', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
+                          {h}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50">
+                  <tbody>
                     {logs.map(log => (
-                      <tr key={log.id} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="py-3 text-gray-400 font-semibold whitespace-nowrap">{new Date(log.createdAt).toLocaleString()}</td>
-                        <td className="py-3 text-gray-700 font-semibold">{log.userEmail || log.userId || 'System'}</td>
-                        <td className="py-3">
-                          <span className={`px-2 py-0.5 rounded text-[8px] font-bold border uppercase ${getActionColor(log.action)}`}>
+                      <tr key={log.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.1s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                        <td style={{ padding: '10px 14px', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap', fontSize: 'var(--text-xs)' }}>
+                          {new Date(log.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td style={{ padding: '10px 14px', color: 'var(--text-primary)', fontWeight: 600 }}>{log.userEmail || log.userId || 'System'}</td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <Badge variant={getActionVariant(log.action)}>
                             {log.action.replace(/_/g, ' ')}
-                          </span>
+                          </Badge>
                         </td>
-                        <td className="py-3 text-gray-500">
+                        <td style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>
                           <div>{log.entity || '-'}</div>
-                          <div className="text-[9px] text-gray-400">{log.entityId ? log.entityId.substring(0, 12) + '...' : '-'}</div>
+                          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{log.entityId ? log.entityId.substring(0, 12) + '...' : '-'}</div>
                         </td>
-                        <td className="py-3 text-gray-500 font-mono text-[10px]">{log.ipAddress || '-'}</td>
-                        <td className="py-3 text-right">
-                          <button onClick={() => setSelectedLog(log)} className="p-1 hover:bg-gray-100 rounded text-blue-600 font-semibold text-[10px]">View</button>
+                        <td style={{ padding: '10px 14px', color: 'var(--text-secondary)', fontFamily: 'monospace', fontSize: 'var(--text-xs)' }}>{log.ipAddress || '-'}</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                          <Button variant="ghost" size="sm" onClick={() => setSelectedLog(log)}>View</Button>
                         </td>
                       </tr>
                     ))}
@@ -144,51 +159,60 @@ export default function SuperAdminAudit() {
                 </table>
               </div>
 
-              {/* Pagination */}
-              <div className="flex items-center justify-between pt-2">
-                <span className="text-[10px] text-gray-400">Page {page} of {totalPages}</span>
-                <div className="flex items-center gap-2">
-                  <button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"><ChevronLeft size={16} /></button>
-                  <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"><ChevronRight size={16} /></button>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12 }}>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Page {page} of {totalPages}</span>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <Button variant="secondary" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>
+                    <ChevronLeft size={14} />
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => setPage(p => p + 1)} disabled={page >= totalPages}>
+                    <ChevronRight size={14} />
+                  </Button>
                 </div>
               </div>
             </>
           )}
-        </div>
+        </Card>
 
-        {/* Detail Panel */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 lg:col-span-1">
+        <Card padding="clamp(16px, 2vw, 20px)" style={{ position: 'sticky', top: '88px' }}>
           {!selectedLog ? (
-            <div className="h-full flex flex-col items-center justify-center py-16 text-center">
-              <Terminal className="text-gray-300 mb-2" size={32} />
-              <h4 className="text-xs font-bold text-gray-400 uppercase">Entry Details</h4>
-              <p className="text-[10px] text-gray-400 mt-1 max-w-[200px]">Click &quot;View&quot; on a log entry to inspect full details and metadata.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 16px', textAlign: 'center' }}>
+              <Terminal size={32} color="var(--text-muted)" style={{ marginBottom: 8 }} />
+              <h4 style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Entry Details</h4>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 4, maxWidth: 200 }}>Click "View" on a log entry to inspect full details and metadata.</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
                 <div>
-                  <h3 className="text-xs font-bold text-gray-900 uppercase">Audit Entry</h3>
-                  <span className="text-[9px] text-gray-500 font-semibold uppercase">{selectedLog.action}</span>
+                  <h3 style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Audit Entry</h3>
+                  <Badge variant={getActionVariant(selectedLog.action)}>{selectedLog.action}</Badge>
                 </div>
-                <button onClick={() => setSelectedLog(null)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
+                <Button variant="ghost" size="sm" icon={<X size={16} />} onClick={() => setSelectedLog(null)} />
               </div>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between"><span className="text-gray-400">Timestamp</span><span className="font-semibold text-gray-800">{new Date(selectedLog.createdAt).toLocaleString()}</span></div>
-                <div className="flex justify-between"><span className="text-gray-400">User</span><span className="font-semibold text-gray-800">{selectedLog.userEmail || selectedLog.userId || 'System'}</span></div>
-                <div className="flex justify-between"><span className="text-gray-400">Entity</span><span className="font-semibold text-gray-800">{selectedLog.entity || '-'}</span></div>
-                <div className="flex justify-between"><span className="text-gray-400">Entity ID</span><span className="font-semibold text-gray-800 font-mono text-[10px]">{selectedLog.entityId || '-'}</span></div>
-                <div className="flex justify-between"><span className="text-gray-400">IP Address</span><span className="font-semibold text-gray-800">{selectedLog.ipAddress || '-'}</span></div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 'var(--text-sm)' }}>
+                {[
+                  { label: 'Timestamp', value: new Date(selectedLog.createdAt).toLocaleString() },
+                  { label: 'User', value: selectedLog.userEmail || selectedLog.userId || 'System' },
+                  { label: 'Entity', value: selectedLog.entity || '-' },
+                  { label: 'Entity ID', value: selectedLog.entityId || '-' },
+                  { label: 'IP Address', value: selectedLog.ipAddress || '-' },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)', textAlign: 'right', maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</span>
+                  </div>
+                ))}
               </div>
-              <div className="pt-2">
-                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-2">Metadata</span>
-                <div className="bg-gray-950 text-emerald-400 p-4 rounded-xl font-mono text-[9px] overflow-auto max-h-[250px] leading-normal border border-gray-900">
-                  <pre>{JSON.stringify(selectedLog.metadata || {}, null, 2)}</pre>
-                </div>
+              <div style={{ paddingTop: 8 }}>
+                <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 8 }}>Metadata</span>
+                <pre style={{ background: '#111827', color: '#34D399', padding: 16, borderRadius: 'var(--radius-md)', fontSize: '10px', overflow: 'auto', maxHeight: 250, lineHeight: 1.5, border: '1px solid #1F2937', margin: 0 }}>
+                  {JSON.stringify(selectedLog.metadata || {}, null, 2)}
+                </pre>
               </div>
             </div>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );

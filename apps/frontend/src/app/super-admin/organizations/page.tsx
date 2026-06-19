@@ -2,11 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import {
-  Building2, Plus, Search, Edit3, Trash2, Power, X, Mail, Phone, MapPin
-} from 'lucide-react';
+import { Building2, Plus, Edit3, Trash2, Power, Search, Mail, Phone, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import { PageHeader } from '@/design-system/PageHeader';
+import { DataTable } from '@/design-system/DataTable';
+import { Badge } from '@/design-system/Badge';
+import { Dialog } from '@/design-system/Dialog';
+import { Button } from '@/design-system/Button';
+import { Input } from '@/design-system/Input';
+import { Select } from '@/design-system/Select';
+import { EmptyState } from '@/design-system/EmptyState';
+import { LoadingState } from '@/design-system/LoadingState';
 
 interface Organization {
   id: string;
@@ -46,7 +53,6 @@ export default function SuperAdminOrganizations() {
     finally { setLoading(false); }
   };
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, []);
 
   const openCreate = () => {
@@ -101,137 +107,97 @@ export default function SuperAdminOrganizations() {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl md:text-2xl font-bold text-gray-900">Organizations</h2>
-          <p className="text-gray-500 text-xs md:text-sm">Manage all tenant organizations on the platform.</p>
-        </div>
-        <button onClick={openCreate} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm w-fit">
-          <Plus size={16} /> Create Organization
-        </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <PageHeader
+          title="Organizations"
+          subtitle="Manage all tenant organizations on the platform."
+        />
+        <Button variant="primary" size="sm" icon={<Plus size={16} />} onClick={openCreate}>
+          Create Organization
+        </Button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-4">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
-            <input type="text" placeholder="Search by name or code..." value={search} onChange={e => setSearch(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-blue-500" />
-          </div>
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-            className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 min-w-[140px]">
-            <option value="">All Status</option>
-            <option value="ACTIVE">Active</option>
-            <option value="SUSPENDED">Suspended</option>
-            <option value="INACTIVE">Inactive</option>
-          </select>
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-12 text-gray-400 text-xs">No organizations found.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-gray-100 text-gray-400 font-semibold uppercase tracking-wider">
-                  <th className="py-2.5">Name</th>
-                  <th className="py-2.5">Code</th>
-                  <th className="py-2.5">Status</th>
-                  <th className="py-2.5">Subscription</th>
-                  <th className="py-2.5 text-center">Users</th>
-                  <th className="py-2.5">Created</th>
-                  <th className="py-2.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filtered.map(org => (
-                  <tr key={org.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="py-3">
-                      <Link href={`/super-admin/organizations/${org.id}`} className="font-bold text-gray-800 flex items-center gap-1.5 hover:text-blue-600">
-                        <Building2 size={15} className="text-blue-600" />
-                        {org.name}
-                      </Link>
-                    </td>
-                    <td className="py-3 font-semibold text-gray-600">{org.code}</td>
-                    <td className="py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold border ${org.status === 'ACTIVE' ? 'bg-green-50 text-green-700 border-green-200' : org.status === 'SUSPENDED' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
-                        {org.status}
-                      </span>
-                    </td>
-                    <td className="py-3 text-gray-500">{org.subscriptionPlan}</td>
-                    <td className="py-3 text-center text-gray-500">{org._count?.users || 0}</td>
-                    <td className="py-3 text-gray-400">{new Date(org.createdAt).toLocaleDateString()}</td>
-                    <td className="py-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button onClick={() => openEdit(org)} className="p-1.5 hover:bg-gray-100 rounded text-gray-600" title="Edit">
-                          <Edit3 size={14} />
-                        </button>
-                        <button onClick={() => handleToggleSuspend(org)} className={`p-1.5 hover:bg-gray-100 rounded ${org.status === 'ACTIVE' ? 'text-orange-500' : 'text-green-500'}`} title={org.status === 'ACTIVE' ? 'Suspend' : 'Activate'}>
-                          <Power size={14} />
-                        </button>
-                        <button onClick={() => handleDelete(org.id)} className="p-1.5 hover:bg-red-50 hover:text-red-600 rounded text-gray-400" title="Delete">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Input
+          icon={<Search size={16} />}
+          placeholder="Search by name or code..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ maxWidth: 320 }}
+        />
+        <Select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          options={[
+            { value: '', label: 'All Status' },
+            { value: 'ACTIVE', label: 'Active' },
+            { value: 'SUSPENDED', label: 'Suspended' },
+            { value: 'INACTIVE', label: 'Inactive' },
+          ]}
+        />
       </div>
 
-      {/* Create/Edit Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-gray-100 p-6 relative">
-            <button onClick={() => setShowModal(false)} className="absolute right-4 top-4 text-gray-400 hover:text-gray-600">
-              <X size={18} />
-            </button>
-            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">
-              {modalType === 'create' ? 'Create Organization' : 'Edit Organization'}
-            </h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">Name *</label>
-                <input type="text" required value={name} onChange={e => setName(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500" placeholder="e.g. Acme University" />
+      {loading ? (
+        <LoadingState lines={5} />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={<Building2 size={32} />}
+          title="No organizations found"
+          description="Try adjusting your search or create a new organization."
+          action={search || statusFilter ? undefined : openCreate}
+          actionLabel={search || statusFilter ? undefined : 'Create Organization'}
+        />
+      ) : (
+        <DataTable
+          columns={[
+            { key: 'name', header: 'Name', render: (_: any, row: Organization) => (
+              <Link href={`/super-admin/organizations/${row.id}`} style={{ fontWeight: 700, color: 'var(--text-primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Building2 size={14} color="var(--brand)" />
+                {row.name}
+              </Link>
+            )},
+            { key: 'code', header: 'Code' },
+            { key: 'status', header: 'Status', render: (value: string) => (
+              <Badge variant={value === 'ACTIVE' ? 'success' : value === 'SUSPENDED' ? 'error' : 'draft'}>{value}</Badge>
+            )},
+            { key: 'subscriptionPlan', header: 'Plan' },
+            { key: '_count', header: 'Users', align: 'center', render: (_: any, row: Organization) => row._count?.users || 0 },
+            { key: 'createdAt', header: 'Created', render: (value: string) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
+            { key: 'id', header: 'Actions', align: 'right', render: (_: any, row: Organization) => (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                <Button variant="ghost" size="sm" icon={<Edit3 size={14} />} onClick={() => openEdit(row)} />
+                <Button variant="ghost" size="sm" icon={<Power size={14} />} onClick={() => handleToggleSuspend(row)} />
+                <Button variant="ghost" size="sm" icon={<Trash2 size={14} />} onClick={() => handleDelete(row.id)} />
               </div>
-              <div>
-                <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">Code *</label>
-                <input type="text" required value={code} onChange={e => setCode(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500" placeholder="e.g. ACME" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1"><Mail size={11} className="inline mr-1" />Email</label>
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500" placeholder="admin@acme.edu" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1"><Phone size={11} className="inline mr-1" />Phone</label>
-                  <input type="text" value={phone} onChange={e => setPhone(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500" placeholder="+1-555-1234" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1"><MapPin size={11} className="inline mr-1" />Address</label>
-                <input type="text" value={address} onChange={e => setAddress(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500" placeholder="123 Main St, City" />
-              </div>
-              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-all shadow-sm text-xs">
-                {modalType === 'create' ? 'Create Organization' : 'Update Organization'}
-              </button>
-            </form>
-          </div>
-        </div>
+            )},
+          ]}
+          data={filtered}
+        />
       )}
+
+      <Dialog
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title={modalType === 'create' ? 'Create Organization' : 'Edit Organization'}
+        size="sm"
+      >
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <Input label="Name *" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Acme University" />
+            <Input label="Code *" required value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. ACME" />
+          </div>
+          <Input label="Email" icon={<Mail size={14} />} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@acme.edu" />
+          <Input label="Phone" icon={<Phone size={14} />} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1-555-1234" />
+          <Input label="Address" icon={<MapPin size={14} />} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Main St, City" />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button variant="secondary" onClick={() => setShowModal(false)} style={{ flex: 1 }} type="button">Cancel</Button>
+            <Button variant="primary" style={{ flex: 1 }} type="submit">
+              {modalType === 'create' ? 'Create Organization' : 'Update Organization'}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </div>
   );
 }

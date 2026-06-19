@@ -5,6 +5,7 @@ import {
   updateProfile,
   updatePreferences,
   updateOrganization,
+  getAvailableOrganizations,
   switchOrganization,
   signup,
   login,
@@ -32,6 +33,7 @@ router.post('/onboarding/complete', asyncHandler(completeOnboarding));
 router.put('/me', asyncHandler(updateProfile));
 router.put('/me/profile', asyncHandler(updateProfile));
 router.put('/me/preferences', asyncHandler(updatePreferences));
+router.get('/me/organizations', asyncHandler(getAvailableOrganizations));
 router.post('/me/switch-organization', asyncHandler(switchOrganization));
 router.put('/me/organization', asyncHandler(updateOrganization));
 

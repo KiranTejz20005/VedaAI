@@ -3,19 +3,19 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import {
-  GraduationCap,
-  Plus,
-  Search,
-  Edit3,
-  Trash2,
-  Power,
-  Key,
-  Upload,
-  X,
-  Mail,
-  Users
+  GraduationCap, Plus, Search, Edit3, Trash2, Power, Key, Upload,
+  Mail, Users, Download
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { PageHeader } from '@/design-system/PageHeader';
+import { DataTable } from '@/design-system/DataTable';
+import { Badge } from '@/design-system/Badge';
+import { Dialog } from '@/design-system/Dialog';
+import { Button } from '@/design-system/Button';
+import { Input } from '@/design-system/Input';
+import { Select } from '@/design-system/Select';
+import { LoadingState } from '@/design-system/LoadingState';
+import { EmptyState } from '@/design-system/EmptyState';
 
 interface FacultyRecord {
   id: string;
@@ -181,182 +181,164 @@ export default function FacultyManagement() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl md:text-2xl font-bold text-gray-900">Faculty Management</h2>
-          <p className="text-gray-500 text-xs md:text-sm">Manage teachers, designations, and department assignments.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowImportModal(true)}
-            className="border border-gray-200 hover:bg-gray-50 bg-white text-gray-700 font-semibold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-            <Upload size={14} /> Import CSV
-          </button>
-          <button onClick={handleOpenCreate}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-            <Plus size={16} /> Invite Faculty
-          </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <PageHeader
+          title="Faculty Management"
+          subtitle="Manage teachers, designations, and department assignments."
+        />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button variant="secondary" size="sm" icon={<Upload size={14} />} onClick={() => setShowImportModal(true)}>
+            Import CSV
+          </Button>
+          <Button variant="primary" size="sm" icon={<Plus size={16} />} onClick={handleOpenCreate}>
+            Invite Faculty
+          </Button>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
-          <input type="text" placeholder="Search faculty by name or email..."
-            value={search} onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-blue-500" />
-        </div>
+      <Input
+        icon={<Search size={16} />}
+        placeholder="Search faculty by name or email..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        style={{ maxWidth: 400 }}
+      />
 
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : filteredList.length === 0 ? (
-          <div className="text-center py-12 text-gray-400 text-xs">No faculty members found.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-gray-100 text-gray-400 font-semibold uppercase tracking-wider">
-                  <th className="py-2.5">Name</th>
-                  <th className="py-2.5">Email</th>
-                  <th className="py-2.5">Department</th>
-                  <th className="py-2.5">Designation</th>
-                  <th className="py-2.5">Subjects</th>
-                  <th className="py-2.5 text-center">Classes</th>
-                  <th className="py-2.5 text-center">Status</th>
-                  <th className="py-2.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filteredList.map((f) => (
-                  <tr key={f.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="py-3">
-                      <div className="font-bold text-gray-800 flex items-center gap-1.5">
-                        <GraduationCap size={15} className="text-blue-600" />
-                        {f.firstName} {f.lastName}
-                      </div>
-                    </td>
-                    <td className="py-3 text-gray-600">
-                      <span className="flex items-center gap-1"><Mail size={10} /> {f.email}</span>
-                    </td>
-                    <td className="py-3 text-gray-600">{f.department?.name || '—'}</td>
-                    <td className="py-3 text-gray-600">{f.designation || '—'}</td>
-                    <td className="py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {(f.subjects || []).slice(0, 2).map((s, i) => (
-                          <span key={i} className="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-[9px] font-medium">{s}</span>
-                        ))}
-                        {(f.subjects || []).length > 2 && <span className="text-gray-400 text-[9px]">+{f.subjects.length - 2}</span>}
-                      </div>
-                    </td>
-                    <td className="py-3 text-center">
-                      <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 px-2 py-0.5 rounded text-[9px] font-semibold">
-                        <Users size={10} /> {(f.classes || []).length}
-                      </span>
-                    </td>
-                    <td className="py-3 text-center">
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold border ${f.status === 'ACTIVE' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
-                        {f.status || 'ACTIVE'}
-                      </span>
-                    </td>
-                    <td className="py-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button onClick={() => handleOpenEdit(f)} className="p-1.5 hover:bg-gray-100 rounded text-gray-600" title="Edit"><Edit3 size={14} /></button>
-                        <button onClick={() => handleResetPassword(f)} className="p-1.5 hover:bg-gray-100 rounded text-gray-500" title="Reset Password"><Key size={14} /></button>
-                        <button onClick={() => handleToggleSuspend(f)} className={`p-1.5 hover:bg-gray-100 rounded ${f.status === 'ACTIVE' ? 'text-red-500' : 'text-green-500'}`} title={f.status === 'ACTIVE' ? 'Suspend' : 'Activate'}><Power size={14} /></button>
-                        <button onClick={() => handleDelete(f.id)} className="p-1.5 hover:bg-red-50 hover:text-red-600 rounded text-gray-400" title="Delete"><Trash2 size={14} /></button>
-                      </div>
-                    </td>
-                  </tr>
+      {loading ? (
+        <LoadingState lines={5} />
+      ) : filteredList.length === 0 ? (
+        <EmptyState
+          icon={<GraduationCap size={32} />}
+          title="No faculty members found"
+          description="Try adjusting your search or invite new faculty."
+          action={search ? undefined : handleOpenCreate}
+          actionLabel={search ? undefined : 'Invite Faculty'}
+        />
+      ) : (
+        <DataTable
+          columns={[
+            { key: 'name', header: 'Name', render: (_: any, row: FacultyRecord) => (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, color: 'var(--text-primary)' }}>
+                <GraduationCap size={14} color="var(--brand)" />
+                {row.firstName} {row.lastName}
+              </div>
+            )},
+            { key: 'email', header: 'Email', render: (value: string) => (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-secondary)' }}>
+                <Mail size={10} /> {value}
+              </span>
+            )},
+            { key: 'department', header: 'Department', render: (_: any, row: FacultyRecord) => row.department?.name || '\u2014' },
+            { key: 'designation', header: 'Designation' },
+            { key: 'subjects', header: 'Subjects', render: (value: string[]) => (
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {value.slice(0, 2).map((s, i) => (
+                  <span key={i} style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)', padding: '1px 6px', borderRadius: 'var(--radius-sm)', fontSize: 'var(--text-xs)' }}>{s}</span>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-gray-100 p-6 relative">
-            <button onClick={() => setShowModal(false)} className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"><X size={18} /></button>
-            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">
-              {modalType === 'create' ? 'Invite / Create Faculty' : 'Edit Faculty'}
-            </h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">First Name *</label>
-                  <input type="text" required value={firstName} onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500" placeholder="John" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">Last Name *</label>
-                  <input type="text" required value={lastName} onChange={(e) => setLastName(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500" placeholder="Doe" />
-                </div>
+                {value.length > 2 && <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>+{value.length - 2}</span>}
               </div>
-              <div>
-                <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">Email *</label>
-                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500" placeholder="john.doe@school.edu" />
+            )},
+            { key: 'classes', header: 'Classes', align: 'center', render: (_: any, row: FacultyRecord) => (
+              <Badge variant="info">{(row.classes || []).length}</Badge>
+            )},
+            { key: 'status', header: 'Status', align: 'center', render: (value: string) => (
+              <Badge variant={value === 'ACTIVE' ? 'success' : 'error'}>{value || 'ACTIVE'}</Badge>
+            )},
+            { key: 'id', header: 'Actions', align: 'right', render: (_: any, row: FacultyRecord) => (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
+                <Button variant="ghost" size="sm" icon={<Edit3 size={14} />} onClick={() => handleOpenEdit(row)} />
+                <Button variant="ghost" size="sm" icon={<Key size={14} />} onClick={() => handleResetPassword(row)} />
+                <Button variant="ghost" size="sm" icon={<Power size={14} />} onClick={() => handleToggleSuspend(row)} />
+                <Button variant="ghost" size="sm" icon={<Trash2 size={14} />} onClick={() => handleDelete(row.id)} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">Department</label>
-                  <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500">
-                    <option value="">Select Department</option>
-                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">Designation</label>
-                  <input type="text" value={designation} onChange={(e) => setDesignation(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500" placeholder="e.g. Professor" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">Subjects (comma separated)</label>
-                <input type="text" value={subjects} onChange={(e) => setSubjects(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500" placeholder="Math, Physics, Chemistry" />
-              </div>
-              {modalType === 'create' && (
-                <label className="flex items-center gap-2 text-xs text-gray-600">
-                  <input type="checkbox" checked={sendInvite} onChange={(e) => setSendInvite(e.target.checked)} className="rounded" />
-                  Send invitation email
-                </label>
-              )}
-              <button type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-all shadow-sm text-xs">
-                {modalType === 'create' ? (sendInvite ? 'Send Invitation' : 'Create Faculty') : 'Update Faculty'}
-              </button>
-            </form>
-          </div>
-        </div>
+            )},
+          ]}
+          data={filteredList}
+        />
       )}
 
-      {showImportModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-gray-100 p-6 relative">
-            <button onClick={() => { setShowImportModal(false); setCsvFile(null); }} className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"><X size={18} /></button>
-            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Import Faculty CSV</h3>
-            <form onSubmit={handleImportCsv} className="space-y-4">
-              <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center cursor-pointer hover:bg-gray-50 transition-colors relative">
-                <input type="file" accept=".csv" required onChange={(e) => setCsvFile(e.target.files?.[0] || null)}
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
-                <Upload className="mx-auto text-blue-600 mb-2" size={32} />
-                <span className="text-xs font-bold text-gray-800 block">{csvFile ? csvFile.name : 'Select CSV file'}</span>
-                <span className="text-[10px] text-gray-400 mt-1 block">CSV with columns: firstName, lastName, email, department, designation, subjects</span>
-              </div>
-              <button type="submit" disabled={!csvFile}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-all shadow-sm text-xs disabled:opacity-50">
-                Import Faculty
-              </button>
-            </form>
+      <Dialog
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title={modalType === 'create' ? 'Invite / Create Faculty' : 'Edit Faculty'}
+        size="md"
+      >
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <Input label="First Name *" required value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="John" />
+            <Input label="Last Name *" required value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" />
           </div>
-        </div>
-      )}
+          <Input label="Email *" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="john.doe@school.edu" />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <Select
+              label="Department"
+              value={departmentId}
+              onChange={(e) => setDepartmentId(e.target.value)}
+              options={[
+                { value: '', label: 'Select Department' },
+                ...departments.map(d => ({ value: d.id, label: d.name })),
+              ]}
+            />
+            <Input label="Designation" value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="e.g. Professor" />
+          </div>
+          <Input label="Subjects (comma separated)" value={subjects} onChange={(e) => setSubjects(e.target.value)} placeholder="Math, Physics, Chemistry" />
+          {modalType === 'create' && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+              <input type="checkbox" checked={sendInvite} onChange={(e) => setSendInvite(e.target.checked)} style={{ borderRadius: '4px' }} />
+              Send invitation email
+            </label>
+          )}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button variant="secondary" onClick={() => setShowModal(false)} style={{ flex: 1 }} type="button">Cancel</Button>
+            <Button variant="primary" style={{ flex: 1 }} type="submit">
+              {modalType === 'create' ? (sendInvite ? 'Send Invitation' : 'Create Faculty') : 'Update Faculty'}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      <Dialog
+        open={showImportModal}
+        onClose={() => { setShowImportModal(false); setCsvFile(null); }}
+        title="Import Faculty CSV"
+        size="sm"
+      >
+        <form onSubmit={handleImportCsv} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div
+            style={{
+              border: '2px dashed var(--border-strong)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '32px 24px',
+              textAlign: 'center',
+              cursor: 'pointer',
+              position: 'relative',
+              background: 'var(--bg-input)',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.background = 'var(--brand-light)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.background = 'var(--bg-input)'; }}
+          >
+            <input
+              type="file"
+              accept=".csv"
+              required
+              onChange={(e) => setCsvFile(e.target.files?.[0] || null)}
+              style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
+            />
+            <Upload size={32} color="var(--brand)" style={{ margin: '0 auto 12px' }} />
+            <div style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-primary)' }}>
+              {csvFile ? csvFile.name : 'Select CSV file'}
+            </div>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 4 }}>
+              CSV with columns: firstName, lastName, email, department, designation, subjects
+            </div>
+          </div>
+          <Button variant="primary" type="submit" disabled={!csvFile}>
+            Import Faculty
+          </Button>
+        </form>
+      </Dialog>
     </div>
   );
 }

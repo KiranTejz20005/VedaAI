@@ -108,12 +108,9 @@ export function Topbar() {
   const handleSwitchOrg = async (orgId: string) => {
     if (isSwitching) return;
     setIsSwitching(true);
-    const success = await useAdminAuthStore.getState().switchOrganization(orgId);
+    await useAdminAuthStore.getState().switchOrganization(orgId);
     setIsSwitching(false);
     setIsOrgSwitcherOpen(false);
-    if (success) {
-      router.refresh();
-    }
   };
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';

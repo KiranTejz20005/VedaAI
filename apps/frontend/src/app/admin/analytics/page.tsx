@@ -2,16 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { 
-  TrendingUp, 
-  BrainCircuit, 
-  DollarSign, 
-  Cpu, 
-  Database,
-  Award,
-  Users
-} from 'lucide-react';
+import { DollarSign, Cpu, BrainCircuit, Award } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { PageHeader } from '@/design-system/PageHeader';
+import { MetricCard } from '@/design-system/MetricCard';
+import { Card } from '@/design-system/Card';
+import { LoadingState } from '@/design-system/LoadingState';
+import { ErrorState } from '@/design-system/ErrorState';
 
 interface AnalyticsData {
   totals: {
@@ -36,6 +33,7 @@ interface AnalyticsData {
 export default function AnalyticsAdmin() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadStats() {
@@ -44,9 +42,11 @@ export default function AnalyticsAdmin() {
         const res = await api.get('/admin/analytics');
         if (res.data?.success) {
           setData(res.data.data);
+        } else {
+          setError('Failed to load system analytics');
         }
-      } catch (err) {
-        toast.error('Failed to load system analytics');
+      } catch {
+        setError('Failed to load system analytics');
       } finally {
         setLoading(false);
       }
@@ -54,148 +54,122 @@ export default function AnalyticsAdmin() {
     loadStats();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <LoadingState lines={8} />;
+  if (error) return <ErrorState message={error} onRetry={() => { setLoading(true); setError(null); }} />;
 
   const totals = data?.totals || { users: 0, activeUsers: 0, papersGenerated: 0, assignmentsCreated: 0 };
   const aiStats = data?.aiAnalytics || { totalTokens: 0, totalCost: 0, providerUsage: {} };
 
+  const providerColors: Record<string, string> = {
+    openai: '#10B981',
+    anthropic: '#F97316',
+    gemini: '#3B82F6',
+    nvidia: '#84CC16',
+    groq: '#8B5CF6',
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Title */}
-      <div>
-        <h2 className="text-xl md:text-2xl font-bold text-gray-900">System Telemetry Control Room</h2>
-        <p className="text-gray-500 text-xs md:text-sm">Extended platform performance indicators, LLM response loads, and cost metrics.</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <PageHeader
+        title="System Telemetry Control Room"
+        subtitle="Extended platform performance indicators, LLM response loads, and cost metrics."
+      />
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+        gap: 12,
+      }}>
+        <MetricCard
+          icon={<DollarSign size={18} />}
+          label="AI Costs"
+          value={`$${aiStats.totalCost.toFixed(2)}`}
+          description="Total estimated API expenses across LLMs."
+        />
+        <MetricCard
+          icon={<Cpu size={18} />}
+          label="Tokens Processed"
+          value={aiStats.totalTokens.toLocaleString()}
+          description="Total input and completion token tallies."
+        />
+        <MetricCard
+          icon={<BrainCircuit size={18} />}
+          label="Generations Count"
+          value={totals.papersGenerated}
+          description="Finalized papers generated successfully."
+        />
       </div>
 
-      {/* Stats summary row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        {/* Cost Summary card */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">AI Costs</span>
-            <div className="w-9 h-9 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center">
-              <DollarSign size={18} />
-            </div>
-          </div>
-          <div>
-            <span className="text-3xl font-bold text-gray-900">${aiStats.totalCost.toFixed(2)}</span>
-            <p className="text-gray-400 text-[10px] mt-1">Total estimated API expenses across LLMs.</p>
-          </div>
-        </div>
-
-        {/* Tokens Card */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Tokens Processed</span>
-            <div className="w-9 h-9 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
-              <Cpu size={18} />
-            </div>
-          </div>
-          <div>
-            <span className="text-3xl font-bold text-gray-900">{aiStats.totalTokens.toLocaleString()}</span>
-            <p className="text-gray-400 text-[10px] mt-1">Total input and completion token tallies.</p>
-          </div>
-        </div>
-
-        {/* Efficiency ratio */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Generations Count</span>
-            <div className="w-9 h-9 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center">
-              <BrainCircuit size={18} />
-            </div>
-          </div>
-          <div>
-            <span className="text-3xl font-bold text-gray-900">{totals.papersGenerated}</span>
-            <p className="text-gray-400 text-[10px] mt-1">Finalized papers generated successfully.</p>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Detailed Telemetry grids */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Token allocation */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
-          <div>
-            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">AI Provider Load Breakdown</h3>
-            <p className="text-gray-400 text-[10px]">Comparing processed tokens and API response metrics.</p>
-          </div>
-
-          <div className="space-y-4">
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 16,
+      }}>
+        <Card padding="clamp(16px, 2vw, 20px)">
+          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 20 }}>
+            AI Provider Load Breakdown
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {Object.entries(aiStats.providerUsage).map(([provider, details]) => {
-              const percentage = aiStats.totalTokens > 0 
-                ? (details.tokens / aiStats.totalTokens) * 100 
-                : 0;
-
-              const colors: Record<string, { bar: string; badge: string }> = {
-                openai: { bar: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700' },
-                anthropic: { bar: 'bg-orange-500', badge: 'bg-orange-50 text-orange-700' },
-                gemini: { bar: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700' },
-                nvidia: { bar: 'bg-lime-500', badge: 'bg-lime-50 text-lime-700' },
-                groq: { bar: 'bg-purple-500', badge: 'bg-purple-50 text-purple-700' }
-              };
-              
-              const current = colors[provider] || { bar: 'bg-gray-500', badge: 'bg-gray-50 text-gray-700' };
-
+              const percentage = aiStats.totalTokens > 0 ? (details.tokens / aiStats.totalTokens) * 100 : 0;
+              const color = providerColors[provider] || '#6B7280';
               return (
-                <div key={provider} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs font-medium">
-                    <span className="capitalize font-semibold text-gray-800">{provider}</span>
-                    <span className="text-[10px] text-gray-400 font-bold">{(details.tokens / 1000).toFixed(0)}K tokens</span>
+                <div key={provider} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 'var(--text-xs)', fontWeight: 600 }}>
+                    <span style={{ color: 'var(--text-primary)', textTransform: 'capitalize' }}>{provider}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{(details.tokens / 1000).toFixed(0)}K tokens</span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 bg-gray-100 h-2 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${current.bar}`} style={{ width: `${percentage}%` }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ flex: 1, height: 8, background: 'var(--bg-hover)', borderRadius: 'var(--radius-pill)', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', background: color, borderRadius: 'var(--radius-pill)', width: `${percentage}%`, transition: 'width 0.3s ease' }} />
                     </div>
-                    <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold ${current.badge}`}>
+                    <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color, minWidth: 36, textAlign: 'right' }}>
                       {percentage.toFixed(0)}%
                     </span>
                   </div>
                 </div>
               );
             })}
+            {Object.keys(aiStats.providerUsage).length === 0 && (
+              <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
+                No provider data available
+              </div>
+            )}
           </div>
-        </div>
+        </Card>
 
-        {/* Academic metrics */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
-          <div>
-            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Growth & Performance Summary</h3>
-            <p className="text-gray-400 text-[10px]">Comparative evaluation scores across divisions.</p>
-          </div>
-
-          <div className="space-y-4">
-            {data?.departmentPerformance.map((dept) => {
-              return (
-                <div key={dept.departmentId} className="flex items-center justify-between p-3.5 bg-gray-50 border border-gray-100 rounded-2xl">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 bg-blue-100 text-blue-700 rounded-lg flex items-center justify-center">
-                      <Award size={16} />
-                    </div>
-                    <div>
-                      <strong className="text-xs font-bold text-gray-900 block">{dept.name}</strong>
-                      <span className="text-[10px] text-gray-400 font-semibold">{dept.papersCount} exam templates</span>
-                    </div>
+        <Card padding="clamp(16px, 2vw, 20px)">
+          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 20 }}>
+            Growth & Performance Summary
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {data?.departmentPerformance.map((dept) => (
+              <div key={dept.departmentId} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '12px 14px', background: 'var(--bg-hover)', borderRadius: 'var(--radius-md)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: 'var(--brand-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--brand)' }}>
+                    <Award size={16} />
                   </div>
-                  <div className="text-right">
-                    <span className="text-sm font-bold text-emerald-600 block">{dept.averageScore}%</span>
-                    <span className="text-[8px] text-gray-400 font-bold uppercase block tracking-wider">Avg Grade</span>
+                  <div>
+                    <div style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-primary)' }}>{dept.name}</div>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{dept.papersCount} exam templates</div>
                   </div>
                 </div>
-              );
-            })}
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 'var(--text-base)', fontWeight: 800, color: '#10B981' }}>{dept.averageScore}%</div>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Avg Grade</div>
+                </div>
+              </div>
+            ))}
+            {(!data?.departmentPerformance || data.departmentPerformance.length === 0) && (
+              <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
+                No department data available
+              </div>
+            )}
           </div>
-        </div>
-
+        </Card>
       </div>
     </div>
   );

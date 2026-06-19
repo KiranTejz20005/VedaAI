@@ -6,7 +6,7 @@ type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
@@ -15,6 +15,7 @@ interface ButtonProps {
   onClick?: () => void;
   type?: 'button' | 'submit' | 'reset';
   className?: string;
+  style?: React.CSSProperties;
 }
 
 const variantStyles: Record<ButtonVariant, React.CSSProperties> = {
@@ -61,6 +62,7 @@ export function Button({
   onClick,
   type = 'button',
   className,
+  style,
 }: ButtonProps) {
   const [hovered, setHovered] = React.useState(false);
 
@@ -92,6 +94,7 @@ export function Button({
         ...(variant === 'outline' && hovered && !disabled ? { background: 'var(--brand-light)' } : {}),
         ...(variant === 'ghost' && hovered && !disabled ? { background: 'var(--bg-hover)' } : {}),
         ...(variant === 'danger' && hovered && !disabled ? { background: '#DC2626' } : {}),
+        ...style,
       }}
     >
       {loading ? (

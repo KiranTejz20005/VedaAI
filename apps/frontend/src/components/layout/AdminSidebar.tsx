@@ -5,12 +5,16 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutGrid,
   PieChart,
+  BarChart3,
   Settings,
   X,
   GraduationCap,
   Users,
   ClipboardCheck,
   ShieldCheck,
+  Building2,
+  CreditCard,
+  ScrollText,
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
@@ -32,6 +36,14 @@ const NAV_ITEMS = [
   { href: '/question-bank', label: 'Question Bank', icon: MyGroupsIcon },
   { href: '/syllabus', label: 'Syllabus', icon: GraduationCap },
   { href: '/analytics', label: 'Analytics', icon: PieChart },
+];
+
+const SUPER_ADMIN_ITEMS = [
+  { href: '/super-admin/organizations', label: 'Organizations', icon: Building2 },
+  { href: '/super-admin/users', label: 'User Directory', icon: Users },
+  { href: '/super-admin/analytics', label: 'Platform Analytics', icon: BarChart3 },
+  { href: '/super-admin/subscriptions', label: 'Subscriptions', icon: CreditCard },
+  { href: '/super-admin/audit', label: 'Audit Logs', icon: ScrollText },
 ];
 
 export function AdminSidebar() {
@@ -73,21 +85,27 @@ export function AdminSidebar() {
             );
           })}
 
-          {/* Super Admin: single entry-point into the full admin panel */}
+          {/* Super Admin: system-level pages */}
           {user?.role === 'SUPER_ADMIN' && (
             <>
               <div className="sidebar-nav-section-label" style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <ShieldCheck size={10} />
                 System
               </div>
-              <Link
-                href="/admin"
-                className={`sidebar-nav-item${isActive('/admin') ? ' active' : ''}`}
-                onClick={close}
-              >
-                <ShieldCheck size={18} strokeWidth={isActive('/admin') ? 2.5 : 2} aria-hidden="true" />
-                <span>Admin Panel</span>
-              </Link>
+              {SUPER_ADMIN_ITEMS.map(({ href, label, icon: Icon }) => {
+                const active = isActive(href);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={`sidebar-nav-item${active ? ' active' : ''}`}
+                    onClick={close}
+                  >
+                    <Icon size={18} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
+                    <span>{label}</span>
+                  </Link>
+                );
+              })}
             </>
           )}
         </nav>

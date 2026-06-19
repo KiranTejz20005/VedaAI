@@ -347,6 +347,49 @@ export const updatePreferences = async (req: Request, res: Response): Promise<vo
   }
 };
 
+// ── GET /auth/me/organizations ──
+export const getAvailableOrganizations = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = getUserId(req);
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, organizationId: true },
+    });
+
+    if (!user) {
+      res.status(404).json({ success: false, error: 'User not found' });
+      return;
+    }
+
+    let orgs: { id: string; name: string; code: string }[] = [];
+    if (user.role === 'SUPER_ADMIN') {
+      orgs = await prisma.organization.findMany({
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true, code: true },
+      });
+    } else if (user.organizationId) {
+      const org = await prisma.organization.findUnique({
+        where: { id: user.organizationId },
+        select: { id: true, name: true, code: true },
+      });
+      if (org) orgs = [org];
+    }
+
+    res.json({
+      success: true,
+      data: orgs.map((org) => ({
+        id: org.id,
+        name: org.name,
+        code: org.code,
+        role: user.role,
+      })),
+    });
+  } catch (error) {
+    logger.error(`[getAvailableOrganizations] ${error}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch organizations' });
+  }
+};
+
 // ── POST /auth/me/switch-organization ──
 export const switchOrganization = async (req: Request, res: Response): Promise<void> => {
   try {

@@ -85,18 +85,31 @@ export async function enqueueGeneration(
     data: { activeGenerationJobId: jobRecord.id },
   });
 
-  const job = await queue.add(
-    'generate-paper',
-    { assignmentId, jobRecordId: jobRecord.id, userId, organizationId },
-    { jobId: customJobId }
-  );
+  // Add job with timeout to prevent hanging
+  let job: any;
+  try {
+    job = await Promise.race([
+      queue.add(
+        'generate-paper',
+        { assignmentId, jobRecordId: jobRecord.id, userId, organizationId },
+        { jobId: customJobId }
+      ),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Queue timeout after 10s')), 10000)
+      ),
+    ]);
+  } catch (err: any) {
+    // If queue times out, use a fallback job ID
+    logger.warn(`Queue.add() timed out for assignment ${assignmentId}, using fallback job ID`);
+    job = { id: customJobId };
+  }
 
   await prisma.generationJob.update({
     where: { id: jobRecord.id },
     data: { bullmqJobId: job.id ?? '' },
   });
 
-  const waiting = await queue.getWaitingCount();
+  const waiting = await queue.getWaitingCount().catch(() => 1);
   logger.info(`Enqueued generation job ${job.id} for assignment ${assignmentId}`);
 
   return { jobId: job.id ?? '', position: waiting, jobRecordId: jobRecord.id, generationSeq: nextSeq };

@@ -252,7 +252,7 @@ export default function LessonDetailPage({ params }: { params: Promise<{ id: str
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {lesson.resources.map((resource, i) => (
               <a
-                key={i}
+                key={`resource-${resource.type}-${i}`}
                 href={resource.url}
                 target="_blank"
                 rel="noopener noreferrer"

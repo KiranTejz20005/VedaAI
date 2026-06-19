@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Toaster } from 'react-hot-toast';
 import { ClientOnly } from '@/components/ui/ClientOnly';
 import { useAuthStore } from '@/store/auth.store';
-import { SuperAdminSidebar } from './SuperAdminSidebar';
+import { AdminSidebar } from './AdminSidebar';
 import { OrgAdminSidebar } from './OrgAdminSidebar';
 import { FacultySidebar } from './FacultySidebar';
 import { StudentSidebar } from './StudentSidebar';
@@ -41,7 +41,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         if (isAuthPage) {
           router.push('/dashboard');
         } else {
-          const isExcludedPath = pathname.startsWith('/admin') || pathname.startsWith('/super-admin');
+          const isExcludedPath = pathname.startsWith('/admin');
           const role = user?.role || '';
           const hasAccess = isExcludedPath || canAccessRoute(role, pathname);
 
@@ -65,8 +65,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#030712',
-        color: 'white',
+        background: '#F8F7F4',
+        color: '#111827',
         fontFamily: 'Inter, sans-serif'
       }}>
         <div suppressHydrationWarning style={{
@@ -98,8 +98,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname === '/login' ||
     pathname === '/register' ||
     pathname === '/onboarding' ||
-    pathname.startsWith('/admin') ||
-    pathname.startsWith('/super-admin');
+    pathname.startsWith('/admin');
 
   if (isChromeExcluded) {
     return (
@@ -127,10 +126,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const role = user?.role?.toUpperCase() || '';
 
   let SidebarComponent = <FacultySidebar />;
-  if (role === 'SUPER_ADMIN') {
-    SidebarComponent = <SuperAdminSidebar />;
-  } else if (role === 'ADMIN') {
-    SidebarComponent = <OrgAdminSidebar />;
+  if (role === 'SUPER_ADMIN' || role === 'ADMIN') {
+    SidebarComponent = <AdminSidebar />;
   } else if (role === 'TEACHER' || role === 'FACULTY') {
     SidebarComponent = <FacultySidebar />;
   } else if (role === 'STUDENT') {
@@ -138,11 +135,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="app-shell" suppressHydrationWarning>
+    <div suppressHydrationWarning style={{ display: 'flex', minHeight: '100vh', width: '100%', background: '#F8F7F4' }}>
       {SidebarComponent}
-      <div className="app-main" suppressHydrationWarning>
+      <div suppressHydrationWarning style={{ marginLeft: '260px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', width: 'calc(100% - 260px)' }}>
         <Topbar />
-        <main className="page-container" suppressHydrationWarning>
+        <main suppressHydrationWarning style={{ flex: 1, padding: '24px', maxWidth: '1600px', margin: '0 auto', width: '100%', overflowX: 'hidden' }}>
           <ClientOnly fallback={<div className="page-content-placeholder" aria-hidden="true" />}>
             {children}
           </ClientOnly>

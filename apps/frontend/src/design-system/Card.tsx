@@ -8,9 +8,10 @@ interface CardProps {
   padding?: string;
   hover?: boolean;
   onClick?: () => void;
+  style?: React.CSSProperties;
 }
 
-export function Card({ children, className, padding, hover, onClick }: CardProps) {
+export function Card({ children, className, padding, hover, onClick, style }: CardProps) {
   return (
     <div
       className={className}
@@ -23,6 +24,7 @@ export function Card({ children, className, padding, hover, onClick }: CardProps
         boxShadow: hover ? undefined : 'var(--shadow-sm)',
         transition: 'box-shadow 0.2s, border-color 0.2s',
         cursor: onClick ? 'pointer' : undefined,
+        ...style,
       }}
       onMouseEnter={(e) => {
         if (hover || onClick) {

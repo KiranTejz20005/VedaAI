@@ -10,24 +10,26 @@ import {
   ScrollText,
   Settings,
   X,
-  ShieldCheck,
+  LogOut,
+  Users,
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
 
 const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/super-admin/organizations', label: 'Organizations', icon: Building2 },
-  { href: '/super-admin/analytics', label: 'Platform Analytics', icon: BarChart3 },
-  { href: '/super-admin/subscriptions', label: 'Subscriptions', icon: CreditCard },
-  { href: '/super-admin/audit', label: 'Audit Logs', icon: ScrollText },
-  { href: '/super-admin/settings', label: 'Settings', icon: Settings },
+  { href: '/dashboard',                   label: 'Dashboard',         icon: LayoutGrid, exact: true },
+  { href: '/super-admin/organizations',   label: 'Organizations',     icon: Building2 },
+  { href: '/super-admin/users',           label: 'User Directory',    icon: Users },
+  { href: '/super-admin/analytics',       label: 'Platform Analytics',icon: BarChart3 },
+  { href: '/super-admin/subscriptions',   label: 'Subscriptions',     icon: CreditCard },
+  { href: '/super-admin/audit',           label: 'Audit Logs',        icon: ScrollText },
+  { href: '/super-admin/settings',        label: 'Settings',          icon: Settings },
 ];
 
 export function SuperAdminSidebar() {
   const pathname = usePathname();
   const { isOpen, close } = useSidebarStore();
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
 
   function isActive(href: string, exact = false) {
     if (exact) return pathname === href;
@@ -37,11 +39,16 @@ export function SuperAdminSidebar() {
   return (
     <>
       {isOpen && (
-        <div className="sidebar-overlay" onClick={close} aria-hidden="true" />
+        <div
+          onClick={close}
+          aria-hidden="true"
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 39 }}
+        />
       )}
-      <aside 
-        role="navigation" 
-        aria-label="Main navigation"
+
+      <aside
+        role="navigation"
+        aria-label="Super Admin navigation"
         style={{
           position: 'fixed',
           top: 0,
@@ -54,57 +61,132 @@ export function SuperAdminSidebar() {
           display: 'flex',
           flexDirection: 'column',
           zIndex: 40,
-          overflow: 'hidden'
+          overflow: 'hidden',
         }}
       >
-        <div className="sidebar-logo">
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '20px 16px 16px', borderBottom: '1px solid #F3F4F6', flexShrink: 0 }}>
           <div
-            className="sidebar-logo-icon"
             aria-hidden="true"
-            style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 50%, #5B21B6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{
+              width: 32, height: 32, borderRadius: 8,
+              background: 'linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <text x="50%" y="55%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="16" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif">S</text>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <text x="50%" y="55%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="14" fontWeight="900" fontFamily="system-ui,sans-serif">S</text>
             </svg>
           </div>
-          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>Super Admin</span>
-          <button className="sidebar-close-btn" onClick={close} aria-label="Close navigation"><X size={18} /></button>
+          <span style={{ fontWeight: 800, fontSize: 14, color: '#111827', flex: 1 }}>Super Admin</span>
+          <button
+            onClick={close}
+            aria-label="Close navigation"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', padding: 4 }}
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        <nav className="sidebar-nav" aria-label="Pages">
-          <div className="sidebar-nav-section-label">Platform</div>
-          {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
+        {/* Navigation */}
+        <nav
+          aria-label="Platform pages"
+          style={{ flex: 1, padding: '8px', overflowY: 'auto' }}
+        >
+          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9CA3AF', padding: '12px 8px 4px' }}>
+            Platform
+          </div>
+
+          {NAV_ITEMS.map(({ href, label, icon: Icon, exact = false }) => {
             const active = isActive(href, exact);
             return (
-              <Link key={href} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>
-                <Icon size={18} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
+              <Link
+                key={href}
+                href={href}
+                onClick={close}
+                aria-current={active ? 'page' : undefined}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '8px 10px',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: active ? 600 : 500,
+                  color: active ? '#7C3AED' : '#374151',
+                  background: active ? '#F5F3FF' : 'transparent',
+                  textDecoration: 'none',
+                  marginBottom: 2,
+                  transition: 'all 0.15s',
+                }}
+                className="super-admin-nav-item"
+              >
+                <Icon size={16} strokeWidth={active ? 2.5 : 2} />
                 <span>{label}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="sidebar-bottom">
-          <Link href="/settings" className="sidebar-settings" onClick={close}>
-            <Settings size={18} aria-hidden="true" />
-            <span>Settings</span>
-          </Link>
+        {/* Bottom: Sign out + profile */}
+        <div style={{ borderTop: '1px solid #F3F4F6', padding: '12px 8px', flexShrink: 0 }}>
+          <button
+            onClick={() => logout()}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '8px 10px',
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 500,
+              color: '#DC2626',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              width: '100%',
+              marginBottom: 8,
+              transition: 'background 0.15s',
+            }}
+            className="super-admin-signout-btn"
+          >
+            <LogOut size={16} />
+            <span>Sign Out</span>
+          </button>
 
-          <div className="sidebar-profile" role="button" tabIndex={0} aria-label="Account settings">
-            <div className="sidebar-profile-avatar" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #6D28D9, #7C3AED)', color: 'white', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px' }}>
+            <div
+              aria-hidden="true"
+              style={{
+                width: 32, height: 32, borderRadius: '50%',
+                background: 'linear-gradient(135deg, #6D28D9, #7C3AED)',
+                color: 'white', fontWeight: 700, fontSize: 13,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}
+            >
               {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'S'}
             </div>
-            <div className="sidebar-profile-info">
-              <div className="sidebar-profile-name">
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {user ? `${user.firstName} ${user.lastName}` : 'Super Admin'}
               </div>
-              <div className="sidebar-profile-sub">
-                {user?.organizationName || 'Platform'}
+              <div style={{ fontSize: 10, background: '#F5F3FF', color: '#6D28D9', borderRadius: 4, padding: '1px 6px', display: 'inline-block', fontWeight: 600, marginTop: 2 }}>
+                SUPER_ADMIN
               </div>
             </div>
           </div>
         </div>
       </aside>
+
+      <style>{`
+        .super-admin-nav-item:hover {
+          background: #F5F3FF !important;
+          color: #7C3AED !important;
+        }
+        .super-admin-signout-btn:hover {
+          background: #FEF2F2 !important;
+        }
+      `}</style>
     </>
   );
 }

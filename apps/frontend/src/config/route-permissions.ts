@@ -12,6 +12,10 @@ export const ROUTE_PERMISSIONS = {
     '/admin',
     '/lessons',
     '/assessments',
+    '/generate',
+    '/grader',
+    '/classes',
+    '/profile',
   ],
   ADMIN: [
     '/dashboard',
@@ -25,6 +29,10 @@ export const ROUTE_PERMISSIONS = {
     '/analytics',
     '/lessons',
     '/assessments',
+    '/generate',
+    '/grader',
+    '/classes',
+    '/profile',
   ],
   TEACHER: [
     '/dashboard',
@@ -36,6 +44,25 @@ export const ROUTE_PERMISSIONS = {
     '/settings',
     '/lessons',
     '/assessments',
+    '/generate',
+    '/grader',
+    '/classes',
+    '/profile',
+  ],
+  FACULTY: [
+    '/dashboard',
+    '/groups',
+    '/assignments',
+    '/assignments/create',
+    '/question-bank',
+    '/syllabus',
+    '/settings',
+    '/lessons',
+    '/assessments',
+    '/generate',
+    '/grader',
+    '/classes',
+    '/profile',
   ],
   STUDENT: [
     '/dashboard',
@@ -46,6 +73,7 @@ export const ROUTE_PERMISSIONS = {
     '/settings',
     '/student',
     '/lessons',
+    '/profile',
   ]
 };
 

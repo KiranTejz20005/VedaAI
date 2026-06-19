@@ -69,7 +69,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   initialize: async () => {
     try {
-      set({ isLoading: true });
+      if (!get().isAuthenticated) {
+        set({ isLoading: true });
+      }
       const refreshRes = await api.post('/auth/refresh');
       const token = refreshRes.data?.data?.accessToken;
 

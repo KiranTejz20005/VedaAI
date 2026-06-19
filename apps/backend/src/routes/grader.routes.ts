@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { asyncHandler } from '../utils/async-handler';
 import { uploadMiddleware } from '../middlewares/upload.middleware';
 import { authenticate } from '../middlewares/auth.middleware';
+import { requirePermission } from '../security/access-control';
+import { PERMISSIONS } from '../security/permissions';
 import {
   saveGradingConfig,
   getGradingConfig,
@@ -17,6 +19,7 @@ import {
 const router = Router();
 
 router.use(authenticate);
+router.use(requirePermission(PERMISSIONS.GRADE_ASSESSMENT));
 
 // Rubrics
 router.post('/rubrics', asyncHandler(createRubric));

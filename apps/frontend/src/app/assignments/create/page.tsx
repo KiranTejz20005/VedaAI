@@ -722,10 +722,10 @@ export default function CreateAssignmentPage() {
   return (
     <>
       {/* Page heading (responsive structures defined in globals.css) */}
-      <div className="page-header-container">
+      <div className="page-header-container" style={{ marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid #E5E7EB' }}>
         {/* Desktop-only Page Header */}
         <div className="desktop-page-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <div className="status-dot" aria-hidden="true" />
             <h1 className="page-title">Create Assignment</h1>
           </div>
@@ -763,7 +763,7 @@ export default function CreateAssignmentPage() {
       </div>
 
       {/* Segmented Progress bar (placed under headers, above card container) */}
-      <div className="step-progress" role="progressbar" aria-valuenow={step} aria-valuemax={TOTAL_STEPS}>
+      <div className="step-progress" role="progressbar" aria-valuenow={step} aria-valuemax={TOTAL_STEPS} style={{ marginBottom: 32 }}>
         <div className="step-progress-fill" style={{ width: `${progressPct}%` }} />
       </div>
 
