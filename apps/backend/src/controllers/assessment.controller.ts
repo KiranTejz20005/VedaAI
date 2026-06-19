@@ -5,6 +5,7 @@ export const createAssessment = async (req: Request, res: Response) => {
   try {
     const { title, subjectId, totalMarks } = req.body;
     const authorId = req.user?.id || 'demo-author-id';
+    const institutionId = req.user?.institutionId;
     
     const assessment = await prisma.assessment.create({
       data: {
@@ -12,6 +13,7 @@ export const createAssessment = async (req: Request, res: Response) => {
         subjectId,
         totalMarks: parseInt(totalMarks) || 100,
         authorId,
+        institutionId,
         status: 'DRAFT'
       }
     });
@@ -27,9 +29,14 @@ export const getAssessments = async (req: Request, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 50;
     const skip = parseInt(req.query.skip as string) || 0;
     const subjectId = req.query.subject as string;
+    const institutionId = req.body._requireInstitutionScope || req.user?.institutionId;
+
+    const whereClause: any = {};
+    if (subjectId) whereClause.subjectId = subjectId;
+    if (institutionId) whereClause.institutionId = institutionId;
 
     const assessments = await prisma.assessment.findMany({
-      where: subjectId ? { subjectId } : undefined,
+      where: whereClause,
       take: limit,
       skip: skip,
       orderBy: { createdAt: 'desc' },

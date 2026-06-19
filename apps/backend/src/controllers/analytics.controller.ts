@@ -1,10 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
-import { 
-  getStudentPerformance, 
-  getGroupPerformance, 
-  generateAIRecommendations 
-} from '../services/analytics.service';
+import { AnalyticsService } from '../services/analytics.service';
 
 export const getDashboardStats = async (_req: Request, res: Response) => {
   try {
@@ -52,7 +48,7 @@ export const getDashboardStats = async (_req: Request, res: Response) => {
 export const getStudentStats = async (req: Request, res: Response): Promise<void> => {
   try {
     const { studentId } = req.params;
-    const stats = await getStudentPerformance(studentId);
+    const stats = await AnalyticsService.getStudentPerformance(studentId);
     res.json({ success: true, data: stats });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to get student stats' });
@@ -62,7 +58,7 @@ export const getStudentStats = async (req: Request, res: Response): Promise<void
 export const getGroupStats = async (req: Request, res: Response): Promise<void> => {
   try {
     const { groupId } = req.params;
-    const stats = await getGroupPerformance(groupId);
+    const stats = await AnalyticsService.getGroupPerformance(groupId);
     res.json({ success: true, data: stats });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to get group stats' });
@@ -76,7 +72,7 @@ export const triggerRecommendations = async (req: Request, res: Response): Promi
       res.status(400).json({ success: false, error: 'targetId and type are required' });
       return;
     }
-    const rec = await generateAIRecommendations(targetId, type);
+    const rec = await AnalyticsService.generateAIRecommendations(targetId, type);
     res.json({ success: true, data: rec });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to generate recommendations' });

@@ -57,7 +57,7 @@ export class DepartmentService {
     // 1. Assign role HOD to user (optional dynamic update)
     await prisma.user.update({
       where: { id: hodId },
-      data: { role: 'HOD' },
+      data: { role: 'ADMIN' },
     });
 
     // 2. Set hodId on department

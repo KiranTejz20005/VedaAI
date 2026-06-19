@@ -23,7 +23,7 @@ export class UserService {
         passwordHash,
         firstName: data.firstName,
         lastName: data.lastName,
-        role: data.role,
+        role: data.role as import('@prisma/client').SystemRole,
         phone: data.phone || null,
         institutionId: data.institutionId || null,
         departmentId: data.departmentId || null,
@@ -74,7 +74,7 @@ export class UserService {
   ) {
     const user = await prisma.user.update({
       where: { id },
-      data,
+      data: data as any,
     });
 
     // If role changed, sync UserRole

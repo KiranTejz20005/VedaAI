@@ -167,7 +167,7 @@ export function createAiGenerationWorker() {
           `[STEP 0] GenerationJob fetched in ${Date.now() - t0}ms | status=${jobRecord?.status} ` +
           `assignmentId=${assignmentId}`
         );
-        if (!jobRecord || jobRecord.status === 'failed') {
+        if (!jobRecord || jobRecord.status === 'FAILED') {
           logger.error(`[STEP 0] Job record not found or already failed`);
           throw new Error('Generation job timed out in queue');
         }
@@ -276,7 +276,7 @@ export function createAiGenerationWorker() {
         const t4 = Date.now();
         await prisma.assignment.updateMany({
           where: { id: assignmentId, activeGenerationJobId: jobRecordId },
-          data: { status: 'generating' },
+          data: { status: 'GENERATING' },
         });
         await job.updateProgress(5);
         logger.debug(`[STEP 4] Status updated in ${Date.now() - t4}ms`);
@@ -444,7 +444,7 @@ export function createAiGenerationWorker() {
 
         if (shouldFinalizeAsPartial) {
           const genMeta: GenerationMeta = {
-            status: 'partially_generated',
+            status: 'PARTIALLY_GENERATED' as any,
             generatedQuestionCount: generatedQty,
             requestedQuestionCount: requestedQty,
             generatedMarks,
@@ -459,22 +459,22 @@ export function createAiGenerationWorker() {
             completedAt: new Date(),
           };
           const current = await prisma.assignment.findUnique({ where: { id: assignmentId } });
-          if (current && current.activeGenerationJobId === jobRecordId && current.status !== 'completed') {
+          if (current && current.activeGenerationJobId === jobRecordId && current.status !== 'COMPLETED') {
             await prisma.assignment.update({
               where: { id: assignmentId },
-              data: { status: 'partially_generated', generationMeta: genMeta as any },
+              data: { status: 'PARTIALLY_GENERATED', generationMeta: genMeta as any },
             });
           }
           logger.info(`[STEP 12] Assignment marked as partially_generated (${generatedQty}/${requestedQty})`);
         } else if (!isFailed) {
           await prisma.assignment.updateMany({
             where: { id: assignmentId, activeGenerationJobId: jobRecordId },
-            data: { status: 'completed', finalizedAt: new Date() },
+            data: { status: 'COMPLETED', finalizedAt: new Date() },
           });
           logger.debug(`[STEP 12] Assignment status updated to 'completed' in ${Date.now() - t12}ms`);
         } else {
           const genMeta: GenerationMeta = {
-            status: 'failed',
+            status: 'FAILED' as any,
             generatedQuestionCount: generatedQty,
             requestedQuestionCount: requestedQty,
             generatedMarks,
@@ -489,10 +489,10 @@ export function createAiGenerationWorker() {
             completedAt: new Date(),
           };
           const current = await prisma.assignment.findUnique({ where: { id: assignmentId } });
-          if (current && current.activeGenerationJobId === jobRecordId && current.status !== 'completed') {
+          if (current && current.activeGenerationJobId === jobRecordId && current.status !== 'COMPLETED') {
             await prisma.assignment.update({
               where: { id: assignmentId },
-              data: { status: 'failed', generationMeta: genMeta as any },
+              data: { status: 'FAILED', generationMeta: genMeta as any },
             });
           }
           logger.warn(`[STEP 12] Assignment marked failed with partial paper (${generatedQty}/${requestedQty})`);
@@ -601,7 +601,7 @@ export function createAiGenerationWorker() {
           select: { activeGenerationJobId: true, status: true },
         }).catch(() => null);
         const isOwner = !!owner && String(owner.activeGenerationJobId ?? '') === String(jobRecordId);
-        const isFinalized = owner?.status === 'completed';
+        const isFinalized = owner?.status === 'COMPLETED';
 
         if (!isOwner || isFinalized) {
           logger.warn(
@@ -645,19 +645,19 @@ export function createAiGenerationWorker() {
           }
 
           const current = await prisma.assignment.findUnique({ where: { id: assignmentId } });
-          if (current && current.activeGenerationJobId === jobRecordId && current.status !== 'completed') {
+          if (current && current.activeGenerationJobId === jobRecordId && current.status !== 'COMPLETED') {
             await Promise.allSettled([
               prisma.assignment.update({
                 where: { id: assignmentId },
                 data: {
-                  status: hasPartial ? 'partially_generated' : 'failed',
+                  status: hasPartial ? 'PARTIALLY_GENERATED' : 'FAILED',
                   generationMeta: genMeta as any,
                 },
               }),
               prisma.generationJob.update({
                 where: { id: jobRecordId, generationSeq },
                 data: {
-                  status: 'failed',
+                  status: 'FAILED',
                   error: message,
                   completedAt: new Date(),
                   progressVersion: { increment: 1 },
@@ -770,13 +770,13 @@ export function createAiGenerationWorker() {
 
       await Promise.allSettled([
         prisma.assignment.updateMany({
-          where: { id: assignmentId, activeGenerationJobId: jrId, NOT: { status: 'completed' } },
-          data: { status: 'failed' },
+          where: { id: assignmentId, activeGenerationJobId: jrId, NOT: { status: 'COMPLETED' } },
+          data: { status: 'FAILED' },
         }),
         prisma.generationJob.update({
           where: { id: jobRecord.id, generationSeq: Number(jobRecord.generationSeq ?? 0) },
           data: {
-            status: 'failed',
+            status: 'FAILED',
             error: `BullMQ stalled ${perJobCount} times (auto-failed)`,
             completedAt: new Date(),
             progressVersion: { increment: 1 },

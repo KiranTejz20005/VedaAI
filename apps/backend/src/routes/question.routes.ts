@@ -6,7 +6,8 @@ import {
   updateQuestion,
   deleteQuestion
 } from '../controllers/question.controller';
-import { authenticate, requireRole } from '../middlewares/auth.middleware';
+import { authenticate } from '../middlewares/auth.middleware';
+import { requirePermission } from '../security/access-control';
 
 const router = Router();
 
@@ -19,8 +20,8 @@ router.get('/', getQuestions);
 router.get('/:id', getQuestionById);
 
 // Only specific roles can create/update/delete
-router.post('/', requireRole(['FACULTY', 'DEPARTMENT_ADMIN']), createQuestion);
-router.put('/:id', requireRole(['FACULTY', 'DEPARTMENT_ADMIN']), updateQuestion);
-router.delete('/:id', requireRole(['DEPARTMENT_ADMIN', 'INSTITUTION_ADMIN']), deleteQuestion);
+router.post('/', requirePermission('MANAGE_QUESTION_BANK'), createQuestion);
+router.put('/:id', requirePermission('MANAGE_QUESTION_BANK'), updateQuestion);
+router.delete('/:id', requirePermission('MANAGE_QUESTION_BANK'), deleteQuestion);
 
 export default router;

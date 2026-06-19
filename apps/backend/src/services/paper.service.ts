@@ -14,6 +14,12 @@ export async function savePaper(
   const validatedPaper = validatePaperOrThrow(paper);
   logger.debug(`[savePaper] START | assignmentId=${assignmentId} title="${paper.title}" sections=${paper.sections.length}`);
 
+  const existingAssignment = await prisma.assignment.findUnique({
+    where: { id: assignmentId },
+    select: { institutionId: true },
+  });
+  if (!existingAssignment) throw new Error(`Assignment ${assignmentId} not found`);
+
   const existing = await prisma.generatedPaper.findFirst({ where: { assignmentId } });
   if (existing) {
     logger.debug(`[savePaper] Deleted existing paper: ${existing.id}`);
@@ -30,6 +36,7 @@ export async function savePaper(
   const saved = await prisma.generatedPaper.create({
     data: {
       assignmentId,
+      institutionId: existingAssignment.institutionId,
       title: validatedPaper.title,
       totalMarks: validatedPaper.totalMarks,
       duration: duration ?? 45,
@@ -57,6 +64,7 @@ export async function savePaper(
           hint: (q as any).hint || undefined,
           subject,
           topic,
+          institutionId: existingAssignment.institutionId,
           difficulty: diffMap[q.difficulty] || 'MEDIUM',
           bloomLevel: 'APPLY', // Default bloom level for generated output
           tags: [subject, q.type],

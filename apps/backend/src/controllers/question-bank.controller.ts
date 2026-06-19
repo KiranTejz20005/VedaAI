@@ -11,6 +11,11 @@ import prisma from '../config/prisma';
 
 export const addToBank = async (req: Request, res: Response): Promise<void> => {
   try {
+    const institutionId = req.user?.institutionId;
+    if (!institutionId) {
+      res.status(400).json({ success: false, error: 'No institution scope found on user' });
+      return;
+    }
     const { content, options, answer, hint, subject, topic, difficulty, bloomLevel, tags } = req.body;
     const question = await saveToQuestionBank({
       content,
@@ -19,6 +24,7 @@ export const addToBank = async (req: Request, res: Response): Promise<void> => {
       hint,
       subject,
       topic,
+      institutionId,
       difficulty,
       bloomLevel,
       tags,

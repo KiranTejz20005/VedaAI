@@ -5,13 +5,15 @@ import { InstitutionService } from '../services/admin/institution.service';
 import { DepartmentService } from '../services/admin/department.service';
 import { UserService } from '../services/admin/user.service';
 import { RoleService } from '../services/admin/role.service';
-import { ClassService } from '../services/admin/class.service';
+import { ClassroomService } from '../services/admin/classroom.service';
 import { GroupService } from '../services/admin/group.service';
-import { AuditService } from '../services/admin/audit.service';
-import { AnalyticsService } from '../services/admin/analytics.service';
+import { AuditService } from '../services/audit.service';
+import { AnalyticsService } from '../services/analytics.service';
 import { BillingService } from '../services/admin/billing.service';
 import { getGenerationQueue } from '../queues/generation.queue';
 import { getPdfQueue } from '../queues/pdf.queue';
+import { createInvitation } from '../services/invitation.service';
+import { processCsvImport } from '../services/csv-import.service';
 import * as argon2 from 'argon2';
 
 // ── In-Memory System Settings Store (Simulating Admin System Settings) ──
@@ -195,8 +197,73 @@ export class AdminController {
     }
   }
 
+  static async inviteUser(req: Request, res: Response) {
+    try {
+      const { email, role } = req.body;
+      if (role === 'SUPER_ADMIN' && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Cannot invite a SUPER_ADMIN' });
+        return;
+      }
+      const institutionId = req.user?.institutionId;
+      if (!institutionId) throw new Error('No institution scope');
+
+      const invitation = await createInvitation({
+        email,
+        role,
+        institutionId,
+        createdById: req.user!.id
+      });
+      res.status(201).json({ success: true, data: invitation });
+    } catch (err: any) {
+      logger.error(`[Admin:inviteUser] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async importUsersCsv(req: Request, res: Response) {
+    try {
+      if (!req.file) throw new Error('No CSV file uploaded');
+      const institutionId = req.user?.institutionId;
+      if (!institutionId) throw new Error('No institution scope');
+
+      const result = await processCsvImport(req.file.path, institutionId, req.user!.id);
+
+      await prisma.auditLog.create({
+        data: {
+          action: 'CSV_IMPORTED',
+          entity: 'Institution',
+          entityId: institutionId,
+          userId: req.user!.id,
+          ipAddress: req.ip || '0.0.0.0',
+          userAgent: req.headers['user-agent'] || 'unknown',
+        }
+      });
+
+      res.status(201).json({ success: true, data: result });
+    } catch (err: any) {
+      logger.error(`[Admin:importUsersCsv] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async checkSuperAdminProtection(targetUserId: string, currentUserRole: string) {
+    if (currentUserRole === 'SUPER_ADMIN') return;
+    const targetUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { role: true }
+    });
+    if (targetUser?.role === 'SUPER_ADMIN') {
+      throw new Error('Access denied: Cannot modify SUPER_ADMIN users.');
+    }
+  }
+
   static async createUser(req: Request, res: Response) {
     try {
+      const { role } = req.body;
+      if (role === 'SUPER_ADMIN' && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Cannot create a SUPER_ADMIN' });
+        return;
+      }
       const user = await UserService.createUser(req.body);
       await AuditService.logAction({
         userId: req.user?.id,
@@ -214,6 +281,14 @@ export class AdminController {
 
   static async updateUser(req: Request, res: Response) {
     try {
+      if (req.user) {
+        await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+      }
+      const { role } = req.body;
+      if (role === 'SUPER_ADMIN' && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Cannot update/upgrade a user to SUPER_ADMIN' });
+        return;
+      }
       const user = await UserService.updateUser(req.params.id, req.body);
       res.json({ success: true, data: user });
     } catch (err: any) {
@@ -224,6 +299,9 @@ export class AdminController {
 
   static async suspendUser(req: Request, res: Response) {
     try {
+      if (req.user) {
+        await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+      }
       const { suspend } = req.body;
       const user = await UserService.suspendUser(req.params.id, suspend);
       res.json({ success: true, data: user });
@@ -235,6 +313,9 @@ export class AdminController {
 
   static async deleteUser(req: Request, res: Response) {
     try {
+      if (req.user) {
+        await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+      }
       await UserService.deleteUser(req.params.id);
       res.json({ success: true, message: 'User soft-deleted successfully' });
     } catch (err: any) {
@@ -245,6 +326,9 @@ export class AdminController {
 
   static async resetPassword(req: Request, res: Response) {
     try {
+      if (req.user) {
+        await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+      }
       const { newPassword } = req.body;
       const user = await UserService.resetPassword(req.params.id, newPassword);
       res.json({ success: true, data: user });
@@ -345,79 +429,70 @@ export class AdminController {
     }
   }
 
-  // ── 5. Class Management ──
-  static async getClasses(req: Request, res: Response) {
+  // ── 5.1. Classroom Management ──
+  static async getClassrooms(req: Request, res: Response) {
     try {
-      const instId = req.query.institutionId as string;
-      const list = await ClassService.getClasses(instId);
+      const instId = (req.query.institutionId as string) || req.user?.institutionId || undefined;
+      const list = await ClassroomService.getClassrooms(instId);
       res.json({ success: true, data: list });
     } catch (err: any) {
-      logger.error(`[Admin:getClasses] ${err}`);
+      logger.error(`[Admin:getClassrooms] ${err}`);
       res.status(500).json({ success: false, error: err.message });
     }
   }
 
-  static async createClass(req: Request, res: Response) {
+  static async createClassroom(req: Request, res: Response) {
     try {
-      const newClass = await ClassService.createClass(req.body);
-      res.status(201).json({ success: true, data: newClass });
+      const instId = req.body.institutionId || req.user?.institutionId;
+      const classroom = await ClassroomService.createClassroom({ name: req.body.name, institutionId: instId });
+      res.status(201).json({ success: true, data: classroom });
     } catch (err: any) {
-      logger.error(`[Admin:createClass] ${err}`);
+      logger.error(`[Admin:createClassroom] ${err}`);
       res.status(500).json({ success: false, error: err.message });
     }
   }
 
-  static async updateClass(req: Request, res: Response) {
+  static async updateClassroom(req: Request, res: Response) {
     try {
-      const cls = await ClassService.updateClass(req.params.id, req.body);
-      res.json({ success: true, data: cls });
+      const classroom = await ClassroomService.updateClassroom(req.params.id, req.body);
+      res.json({ success: true, data: classroom });
     } catch (err: any) {
-      logger.error(`[Admin:updateClass] ${err}`);
+      logger.error(`[Admin:updateClassroom] ${err}`);
       res.status(500).json({ success: false, error: err.message });
     }
   }
 
-  static async deleteClass(req: Request, res: Response) {
+  static async deleteClassroom(req: Request, res: Response) {
     try {
-      await prisma.class.delete({ where: { id: req.params.id } });
-      res.json({ success: true, message: 'Class deleted successfully' });
+      await ClassroomService.deleteClassroom(req.params.id);
+      res.json({ success: true, message: 'Classroom deleted' });
     } catch (err: any) {
-      logger.error(`[Admin:deleteClass] ${err}`);
+      logger.error(`[Admin:deleteClassroom] ${err}`);
       res.status(500).json({ success: false, error: err.message });
     }
   }
 
-  static async assignClassFaculty(req: Request, res: Response) {
+  static async createSection(req: Request, res: Response) {
     try {
-      const { facultyId } = req.body;
-      const cls = await ClassService.updateClass(req.params.id, { facultyId });
-      res.json({ success: true, data: cls });
+      const section = await ClassroomService.createSection(req.body);
+      res.status(201).json({ success: true, data: section });
     } catch (err: any) {
-      logger.error(`[Admin:assignClassFaculty] ${err}`);
+      logger.error(`[Admin:createSection] ${err}`);
       res.status(500).json({ success: false, error: err.message });
     }
   }
 
-  static async assignClassStudents(req: Request, res: Response) {
+  static async enrollStudents(req: Request, res: Response) {
     try {
-      const { students } = req.body;
-      await ClassService.assignStudents(req.params.id, students);
-      res.json({ success: true, message: 'Students roster updated successfully' });
+      const { studentIds } = req.body;
+      const count = await ClassroomService.enrollStudents(req.params.sectionId, studentIds);
+      res.json({ success: true, data: count });
     } catch (err: any) {
-      logger.error(`[Admin:assignClassStudents] ${err}`);
+      logger.error(`[Admin:enrollStudents] ${err}`);
       res.status(500).json({ success: false, error: err.message });
     }
   }
 
-  static async getClassAnalytics(req: Request, res: Response) {
-    try {
-      const analytics = await ClassService.getClassAnalytics(req.params.id);
-      res.json({ success: true, data: analytics });
-    } catch (err: any) {
-      logger.error(`[Admin:getClassAnalytics] ${err}`);
-      res.status(500).json({ success: false, error: err.message });
-    }
-  }
 
   // ── 6. Group Management ──
   static async getGroups(req: Request, res: Response) {
@@ -701,7 +776,7 @@ export class AdminController {
     try {
       const updated = await prisma.assignment.update({
         where: { id: req.params.id },
-        data: { status: 'closed' },
+        data: { status: 'ARCHIVED' },
       });
       res.json({ success: true, data: updated });
     } catch (err: any) {
@@ -715,7 +790,7 @@ export class AdminController {
       const { dueDate } = req.body;
       const updated = await prisma.assignment.update({
         where: { id: req.params.id },
-        data: { status: 'published', dueDate: new Date(dueDate) },
+        data: { status: 'PUBLISHED', dueDate: new Date(dueDate) },
       });
       res.json({ success: true, data: updated });
     } catch (err: any) {

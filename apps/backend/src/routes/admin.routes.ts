@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { asyncHandler } from '../utils/async-handler';
 import { AdminController } from '../controllers/admin.controller';
-import { authenticate, requireRole } from '../middlewares/auth.middleware';
+import { authenticate } from '../middlewares/auth.middleware';
+import { requirePermission } from '../security/access-control';
 
 const router = Router();
 
-// Enforce auth and admin role requirements
+// Enforce auth and admin permission requirements
 router.use(authenticate);
-router.use(requireRole(['SUPER_ADMIN', 'INSTITUTION_ADMIN']));
+router.use(requirePermission('MANAGE_USERS'));
 
 // ── 1. Institution Management ──
 router.get('/institutions', asyncHandler(AdminController.getInstitutions));
@@ -34,6 +35,8 @@ router.put('/users/:id/suspend', asyncHandler(AdminController.suspendUser));
 router.post('/users/:id/reset-password', asyncHandler(AdminController.resetPassword));
 router.post('/users/:id/impersonate', asyncHandler(AdminController.impersonateUser));
 router.post('/users/self/reset-password-force', asyncHandler(AdminController.forceResetOwnPassword));
+router.post('/users/invite', asyncHandler(AdminController.inviteUser));
+router.post('/users/import', asyncHandler(AdminController.importUsersCsv));
 
 // ── 4. Role & Permission Management ──
 router.get('/roles', asyncHandler(AdminController.getRoles));
@@ -42,15 +45,13 @@ router.put('/roles/:id', asyncHandler(AdminController.updateRole));
 router.delete('/roles/:id', asyncHandler(AdminController.deleteRole));
 router.get('/permissions', asyncHandler(AdminController.getPermissions));
 router.post('/roles/:id/permissions', asyncHandler(AdminController.assignPermissions));
-
-// ── 5. Class Management ──
-router.get('/classes', asyncHandler(AdminController.getClasses));
-router.post('/classes', asyncHandler(AdminController.createClass));
-router.put('/classes/:id', asyncHandler(AdminController.updateClass));
-router.delete('/classes/:id', asyncHandler(AdminController.deleteClass));
-router.post('/classes/:id/assign-faculty', asyncHandler(AdminController.assignClassFaculty));
-router.post('/classes/:id/assign-students', asyncHandler(AdminController.assignClassStudents));
-router.get('/classes/:id/analytics', asyncHandler(AdminController.getClassAnalytics));
+// ── 5.1. Classroom Management ──
+router.get('/classrooms', asyncHandler(AdminController.getClassrooms));
+router.post('/classrooms', asyncHandler(AdminController.createClassroom));
+router.put('/classrooms/:id', asyncHandler(AdminController.updateClassroom));
+router.delete('/classrooms/:id', asyncHandler(AdminController.deleteClassroom));
+router.post('/classrooms/sections', asyncHandler(AdminController.createSection));
+router.post('/classrooms/sections/:sectionId/enroll', asyncHandler(AdminController.enrollStudents));
 
 // ── 6. Group Management ──
 router.get('/groups', asyncHandler(AdminController.getGroups));

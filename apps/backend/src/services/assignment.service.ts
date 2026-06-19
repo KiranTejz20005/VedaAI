@@ -13,7 +13,8 @@ export interface AssignmentListResult {
 
 export async function createAssignment(
   input: CreateAssignmentInput,
-  files: FileRef[]
+  files: FileRef[],
+  institutionId: string,
 ) {
   const { typeBreakdown, ...rest } = input;
   const assignment = await prisma.assignment.create({
@@ -22,7 +23,8 @@ export async function createAssignment(
       ...(typeBreakdown ? { typeBreakdown } : {}),
       dueDate: new Date(input.dueDate),
       uploadedFiles: files as any,
-      status: 'draft',
+      status: 'DRAFT',
+      institutionId, // injected via the controller
       questionConfig: rest.questionConfig as any,
     },
   });
@@ -63,7 +65,7 @@ export async function enqueueGeneration(
   const nextSeq = (assignment.generationSeq ?? 0) + 1;
   await prisma.assignment.update({
     where: { id: assignmentId },
-    data: { generationSeq: nextSeq, status: 'queued', finalizedAt: null },
+    data: { generationSeq: nextSeq, status: 'GENERATING', finalizedAt: null },
   });
 
   const jobRecord = await prisma.generationJob.create({
@@ -103,9 +105,13 @@ export async function enqueueGeneration(
 export async function listAssignments(
   page = 1,
   limit = 10,
-  status?: string
+  status?: import('@prisma/client').WorkflowStatus,
+  institutionId?: string
 ): Promise<AssignmentListResult> {
-  const filter = status ? { status } : {};
+  const filter: any = {};
+  if (status) filter.status = status;
+  if (institutionId) filter.institutionId = institutionId;
+  
   const skip = (page - 1) * limit;
 
   const [assignments, total] = await Promise.all([
@@ -121,10 +127,14 @@ export async function listAssignments(
   return { assignments, total, page, limit };
 }
 
-export async function getAssignment(id: string) {
-  return prisma.assignment.findUnique({ where: { id } });
+export async function getAssignment(id: string, institutionId?: string) {
+  const filter: any = { id };
+  if (institutionId) filter.institutionId = institutionId;
+  return prisma.assignment.findFirst({ where: filter });
 }
 
-export async function deleteAssignment(id: string): Promise<void> {
-  await prisma.assignment.delete({ where: { id } });
+export async function deleteAssignment(id: string, institutionId?: string): Promise<void> {
+  const filter: any = { id };
+  if (institutionId) filter.institutionId = institutionId;
+  await prisma.assignment.deleteMany({ where: filter });
 }

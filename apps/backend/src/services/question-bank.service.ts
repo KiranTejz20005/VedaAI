@@ -19,6 +19,7 @@ export async function saveToQuestionBank(params: {
   hint?: string;
   subject: string;
   topic: string;
+  institutionId: string;
   difficulty: 'EASY' | 'MEDIUM' | 'HARD';
   bloomLevel: 'REMEMBER' | 'UNDERSTAND' | 'APPLY' | 'ANALYZE' | 'EVALUATE' | 'CREATE';
   tags?: string[];
@@ -28,6 +29,7 @@ export async function saveToQuestionBank(params: {
       data: {
         content: params.content,
         options: params.options || null,
+        institutionId: params.institutionId,
         answer: params.answer || null,
         hint: params.hint || null,
         subject: params.subject,

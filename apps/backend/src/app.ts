@@ -72,10 +72,10 @@ async function failStaleQueuedJobs(): Promise<void> {
     const assignmentId = job.assignmentId;
 
     await Promise.allSettled([
-      prisma.assignment.update({ where: { id: assignmentId }, data: { status: 'failed' } }),
+      prisma.assignment.update({ where: { id: assignmentId }, data: { status: 'FAILED' } }),
       prisma.generationJob.update({
         where: { id: job.id },
-        data: { status: 'failed', error: 'Generation timed out while waiting in queue', completedAt: new Date() },
+        data: { status: 'FAILED', error: 'Generation timed out while waiting in queue', completedAt: new Date() },
       }),
     ]);
 
@@ -108,10 +108,10 @@ async function failStaleInProgressJobs(): Promise<void> {
     const assignmentId = job.assignmentId;
 
     await Promise.allSettled([
-      prisma.assignment.update({ where: { id: assignmentId }, data: { status: 'failed' } }),
+      prisma.assignment.update({ where: { id: assignmentId }, data: { status: 'FAILED' } }),
       prisma.generationJob.update({
         where: { id: job.id },
-        data: { status: 'failed', error: 'Generation appears stuck and was automatically failed', completedAt: new Date() },
+        data: { status: 'FAILED', error: 'Generation appears stuck and was automatically failed', completedAt: new Date() },
       }),
     ]);
 

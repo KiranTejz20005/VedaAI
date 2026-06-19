@@ -49,7 +49,7 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
     // 3. Fallback for local development / testing (if enabled)
     const isMockAuthEnabled = process.env.NODE_ENV !== 'production' || process.env.ENABLE_MOCK_AUTH === 'true';
     if (isMockAuthEnabled) {
-      const mockRole = (req.headers['x-mock-role'] as string) || 'FACULTY';
+      const mockRole = (req.headers['x-mock-role'] as string) || 'TEACHER';
       const mockUserId = (req.headers['x-mock-userid'] as string) || 'demo-faculty-id';
       req.user = {
         id: mockUserId,
@@ -69,7 +69,7 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
       req.user = {
         id: 'demo-faculty-id',
         email: 'demo@bloomverify.com',
-        role: 'FACULTY',
+        role: 'TEACHER',
         institutionId: 'demo-inst-id',
         departmentId: 'dept-demo',
       };
@@ -80,18 +80,43 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
 };
 
 /**
- * Role-based authorization guard
+ * Middleware to enforce ownership or admin overrides
  */
-export const requireRole = (allowedRoles: string[]) => {
+export const requireOwnership = (_resourceType: string) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
+      return res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'Unauthorized' });
     }
 
-    if (req.user.role === 'SUPER_ADMIN' || allowedRoles.includes(req.user.role)) {
+    if (req.user.role === 'SUPER_ADMIN' || req.user.role === 'ADMIN') {
       return next();
     }
+    
+    // We attach a flag to the request so the controller knows to enforce ownership filtering
+    req.body._requireOwnership = true; 
+    return next();
+  }
+};
 
-    return res.status(403).json({ success: false, error: 'Forbidden: Insufficient role permissions' });
+/**
+ * Middleware to enforce institution-level data isolation
+ */
+export const requireInstitutionScope = () => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'Unauthorized' });
+    }
+
+    if (req.user.role === 'SUPER_ADMIN') {
+      return next();
+    }
+    
+    if (!req.user.institutionId) {
+      return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'User does not belong to an institution' });
+    }
+
+    // Attach flag for controllers to filter by institution
+    req.body._requireInstitutionScope = req.user.institutionId;
+    return next();
   }
 };

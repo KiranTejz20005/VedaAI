@@ -1,0 +1,52 @@
+import prisma from '../config/prisma';
+import { logger } from '../utils/logger';
+// If a Socket.io server was configured we could emit events here
+// import { getIO } from '../sockets/socket.server';
+
+export interface SendNotificationPayload {
+  userId: string;
+  title: string;
+  message: string;
+  type: string;
+  metadata?: Record<string, any>;
+  institutionId?: string;
+}
+
+export async function sendNotification(payload: SendNotificationPayload) {
+  try {
+    const notification = await prisma.notification.create({
+      data: {
+        userId: payload.userId,
+        title: payload.title,
+        message: payload.message,
+        type: payload.type,
+        institutionId: payload.institutionId || 'no-institution'
+      }
+    });
+
+    // Optionally emit via WebSockets
+    // const io = getIO();
+    // io.to(`user_${payload.userId}`).emit('notification', notification);
+
+    logger.info(`Notification sent to user ${payload.userId}: ${payload.title}`);
+    return notification;
+  } catch (error) {
+    logger.error(`Failed to send notification: ${error instanceof Error ? error.message : String(error)}`);
+    throw error;
+  }
+}
+
+export async function getUserNotifications(userId: string, limit = 20) {
+  return prisma.notification.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    take: limit
+  });
+}
+
+export async function markNotificationAsRead(id: string, userId: string) {
+  return prisma.notification.updateMany({
+    where: { id, userId },
+    data: { isRead: true }
+  });
+}

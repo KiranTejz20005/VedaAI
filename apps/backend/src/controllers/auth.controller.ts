@@ -9,13 +9,16 @@ import {
   rotateRefreshToken,
   revokeSession,
 } from '../services/auth.service';
+import { validateInvitationToken } from '../services/invitation.service';
 
-const DEFAULT_USER_ID = 'demo-faculty-id';
-const DEFAULT_INST_ID  = 'demo-inst-id';
 const REFRESH_COOKIE_NAME = 'refresh_token';
 
 function getUserId(req: Request): string {
-  return (req as any).user?.id || DEFAULT_USER_ID;
+  const userId = (req as any).user?.id;
+  if (!userId) {
+    throw new Error('User not authenticated');
+  }
+  return userId;
 }
 
 // Helper to set HttpOnly secure cookie
@@ -37,79 +40,52 @@ function clearRefreshCookie(res: Response) {
   });
 }
 
-// Ensure the demo institution + user exist in the database (fallback helper)
-async function ensureDemoUser(userId: string): Promise<void> {
-  try {
-    const exists = await prisma.user.findUnique({ where: { id: userId } });
-    if (!exists) {
-      const inst = await prisma.institution.upsert({
-        where: { id: DEFAULT_INST_ID },
-        create: {
-          id: DEFAULT_INST_ID,
-          name: 'VedaAI Demo School',
-          domain: 'vedaai.demo',
-        },
-        update: {},
-      });
-
-      const pwdHash = await hashPassword('demo-password');
-      await prisma.user.create({
-        data: {
-          id: userId,
-          email: 'demo@bloomverify.com',
-          passwordHash: pwdHash,
-          firstName: 'Demo',
-          lastName: 'Faculty',
-          role: 'FACULTY',
-          institutionId: inst.id,
-        },
-      });
-    }
-  } catch {
-    // Non-fatal
-  }
-}
-
 // ── POST /auth/signup ──
-export const signup = async (req: Request, res: Response): Promise<void> => {
+export const signup = async (_req: Request, res: Response): Promise<void> => {
+  // Disabling direct signup in favor of the new Invitation flow.
+  res.status(403).json({ success: false, error: 'Direct registration is disabled. Please contact your institution administrator for an invitation.' });
+  return;
+};
+
+// ── POST /auth/accept-invite ──
+export const acceptInvite = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password, firstName, lastName, role, institutionName } = req.body;
+    const { token, password, firstName, lastName } = req.body;
 
-    if (!email || !password || !firstName || !lastName) {
-      res.status(400).json({ success: false, error: 'Missing required signup fields' });
+    if (!token || !password || !firstName || !lastName) {
+      res.status(400).json({ success: false, error: 'Missing required fields' });
       return;
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-      res.status(400).json({ success: false, error: 'Email already registered' });
-      return;
-    }
-
-    // Create or find default institution
-    let instId = DEFAULT_INST_ID;
-    if (institutionName) {
-      const inst = await prisma.institution.create({
-        data: {
-          name: institutionName,
-          domain: email.split('@')[1] || null,
-        },
-      });
-      instId = inst.id;
-    } else {
-      await ensureDemoUser(DEFAULT_USER_ID);
-    }
+    const invitation = await validateInvitationToken(token);
 
     const pwdHash = await hashPassword(password);
     const user = await prisma.user.create({
       data: {
-        email,
+        email: invitation.email,
         passwordHash: pwdHash,
         firstName,
         lastName,
-        role: role || 'FACULTY',
-        institutionId: instId,
+        role: invitation.role,
+        institutionId: invitation.institutionId,
+        hasCompletedOnboarding: false,
       },
+    });
+
+    await prisma.invitation.update({
+      where: { id: invitation.id },
+      data: { status: 'ACCEPTED', acceptedAt: new Date() }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'INVITATION_ACCEPTED',
+        entity: 'User',
+        entityId: user.id,
+        userId: user.id,
+        ipAddress: req.ip || '0.0.0.0',
+        userAgent: req.headers['user-agent'] || 'unknown',
+      }
     });
 
     res.status(201).json({
@@ -117,9 +93,9 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       message: 'Account created successfully',
       data: { id: user.id, email: user.email },
     });
-  } catch (error) {
-    logger.error(`[signup] ${error}`);
-    res.status(500).json({ success: false, error: 'Registration failed' });
+  } catch (error: any) {
+    logger.error(`[acceptInvite] ${error}`);
+    res.status(400).json({ success: false, error: error.message || 'Failed to accept invitation' });
   }
 };
 
@@ -203,6 +179,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
           role: user.role,
           firstName: user.firstName,
           lastName: user.lastName,
+          hasCompletedOnboarding: user.hasCompletedOnboarding,
         },
       },
     });
@@ -254,7 +231,6 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
 export const getMe = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = getUserId(req);
-    await ensureDemoUser(userId);
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -275,9 +251,10 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
         firstName: user.firstName,
         lastName: user.lastName,
         institutionId: user.institutionId,
-        institutionName: user.institution?.name || 'VedaAI Demo School',
+        institutionName: user.institution?.name || null,
         departmentName: user.department?.name || null,
         preferences: user.preferences || {},
+        hasCompletedOnboarding: user.hasCompletedOnboarding,
       },
     });
   } catch (error) {
@@ -286,12 +263,37 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+// ── POST /auth/onboarding/complete ──
+export const completeOnboarding = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = getUserId(req);
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        hasCompletedOnboarding: true,
+        onboardingCompletedAt: new Date(),
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Onboarding completed successfully',
+      data: {
+        hasCompletedOnboarding: user.hasCompletedOnboarding,
+      },
+    });
+  } catch (error) {
+    logger.error(`[completeOnboarding] ${error}`);
+    res.status(500).json({ success: false, error: 'Failed to complete onboarding' });
+  }
+};
+
 // ── PUT /auth/me ──
 export const updateProfile = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = getUserId(req);
     const { firstName, lastName, email } = req.body;
-    await ensureDemoUser(userId);
 
     const user = await prisma.user.update({
       where: { id: userId },
@@ -326,7 +328,6 @@ export const updatePreferences = async (req: Request, res: Response): Promise<vo
   try {
     const userId = getUserId(req);
     const { preferences } = req.body;
-    await ensureDemoUser(userId);
 
     const user = await prisma.user.update({
       where: { id: userId },
@@ -348,7 +349,6 @@ export const updatePreferences = async (req: Request, res: Response): Promise<vo
 export const updateInstitution = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = getUserId(req);
-    await ensureDemoUser(userId);
 
     const { institutionName, academicYear, department } = req.body;
 
@@ -363,7 +363,7 @@ export const updateInstitution = async (req: Request, res: Response): Promise<vo
     }
 
     if (institutionName) {
-      if (user.institutionId && user.institutionId !== DEFAULT_INST_ID) {
+      if (user.institutionId) {
         await prisma.institution.update({
           where: { id: user.institutionId },
           data: { name: institutionName },
@@ -372,7 +372,8 @@ export const updateInstitution = async (req: Request, res: Response): Promise<vo
         const inst = await prisma.institution.create({
           data: {
             name: institutionName,
-            domain: user.email.split('@')[1] || null,
+            code: institutionName.substring(0, 4).toUpperCase(),
+            email: user.email,
           },
         });
         await prisma.user.update({

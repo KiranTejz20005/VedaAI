@@ -56,6 +56,7 @@ export const submitStudentAssignment = async (req: Request, res: Response): Prom
       data: {
         assignmentId,
         studentId,
+        institutionId: req.user?.institutionId || req.body._requireInstitutionScope || 'no-institution',
         fileUrl: file.path,
         fileType: file.mimetype === 'application/pdf' ? 'PDF' : 'TXT',
         status: 'SUBMITTED',
@@ -120,7 +121,7 @@ export const manualGradeOverride = async (req: Request, res: Response): Promise<
 
     await prisma.studentSubmission.update({
       where: { id: submissionId },
-      data: { status: 'REVIEWED' },
+      data: { status: 'GRADED' }, // Using GRADED instead of REVIEWED
     });
 
     res.json({ success: true, data: updated });

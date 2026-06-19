@@ -15,7 +15,7 @@ async function ensureDemoUser(userId: string): Promise<void> {
     if (!exists) {
       const inst = await prisma.institution.upsert({
         where: { id: DEFAULT_INST_ID },
-        create: { id: DEFAULT_INST_ID, name: 'VedaAI Demo School', domain: 'vedaai.demo' },
+        create: { id: DEFAULT_INST_ID, name: 'VedaAI Demo School', code: 'VEDA_DEMO' },
         update: {},
       });
       await prisma.user.create({
@@ -25,7 +25,7 @@ async function ensureDemoUser(userId: string): Promise<void> {
           passwordHash: 'demo-hash',
           firstName: 'Demo',
           lastName: 'Faculty',
-          role: 'FACULTY',
+          role: 'TEACHER',
           institutionId: inst.id,
         },
       });

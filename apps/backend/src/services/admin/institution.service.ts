@@ -4,19 +4,18 @@ export class InstitutionService {
   static async createInstitution(data: {
     name: string;
     code: string;
-    domain?: string;
+    email?: string;
+    phone?: string;
     address?: string;
-    contact?: string;
-    website?: string;
   }) {
     return prisma.institution.create({
       data: {
         name: data.name,
         code: data.code,
-        domain: data.domain || null,
+        email: data.email || null,
+        phone: data.phone || null,
         address: data.address || null,
-        contact: data.contact || null,
-        website: data.website || null,
+        status: 'ACTIVE',
       },
     });
   }
@@ -49,11 +48,10 @@ export class InstitutionService {
     data: {
       name?: string;
       code?: string;
-      domain?: string;
+      email?: string;
       address?: string;
-      contact?: string;
-      website?: string;
-      status?: string;
+      phone?: string;
+      status?: import('@prisma/client').InstitutionStatus;
     }
   ) {
     return prisma.institution.update({
@@ -82,7 +80,7 @@ export class InstitutionService {
     const facultyCount = await prisma.user.count({
       where: {
         institutionId,
-        role: 'FACULTY',
+        role: 'TEACHER',
       },
     });
     const studentCount = await prisma.student.count({
@@ -103,7 +101,7 @@ export class InstitutionService {
     const papersGenerated = await prisma.generatedPaper.count({
       where: {
         assignment: {
-          status: 'finalized',
+          status: 'COMPLETED',
         },
       },
     });

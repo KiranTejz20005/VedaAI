@@ -20,6 +20,8 @@ import worksheetRoutes from './worksheets.routes';
 import tutorRoutes from './tutor.routes';
 import notesRoutes from './notes.routes';
 import adminRoutes from './admin.routes';
+import notificationRoutes from './notification.routes';
+import superAdminRoutes from './super-admin.routes';
 
 const apiRouter = Router();
 
@@ -80,6 +82,8 @@ apiRouter.use('/v1/worksheets', worksheetRoutes);
 apiRouter.use('/v1/tutor', tutorRoutes);
 apiRouter.use('/v1/notes', notesRoutes);
 apiRouter.use('/v1/admin', adminRoutes);
+apiRouter.use('/v1/super-admin', superAdminRoutes);
+apiRouter.use('/v1/notifications', notificationRoutes);
 
 // Backward compatible legacy aliases
 apiRouter.use('/assignments', assignmentRoutes);

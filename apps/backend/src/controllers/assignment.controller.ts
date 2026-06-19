@@ -15,6 +15,7 @@ import { logger } from '../utils/logger';
 import { getPaper } from '../services/paper.service';
 import { buildCanonicalGenerationState } from '../services/canonical-metadata.service';
 import { v4 as uuidv4 } from 'uuid';
+import { workflowEngine } from '../workflows/workflow-engine';
 
 export async function createAssignmentHandler(req: Request, res: Response): Promise<void> {
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -71,11 +72,11 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
     path: f.path,
   }));
 
-  const assignment = await createAssignment(parsed.data, files);
+  const institutionId = req.user?.institutionId || req.body._requireInstitutionScope || 'no-institution';
+  const assignment = await createAssignment(parsed.data, files, institutionId);
   
   let jobId: string, position: number, jobRecordId: string, generationSeq: number;
   const userId = req.user?.id || 'anon';
-  const institutionId = req.user?.institutionId || 'no-institution';
   const requestId = (req.headers['x-request-id'] as string) || uuidv4();
 
   try {
@@ -100,7 +101,7 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
     timestamp: new Date().toISOString()
   }, 'Generation Started');
 
-  assignment.status = 'queued';
+  assignment.status = 'GENERATING';
 
   emitToAssignment(assignment.id, 'generation:queued', {
     assignmentId: assignment.id,
@@ -118,9 +119,11 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
 export async function generateAssignmentHandler(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
   const force = req.query.force === 'true';
+  const institutionIdScope = req.body._requireInstitutionScope;
+
   logger.debug(`[generateHandler] START | assignmentId=${id} | force=${force}`);
 
-  const assignment = await getAssignment(id);
+  const assignment = await getAssignment(id, institutionIdScope);
   if (!assignment) {
     logger.warn(`[generateHandler] Assignment ${id} not found`);
     sendError(res, 'Assignment not found', 404);
@@ -128,12 +131,12 @@ export async function generateAssignmentHandler(req: Request, res: Response): Pr
   }
   logger.debug(`[generateHandler] Assignment found: status=${assignment.status} title="${assignment.title}"`);
 
-  if (!force && ['queued', 'generating'].includes(assignment.status)) {
+  if (!force && ['GENERATING'].includes(assignment.status)) {
     logger.warn(`[generateHandler] Generation already in progress (status=${assignment.status}) — returning 409`);
     sendError(res, 'Generation already in progress', 409);
     return;
   }
-  if (assignment.status === 'partially_generated') {
+  if (assignment.status === 'PARTIALLY_GENERATED') {
     logger.debug(`[generateHandler] Assignment has partial generation — allowing regeneration`);
   }
 
@@ -195,24 +198,28 @@ export async function generateAssignmentHandler(req: Request, res: Response): Pr
 }
 
 const ASSIGNMENT_STATUSES = [
-  'draft',
-  'queued',
-  'generating',
-  'completed',
-  'failed',
-  'partially_generated',
+  'DRAFT',
+  'GENERATING',
+  'GENERATED',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'REJECTED',
+  'PUBLISHED',
+  'ACTIVE',
+  'COMPLETED',
+  'ARCHIVED'
 ] as const;
 
 export async function listAssignmentsHandler(req: Request, res: Response): Promise<void> {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
-  const rawStatus = req.query.status;
-  const status =
-    typeof rawStatus === 'string' && ASSIGNMENT_STATUSES.includes(rawStatus as (typeof ASSIGNMENT_STATUSES)[number])
-      ? rawStatus
+  const rawStatus = (req.query.status as string) || '';
+  const status = (typeof rawStatus === 'string' && ASSIGNMENT_STATUSES.includes(rawStatus as (typeof ASSIGNMENT_STATUSES)[number]))
+      ? (rawStatus as any)
       : undefined;
 
-  const result = await listAssignments(page, limit, status);
+  const institutionIdScope = req.body._requireInstitutionScope;
+  const result = await listAssignments(page, limit, status, institutionIdScope);
 
   res.status(200).json({
     success: true,
@@ -227,7 +234,8 @@ export async function listAssignmentsHandler(req: Request, res: Response): Promi
 }
 
 export async function getAssignmentHandler(req: Request, res: Response): Promise<void> {
-  const assignment = await getAssignment(req.params.id);
+  const institutionIdScope = req.body._requireInstitutionScope;
+  const assignment = await getAssignment(req.params.id, institutionIdScope);
   if (!assignment) {
     sendError(res, 'Assignment not found', 404);
     return;
@@ -248,13 +256,14 @@ export async function getAssignmentHandler(req: Request, res: Response): Promise
 }
 
 export async function deleteAssignmentHandler(req: Request, res: Response): Promise<void> {
-  const assignment = await getAssignment(req.params.id);
+  const institutionIdScope = req.body._requireInstitutionScope;
+  const assignment = await getAssignment(req.params.id, institutionIdScope);
   if (!assignment) {
     sendError(res, 'Assignment not found', 404);
     return;
   }
 
-  if (['queued', 'generating', 'partially_generated'].includes(assignment.status)) {
+  if (['GENERATING', 'GENERATED', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED', 'ACTIVE'].includes(assignment.status)) {
     const activeId = (assignment as any).activeGenerationJobId ? String((assignment as any).activeGenerationJobId) : '';
     const activeJob = activeId ? await prisma.generationJob.findUnique({ where: { id: activeId } }) : null;
 
@@ -263,10 +272,93 @@ export async function deleteAssignmentHandler(req: Request, res: Response): Prom
       return;
     }
 
+    if (['PENDING_APPROVAL', 'APPROVED', 'PUBLISHED', 'ACTIVE'].includes(assignment.status)) {
+        if (req.user?.role !== 'ADMIN' && req.user?.role !== 'SUPER_ADMIN') {
+            sendError(res, 'Cannot delete assignment in this state. Admin rights required.', 403);
+            return;
+        }
+    }
+
     logger.warn(`Assignment ${req.params.id} had stale status=${assignment.status} with no active job; allowing delete`);
   }
 
-  await deleteAssignment(req.params.id);
+  await deleteAssignment(req.params.id, institutionIdScope);
   logger.info(`Assignment deleted: ${req.params.id}`);
   sendSuccess(res, null, 200, 'Assignment deleted successfully');
 }
+
+import { AuditService } from '../services/audit.service';
+
+export async function submitAssignmentForApproval(req: Request, res: Response): Promise<void> {
+  const institutionIdScope = req.body._requireInstitutionScope;
+  const assignment = await getAssignment(req.params.id, institutionIdScope);
+  if (!assignment) return sendError(res, 'Assignment not found', 404);
+  
+  if (!workflowEngine.canTransition(assignment.status as any, 'PENDING_APPROVAL')) {
+    return sendError(res, `Cannot transition from ${assignment.status} to PENDING_APPROVAL`, 409);
+  }
+
+  await prisma.assignment.update({
+    where: { id: req.params.id },
+    data: { status: 'PENDING_APPROVAL' }
+  });
+
+  await AuditService.logAuditEvent({ action: 'ASSIGNMENT_SUBMITTED', entity: 'Assignment', entityId: assignment.id, userId: req.user?.id, ipAddress: req.ip });
+  sendSuccess(res, null, 200, 'Assignment submitted for approval');
+}
+
+export async function approveAssignment(req: Request, res: Response): Promise<void> {
+  const institutionIdScope = req.body._requireInstitutionScope;
+  const assignment = await getAssignment(req.params.id, institutionIdScope);
+  if (!assignment) return sendError(res, 'Assignment not found', 404);
+  
+  if (!workflowEngine.canTransition(assignment.status as any, 'APPROVED')) {
+    return sendError(res, `Cannot transition from ${assignment.status} to APPROVED`, 409);
+  }
+
+  await prisma.assignment.update({
+    where: { id: req.params.id },
+    data: { status: 'APPROVED', approvedBy: req.user?.id, approvedAt: new Date() }
+  });
+
+  await AuditService.logAuditEvent({ action: 'ASSIGNMENT_APPROVED', entity: 'Assignment', entityId: assignment.id, userId: req.user?.id, ipAddress: req.ip });
+  sendSuccess(res, null, 200, 'Assignment approved');
+}
+
+export async function rejectAssignment(req: Request, res: Response): Promise<void> {
+  const { comments } = req.body;
+  const institutionIdScope = req.body._requireInstitutionScope;
+  const assignment = await getAssignment(req.params.id, institutionIdScope);
+  if (!assignment) return sendError(res, 'Assignment not found', 404);
+  
+  if (!workflowEngine.canTransition(assignment.status as any, 'REJECTED')) {
+    return sendError(res, `Cannot transition from ${assignment.status} to REJECTED`, 409);
+  }
+
+  await prisma.assignment.update({
+    where: { id: req.params.id },
+    data: { status: 'REJECTED', rejectedBy: req.user?.id, rejectedAt: new Date(), reviewComments: comments }
+  });
+
+  await AuditService.logAuditEvent({ action: 'ASSIGNMENT_REJECTED', entity: 'Assignment', entityId: assignment.id, userId: req.user?.id, ipAddress: req.ip, metadata: { comments } });
+  sendSuccess(res, null, 200, 'Assignment rejected');
+}
+
+export async function publishAssignment(req: Request, res: Response): Promise<void> {
+  const institutionIdScope = req.body._requireInstitutionScope;
+  const assignment = await getAssignment(req.params.id, institutionIdScope);
+  if (!assignment) return sendError(res, 'Assignment not found', 404);
+  
+  if (!workflowEngine.canTransition(assignment.status as any, 'PUBLISHED')) {
+    return sendError(res, `Cannot transition from ${assignment.status} to PUBLISHED`, 409);
+  }
+
+  await prisma.assignment.update({
+    where: { id: req.params.id },
+    data: { status: 'PUBLISHED', publishedAt: new Date() }
+  });
+
+  await AuditService.logAuditEvent({ action: 'ASSIGNMENT_PUBLISHED', entity: 'Assignment', entityId: assignment.id, userId: req.user?.id, ipAddress: req.ip });
+  sendSuccess(res, null, 200, 'Assignment published successfully');
+}
+
