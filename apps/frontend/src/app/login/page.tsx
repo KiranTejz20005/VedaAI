@@ -29,14 +29,28 @@ export default function LoginPage() {
 
     if (result.success) {
       toast.success('Successfully logged in!');
-      // Check onboarding state of the user
       const user = useAuthStore.getState().user;
-      const isOnboarded = user?.preferences?.onboardingCompleted === true || (user?.institutionId && user?.departmentId);
+      const isOnboarded = user?.hasCompletedOnboarding === true || (user?.institutionId && user?.departmentId);
       
-      if (isOnboarded) {
-        router.push('/dashboard');
-      } else {
+      if (!isOnboarded) {
         router.push('/onboarding');
+      } else {
+        switch (user?.role) {
+          case 'SUPER_ADMIN':
+            router.push('/super-admin');
+            break;
+          case 'INSTITUTION_ADMIN':
+            router.push('/admin');
+            break;
+          case 'TEACHER':
+            router.push('/teacher');
+            break;
+          case 'STUDENT':
+            router.push('/student');
+            break;
+          default:
+            router.push('/dashboard');
+        }
       }
     } else {
       toast.error(result.error || 'Authentication failed. Please check credentials.');
@@ -310,7 +324,7 @@ export default function LoginPage() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 24 }}>
-            <Link href="#" className="link-highlight" style={{ fontSize: '13px', fontWeight: 500 }}>
+            <Link href="/forgot-password" className="link-highlight" style={{ fontSize: '13px', fontWeight: 500 }}>
               Forgot password?
             </Link>
           </div>
@@ -338,12 +352,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="link-text">
-          Don&apos;t have an account?{' '}
-          <Link href="/register" className="link-highlight">
-            Register here
-          </Link>
-        </div>
       </motion.div>
 
       <style dangerouslySetInnerHTML={{ __html: `

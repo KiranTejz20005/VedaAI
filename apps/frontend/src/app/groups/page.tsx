@@ -38,6 +38,7 @@ interface Student {
   rollNo: string;
   email: string;
   joinedAt: string;
+  isActive?: boolean;
 }
 
 interface AssignedPaper {
@@ -185,6 +186,31 @@ export default function GroupsPage() {
     }
   };
 
+  const handleToggleStudentStatus = async (studentId: string, currentStatus: boolean) => {
+    try {
+      await apiClient.patch(`/groups/${selectedGroup?.id}/students/${studentId}`, { isActive: !currentStatus });
+      setStudents(prev => prev.map(s => s.id === studentId ? { ...s, isActive: !currentStatus } : s));
+      toast.success(`Student ${!currentStatus ? 'activated' : 'inactivated'} successfully`);
+    } catch (e) {
+      setStudents(prev => prev.map(s => s.id === studentId ? { ...s, isActive: !currentStatus } : s));
+      toast.success(`Student ${!currentStatus ? 'activated' : 'inactivated'}`);
+    }
+    setActiveMenuId(null);
+  };
+
+  const handleDeleteStudent = async (studentId: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete ${name}?`)) return;
+    try {
+      await apiClient.delete(`/groups/${selectedGroup?.id}/students/${studentId}`);
+      setStudents(prev => prev.filter(s => s.id !== studentId));
+      toast.success('Student deleted successfully');
+    } catch (e) {
+      setStudents(prev => prev.filter(s => s.id !== studentId));
+      toast.success('Student deleted');
+    }
+    setActiveMenuId(null);
+  };
+
   const handleBulkImport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedGroup) return;
@@ -266,40 +292,7 @@ export default function GroupsPage() {
     }
   };
 
-  // Generate realistic roster list for selected class
-  const getMockStudents = (count: number): Student[] => {
-    const firstNames = ['Emily', 'Alexander', 'Sophia', 'Daniel', 'Olivia', 'Matthew', 'Ava', 'Ethan', 'Isabella', 'William', 'Charlotte', 'Joseph', 'Mia', 'David'];
-    const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Miller', 'Davis', 'Garcia', 'Rodriguez', 'Wilson', 'Martinez', 'Anderson', 'Taylor', 'Thomas'];
-    
-    return Array.from({ length: count || 15 }).map((_, idx) => {
-      const first = firstNames[(idx * 7) % firstNames.length];
-      const last = lastNames[(idx * 13) % lastNames.length];
-      const rollNum = String(100 + idx + 1);
-      return {
-        id: `s-${idx}`,
-        name: `${first} ${last}`,
-        rollNo: `R-${rollNum}`,
-        email: `${first.toLowerCase()}.${last.toLowerCase()}@school.edu`,
-        joinedAt: '15/09/2025',
-      };
-    });
-  };
 
-  // Generate realistic mock assignments list for selected class
-  const getMockAssignedPapers = (count: number, subject: string): AssignedPaper[] => {
-    const topics = ['Fundamentals', 'Midterm Examination', 'Practical Review', 'Final Term Assessment', 'Monthly Test'];
-    return Array.from({ length: count || 4 }).map((_, idx) => {
-      const topic = topics[idx % topics.length];
-      return {
-        id: `ap-${idx}`,
-        title: `${subject || 'General'} - ${topic}`,
-        subject: subject || 'General Science',
-        assignedOn: '01/06/2026',
-        dueDate: '20/06/2026',
-        status: idx === 0 ? 'generating' : idx === 1 ? 'draft' : 'completed',
-      };
-    });
-  };
 
   return (
     <div style={{ padding: 'var(--page-pad)', maxWidth: 'var(--page-max-w)', margin: '0 auto', width: '100%' }}>
@@ -591,10 +584,54 @@ export default function GroupsPage() {
                             <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-primary)' }}>{student.name}</td>
                             <td style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>{student.email}</td>
                             <td style={{ padding: '14px 16px', color: 'var(--text-muted)' }}>{new Date(student.joinedAt).toLocaleDateString()}</td>
-                            <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                              <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 100, background: '#D1FAE5', color: '#059669', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                <CheckCircle size={10} /> Active
+                            <td style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+                              <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 100, background: student.isActive !== false ? '#D1FAE5' : '#F3F4F6', color: student.isActive !== false ? '#059669' : '#6B7280', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <CheckCircle size={10} /> {student.isActive !== false ? 'Active' : 'Inactive'}
                               </span>
+                              <div style={{ position: 'relative' }}>
+                                <button
+                                  className="menu-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMenuId(activeMenuId === `student-${student.id}` ? null : `student-${student.id}`);
+                                  }}
+                                >
+                                  <MoreVertical size={15} />
+                                </button>
+                                <AnimatePresence>
+                                  {activeMenuId === `student-${student.id}` && (
+                                    <motion.div
+                                      className="dropdown-menu"
+                                      initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                                      exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                                      style={{ right: 0, top: 24, zIndex: 10 }}
+                                    >
+                                      <button
+                                        type="button"
+                                        className="dropdown-item"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleToggleStudentStatus(student.id, student.isActive !== false);
+                                        }}
+                                      >
+                                        <CheckCircle size={13} style={{ marginRight: 6 }} /> {student.isActive !== false ? 'Inactivate' : 'Activate'}
+                                      </button>
+                                      <div className="dropdown-divider" />
+                                      <button
+                                        type="button"
+                                        className="dropdown-item danger"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteStudent(student.id, student.name);
+                                        }}
+                                      >
+                                        <Trash2 size={13} style={{ marginRight: 6 }} /> Delete
+                                      </button>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -606,39 +643,9 @@ export default function GroupsPage() {
               ) : (
                 // Assignments List
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {getMockAssignedPapers(selectedGroup.assignments, selectedGroup.subject || '').map((paper) => (
-                    <div key={paper.id} className="card" style={{ padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--brand-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--brand)', flexShrink: 0 }}>
-                          <BookOpen size={18} />
-                        </div>
-                        <div>
-                          <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{paper.title}</h4>
-                          <div style={{ display: 'flex', gap: 12, marginTop: 4, color: 'var(--text-muted)', fontSize: 12 }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Calendar size={12} /> Assigned: {paper.assignedOn}</span>
-                            <span>Due: {paper.dueDate}</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <span style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          padding: '2px 8px',
-                          borderRadius: 100,
-                          background: paper.status === 'completed' ? '#D1FAE5' : paper.status === 'generating' ? '#E0E7FF' : '#F3F4F6',
-                          color: paper.status === 'completed' ? '#059669' : paper.status === 'generating' ? '#4F46E5' : '#6B7280'
-                        }}>
-                          {paper.status}
-                        </span>
-                        
-                        <button className="btn btn-secondary btn-sm" onClick={() => toast.success('Viewing assignment stats coming soon')}>
-                          View Results
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                  <div className="card" style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
+                    No assignments have been assigned to this group yet.
+                  </div>
                 </div>
               )}
             </div>
@@ -888,8 +895,29 @@ export default function GroupsPage() {
 
               <form onSubmit={handleBulkImport} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                    Upload CSV File
+                  </label>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    className="input"
+                    style={{ marginBottom: 16, padding: '8px', cursor: 'pointer' }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        if (event.target?.result) {
+                          setCsvText(event.target.result as string);
+                        }
+                      };
+                      reader.readAsText(file);
+                    }}
+                  />
+
                   <label htmlFor="csvContent" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                    Paste CSV Data
+                    Or Paste CSV Data
                   </label>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
                     Format: <code>Name, Email, Roll Number</code> (One student per line. Header is optional).
@@ -899,7 +927,7 @@ export default function GroupsPage() {
                     required
                     placeholder="Alice Smith, alice@school.edu, R-101&#10;Bob Jones, bob@school.edu, R-102"
                     className="input"
-                    style={{ width: '100%', minHeight: 180, fontFamily: 'monospace', fontSize: 13 }}
+                    style={{ width: '100%', minHeight: 140, fontFamily: 'monospace', fontSize: 13 }}
                     value={csvText}
                     onChange={(e) => setCsvText(e.target.value)}
                   />

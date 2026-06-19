@@ -299,10 +299,13 @@ export default function PapersPage() {
   return (
     <div className="dashboard-view">
       <div className="desktop-page-header dashboard-header-v3">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <FileText size={24} color="var(--brand)" />
-            <h1 className="page-title">Paper Management</h1>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <FileText size={24} color="var(--brand)" />
+              <h1 className="page-title">Paper Management</h1>
+            </div>
+            <p className="page-subtitle" style={{ marginTop: '4px', marginLeft: '32px' }}>Assemble, review, and export full assessment question papers.</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ display: 'flex', background: '#e5e7eb', borderRadius: 8, padding: 2, marginRight: 8 }}>
@@ -326,7 +329,6 @@ export default function PapersPage() {
             </Link>
           </div>
         </div>
-        <p className="page-subtitle">Assemble, review, and export full assessment question papers.</p>
       </div>
 
       <div className="mobile-page-header">

@@ -1,26 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   LayoutGrid,
   FileText,
   Sparkles,
-  PieChart,
   Settings,
   X,
   BookOpen,
   GraduationCap,
   Users,
-  Library,
-  ClipboardCheck,
   PenSquare,
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
+import { useAuthStore } from '@/store/auth.store';
 import { useAssignmentStore } from '@/store/assignment.store';
 import { useMounted } from '@/hooks/useMounted';
-import { useAuthStore } from '@/store/auth.store';
 
 function MyGroupsIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -32,39 +28,20 @@ function MyGroupsIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-function ToolkitIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={props.strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
-      <line x1="12" y1="18" x2="12.01" y2="18" strokeWidth={(props.strokeWidth as number || 2) * 1.5} />
-    </svg>
-  );
-}
-
 const PRIMARY_NAV = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/assignments/create', label: 'Create Question Paper', icon: PenSquare, exact: true },
+  { href: '/assignments/create', label: 'Create Assessment', icon: PenSquare, exact: true },
+  { href: '/papers', label: 'My Papers', icon: FileText },
   { href: '/question-bank', label: 'Question Bank', icon: MyGroupsIcon },
-  { href: '/papers', label: 'Paper Mgmt', icon: FileText },
-  { href: '/syllabus', label: 'Syllabus', icon: GraduationCap },
 ];
 
 const SECONDARY_NAV = [
-  { href: '/reviews', label: 'Reviews', icon: ClipboardCheck },
-  { href: '/groups', label: 'Groups', icon: Users },
-  { href: '/grader', label: 'AI Grader', icon: ClipboardCheck },
+  { href: '/groups', label: 'My Classes', icon: Users },
+  { href: '/syllabus', label: 'Syllabus', icon: GraduationCap },
   { href: '/lessons', label: 'Lesson Planner', icon: BookOpen },
-  { href: '/worksheets', label: 'Worksheets', icon: FileText },
 ];
 
-const TERTIARY_NAV = [
-  { href: '/generate', label: 'AI Quiz Gen', icon: Sparkles },
-  { href: '/tutor', label: 'AI Tutor', icon: Sparkles },
-  { href: '/notes', label: 'AI Notes Gen', icon: Library },
-  { href: '/analytics', label: 'Analytics Dashboard', icon: PieChart },
-];
-
-export function Sidebar() {
+export function TeacherSidebar() {
   const pathname = usePathname();
   const mounted = useMounted();
   const { isOpen, close } = useSidebarStore();
@@ -89,7 +66,7 @@ export function Sidebar() {
               <text x="50%" y="55%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="16" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif">S</text>
             </svg>
           </div>
-          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>Shiksha AI</span>
+          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>Shiksha Teacher</span>
           <button className="sidebar-close-btn" onClick={close} aria-label="Close navigation"><X size={18} /></button>
         </div>
 
@@ -99,10 +76,10 @@ export function Sidebar() {
         </Link>
 
         <nav className="sidebar-nav" aria-label="Pages">
-          <div className="sidebar-nav-section-label">Main</div>
+          <div className="sidebar-nav-section-label">Academics</div>
           {PRIMARY_NAV.map(({ href, label, icon: Icon, exact }) => {
             const active = isActive(href, exact);
-            const isAssignments = label === 'Paper Mgmt';
+            const isAssignments = label === 'My Papers';
             return (
               <Link key={href} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>
                 <Icon size={18} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
@@ -124,17 +101,6 @@ export function Sidebar() {
               </Link>
             );
           })}
-
-          <div className="sidebar-nav-section-label">Tools</div>
-          {TERTIARY_NAV.map(({ href, label, icon: Icon }) => {
-            const active = isActive(href);
-            return (
-              <Link key={href} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>
-                <Icon size={18} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
-                <span>{label}</span>
-              </Link>
-            );
-          })}
         </nav>
 
         <div className="sidebar-bottom">
@@ -143,16 +109,16 @@ export function Sidebar() {
             <span>Settings</span>
           </Link>
 
-          <div className="sidebar-profile" role="button" tabIndex={0} aria-label="Account settings" onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); } }}>
+          <div className="sidebar-profile" role="button" tabIndex={0} aria-label="Account settings">
             <div className="sidebar-profile-avatar" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #E8531D, #F97316)', color: 'white', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'U'}
+              {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'T'}
             </div>
             <div className="sidebar-profile-info">
               <div className="sidebar-profile-name">
-                {user ? `${user.firstName} ${user.lastName}` : 'Guest User'}
+                {user ? `${user.firstName} ${user.lastName}` : 'Teacher User'}
               </div>
               <div className="sidebar-profile-sub">
-                {user?.institutionName || 'Demo Institution'}
+                {user?.departmentName || 'Faculty'}
               </div>
             </div>
           </div>

@@ -17,9 +17,9 @@ export interface User {
     inAppAlerts?: boolean;
     autoSave?: boolean;
     weeklyDigest?: boolean;
-    onboardingCompleted?: boolean;
     [key: string]: any;
   };
+  hasCompletedOnboarding?: boolean;
 }
 
 interface AuthStore {
@@ -207,15 +207,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         });
       }
 
-      // 5. Update user preferences to record completed onboarding
-      const currentPreferences = get().user?.preferences || {};
-      const newPreferences = {
-        ...currentPreferences,
-        onboardingCompleted: true,
-      };
-      await api.put('/auth/me/preferences', {
-        preferences: newPreferences,
-      });
+      // 5. Update user onboarding status
+      await api.post('/auth/onboarding/complete');
 
       // 6. Refresh user profile
       const meRes = await api.get('/auth/me');

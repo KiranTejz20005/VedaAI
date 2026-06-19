@@ -5,9 +5,12 @@ import { Toaster } from 'react-hot-toast';
 import { usePathname, useRouter } from 'next/navigation';
 import { ClientOnly } from '@/components/ui/ClientOnly';
 import { useAuthStore } from '@/store/auth.store';
-import { Sidebar } from './Sidebar';
+import { AdminSidebar } from './AdminSidebar';
+import { TeacherSidebar } from './TeacherSidebar';
+import { StudentSidebar } from './StudentSidebar';
 import { TopBar } from './TopBar';
 import { MobileBottomNav } from './MobileBottomNav';
+import { canAccessRoute } from '@/config/route-permissions';
 
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -31,11 +34,19 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
         router.push('/login');
       }
     } else {
-      const isOnboarded = user?.preferences?.onboardingCompleted === true || (user?.institutionId && user?.departmentId);
-      
+      const userRole = user?.role?.toUpperCase() || '';
+      const isSuperAdminOrAdmin = userRole === 'SUPER_ADMIN' || userRole === 'ADMIN';
+      const isOnboarded = isSuperAdminOrAdmin || user?.hasCompletedOnboarding === true || (user?.institutionId && user?.departmentId);
       if (isOnboarded) {
         if (isAuthPage || isOnboardingPage) {
           router.push('/dashboard');
+        } else {
+          const role = user?.role || '';
+          const hasAccess = canAccessRoute(role, pathname);
+          
+          if (!hasAccess) {
+            router.push('/dashboard');
+          }
         }
       } else {
         if (!isOnboardingPage) {
@@ -108,9 +119,18 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const userRole = user?.role?.toUpperCase() || '';
+  
+  let DynamicSidebar = <TeacherSidebar />;
+  if (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') {
+    DynamicSidebar = <AdminSidebar />;
+  } else if (userRole === 'STUDENT') {
+    DynamicSidebar = <StudentSidebar />;
+  }
+
   return (
     <div className="app-shell">
-      <Sidebar />
+      {DynamicSidebar}
       <div className="main-wrapper">
         <TopBar />
         <main className="page-container">
