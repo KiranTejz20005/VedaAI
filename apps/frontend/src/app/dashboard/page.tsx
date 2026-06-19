@@ -12,10 +12,18 @@ import {
   CheckCircle,
   Activity,
   TrendingUp,
-  ChevronRight
+  Bell,
 } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import { PageHeader } from '@/design-system/PageHeader';
+import { MetricCard } from '@/design-system/MetricCard';
+import { ActionCard } from '@/design-system/ActionCard';
+import { ActivityCard } from '@/design-system/ActivityCard';
+import { Card } from '@/design-system/Card';
+import { LoadingState } from '@/design-system/LoadingState';
+import { ErrorState } from '@/design-system/ErrorState';
+import { useAdminAuthStore } from '@/store/admin-auth.store';
 
 interface DashboardData {
   stats: {
@@ -40,169 +48,146 @@ interface DashboardData {
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const activeOrganizationId = useAdminAuthStore((s) => s.activeOrganizationId);
 
   useEffect(() => {
+    setLoading(true);
+    setError(null);
     (async () => {
       try {
         const res = await api.get('/admin/analytics');
         if (res.data?.success) {
           setData(res.data.data);
         } else {
-          toast.error('Failed to load analytics');
+          setError('Failed to load analytics');
         }
       } catch {
-        toast.error('Failed to load dashboard');
+        setError('Failed to load dashboard');
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [activeOrganizationId]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <LoadingState lines={8} />;
+  if (error) return <ErrorState message={error} onRetry={() => { setLoading(true); setError(null); }} />;
 
   const stats = data?.stats || { totalFaculty: 0, totalStudents: 0, totalClasses: 0, pendingApprovals: 0 };
   const activity = data?.recentActivity || [];
   const summary = data?.summary || { publishedAssessments: 0, activeLessons: 0, submissionRate: 0 };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <div>
-        <h2 className="text-xl md:text-2xl font-bold text-gray-900">Organization Admin Dashboard</h2>
-        <p className="text-gray-500 text-xs md:text-sm">Monitor your institution at a glance.</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <PageHeader
+        title="Organization Admin Dashboard"
+        subtitle="Monitor your institution at a glance."
+      />
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+        gap: 12,
+      }}>
+        <MetricCard
+          icon={<GraduationCap size={18} />}
+          label="Total Faculty"
+          value={stats.totalFaculty}
+        />
+        <MetricCard
+          icon={<Users size={18} />}
+          label="Total Students"
+          value={stats.totalStudents}
+        />
+        <MetricCard
+          icon={<BookOpen size={18} />}
+          label="Total Classes"
+          value={stats.totalClasses}
+        />
+        <MetricCard
+          icon={<Clock size={18} />}
+          label="Pending Approvals"
+          value={stats.pendingApprovals}
+        />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Total Faculty</span>
-            <h3 className="text-2xl font-bold text-gray-900 mt-1">{stats.totalFaculty}</h3>
-          </div>
-          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-            <GraduationCap size={22} />
-          </div>
-        </div>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+        gap: 16,
+      }}>
+        <ActivityCard
+          title="Recent Activity"
+          items={activity.slice(0, 5)}
+          emptyMessage="No recent activity"
+          viewAllHref="/admin/audit"
+        />
 
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Total Students</span>
-            <h3 className="text-2xl font-bold text-gray-900 mt-1">{stats.totalStudents}</h3>
+        <Card padding="clamp(16px, 2vw, 20px)">
+          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>
+            Quick Actions
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <ActionCard
+              icon={<GraduationCap size={16} />}
+              label="Create Faculty"
+              href="/admin/users"
+              variant="primary"
+            />
+            <ActionCard
+              icon={<UserPlus size={16} />}
+              label="Add Student"
+              href="/admin/students"
+              variant="primary"
+            />
+            <ActionCard
+              icon={<Plus size={16} />}
+              label="Create Class"
+              href="/admin/classes"
+            />
+            <ActionCard
+              icon={<CheckCircle size={16} />}
+              label="View Approvals"
+              href="/admin/approvals"
+              variant="warning"
+            />
           </div>
-          <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
-            <Users size={22} />
-          </div>
-        </div>
+        </Card>
 
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Total Classes</span>
-            <h3 className="text-2xl font-bold text-gray-900 mt-1">{stats.totalClasses}</h3>
-          </div>
-          <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
-            <BookOpen size={22} />
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Pending Approvals</span>
-            <h3 className="text-2xl font-bold text-gray-900 mt-1">{stats.pendingApprovals}</h3>
-          </div>
-          <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
-            <Clock size={22} />
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm lg:col-span-1 space-y-4">
-          <div>
-            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Recent Activity</h3>
-            <p className="text-gray-400 text-[10px]">Latest actions across your organization.</p>
-          </div>
-
-          {activity.length === 0 ? (
-            <div className="text-center py-8 text-gray-400 text-xs">No recent activity.</div>
-          ) : (
-            <div className="space-y-3">
-              {activity.map((a) => (
-                <div key={a.id} className="flex items-start gap-3 text-xs">
-                  <div className="w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Activity size={12} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-gray-700 font-medium">{a.description}</p>
-                    <p className="text-gray-400 text-[10px]">{new Date(a.timestamp).toLocaleString()}</p>
-                  </div>
+        <Card padding="clamp(16px, 2vw, 20px)">
+          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>
+            Stats Summary
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {[
+              { label: 'Published Assessments', value: summary.publishedAssessments, color: '#3B82F6' },
+              { label: 'Active Lessons', value: summary.activeLessons, color: '#8B5CF6' },
+              { label: 'Submission Rate', value: `${summary.submissionRate}%`, color: '#10B981' },
+            ].map((item) => (
+              <div key={item.label} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 'var(--text-xs)', fontWeight: 600 }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>{item.label}</span>
+                  <span style={{ color: 'var(--text-primary)' }}>{item.value}</span>
                 </div>
-              ))}
-            </div>
-          )}
-
-          <Link href="/admin/audit" className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-semibold pt-2">
-            View All Activity <ChevronRight size={14} />
-          </Link>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
-          <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Quick Actions</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <Link href="/admin/users" className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-xl text-xs font-semibold hover:bg-blue-100 transition-colors">
-              <GraduationCap size={16} /> Create Faculty
-            </Link>
-            <Link href="/admin/students" className="flex items-center gap-2 p-3 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-semibold hover:bg-emerald-100 transition-colors">
-              <UserPlus size={16} /> Add Student
-            </Link>
-            <Link href="/admin/classes" className="flex items-center gap-2 p-3 bg-purple-50 text-purple-700 rounded-xl text-xs font-semibold hover:bg-purple-100 transition-colors">
-              <Plus size={16} /> Create Class
-            </Link>
-            <Link href="/admin/approvals" className="flex items-center gap-2 p-3 bg-amber-50 text-amber-700 rounded-xl text-xs font-semibold hover:bg-amber-100 transition-colors">
-              <CheckCircle size={16} /> View Approvals
-            </Link>
+                <div style={{ width: '100%', height: 6, background: 'var(--bg-hover)', borderRadius: 'var(--radius-pill)', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    background: item.color,
+                    borderRadius: 'var(--radius-pill)',
+                    width: `${typeof item.value === 'number' ? Math.min(item.value * 10, 100) : summary.submissionRate}%`,
+                    transition: 'width 0.3s ease',
+                  }} />
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
-          <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Stats Summary</h3>
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-xs font-medium">
-                <span className="text-gray-500">Published Assessments</span>
-                <span className="text-gray-900 font-bold">{summary.publishedAssessments}</span>
-              </div>
-              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-blue-600 h-full rounded-full" style={{ width: `${Math.min(summary.publishedAssessments * 10, 100)}%` }} />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-xs font-medium">
-                <span className="text-gray-500">Active Lessons</span>
-                <span className="text-gray-900 font-bold">{summary.activeLessons}</span>
-              </div>
-              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-purple-600 h-full rounded-full" style={{ width: `${Math.min(summary.activeLessons * 10, 100)}%` }} />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-xs font-medium">
-                <span className="text-gray-500">Submission Rate</span>
-                <span className="text-gray-900 font-bold">{summary.submissionRate}%</span>
-              </div>
-              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${summary.submissionRate}%` }} />
-              </div>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+            <TrendingUp size={12} color="#10B981" />
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+              Submission rate is {summary.submissionRate >= 70 ? 'healthy' : 'needs improvement'}
+            </span>
           </div>
-          <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-2 pt-2 border-t border-gray-100">
-            <TrendingUp size={12} className="text-emerald-500" />
-            <span>Submission rate is {summary.submissionRate >= 70 ? 'healthy' : 'needs improvement'}</span>
-          </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

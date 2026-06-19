@@ -87,6 +87,13 @@ export function Topbar() {
   const [isSwitching, setIsSwitching] = useState(false);
   const toggle = useSidebarStore((s) => s.toggle);
   const showBackButton = pathname !== '/' && pathname !== '/dashboard';
+  const { availableOrganizations, activeOrganizationId, fetchAvailableOrganizations } = useAdminAuthStore();
+
+  useEffect(() => {
+    if (user?.role === 'SUPER_ADMIN') {
+      fetchAvailableOrganizations();
+    }
+  }, [user?.role, fetchAvailableOrganizations]);
 
   useEffect(() => {
     if (!isDropdownOpen && !isOrgSwitcherOpen) return;
@@ -102,9 +109,11 @@ export function Topbar() {
     if (isSwitching) return;
     setIsSwitching(true);
     const success = await useAdminAuthStore.getState().switchOrganization(orgId);
-    if (success) router.refresh();
     setIsSwitching(false);
     setIsOrgSwitcherOpen(false);
+    if (success) {
+      router.refresh();
+    }
   };
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
@@ -160,7 +169,7 @@ export function Topbar() {
         </div>
 
         <div className="topbar-actions">
-          {isSuperAdmin && user?.organizationName && (
+          {isSuperAdmin && (
             <div style={{ position: 'relative' }}>
               <button
                 type="button"
@@ -181,7 +190,7 @@ export function Topbar() {
                 }}
               >
                 <Building2 size={14} color="var(--text-muted)" />
-                <span>{user.organizationName}</span>
+                <span>{user.organizationName || 'Select Organization'}</span>
                 <ChevronDown size={12} color="var(--text-muted)" />
               </button>
 
@@ -205,26 +214,44 @@ export function Topbar() {
                   <div style={{ padding: '6px 10px', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Switch Organization
                   </div>
-                  <button
-                    type="button"
-                    disabled={isSwitching}
-                    onClick={() => handleSwitchOrg(user.organizationId!)}
-                    style={{
-                      width: '100%',
-                      textAlign: 'left',
-                      padding: '8px 10px',
-                      border: 'none',
-                      background: 'transparent',
-                      borderRadius: 'var(--radius-sm)',
-                      cursor: 'pointer',
-                      fontSize: 'var(--text-sm)',
-                      fontWeight: 500,
-                      color: 'var(--text-primary)',
-                      fontFamily: 'inherit',
-                    }}
-                  >
-                    {isSwitching ? 'Switching...' : user.organizationName}
-                  </button>
+                  {availableOrganizations.length === 0 ? (
+                    <div style={{ padding: '8px 10px', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+                      No organizations found
+                    </div>
+                  ) : (
+                    availableOrganizations.map((org) => (
+                      <button
+                        key={org.id}
+                        type="button"
+                        disabled={isSwitching || org.id === activeOrganizationId}
+                        onClick={() => handleSwitchOrg(org.id)}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '8px 10px',
+                          border: 'none',
+                          background: org.id === activeOrganizationId ? 'var(--bg-hover)' : 'transparent',
+                          borderRadius: 'var(--radius-sm)',
+                          cursor: org.id === activeOrganizationId ? 'default' : 'pointer',
+                          fontSize: 'var(--text-sm)',
+                          fontWeight: org.id === activeOrganizationId ? 600 : 500,
+                          color: 'var(--text-primary)',
+                          fontFamily: 'inherit',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                        }}
+                        onMouseEnter={(e) => { if (org.id !== activeOrganizationId) e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                        onMouseLeave={(e) => { if (org.id !== activeOrganizationId) e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <Building2 size={14} color="var(--text-muted)" />
+                        <span style={{ flex: 1 }}>{org.name}</span>
+                        {org.id === activeOrganizationId && (
+                          <span style={{ fontSize: 10, color: '#EA580C', fontWeight: 600 }}>Active</span>
+                        )}
+                      </button>
+                    ))
+                  )}
                 </div>
               )}
             </div>
