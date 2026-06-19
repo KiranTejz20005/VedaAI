@@ -231,14 +231,17 @@ export default function FacultyManagement() {
             )},
             { key: 'department', header: 'Department', render: (_: any, row: FacultyRecord) => row.department?.name || '\u2014' },
             { key: 'designation', header: 'Designation' },
-            { key: 'subjects', header: 'Subjects', render: (value: string[]) => (
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {value.slice(0, 2).map((s, i) => (
-                  <span key={i} style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)', padding: '1px 6px', borderRadius: 'var(--radius-sm)', fontSize: 'var(--text-xs)' }}>{s}</span>
-                ))}
-                {value.length > 2 && <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>+{value.length - 2}</span>}
-              </div>
-            )},
+            { key: 'subjects', header: 'Subjects', render: (value: string[] | undefined) => {
+              const items = value || [];
+              return (
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {items.slice(0, 2).map((s, i) => (
+                    <span key={i} style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)', padding: '1px 6px', borderRadius: 'var(--radius-sm)', fontSize: 'var(--text-xs)' }}>{s}</span>
+                  ))}
+                  {items.length > 2 && <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>+{items.length - 2}</span>}
+                </div>
+              );
+            }},
             { key: 'classes', header: 'Classes', align: 'center', render: (_: any, row: FacultyRecord) => (
               <Badge variant="info">{(row.classes || []).length}</Badge>
             )},

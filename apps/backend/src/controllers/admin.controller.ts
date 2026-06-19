@@ -124,7 +124,11 @@ export class AdminController {
   // ── 2. Department Management ──
   static async getDepartments(req: Request, res: Response) {
     try {
-      const orgId = req.query.organizationId as string;
+      const orgId = (req.query.organizationId as string) || req.user?.organizationId;
+      if (!orgId) {
+        res.status(400).json({ success: false, error: 'No organization scope found' });
+        return;
+      }
       const list = await DepartmentService.getDepartments(orgId);
       res.json({ success: true, data: list });
     } catch (err: any) {
@@ -188,7 +192,11 @@ export class AdminController {
   // ── 3. User Management ──
   static async getUsers(req: Request, res: Response) {
     try {
-      const orgId = req.query.organizationId as string;
+      const orgId = (req.query.organizationId as string) || req.user?.organizationId;
+      if (!orgId) {
+        res.status(400).json({ success: false, error: 'No organization scope found' });
+        return;
+      }
       const list = await UserService.getUsers(orgId);
       res.json({ success: true, data: list });
     } catch (err: any) {
@@ -264,13 +272,26 @@ export class AdminController {
         res.status(403).json({ success: false, error: 'Cannot create a SUPER_ADMIN' });
         return;
       }
-      const user = await UserService.createUser(req.body);
+      
+      // Inject organizationId from authenticated user's context
+      const organizationId = req.user?.organizationId;
+      if (!organizationId) {
+        res.status(400).json({ success: false, error: 'No organization scope found' });
+        return;
+      }
+      
+      const payload = {
+        ...req.body,
+        organizationId,
+      };
+      
+      const user = await UserService.createUser(payload);
       await AuditService.logAction({
         userId: req.user?.id,
         action: 'USER_CREATION',
         ipAddress: req.ip || '0.0.0.0',
         userAgent: req.headers['user-agent'] || 'system',
-        metadata: { createdUserId: user.id, createdUserEmail: user.email },
+        metadata: { createdUserId: user.id, createdUserEmail: user.email, organizationId },
       });
       res.status(201).json({ success: true, data: user });
     } catch (err: any) {

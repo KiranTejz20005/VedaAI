@@ -79,41 +79,50 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
   const userId = req.user?.id || 'anon';
   const requestId = (req.headers['x-request-id'] as string) || uuidv4();
 
-  try {
-    const result = await enqueueGeneration(assignment.id, userId, organizationId);
-    jobId = result.jobId;
-    position = result.position;
-    jobRecordId = result.jobRecordId;
-    generationSeq = result.generationSeq;
-  } catch (err: any) {
-    if (err.message.includes('already in progress')) {
-      res.status(409).json({ success: false, error: err.message });
-      return;
+  // Send response immediately, then process queue in background
+  let queueResult: any = null;
+  const queuePromise = (async () => {
+    try {
+      const result = await enqueueGeneration(assignment.id, userId, organizationId);
+      jobId = result.jobId;
+      position = result.position;
+      jobRecordId = result.jobRecordId;
+      generationSeq = result.generationSeq;
+      queueResult = result;
+
+      logger.info({
+        action: 'Generation Started',
+        userId,
+        organizationId,
+        requestId,
+        timestamp: new Date().toISOString()
+      }, 'Generation Started');
+
+      assignment.status = 'GENERATING';
+
+      emitToAssignment(assignment.id, 'generation:queued', {
+        assignmentId: assignment.id,
+        jobId,
+        jobRecordId,
+        generationSeq,
+        position,
+        version: 0,
+        ts: Date.now(),
+      });
+    } catch (err: any) {
+      logger.error({ err, assignmentId: assignment.id }, 'Failed to enqueue generation in background');
+      // Still emit error to client via WebSocket if available
+      if (!err.message.includes('already in progress')) {
+        emitToAssignment(assignment.id, 'generation:error', {
+          assignmentId: assignment.id,
+          error: err.message,
+        });
+      }
     }
-    throw err;
-  }
+  })();
 
-  logger.info({
-    action: 'Generation Started',
-    userId,
-    organizationId,
-    requestId,
-    timestamp: new Date().toISOString()
-  }, 'Generation Started');
-
-  assignment.status = 'GENERATING';
-
-  emitToAssignment(assignment.id, 'generation:queued', {
-    assignmentId: assignment.id,
-    jobId,
-    jobRecordId,
-    generationSeq,
-    position,
-    version: 0,
-    ts: Date.now(),
-  });
-
-  sendSuccess(res, { assignment, jobId, position, jobRecordId, generationSeq }, 201, 'Assignment created and queued successfully');
+  // Send immediate response with assignment created
+  sendSuccess(res, { assignment, jobId: null, position: null, jobRecordId: null, generationSeq: null }, 201, 'Assignment created successfully');
 }
 
 export async function generateAssignmentHandler(req: Request, res: Response): Promise<void> {
