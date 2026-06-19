@@ -107,11 +107,11 @@ async function main() {
       data: {
         id: 'demo-inst-id',
         name: 'VedaAI Demo School',
-        domain: 'vedaai.demo',
+        email: 'info@vedaai.demo',
         code: 'VEDAAI_DEMO',
         address: '123 AI Boulevard, Silicon Valley',
-        contact: '+1-555-0199',
-        website: 'https://vedaai.demo',
+        phone: '+1-555-0199',
+        status: 'ACTIVE',
       },
     });
   }
@@ -126,7 +126,7 @@ async function main() {
         passwordHash: pwdHash,
         firstName: 'Demo',
         lastName: 'Faculty',
-        role: 'FACULTY',
+        role: 'TEACHER',
         institutionId: inst.id,
         preferences: {
           emailNotifications: true,
