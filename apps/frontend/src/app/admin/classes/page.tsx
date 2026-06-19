@@ -22,7 +22,7 @@ interface ClassRecord {
   grade: string;
   section: string;
   academicYear: string;
-  institutionId: string;
+  organizationId: string;
   facultyId: string | null;
   faculty?: {
     firstName: string;
@@ -42,7 +42,7 @@ interface ClassAnalytics {
   averageScore: number;
 }
 
-interface Institution {
+interface Organization {
   id: string;
   name: string;
 }
@@ -56,7 +56,7 @@ interface FacultySummary {
 
 export default function ClassesAdmin() {
   const [classes, setClasses] = useState<ClassRecord[]>([]);
-  const [insts, setInsts] = useState<Institution[]>([]);
+  const [orgs, setOrgs] = useState<Organization[]>([]);
   const [faculties, setFaculties] = useState<FacultySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -76,7 +76,7 @@ export default function ClassesAdmin() {
   const [grade, setGrade] = useState('');
   const [section, setSection] = useState('');
   const [academicYear, setAcademicYear] = useState('2026-2027');
-  const [instId, setInstId] = useState('');
+  const [orgId, setOrgId] = useState('');
   const [facultyId, setFacultyId] = useState('');
 
   useEffect(() => {
@@ -86,14 +86,14 @@ export default function ClassesAdmin() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [classRes, instRes, userRes] = await Promise.all([
+      const [classRes, orgRes, userRes] = await Promise.all([
         api.get('/admin/classes'),
-        api.get('/admin/institutions'),
+        api.get('/admin/organizations'),
         api.get('/admin/users'),
       ]);
 
       if (classRes.data?.success) setClasses(classRes.data.data);
-      if (instRes.data?.success) setInsts(instRes.data.data);
+      if (orgRes.data?.success) setOrgs(orgRes.data.data);
       if (userRes.data?.success) {
         // filter faculties
         const list = userRes.data.data.filter((u: any) => u.role === 'FACULTY' || u.role === 'HOD');
@@ -108,8 +108,8 @@ export default function ClassesAdmin() {
 
   const handleCreateClass = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!grade || !section || !instId) {
-      toast.error('Grade, Section, and Institution link are required.');
+    if (!grade || !section || !orgId) {
+      toast.error('Grade, Section, and Organization link are required.');
       return;
     }
 
@@ -118,7 +118,7 @@ export default function ClassesAdmin() {
         grade,
         section,
         academicYear,
-        institutionId: instId,
+        organizationId: orgId,
         facultyId: facultyId || undefined,
       });
 
@@ -127,7 +127,7 @@ export default function ClassesAdmin() {
         setShowCreateModal(false);
         setGrade('');
         setSection('');
-        setInstId('');
+        setOrgId('');
         setFacultyId('');
         loadData();
       }
@@ -443,16 +443,16 @@ export default function ClassesAdmin() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">Institution Link *</label>
+                  <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">Organization Link *</label>
                   <select
                     required
-                    value={instId}
-                    onChange={(e) => setInstId(e.target.value)}
+                    value={orgId}
+                    onChange={(e) => setOrgId(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
                   >
-                    <option value="">Choose Institution...</option>
-                    {insts.map(inst => (
-                      <option key={inst.id} value={inst.id}>{inst.name}</option>
+                    <option value="">Choose Organization...</option>
+                    {orgs.map(org => (
+                      <option key={org.id} value={org.id}>{org.name}</option>
                     ))}
                   </select>
                 </div>

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-interface Institution {
+interface Organization {
   id: string;
   name: string;
   code: string;
@@ -33,7 +33,7 @@ interface Institution {
   };
 }
 
-interface InstStats {
+interface OrgStats {
   totalUsers: number;
   facultyCount: number;
   studentCount: number;
@@ -44,15 +44,15 @@ interface InstStats {
   };
 }
 
-export default function InstitutionsAdmin() {
-  const [list, setList] = useState<Institution[]>([]);
+export default function OrganizationsAdmin() {
+  const [list, setList] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   
   // Modal states
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState<'create' | 'edit'>('create');
-  const [selectedInstId, setSelectedInstId] = useState<string | null>(null);
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   
   // Form fields
   const [name, setName] = useState('');
@@ -63,23 +63,23 @@ export default function InstitutionsAdmin() {
   const [website, setWebsite] = useState('');
 
   // Analytics panel state
-  const [activeStatsInst, setActiveStatsInst] = useState<Institution | null>(null);
-  const [statsData, setStatsData] = useState<InstStats | null>(null);
+  const [activeStatsOrg, setActiveStatsOrg] = useState<Organization | null>(null);
+  const [statsData, setStatsData] = useState<OrgStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
   useEffect(() => {
-    loadInstitutions();
+    loadOrganizations();
   }, []);
 
-  const loadInstitutions = async () => {
+  const loadOrganizations = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/admin/institutions');
+      const res = await api.get('/admin/organizations');
       if (res.data?.success) {
         setList(res.data.data);
       }
     } catch (err) {
-      toast.error('Failed to load institutions');
+      toast.error('Failed to load organizations');
     } finally {
       setLoading(false);
     }
@@ -87,7 +87,7 @@ export default function InstitutionsAdmin() {
 
   const handleOpenCreate = () => {
     setModalType('create');
-    setSelectedInstId(null);
+    setSelectedOrgId(null);
     setName('');
     setCode('');
     setDomain('');
@@ -97,15 +97,15 @@ export default function InstitutionsAdmin() {
     setShowModal(true);
   };
 
-  const handleOpenEdit = (inst: Institution) => {
+  const handleOpenEdit = (org: Organization) => {
     setModalType('edit');
-    setSelectedInstId(inst.id);
-    setName(inst.name);
-    setCode(inst.code);
-    setDomain(inst.domain || '');
-    setAddress(inst.address || '');
-    setContact(inst.contact || '');
-    setWebsite(inst.website || '');
+    setSelectedOrgId(org.id);
+    setName(org.name);
+    setCode(org.code);
+    setDomain(org.domain || '');
+    setAddress(org.address || '');
+    setContact(org.contact || '');
+    setWebsite(org.website || '');
     setShowModal(true);
   };
 
@@ -119,18 +119,18 @@ export default function InstitutionsAdmin() {
     const payload = { name, code, domain, address, contact, website };
     try {
       if (modalType === 'create') {
-        const res = await api.post('/admin/institutions', payload);
+        const res = await api.post('/admin/organizations', payload);
         if (res.data?.success) {
-          toast.success('Institution created successfully!');
+          toast.success('Organization created successfully!');
           setShowModal(false);
-          loadInstitutions();
+          loadOrganizations();
         }
       } else {
-        const res = await api.put(`/admin/institutions/${selectedInstId}`, payload);
+        const res = await api.put(`/admin/organizations/${selectedOrgId}`, payload);
         if (res.data?.success) {
-          toast.success('Institution updated successfully!');
+          toast.success('Organization updated successfully!');
           setShowModal(false);
-          loadInstitutions();
+          loadOrganizations();
         }
       }
     } catch (err: any) {
@@ -139,53 +139,53 @@ export default function InstitutionsAdmin() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to permanently delete this institution? This action will remove all departments and users.')) return;
+    if (!confirm('Are you sure you want to permanently delete this organization? This action will remove all departments and users.')) return;
     try {
-      const res = await api.delete(`/admin/institutions/${id}`);
+      const res = await api.delete(`/admin/organizations/${id}`);
       if (res.data?.success) {
-        toast.success('Institution deleted successfully.');
-        loadInstitutions();
-        if (activeStatsInst?.id === id) setActiveStatsInst(null);
+        toast.success('Organization deleted successfully.');
+        loadOrganizations();
+        if (activeStatsOrg?.id === id) setActiveStatsOrg(null);
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete');
     }
   };
 
-  const handleToggleSuspend = async (inst: Institution) => {
-    const isSuspended = inst.status === 'SUSPENDED';
+  const handleToggleSuspend = async (org: Organization) => {
+    const isSuspended = org.status === 'SUSPENDED';
     const actionText = isSuspended ? 'activate' : 'suspend';
-    if (!confirm(`Are you sure you want to ${actionText} this institution?`)) return;
+    if (!confirm(`Are you sure you want to ${actionText} this organization?`)) return;
 
     try {
-      const res = await api.put(`/admin/institutions/${inst.id}/suspend`, { suspend: !isSuspended });
+      const res = await api.put(`/admin/organizations/${org.id}/suspend`, { suspend: !isSuspended });
       if (res.data?.success) {
-        toast.success(`Institution ${isSuspended ? 'activated' : 'suspended'} successfully.`);
-        loadInstitutions();
+        toast.success(`Organization ${isSuspended ? 'activated' : 'suspended'} successfully.`);
+        loadOrganizations();
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to update suspension status');
     }
   };
 
-  const handleViewStats = async (inst: Institution) => {
-    setActiveStatsInst(inst);
+  const handleViewStats = async (org: Organization) => {
+    setActiveStatsOrg(org);
     try {
       setStatsLoading(true);
-      const res = await api.get(`/admin/institutions/${inst.id}/analytics`);
+      const res = await api.get(`/admin/organizations/${org.id}/analytics`);
       if (res.data?.success) {
         setStatsData(res.data.data);
       }
     } catch (err) {
-      toast.error('Failed to load institution telemetry');
+      toast.error('Failed to load organization telemetry');
     } finally {
       setStatsLoading(false);
     }
   };
 
-  const filteredList = list.filter(inst => 
-    inst.name.toLowerCase().includes(search.toLowerCase()) ||
-    inst.code.toLowerCase().includes(search.toLowerCase())
+  const filteredList = list.filter(org => 
+    org.name.toLowerCase().includes(search.toLowerCase()) ||
+    org.code.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -193,14 +193,14 @@ export default function InstitutionsAdmin() {
       {/* Title block */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold text-gray-900">Institutions</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900">Organizations</h2>
           <p className="text-gray-500 text-xs md:text-sm">Manage tenant schools, domains, contact channels, and system usages.</p>
         </div>
         <button
           onClick={handleOpenCreate}
           className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm w-fit"
         >
-          <Plus size={16} /> Add Institution
+          <Plus size={16} /> Add Organization
         </button>
       </div>
 
@@ -224,74 +224,74 @@ export default function InstitutionsAdmin() {
               <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : filteredList.length === 0 ? (
-            <div className="text-center py-12 text-gray-400 text-xs">No institutions match your search query.</div>
+            <div className="text-center py-12 text-gray-400 text-xs">No organizations match your search query.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-gray-100 text-gray-400 font-semibold uppercase tracking-wider">
-                    <th className="py-2.5">Institution Code & Name</th>
+                    <th className="py-2.5">Organization Code & Name</th>
                     <th className="py-2.5">Contact Details</th>
                     <th className="py-2.5 text-center">Status</th>
                     <th className="py-2.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filteredList.map((inst) => (
-                    <tr key={inst.id} className="hover:bg-gray-50/50 transition-colors">
+                  {filteredList.map((org) => (
+                    <tr key={org.id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="py-3 pr-2">
                         <div className="font-bold text-gray-800 flex items-center gap-1.5">
                           <School size={15} className="text-blue-600" />
-                          {inst.name}
+                          {org.name}
                         </div>
-                        <div className="text-[10px] text-gray-400 font-semibold mt-0.5 uppercase">Code: {inst.code}</div>
+                        <div className="text-[10px] text-gray-400 font-semibold mt-0.5 uppercase">Code: {org.code}</div>
                       </td>
                       <td className="py-3 text-gray-500 max-w-[180px] truncate">
-                        {inst.website && (
+                        {org.website && (
                           <div className="flex items-center gap-1">
-                            <Globe size={11} /> {inst.website}
+                            <Globe size={11} /> {org.website}
                           </div>
                         )}
-                        {inst.contact && (
+                        {org.contact && (
                           <div className="flex items-center gap-1 text-[10px] mt-0.5">
-                            <Phone size={11} /> {inst.contact}
+                            <Phone size={11} /> {org.contact}
                           </div>
                         )}
                       </td>
                       <td className="py-3 text-center">
                         <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold border ${
-                          inst.status === 'ACTIVE' 
+                          org.status === 'ACTIVE' 
                             ? 'bg-green-50 text-green-700 border-green-200' 
                             : 'bg-red-50 text-red-700 border-red-200'
                         }`}>
-                          {inst.status}
+                          {org.status}
                         </span>
                       </td>
                       <td className="py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
-                            onClick={() => handleViewStats(inst)}
+                            onClick={() => handleViewStats(org)}
                             className="p-1.5 hover:bg-gray-100 rounded text-blue-600 font-semibold text-[10px]"
                             title="Analytics Summary"
                           >
                             Telemetry
                           </button>
                           <button
-                            onClick={() => handleOpenEdit(inst)}
+                            onClick={() => handleOpenEdit(org)}
                             className="p-1.5 hover:bg-gray-100 rounded text-gray-600"
                             title="Edit"
                           >
                             <Edit3 size={14} />
                           </button>
                           <button
-                            onClick={() => handleToggleSuspend(inst)}
-                            className={`p-1.5 hover:bg-gray-100 rounded ${inst.status === 'ACTIVE' ? 'text-red-500' : 'text-green-500'}`}
-                            title={inst.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                            onClick={() => handleToggleSuspend(org)}
+                            className={`p-1.5 hover:bg-gray-100 rounded ${org.status === 'ACTIVE' ? 'text-red-500' : 'text-green-500'}`}
+                            title={org.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
                           >
                             <Power size={14} />
                           </button>
                           <button
-                            onClick={() => handleDelete(inst.id)}
+                            onClick={() => handleDelete(org.id)}
                             className="p-1.5 hover:bg-red-50 hover:text-red-600 rounded text-gray-400"
                             title="Delete"
                           >
@@ -309,20 +309,20 @@ export default function InstitutionsAdmin() {
 
         {/* Telemetry panel column */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 lg:col-span-1 space-y-6">
-          {!activeStatsInst ? (
+          {!activeStatsOrg ? (
             <div className="h-full flex flex-col items-center justify-center py-16 text-center">
               <School className="text-gray-300 mb-2" size={32} />
               <h4 className="text-xs font-bold text-gray-400 uppercase">Tenant Telemetry</h4>
-              <p className="text-[10px] text-gray-400 mt-1 max-w-[200px]">Select an institution and click "Telemetry" to audit active user loads and generations cost.</p>
+              <p className="text-[10px] text-gray-400 mt-1 max-w-[200px]">Select an organization and click "Telemetry" to audit active user loads and generations cost.</p>
             </div>
           ) : (
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                 <div>
                   <h3 className="text-xs font-bold text-gray-900 uppercase">Usage Metrics</h3>
-                  <span className="text-[10px] text-gray-500 font-semibold">{activeStatsInst.name}</span>
+                  <span className="text-[10px] text-gray-500 font-semibold">{activeStatsOrg.name}</span>
                 </div>
-                <button onClick={() => setActiveStatsInst(null)} className="text-gray-400 hover:text-gray-600">
+                <button onClick={() => setActiveStatsOrg(null)} className="text-gray-400 hover:text-gray-600">
                   <X size={16} />
                 </button>
               </div>
@@ -336,7 +336,7 @@ export default function InstitutionsAdmin() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
                       <span className="text-gray-400 text-[10px] uppercase font-bold block">Departments</span>
-                      <strong className="text-xl font-bold text-gray-800 mt-1 block">{activeStatsInst._count.departments}</strong>
+                      <strong className="text-xl font-bold text-gray-800 mt-1 block">{activeStatsOrg._count.departments}</strong>
                     </div>
                     <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
                       <span className="text-gray-400 text-[10px] uppercase font-bold block">Total Users</span>
@@ -391,12 +391,12 @@ export default function InstitutionsAdmin() {
             </button>
 
             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">
-              {modalType === 'create' ? 'Add New Institution' : 'Edit Institution Details'}
+              {modalType === 'create' ? 'Add New Organization' : 'Edit Organization Details'}
             </h3>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">Institution Name *</label>
+                  <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">Organization Name *</label>
                 <input
                   type="text"
                   required
@@ -469,7 +469,7 @@ export default function InstitutionsAdmin() {
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 mt-2 text-xs"
               >
-                {modalType === 'create' ? 'Save Institution' : 'Update Details'}
+                {modalType === 'create' ? 'Save Organization' : 'Update Details'}
               </button>
             </form>
           </div>

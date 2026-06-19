@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-interface Institution {
+interface Organization {
   id: string;
   name: string;
 }
@@ -26,8 +26,8 @@ interface Department {
   code: string | null;
   status: string;
   hodId: string | null;
-  institutionId: string;
-  institution: {
+  organizationId: string;
+  organization: {
     name: string;
   };
   createdAt: string;
@@ -43,7 +43,7 @@ interface UserSummary {
 
 export default function DepartmentsAdmin() {
   const [depts, setDepts] = useState<Department[]>([]);
-  const [insts, setInsts] = useState<Institution[]>([]);
+  const [orgs, setOrgs] = useState<Organization[]>([]);
   const [users, setUsers] = useState<UserSummary[]>([]);
   
   const [loading, setLoading] = useState(true);
@@ -57,7 +57,7 @@ export default function DepartmentsAdmin() {
   // Form Fields
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
-  const [instId, setInstId] = useState('');
+  const [orgId, setOrgId] = useState('');
   
   // Assign HOD/Transfer
   const [selectedDept, setSelectedDept] = useState<Department | null>(null);
@@ -71,14 +71,14 @@ export default function DepartmentsAdmin() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [deptsRes, instsRes, usersRes] = await Promise.all([
+      const [deptsRes, orgsRes, usersRes] = await Promise.all([
         api.get('/admin/departments'),
-        api.get('/admin/institutions'),
+        api.get('/admin/organizations'),
         api.get('/admin/users'),
       ]);
 
       if (deptsRes.data?.success) setDepts(deptsRes.data.data);
-      if (instsRes.data?.success) setInsts(instsRes.data.data);
+      if (orgsRes.data?.success) setOrgs(orgsRes.data.data);
       if (usersRes.data?.success) setUsers(usersRes.data.data);
     } catch (err) {
       toast.error('Failed to load department records');
@@ -89,8 +89,8 @@ export default function DepartmentsAdmin() {
 
   const handleCreateDept = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !instId) {
-      toast.error('Name and Institution are required.');
+    if (!name || !orgId) {
+      toast.error('Name and Organization are required.');
       return;
     }
 
@@ -98,7 +98,7 @@ export default function DepartmentsAdmin() {
       const res = await api.post('/admin/departments', {
         name,
         code: code || null,
-        institutionId: instId,
+        organizationId: orgId,
       });
 
       if (res.data?.success) {
@@ -106,7 +106,7 @@ export default function DepartmentsAdmin() {
         setShowCreateModal(false);
         setName('');
         setCode('');
-        setInstId('');
+        setOrgId('');
         loadData();
       }
     } catch (err: any) {
@@ -172,7 +172,7 @@ export default function DepartmentsAdmin() {
 
   const filteredDepts = depts.filter(d => 
     d.name.toLowerCase().includes(search.toLowerCase()) ||
-    d.institution.name.toLowerCase().includes(search.toLowerCase())
+    d.organization.name.toLowerCase().includes(search.toLowerCase())
   );
 
   const getHodName = (hodId: string | null) => {
@@ -181,8 +181,8 @@ export default function DepartmentsAdmin() {
     return found ? `${found.firstName} ${found.lastName}` : 'Unknown';
   };
 
-  // Only users who belong to the same institution can be assigned/transferred
-  const getFacultyOptions = (institutionId?: string) => {
+  // Only users who belong to the same organization can be assigned/transferred
+  const getFacultyOptions = (organizationId?: string) => {
     return users.filter(u => 
       u.role === 'FACULTY' || 
       u.role === 'HOD' || 
@@ -238,7 +238,7 @@ export default function DepartmentsAdmin() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-gray-100 text-gray-400 font-semibold uppercase tracking-wider">
-                  <th className="py-2.5">Institution & Division</th>
+                  <th className="py-2.5">Organization & Division</th>
                   <th className="py-2.5">Division Code</th>
                   <th className="py-2.5">Head of Department (HOD)</th>
                   <th className="py-2.5 text-center">Status</th>
@@ -254,7 +254,7 @@ export default function DepartmentsAdmin() {
                         {dept.name}
                       </div>
                       <div className="text-[10px] text-gray-400 font-semibold mt-0.5 flex items-center gap-1">
-                        <School size={10} /> {dept.institution.name}
+                        <School size={10} /> {dept.organization.name}
                       </div>
                     </td>
                     <td className="py-3 font-semibold text-gray-700 uppercase">
@@ -313,18 +313,18 @@ export default function DepartmentsAdmin() {
             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Create Department</h3>
             <form onSubmit={handleCreateDept} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">Institution Link *</label>
-                <select
-                  required
-                  value={instId}
-                  onChange={(e) => setInstId(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
-                >
-                  <option value="">Select Institution...</option>
-                  {insts.map(inst => (
-                    <option key={inst.id} value={inst.id}>{inst.name}</option>
-                  ))}
-                </select>
+                  <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">Organization Link *</label>
+                  <select
+                    required
+                    value={orgId}
+                    onChange={(e) => setOrgId(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="">Select Organization...</option>
+                    {orgs.map(org => (
+                      <option key={org.id} value={org.id}>{org.name}</option>
+                    ))}
+                  </select>
               </div>
 
               <div>
@@ -381,7 +381,7 @@ export default function DepartmentsAdmin() {
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
                 >
                   <option value="">Select HOD candidate...</option>
-                  {getFacultyOptions(selectedDept.institutionId).map(fac => (
+                  {getFacultyOptions(selectedDept.organizationId).map(fac => (
                     <option key={fac.id} value={fac.id}>{fac.firstName} {fac.lastName} ({fac.email})</option>
                   ))}
                 </select>
@@ -433,9 +433,9 @@ export default function DepartmentsAdmin() {
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
                 >
                   <option value="">Choose target department...</option>
-                  {depts.map(dept => (
-                    <option key={dept.id} value={dept.id}>{dept.name} ({dept.institution.name})</option>
-                  ))}
+                    {depts.map(dept => (
+                      <option key={dept.id} value={dept.id}>{dept.name} ({dept.organization.name})</option>
+                    ))}
                 </select>
               </div>
 

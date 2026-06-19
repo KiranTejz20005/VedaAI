@@ -20,7 +20,7 @@ interface GroupRecord {
   id: string;
   name: string;
   subject: string;
-  institutionId: string;
+  organizationId: string;
   facultyId: string | null;
   faculty?: {
     firstName: string;
@@ -31,7 +31,7 @@ interface GroupRecord {
   };
 }
 
-interface Institution {
+interface Organization {
   id: string;
   name: string;
 }
@@ -49,7 +49,7 @@ interface PaperSummary {
 
 export default function GroupsAdmin() {
   const [groups, setGroups] = useState<GroupRecord[]>([]);
-  const [insts, setInsts] = useState<Institution[]>([]);
+  const [orgs, setOrgs] = useState<Organization[]>([]);
   const [faculties, setFaculties] = useState<FacultySummary[]>([]);
   const [papers, setPapers] = useState<PaperSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,7 +63,7 @@ export default function GroupsAdmin() {
   // Forms
   const [name, setName] = useState('');
   const [subject, setSubject] = useState('General');
-  const [instId, setInstId] = useState('');
+  const [orgId, setOrgId] = useState('');
   const [facultyId, setFacultyId] = useState('');
 
   // CSV file state
@@ -81,15 +81,15 @@ export default function GroupsAdmin() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [groupRes, instRes, userRes, paperRes] = await Promise.all([
+      const [groupRes, orgRes, userRes, paperRes] = await Promise.all([
         api.get('/admin/groups'),
-        api.get('/admin/institutions'),
+        api.get('/admin/organizations'),
         api.get('/admin/users'),
         api.get('/admin/papers'),
       ]);
 
       if (groupRes.data?.success) setGroups(groupRes.data.data);
-      if (instRes.data?.success) setInsts(instRes.data.data);
+      if (orgRes.data?.success) setOrgs(orgRes.data.data);
       if (userRes.data?.success) {
         setFaculties(userRes.data.data.filter((u: any) => u.role === 'FACULTY' || u.role === 'HOD'));
       }
@@ -105,8 +105,8 @@ export default function GroupsAdmin() {
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !instId) {
-      toast.error('Group Name and Institution are required.');
+    if (!name || !orgId) {
+      toast.error('Group Name and Organization are required.');
       return;
     }
 
@@ -114,7 +114,7 @@ export default function GroupsAdmin() {
       const res = await api.post('/admin/groups', {
         name,
         subject,
-        institutionId: instId,
+        organizationId: orgId,
         facultyId: facultyId || undefined,
       });
 
@@ -123,7 +123,7 @@ export default function GroupsAdmin() {
         setShowCreateModal(false);
         setName('');
         setSubject('General');
-        setInstId('');
+        setOrgId('');
         setFacultyId('');
         loadData();
       }
@@ -390,16 +390,16 @@ export default function GroupsAdmin() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">Institution Link *</label>
+                  <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">Organization Link *</label>
                   <select
                     required
-                    value={instId}
-                    onChange={(e) => setInstId(e.target.value)}
+                    value={orgId}
+                    onChange={(e) => setOrgId(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
                   >
-                    <option value="">Choose School...</option>
-                    {insts.map(inst => (
-                      <option key={inst.id} value={inst.id}>{inst.name}</option>
+                    <option value="">Choose Organization...</option>
+                    {orgs.map(org => (
+                      <option key={org.id} value={org.id}>{org.name}</option>
                     ))}
                   </select>
                 </div>

@@ -110,7 +110,7 @@ export default function RolesAdmin() {
   };
 
   const handleDeleteRole = async (id: string, name: string) => {
-    if (['SUPER_ADMIN', 'INSTITUTION_ADMIN', 'FACULTY', 'STUDENT'].includes(name)) {
+    if (['SUPER_ADMIN', 'ADMIN', 'FACULTY', 'STUDENT'].includes(name)) {
       toast.error('System protected roles cannot be deleted.');
       return;
     }
@@ -166,7 +166,7 @@ export default function RolesAdmin() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {roles.map((role) => {
-                    const isSystemRole = ['SUPER_ADMIN', 'INSTITUTION_ADMIN', 'FACULTY', 'STUDENT'].includes(role.name);
+                    const isSystemRole = ['SUPER_ADMIN', 'ADMIN', 'FACULTY', 'STUDENT'].includes(role.name);
                     return (
                       <tr key={role.id} className="hover:bg-gray-50/50 transition-colors">
                         <td className="py-3">
