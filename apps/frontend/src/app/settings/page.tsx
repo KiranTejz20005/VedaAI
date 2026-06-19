@@ -16,7 +16,7 @@ interface UserProfile {
   role: string;
   firstName: string;
   lastName: string;
-  institutionName: string;
+  organizationName: string;
   departmentName?: string;
   preferences?: Record<string, boolean>;
 }
@@ -108,7 +108,7 @@ function AccountPanel({ onClose, profile, onProfileUpdate }: { onClose: () => vo
 }
 
 function SchoolPanel({ onClose, profile, onProfileUpdate }: { onClose: () => void; profile: UserProfile | null; onProfileUpdate: () => void }) {
-  const [school, setSchool] = useState(profile?.institutionName || '');
+  const [school, setSchool] = useState(profile?.organizationName || '');
   const [dept, setDept] = useState(profile?.departmentName || 'Science');
   const [year, setYear] = useState('');
   const [saving, setSaving] = useState(false);
@@ -116,8 +116,8 @@ function SchoolPanel({ onClose, profile, onProfileUpdate }: { onClose: () => voi
   const handleSave = async () => {
     setSaving(true);
     try {
-      await apiClient.put('/auth/me/institution', {
-        institutionName: school,
+      await apiClient.put('/auth/me/organization', {
+        organizationName: school,
         department: dept,
         academicYear: year,
       });
@@ -440,7 +440,7 @@ export default function SettingsPage() {
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{profile?.email}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
               <Building2 size={13} color="var(--text-muted)" />
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{profile?.institutionName}</span>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{profile?.organizationName}</span>
             </div>
           </div>
           <button className="btn btn-secondary btn-sm" onClick={() => setActiveSection('account')}>Edit Profile</button>

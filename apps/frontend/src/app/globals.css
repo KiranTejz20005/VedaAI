@@ -47,14 +47,14 @@
   --shadow-lg: 0 8px 32px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.05);
 
   /* Layout — fluid via clamp */
-  --sidebar-w: 240px;
+  --sidebar-w: 260px;
   --sidebar-w-tablet: 220px;
-  --topbar-h: 60px;
+  --topbar-h: 72px;
   --topbar-h-mobile: 56px;
-  --page-pad: clamp(16px, 3vw, 24px);
-  --page-pad-left: clamp(16px, 3vw, 24px);
-  --page-pad-bottom: clamp(80px, 10vw, 24px);
-  --page-max-w: min(100%, 1200px);
+  --page-pad: 24px;
+  --page-pad-left: 24px;
+  --page-pad-bottom: 24px;
+  --page-max-w: 1600px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -102,20 +102,20 @@ img, svg, video, canvas { max-width: 100%; height: auto; display: block; }
   display: flex;
   min-height: 100dvh;
   position: relative;
+  background: #F8F7F4;
 }
 
 /* ── Sidebar ── */
-.sidebar {
+.sidebar,
+.app-sidebar {
   position: fixed;
-  top: clamp(16px, 2vw, 24px);
-  left: clamp(16px, 2vw, 24px);
-  bottom: clamp(16px, 2vw, 24px);
+  top: 0;
+  left: 0;
+  bottom: 0;
   width: var(--sidebar-w);
-  height: calc(100dvh - clamp(32px, 4vw, 48px));
+  height: 100dvh;
   background: var(--bg-sidebar);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   z-index: 40;
@@ -358,11 +358,8 @@ img, svg, video, canvas { max-width: 100%; height: auto; display: block; }
 
 .app-shell--hydrating .topbar-placeholder {
   height: var(--topbar-h);
-  margin-top: clamp(16px, 2vw, 24px);
-  margin-right: clamp(16px, 2vw, 24px);
-  border-radius: var(--radius-xl);
   background: var(--bg-topbar);
-  border: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
@@ -389,13 +386,14 @@ img, svg, video, canvas { max-width: 100%; height: auto; display: block; }
   }
 
   .app-shell--hydrating .main-wrapper {
-    margin-left: calc(var(--sidebar-w) + clamp(32px, 4vw, 48px));
+    margin-left: var(--sidebar-w);
   }
 }
 
 /* ── Main content wrapper ── */
-.main-wrapper {
-  margin-left: calc(var(--sidebar-w) + clamp(32px, 4vw, 48px));
+.main-wrapper,
+.app-main {
+  margin-left: var(--sidebar-w);
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -405,25 +403,19 @@ img, svg, video, canvas { max-width: 100%; height: auto; display: block; }
 }
 
 /* ── Top Bar ── */
-.topbar {
+.topbar,
+.app-topbar {
   position: sticky;
-  top: clamp(16px, 2vw, 24px);
+  top: 0;
   z-index: 30;
   height: var(--topbar-h);
   background: var(--bg-topbar);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 clamp(16px, 2vw, 24px);
-  max-width: var(--page-max-w);
-  width: calc(100% - calc(var(--page-pad) * 2));
-  margin-top: clamp(16px, 2vw, 24px);
-  margin-left: var(--page-pad);
-  margin-right: auto;
-  gap: 12px;
+  width: 100%;
   transition: transform 0.22s ease, opacity 0.22s ease;
 }
 
@@ -541,7 +533,7 @@ img, svg, video, canvas { max-width: 100%; height: auto; display: block; }
   flex: 1;
   padding: var(--page-pad) var(--page-pad) var(--page-pad-bottom) var(--page-pad);
   max-width: var(--page-max-w);
-  margin-left: 0;
+  margin-left: auto;
   margin-right: auto;
   overflow-x: hidden;
   width: 100%;
@@ -2262,7 +2254,7 @@ hr { border: none; border-top: 1px solid var(--border); }
   .sidebar.open { transform: translateX(0); box-shadow: var(--shadow-lg); }
   .sidebar-close-btn { display: flex; }
   .topbar-hamburger { display: flex; }
-  .main-wrapper { margin-left: 0; width: 100%; }
+  .main-wrapper, .app-main { margin-left: 0; width: 100%; }
 
   .topbar {
     margin: 12px 14px 0;
@@ -2539,7 +2531,8 @@ hr { border: none; border-top: 1px solid var(--border); }
     --topbar-h: 64px;
     --page-max-w: 92%;
   }
-  .main-wrapper {
+  .main-wrapper,
+  .app-main {
     margin-left: calc(var(--sidebar-w) + 42px);
   }
 }
@@ -2592,8 +2585,8 @@ hr { border: none; border-top: 1px solid var(--border); }
    Print
    ════════════════════════════════════════════════════════════ */
 @media print {
-  .sidebar, .topbar, .mobile-bottom-nav, .dashboard-fab { display: none; }
-  .main-wrapper { margin-left: 0; }
+  .sidebar, .topbar, .mobile-bottom-nav, .dashboard-fab, .app-sidebar, .app-topbar { display: none; }
+  .main-wrapper, .app-main { margin-left: 0; }
   .paper-page { box-shadow: none; border: none; max-width: 100%; }
   .page-container { padding: 0; }
   body { background: white; }

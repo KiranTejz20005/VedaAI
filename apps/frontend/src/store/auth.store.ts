@@ -7,8 +7,8 @@ export interface User {
   firstName: string;
   lastName: string;
   role: string;
-  institutionId: string | null;
-  institutionName: string | null;
+  organizationId: string | null;
+  organizationName: string | null;
   departmentName: string | null;
   departmentId: string | null;
   forcePasswordReset?: boolean;
@@ -37,15 +37,15 @@ interface AuthStore {
     firstName: string;
     lastName: string;
     role?: string;
-    institutionName?: string;
+    organizationName?: string;
   }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateProfile: (data: { firstName?: string; lastName?: string; email?: string }) => Promise<{ success: boolean; error?: string }>;
-  updateInstitution: (data: { institutionName: string; department: string; academicYear?: string }) => Promise<{ success: boolean; error?: string }>;
+  updateOrganization: (data: { organizationName: string; department: string; academicYear?: string }) => Promise<{ success: boolean; error?: string }>;
   completeOnboarding: (data: {
     firstName: string;
     lastName: string;
-    institutionName: string;
+    organizationName: string;
     department: string;
     className: string;
     subject: string;
@@ -70,15 +70,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   initialize: async () => {
     try {
       set({ isLoading: true });
-      // 1. Try to refresh access token using the HttpOnly refresh cookie
       const refreshRes = await api.post('/auth/refresh');
       const token = refreshRes.data?.data?.accessToken;
 
       if (token) {
-        // Set token temporarily so the /auth/me call below can use it
         set({ accessToken: token });
-
-        // 2. Fetch the profile details
         const meRes = await api.get('/auth/me');
         const user = meRes.data?.data;
 
@@ -92,10 +88,12 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           return true;
         }
       }
-      get().clearAuth();
+      if (!get().isAuthenticated) get().clearAuth();
+      else set({ isLoading: false });
       return false;
     } catch (err) {
-      get().clearAuth();
+      if (!get().isAuthenticated) get().clearAuth();
+      else set({ isLoading: false });
       return false;
     }
   },
@@ -160,9 +158,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     }
   },
 
-  updateInstitution: async (data) => {
+  updateOrganization: async (data) => {
     try {
-      const res = await api.put('/auth/me/institution', data);
+      const res = await api.put('/auth/me/organization', data);
       if (res.data?.success) {
         // Refresh profile details to get accurate names
         const meRes = await api.get('/auth/me');
@@ -172,9 +170,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         }
         return { success: true };
       }
-      return { success: false, error: 'Failed to update institution settings.' };
+      return { success: false, error: 'Failed to update organization settings.' };
     } catch (err: any) {
-      return { success: false, error: err.message || 'Institution update failed.' };
+      return { success: false, error: err.message || 'Organization update failed.' };
     }
   },
 
@@ -186,9 +184,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         lastName: data.lastName,
       });
 
-      // 2. Setup institution & department
-      await api.put('/auth/me/institution', {
-        institutionName: data.institutionName,
+      // 2. Setup organization & department
+      await api.put('/auth/me/organization', {
+        organizationName: data.organizationName,
         department: data.department,
         academicYear: '2026-2027',
       });

@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChevronRight, Bell, Menu, ChevronDown, Grid2x2 } from 'lucide-react';
+import { Bell, ChevronDown, Menu, LogOut, User, Settings, ChevronRight, Building2, Grid2x2 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
-import Link from 'next/link';
+import { useAdminAuthStore } from '@/store/admin-auth.store';
 
 const BREADCRUMB_MAP: Record<string, string> = {
   '/': 'Dashboard',
@@ -19,11 +19,33 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/syllabus': 'Syllabus',
   '/settings': 'Settings',
   '/assignments/create': 'Create Assessment',
+  '/classes': 'My Classes',
+  '/lessons': 'Lessons',
+  '/assessments': 'Assessments',
+  '/grader': 'Grader',
+  '/student/dashboard': 'Dashboard',
+  '/student/lessons': 'My Lessons',
+  '/student/assessments': 'Assessments',
+  '/student/results': 'Results',
+  '/profile': 'Profile',
+  '/super-admin/dashboard': 'Dashboard',
+  '/super-admin/organizations': 'Organizations',
+  '/super-admin/analytics': 'Platform Analytics',
+  '/super-admin/subscriptions': 'Subscriptions',
+  '/super-admin/audit': 'Audit Logs',
+  '/super-admin/settings': 'Settings',
+  '/admin': 'Dashboard',
+  '/admin/faculty': 'Faculty',
+  '/admin/students': 'Students',
+  '/admin/classes': 'Classes',
+  '/admin/subjects': 'Subjects',
+  '/admin/lessons': 'Lessons',
+  '/admin/approvals': 'Approvals',
+  '/admin/analytics': 'Analytics',
+  '/admin/settings': 'Settings',
 };
 
 function getBreadcrumb(pathname: string): { parent?: string; current: string } {
-  if (pathname === '/' || pathname === '/dashboard') return { current: 'Dashboard' };
-  
   if (BREADCRUMB_MAP[pathname]) {
     return { current: BREADCRUMB_MAP[pathname] };
   }
@@ -34,14 +56,13 @@ function getBreadcrumb(pathname: string): { parent?: string; current: string } {
       if (parts[2] === 'paper') return { parent: 'Paper', current: 'View Exam Paper' };
       return { parent: 'Assignments', current: 'Details' };
     }
-    
+
     const currentSegment = parts[parts.length - 1];
-    // Ignore UUIDs for breadcrumbs
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentSegment);
     const currentLabel = isUuid ? 'Details' : currentSegment
       .replace(/-/g, ' ')
       .replace(/\b\w/g, (char) => char.toUpperCase());
-    
+
     if (parts.length > 1) {
       const parentSegment = parts[parts.length - 2];
       const isParentUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parentSegment);
@@ -56,49 +77,55 @@ function getBreadcrumb(pathname: string): { parent?: string; current: string } {
   return { current: 'Dashboard' };
 }
 
-
-export function TopBar() {
+export function Topbar() {
   const pathname = usePathname();
   const { parent, current } = getBreadcrumb(pathname);
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isOrgSwitcherOpen, setIsOrgSwitcherOpen] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
   const toggle = useSidebarStore((s) => s.toggle);
   const showBackButton = pathname !== '/' && pathname !== '/dashboard';
-  const [hiddenOnScroll, setHiddenOnScroll] = useState(false);
 
   useEffect(() => {
-    if (!isDropdownOpen) return;
-    const handleClose = () => setIsDropdownOpen(false);
+    if (!isDropdownOpen && !isOrgSwitcherOpen) return;
+    const handleClose = () => {
+      setIsDropdownOpen(false);
+      setIsOrgSwitcherOpen(false);
+    };
     window.addEventListener('click', handleClose);
     return () => window.removeEventListener('click', handleClose);
-  }, [isDropdownOpen]);
+  }, [isDropdownOpen, isOrgSwitcherOpen]);
 
-  useEffect(() => {
-    let lastY = window.scrollY;
-    const onScroll = () => {
-      const currentY = window.scrollY;
-      const delta = currentY - lastY;
-      if (currentY <= 8) {
-        setHiddenOnScroll(false);
-      } else if (delta > 8) {
-        setHiddenOnScroll(true);
-      } else if (delta < -8) {
-        setHiddenOnScroll(false);
-      }
-      lastY = currentY;
-    };
+  const handleSwitchOrg = async (orgId: string) => {
+    if (isSwitching) return;
+    setIsSwitching(true);
+    const success = await useAdminAuthStore.getState().switchOrganization(orgId);
+    if (success) router.refresh();
+    setIsSwitching(false);
+    setIsOrgSwitcherOpen(false);
+  };
 
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   return (
-    <header
-      className={`topbar ${hiddenOnScroll ? 'topbar-hidden' : ''}`}
+    <header 
       role="banner"
+      style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 30,
+        height: '72px',
+        background: '#FFFFFF',
+        borderBottom: '1px solid #E5E7EB',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 24px',
+        width: '100%'
+      }}
     >
-      {/* Desktop content */}
       <div className="desktop-topbar-content">
         <button className="topbar-hamburger" onClick={toggle} aria-label="Toggle navigation menu">
           <Menu size={20} aria-hidden="true" />
@@ -125,30 +152,93 @@ export function TopBar() {
                 <ChevronRight size={14} aria-hidden="true" style={{ color: '#9CA3AF', flexShrink: 0 }} />
               </>
             )}
-            {current === 'Create New' ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#9CA3AF', fontSize: 'var(--text-base)', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                <span style={{ fontSize: 18, fontWeight: 400, lineHeight: 1 }}>+</span>
-                <span>Create New</span>
-              </div>
-            ) : (
-              <span className="topbar-breadcrumb-current" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                {current === 'Dashboard' && <Grid2x2 size={14} color="#9CA3AF" />}
-                {current}
-              </span>
-            )}
+            <span className="topbar-breadcrumb-current" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              {current === 'Dashboard' && <Grid2x2 size={14} color="#9CA3AF" />}
+              {current}
+            </span>
           </div>
         </div>
 
         <div className="topbar-actions">
+          {isSuperAdmin && user?.organizationName && (
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setIsOrgSwitcherOpen(!isOrgSwitcherOpen); }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 12px',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-hover)',
+                  cursor: 'pointer',
+                  fontSize: 'var(--text-sm)',
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <Building2 size={14} color="var(--text-muted)" />
+                <span>{user.organizationName}</span>
+                <ChevronDown size={12} color="var(--text-muted)" />
+              </button>
+
+              {isOrgSwitcherOpen && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: '100%',
+                    marginTop: 8,
+                    minWidth: 200,
+                    background: 'white',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-lg)',
+                    boxShadow: 'var(--shadow-lg)',
+                    padding: 6,
+                    zIndex: 100,
+                  }}
+                >
+                  <div style={{ padding: '6px 10px', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Switch Organization
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isSwitching}
+                    onClick={() => handleSwitchOrg(user.organizationId!)}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '8px 10px',
+                      border: 'none',
+                      background: 'transparent',
+                      borderRadius: 'var(--radius-sm)',
+                      cursor: 'pointer',
+                      fontSize: 'var(--text-sm)',
+                      fontWeight: 500,
+                      color: 'var(--text-primary)',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {isSwitching ? 'Switching...' : user.organizationName}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           <button className="topbar-icon-btn" aria-label="Notifications">
             <Bell size={18} aria-hidden="true" />
             <span style={{ position: 'absolute', top: 6, right: 6, width: 7, height: 7, background: '#EF4444', borderRadius: '50%', border: '1.5px solid white' }} aria-hidden="true" />
           </button>
 
-          <div 
-            className="topbar-user" 
-            role="button" 
-            tabIndex={0} 
+          <div
+            className="topbar-user"
+            role="button"
+            tabIndex={0}
             aria-label="Account menu"
             onClick={(e) => {
               e.stopPropagation();
@@ -165,7 +255,8 @@ export function TopBar() {
             <ChevronDown size={13} color="#6B7280" aria-hidden="true" />
 
             {isDropdownOpen && (
-              <div 
+              <div
+                onClick={(e) => e.stopPropagation()}
                 style={{
                   position: 'absolute',
                   right: 0,
@@ -180,9 +271,8 @@ export function TopBar() {
                   zIndex: 100,
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 4
+                  gap: 4,
                 }}
-                onClick={(e) => e.stopPropagation()}
               >
                 <div style={{ padding: '8px 12px', textAlign: 'left' }}>
                   <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -197,22 +287,62 @@ export function TopBar() {
                     </div>
                   )}
                 </div>
-                
+
                 <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-                
-                <Link 
-                  href="/settings" 
-                  style={{ textDecoration: 'none', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 500, padding: '8px 12px', borderRadius: 'var(--radius-sm)', display: 'block', transition: 'background 0.15s', textAlign: 'left' }}
+
+                <button
+                  type="button"
+                  onClick={() => { setIsDropdownOpen(false); router.push('/profile'); }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    textAlign: 'left',
+                    color: 'var(--text-secondary)',
+                    fontSize: 13,
+                    fontWeight: 500,
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-sm)',
+                    cursor: 'pointer',
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    fontFamily: 'inherit',
+                  }}
                   onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
                   onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                  onClick={() => setIsDropdownOpen(false)}
                 >
-                  Account Settings
-                </Link>
+                  <User size={14} /> Profile
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setIsDropdownOpen(false); router.push('/settings'); }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    textAlign: 'left',
+                    color: 'var(--text-secondary)',
+                    fontSize: 13,
+                    fontWeight: 500,
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-sm)',
+                    cursor: 'pointer',
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    fontFamily: 'inherit',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
+                  <Settings size={14} /> Settings
+                </button>
 
                 <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
 
-                <button 
+                <button
                   type="button"
                   onClick={async () => {
                     setIsDropdownOpen(false);
@@ -230,12 +360,15 @@ export function TopBar() {
                     borderRadius: 'var(--radius-sm)',
                     cursor: 'pointer',
                     width: '100%',
-                    transition: 'background 0.15s'
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    fontFamily: 'inherit',
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'}
                   onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                 >
-                  Sign Out
+                  <LogOut size={14} /> Sign Out
                 </button>
               </div>
             )}
@@ -243,7 +376,6 @@ export function TopBar() {
         </div>
       </div>
 
-      {/* Mobile content */}
       <div className="mobile-topbar-content">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div className="sidebar-logo-icon" style={{
@@ -255,7 +387,7 @@ export function TopBar() {
               <path d="M4 4H8.5L12 15L15.5 4H20L14.5 20H9.5L4 4Z" fill="white" stroke="white" strokeWidth="0.5" strokeLinejoin="round"/>
             </svg>
           </div>
-          <span style={{ fontSize: 18, fontWeight: 800, color: '#111827', letterSpacing: '-0.5px' }}>Shiksha AI</span>
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#111827', letterSpacing: '-0.5px' }}>VedaAI</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

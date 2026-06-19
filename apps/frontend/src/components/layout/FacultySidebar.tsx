@@ -4,18 +4,20 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutGrid,
-  PieChart,
+  Users,
+  BookOpen,
+  ClipboardList,
   Settings,
   X,
   GraduationCap,
-  Users,
-  ClipboardCheck,
-  ShieldCheck,
+  FileText,
+  Sparkles,
+  BrainCircuit,
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
 
-function MyGroupsIcon(props: React.SVGProps<SVGSVGElement>) {
+function QuestionBankIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={props.strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" {...props}>
       <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
@@ -27,14 +29,17 @@ function MyGroupsIcon(props: React.SVGProps<SVGSVGElement>) {
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/reviews', label: 'Paper Approvals', icon: ClipboardCheck },
-  { href: '/groups', label: 'Roster Management', icon: Users },
-  { href: '/question-bank', label: 'Question Bank', icon: MyGroupsIcon },
+  { href: '/classes', label: 'My Classes', icon: Users },
+  { href: '/lessons', label: 'Lessons', icon: BookOpen },
+  { href: '/assessments', label: 'Assessments', icon: ClipboardList },
+  { href: '/question-bank', label: 'Question Bank', icon: QuestionBankIcon },
   { href: '/syllabus', label: 'Syllabus', icon: GraduationCap },
-  { href: '/analytics', label: 'Analytics', icon: PieChart },
+  { href: '/papers', label: 'Papers', icon: FileText },
+  { href: '/grader', label: 'Grader', icon: BrainCircuit },
+  { href: '/generate', label: 'Generate', icon: Sparkles },
 ];
 
-export function AdminSidebar() {
+export function FacultySidebar() {
   const pathname = usePathname();
   const { isOpen, close } = useSidebarStore();
   const { user } = useAuthStore();
@@ -49,20 +54,28 @@ export function AdminSidebar() {
       {isOpen && (
         <div className="sidebar-overlay" onClick={close} aria-hidden="true" />
       )}
-
-      <aside className={`sidebar${isOpen ? ' open' : ''}`} role="navigation" aria-label="Main navigation">
+      <aside role="navigation" aria-label="Main navigation" style={{ position: "fixed", top: 0, left: 0, bottom: 0, width: "260px", height: "100vh", background: "#FFFFFF", borderRight: "1px solid #E5E7EB", display: "flex", flexDirection: "column", zIndex: 40, overflow: "hidden" }}>
         <div className="sidebar-logo">
-          <div className="sidebar-logo-icon" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #10B981 0%, #059669 50%, #047857 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div
+            className="sidebar-logo-icon"
+            aria-hidden="true"
+            style={{ background: 'linear-gradient(135deg, #F97316 0%, #E8531D 50%, #C2410C 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <text x="50%" y="55%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="16" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif">S</text>
+              <text x="50%" y="55%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="16" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif">V</text>
             </svg>
           </div>
-          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>Shiksha Admin</span>
+          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>Faculty</span>
           <button className="sidebar-close-btn" onClick={close} aria-label="Close navigation"><X size={18} /></button>
         </div>
 
+        <Link href="/generate" className="sidebar-create-btn" onClick={close}>
+          <Sparkles size={14} fill="white" stroke="white" />
+          Generate
+        </Link>
+
         <nav className="sidebar-nav" aria-label="Pages">
-          <div className="sidebar-nav-section-label">Management</div>
+          <div className="sidebar-nav-section-label">Academics</div>
           {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
             const active = isActive(href, exact);
             return (
@@ -72,24 +85,6 @@ export function AdminSidebar() {
               </Link>
             );
           })}
-
-          {/* Super Admin: single entry-point into the full admin panel */}
-          {user?.role === 'SUPER_ADMIN' && (
-            <>
-              <div className="sidebar-nav-section-label" style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <ShieldCheck size={10} />
-                System
-              </div>
-              <Link
-                href="/admin"
-                className={`sidebar-nav-item${isActive('/admin') ? ' active' : ''}`}
-                onClick={close}
-              >
-                <ShieldCheck size={18} strokeWidth={isActive('/admin') ? 2.5 : 2} aria-hidden="true" />
-                <span>Admin Panel</span>
-              </Link>
-            </>
-          )}
         </nav>
 
         <div className="sidebar-bottom">
@@ -99,15 +94,15 @@ export function AdminSidebar() {
           </Link>
 
           <div className="sidebar-profile" role="button" tabIndex={0} aria-label="Account settings">
-            <div className="sidebar-profile-avatar" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #059669, #10B981)', color: 'white', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'A'}
+            <div className="sidebar-profile-avatar" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #E8531D, #F97316)', color: 'white', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'F'}
             </div>
             <div className="sidebar-profile-info">
               <div className="sidebar-profile-name">
-                {user ? `${user.firstName} ${user.lastName}` : 'Admin User'}
+                {user ? `${user.firstName} ${user.lastName}` : 'Faculty'}
               </div>
               <div className="sidebar-profile-sub">
-                {user?.organizationName || 'System Admin'}
+                {user?.departmentName || 'Faculty'}
               </div>
             </div>
           </div>

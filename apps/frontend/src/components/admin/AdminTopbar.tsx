@@ -24,7 +24,18 @@ export function AdminTopbar() {
   });
 
   return (
-    <header className="topbar flex flex-col w-full bg-white border-b border-gray-200 z-30" style={{ height: 'auto', minHeight: 'var(--topbar-h)' }}>
+    <header style={{
+      position: 'sticky',
+      top: 0,
+      zIndex: 30,
+      height: '60px',
+      background: '#FFFFFF',
+      borderBottom: '1px solid #E5E7EB',
+      display: 'flex',
+      flexDirection: 'column',
+      width: '100%',
+      flexShrink: 0,
+    }}>
       {/* Impersonation Banner Alert */}
       {isImpersonating && (
         <div className="w-full bg-amber-500 text-white px-4 py-2 text-xs md:text-sm font-semibold flex items-center justify-between gap-2 shadow-sm animate-pulse">
@@ -44,8 +55,8 @@ export function AdminTopbar() {
         </div>
       )}
 
-      <div className="flex items-center justify-between px-4 w-full h-[60px]">
-        <div className="flex items-center gap-3">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', height: '60px', flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button
             onClick={toggle}
             className="p-2 hover:bg-gray-100 rounded-lg lg:hidden transition-colors"
@@ -55,39 +66,35 @@ export function AdminTopbar() {
           </button>
 
           {/* Breadcrumbs */}
-          <nav className="hidden md:flex items-center gap-1 text-xs text-gray-500 font-medium">
-            <Link href="/admin" className="hover:text-blue-600 transition-colors">
+          <nav style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#6B7280', fontWeight: 500 }}>
+            <Link href="/admin" style={{ color: '#6B7280' }} className="hover:text-blue-600 transition-colors">
               Admin
             </Link>
-            {breadcrumbs.slice(1).map((b, i) => (
-              <div key={b.href} className="flex items-center gap-1">
-                <ChevronRight size={12} className="text-gray-400" />
+            {breadcrumbs.slice(1).map((b) => (
+              <div key={b.href} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <ChevronRight size={12} color="#9CA3AF" />
                 {b.isLast ? (
-                  <span className="text-gray-800 font-semibold">{b.label}</span>
+                  <span style={{ color: '#111827', fontWeight: 600 }}>{b.label}</span>
                 ) : (
-                  <Link href={b.href} className="hover:text-blue-600 transition-colors">
+                  <Link href={b.href} style={{ color: '#6B7280' }} className="hover:text-blue-600 transition-colors">
                     {b.label}
                   </Link>
                 )}
               </div>
             ))}
           </nav>
-          
-          <h1 className="md:hidden text-sm font-bold text-gray-900">
-            {breadcrumbs[breadcrumbs.length - 1]?.label || 'Admin Portal'}
-          </h1>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="text-right hidden sm:block">
-            <div className="text-xs font-bold text-gray-900">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>
               {user ? `${user.firstName} ${user.lastName}` : 'Administrator'}
             </div>
-            <div className="text-[10px] text-gray-500 font-medium">{user?.email}</div>
+            <div style={{ fontSize: '10px', color: '#6B7280' }}>{user?.email}</div>
           </div>
 
-          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-600">
-            <UserCircle size={24} />
+          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB' }}>
+            <UserCircle size={22} />
           </div>
         </div>
       </div>

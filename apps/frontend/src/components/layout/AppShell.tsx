@@ -1,18 +1,19 @@
 'use client';
 
 import { useEffect } from 'react';
-import { Toaster } from 'react-hot-toast';
 import { usePathname, useRouter } from 'next/navigation';
+import { Toaster } from 'react-hot-toast';
 import { ClientOnly } from '@/components/ui/ClientOnly';
 import { useAuthStore } from '@/store/auth.store';
-import { AdminSidebar } from './AdminSidebar';
-import { TeacherSidebar } from './TeacherSidebar';
+import { SuperAdminSidebar } from './SuperAdminSidebar';
+import { OrgAdminSidebar } from './OrgAdminSidebar';
+import { FacultySidebar } from './FacultySidebar';
 import { StudentSidebar } from './StudentSidebar';
 import { Topbar } from './TopBar';
 import { MobileBottomNav } from './MobileBottomNav';
 import { canAccessRoute } from '@/config/route-permissions';
 
-export function AppChrome({ children }: { children: React.ReactNode }) {
+export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthenticated, isLoading, initialize } = useAuthStore();
@@ -21,7 +22,6 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     initialize();
   }, [initialize]);
 
-  // Route guarding logic
   useEffect(() => {
     if (isLoading) return;
 
@@ -38,14 +38,13 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       const isSuperAdminOrAdmin = userRole === 'SUPER_ADMIN' || userRole === 'ADMIN';
       const isOnboarded = isSuperAdminOrAdmin || user?.hasCompletedOnboarding === true || (user?.organizationId && user?.departmentId);
       if (isOnboarded) {
-        if (isAuthPage || isOnboardingPage) {
+        if (isAuthPage) {
           router.push('/dashboard');
         } else {
-          // /admin/* has its own layout with its own auth guard — skip check here
-          const isAdminPath = pathname.startsWith('/admin');
+          const isExcludedPath = pathname.startsWith('/admin') || pathname.startsWith('/super-admin');
           const role = user?.role || '';
-          const hasAccess = isAdminPath || canAccessRoute(role, pathname);
-          
+          const hasAccess = isExcludedPath || canAccessRoute(role, pathname);
+
           if (!hasAccess) {
             router.push('/dashboard');
           }
@@ -58,10 +57,9 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, isLoading, user, pathname, router]);
 
-  // Premium loading screen for authentication checks (except landing page)
   if (isLoading && pathname !== '/') {
     return (
-      <div style={{
+      <div suppressHydrationWarning style={{
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
@@ -71,7 +69,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
         color: 'white',
         fontFamily: 'Inter, sans-serif'
       }}>
-        <div style={{
+        <div suppressHydrationWarning style={{
           position: 'relative',
           width: 50,
           height: 50,
@@ -81,13 +79,13 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
             position: 'absolute',
             width: '100%',
             height: '100%',
-            border: '3px solid rgba(234, 88, 12, 0.1)',
-            borderTopColor: '#EA580C',
+            border: '3px solid rgba(232, 83, 29, 0.1)',
+            borderTopColor: '#E8531D',
             borderRadius: '50%',
             animation: 'spin 1s linear infinite'
           }} />
         </div>
-        <div style={{ fontSize: '13px', color: '#9CA3AF', fontWeight: 500 }}>
+        <div suppressHydrationWarning style={{ fontSize: '14px', color: '#6B7280', fontWeight: 500 }}>
           Securing workspace...
         </div>
         <style dangerouslySetInnerHTML={{ __html: `@keyframes spin { to { transform: rotate(360deg); } }` }} />
@@ -95,14 +93,13 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Define paths where AppChrome structure (sidebar, topbar) should be hidden
-  // /admin/* has its own dedicated layout with its own sidebar — exclude it here
   const isChromeExcluded =
     pathname === '/' ||
     pathname === '/login' ||
     pathname === '/register' ||
     pathname === '/onboarding' ||
-    pathname.startsWith('/admin');
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/super-admin');
 
   if (isChromeExcluded) {
     return (
@@ -127,21 +124,25 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const userRole = user?.role?.toUpperCase() || '';
-  
-  let DynamicSidebar = <TeacherSidebar />;
-  if (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') {
-    DynamicSidebar = <AdminSidebar />;
-  } else if (userRole === 'STUDENT') {
-    DynamicSidebar = <StudentSidebar />;
+  const role = user?.role?.toUpperCase() || '';
+
+  let SidebarComponent = <FacultySidebar />;
+  if (role === 'SUPER_ADMIN') {
+    SidebarComponent = <SuperAdminSidebar />;
+  } else if (role === 'ADMIN') {
+    SidebarComponent = <OrgAdminSidebar />;
+  } else if (role === 'TEACHER' || role === 'FACULTY') {
+    SidebarComponent = <FacultySidebar />;
+  } else if (role === 'STUDENT') {
+    SidebarComponent = <StudentSidebar />;
   }
 
   return (
-    <div className="app-shell">
-      {DynamicSidebar}
-      <div className="main-wrapper">
+    <div className="app-shell" suppressHydrationWarning>
+      {SidebarComponent}
+      <div className="app-main" suppressHydrationWarning>
         <Topbar />
-        <main className="page-container">
+        <main className="page-container" suppressHydrationWarning>
           <ClientOnly fallback={<div className="page-content-placeholder" aria-hidden="true" />}>
             {children}
           </ClientOnly>
@@ -157,8 +158,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
             border: '1px solid #E5E7EB',
             borderRadius: '12px',
             fontSize: '14px',
-            fontFamily:
-              'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
+            fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
             boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
           },
           success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },

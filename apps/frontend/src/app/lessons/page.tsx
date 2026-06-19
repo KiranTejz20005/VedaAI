@@ -1,323 +1,556 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Plus, Loader2, BookOpen, Trash2, Eye, Calendar, Sparkles, X, Check, FileText 
-} from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { apiClient } from '@/services/api.client';
+import {
+  Plus, Search, Loader2, BookOpen, Eye, Archive, Edit3, X, Calendar,
+  FileText, Video, Link as LinkIcon, Trash2, GripVertical, Save
+} from 'lucide-react';
+import { api } from '@/lib/api';
 
-interface LessonPlan {
+interface LessonResource {
+  type: 'pdf' | 'notes' | 'video';
+  title: string;
+  url: string;
+}
+
+interface LessonActivity {
+  id: string;
+  title: string;
+  description: string;
+}
+
+interface LessonAssessment {
+  id: string;
+  title: string;
+  type: string;
+  maxMarks: number;
+}
+
+type LessonStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+type LessonDuration = 'DAILY' | 'WEEKLY' | 'MONTHLY';
+
+interface Lesson {
   id: string;
   title: string;
   subject: string;
   grade: string;
-  duration: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  class: string;
+  duration: LessonDuration;
+  status: LessonStatus;
   objectives: string;
   content: string;
+  activities: LessonActivity[];
+  assessments: LessonAssessment[];
+  resources: LessonResource[];
+  resourceCount: number;
   createdAt: string;
+  updatedAt: string;
 }
 
-export default function LessonPlannerPage() {
-  const [plans, setPlans] = useState<LessonPlan[]>([]);
+const initialForm = {
+  title: '',
+  subject: '',
+  grade: '',
+  class: '',
+  duration: 'DAILY' as LessonDuration,
+  objectives: '',
+  content: '',
+  activities: [] as LessonActivity[],
+  assessments: [] as LessonAssessment[],
+  resources: [] as LessonResource[],
+};
+
+function StatusBadge({ status }: { status: LessonStatus }) {
+  const map: Record<LessonStatus, { cls: string; label: string }> = {
+    DRAFT: { cls: 'badge-draft', label: 'Draft' },
+    PUBLISHED: { cls: 'badge-completed', label: 'Published' },
+    ARCHIVED: { cls: 'badge-failed', label: 'Archived' },
+  };
+  const { cls, label } = map[status] ?? map.DRAFT;
+  return <span className={`badge ${cls}`}>{label}</span>;
+}
+
+function SkeletonRow() {
+  return (
+    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+      {Array.from({ length: 8 }).map((_, i) => (
+        <td key={i} style={{ padding: '14px 12px' }}>
+          <div className="skeleton" style={{ height: 16, width: i === 0 ? 160 : 80, borderRadius: 4 }} />
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+export default function LessonsPage() {
+  const router = useRouter();
+  const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPlan, setSelectedPlan] = useState<LessonPlan | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(initialForm);
+  const [statusFilter, setStatusFilter] = useState<LessonStatus | 'ALL'>('ALL');
 
-  // Wizard state
-  const [isOpen, setIsOpen] = useState(false);
-  const [title, setTitle] = useState('');
-  const [subject, setSubject] = useState('Computer Science');
-  const [grade, setGrade] = useState('Class 10');
-  const [duration, setDuration] = useState<'DAILY' | 'WEEKLY' | 'MONTHLY'>('DAILY');
-  const [objectives, setObjectives] = useState('');
-  const [generating, setGenerating] = useState(false);
-
-  const fetchPlans = async () => {
+  const fetchLessons = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await apiClient.get<{ success: boolean; data: LessonPlan[] }>('/lessons');
-      setPlans(res.data.data);
-    } catch {
-      toast.error('Failed to load lesson plans');
+      const res = await api.get<{ success: boolean; data: Lesson[] }>('/lessons');
+      setLessons(res.data.data ?? []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load lessons');
+      toast.error('Failed to load lessons');
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchPlans();
   }, []);
 
-  const handleGeneratePlan = async (e: React.FormEvent) => {
+  useEffect(() => { fetchLessons(); }, [fetchLessons]);
+
+  const openCreate = () => {
+    setEditingLesson(null);
+    setForm(initialForm);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (lesson: Lesson) => {
+    setEditingLesson(lesson);
+    setForm({
+      title: lesson.title,
+      subject: lesson.subject,
+      grade: lesson.grade,
+      class: lesson.class,
+      duration: lesson.duration,
+      objectives: lesson.objectives,
+      content: lesson.content,
+      activities: lesson.activities ?? [],
+      assessments: lesson.assessments ?? [],
+      resources: lesson.resources ?? [],
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !objectives.trim()) {
-      toast.error('All fields are required');
+    if (!form.title.trim() || !form.subject.trim()) {
+      toast.error('Title and subject are required');
       return;
     }
-    setGenerating(true);
+    setSaving(true);
     try {
-      const res = await apiClient.post<{ success: boolean; data: LessonPlan }>('/lessons', {
-        title,
-        subject,
-        grade,
-        duration,
-        objectives
-      });
-      toast.success('Lesson plan generated successfully!');
-      setPlans(prev => [res.data.data, ...prev]);
-      setIsOpen(false);
-      setTitle('');
-      setObjectives('');
-    } catch (err) {
-      toast.error('Failed to generate lesson plan');
+      if (editingLesson) {
+        await api.put(`/lessons/${editingLesson.id}`, form);
+        toast.success('Lesson updated');
+      } else {
+        await api.post('/lessons', form);
+        toast.success('Lesson created');
+      }
+      setDialogOpen(false);
+      await fetchLessons();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save lesson');
     } finally {
-      setGenerating(false);
+      setSaving(false);
     }
   };
 
-  const handleDeletePlan = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!window.confirm('Are you sure you want to delete this lesson plan?')) return;
+  const handleArchive = async (id: string) => {
+    if (!window.confirm('Archive this lesson?')) return;
     try {
-      await apiClient.delete(`/lessons/${id}`);
-      toast.success('Lesson plan deleted');
-      setPlans(prev => prev.filter(p => p.id !== id));
-      if (selectedPlan?.id === id) {
-        setSelectedPlan(null);
-      }
-    } catch {
-      toast.error('Failed to delete lesson plan');
+      await api.put(`/lessons/${id}/archive`);
+      toast.success('Lesson archived');
+      await fetchLessons();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to archive');
     }
   };
+
+  const addActivity = () => {
+    setForm(f => ({
+      ...f,
+      activities: [...f.activities, { id: String(Date.now()), title: '', description: '' }],
+    }));
+  };
+
+  const removeActivity = (id: string) => {
+    setForm(f => ({ ...f, activities: f.activities.filter(a => a.id !== id) }));
+  };
+
+  const updateActivity = (id: string, field: string, value: string) => {
+    setForm(f => ({
+      ...f,
+      activities: f.activities.map(a => a.id === id ? { ...a, [field]: value } : a),
+    }));
+  };
+
+  const addAssessmentItem = () => {
+    setForm(f => ({
+      ...f,
+      assessments: [...f.assessments, { id: String(Date.now()), title: '', type: 'quiz', maxMarks: 10 }],
+    }));
+  };
+
+  const removeAssessmentItem = (id: string) => {
+    setForm(f => ({ ...f, assessments: f.assessments.filter(a => a.id !== id) }));
+  };
+
+  const updateAssessmentItem = (id: string, field: string, value: string | number) => {
+    setForm(f => ({
+      ...f,
+      assessments: f.assessments.map(a => a.id === id ? { ...a, [field]: value } : a),
+    }));
+  };
+
+  const addResource = () => {
+    setForm(f => ({
+      ...f,
+      resources: [...f.resources, { type: 'pdf' as const, title: '', url: '' }],
+    }));
+  };
+
+  const removeResource = (i: number) => {
+    setForm(f => ({
+      ...f,
+      resources: f.resources.filter((_, idx) => idx !== i),
+    }));
+  };
+
+  const updateResource = (i: number, field: string, value: string) => {
+    setForm(f => ({
+      ...f,
+      resources: f.resources.map((r, idx) => idx === i ? { ...r, [field]: value } : r),
+    }));
+  };
+
+  const filtered = lessons.filter(l => {
+    const matchSearch = l.title.toLowerCase().includes(search.toLowerCase()) ||
+      l.subject.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = statusFilter === 'ALL' || l.status === statusFilter;
+    return matchSearch && matchStatus;
+  });
 
   return (
     <div style={{ padding: 'var(--page-pad)', maxWidth: 'var(--page-max-w)', margin: '0 auto', width: '100%' }}>
-      {/* Header */}
       <div className="desktop-page-header">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <BookOpen size={24} color="var(--brand)" />
-              <h1 className="page-title">AI Lesson Planner</h1>
+              <h1 className="page-title">Lesson Management</h1>
             </div>
-            <p className="page-subtitle">Design daily, weekly, or monthly syllabus curriculum plans powered by AI.</p>
+            <p className="page-subtitle">Create and manage lessons for your classes</p>
           </div>
-          <button className="btn btn-dark btn-pill" onClick={() => setIsOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Plus size={16} />
-            Generate Lesson Plan
+          <button className="btn btn-dark btn-pill" onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Plus size={16} /> Create Lesson
           </button>
         </div>
       </div>
 
-      {loading ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 20, color: 'var(--text-muted)' }}>
-          <Loader2 size={18} className="animate-spin" /> Loading lesson plans...
+      <div className="search-filter-row" style={{ marginBottom: 20 }}>
+        <div className="search-wrap" style={{ flex: 1 }}>
+          <Search size={15} className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search lessons..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="input search-input"
+            style={{ paddingLeft: 36 }}
+          />
         </div>
-      ) : plans.length === 0 ? (
+        <div style={{ display: 'flex', gap: 6, marginLeft: 8 }}>
+          {(['ALL', 'DRAFT', 'PUBLISHED', 'ARCHIVED'] as const).map(s => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`btn btn-sm ${statusFilter === s ? 'btn-dark' : 'btn-secondary'}`}
+              style={{ padding: '4px 12px', fontSize: 12 }}
+            >
+              {s === 'ALL' ? 'All' : s.charAt(0) + s.slice(1).toLowerCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: 13 }}>
+                  {['Title', 'Subject', 'Class', 'Duration', 'Status', 'Resources', 'Created', 'Actions'].map(h => (
+                    <th key={h} style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'left' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : error ? (
+        <div className="empty-state">
+          <h2 className="empty-title">Failed to load lessons</h2>
+          <p className="empty-desc">{error}</p>
+          <div className="empty-state-actions">
+            <button type="button" onClick={fetchLessons} className="btn btn-dark btn-pill">Retry</button>
+          </div>
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="empty-state">
           <BookOpen size={40} color="#9CA3AF" />
-          <h2 className="empty-title">No Lesson Plans Yet</h2>
-          <p className="empty-desc">Create daily, weekly, or monthly lesson blueprints with structured objectives and activities.</p>
+          <h2 className="empty-title">
+            {search || statusFilter !== 'ALL' ? 'No matching lessons' : 'No lessons yet'}
+          </h2>
+          <p className="empty-desc">
+            {search || statusFilter !== 'ALL'
+              ? 'Try adjusting your search or filters.'
+              : 'Create your first lesson to get started.'}
+          </p>
           <div className="empty-state-actions">
-            <button className="btn btn-dark btn-pill" onClick={() => setIsOpen(true)}>Generate Lesson Plan</button>
+            <button className="btn btn-dark btn-pill" onClick={openCreate}>
+              <Plus size={16} /> Create Lesson
+            </button>
           </div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-          {plans.map((plan) => (
-            <div 
-              key={plan.id} 
-              className="card" 
-              style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12 }}
-              onClick={() => setSelectedPlan(plan)}
-            >
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#EDE9FE', color: '#7C3AED' }}>
-                    {plan.duration}
-                  </span>
-                  <button 
-                    onClick={(e) => handleDeletePlan(plan.id, e)} 
-                    style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
-                    title="Delete Plan"
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: 13 }}>
+                  <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'left' }}>Title</th>
+                  <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'left' }}>Subject</th>
+                  <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'left' }}>Class</th>
+                  <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'left' }}>Duration</th>
+                  <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'left' }}>Status</th>
+                  <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'left' }}>Resources</th>
+                  <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'left' }}>Created</th>
+                  <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((lesson) => (
+                  <tr
+                    key={lesson.id}
+                    style={{ borderBottom: '1px solid #F3F4F6', fontSize: 14, transition: 'background 0.1s', cursor: 'pointer' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = '#FAFAFA'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    onClick={() => router.push(`/lessons/${lesson.id}`)}
                   >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-                <h3 style={{ fontSize: 15, fontWeight: 700, marginTop: 8, color: 'var(--text-primary)' }}>{plan.title}</h3>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                  {plan.subject} &middot; {plan.grade}
-                </div>
-              </div>
-              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Calendar size={12} /> {new Date(plan.createdAt).toLocaleDateString()}
-                </span>
-                <span>View Details &rarr;</span>
-              </div>
-            </div>
-          ))}
+                    <td style={{ padding: '14px 12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <BookOpen size={14} color="var(--brand)" />
+                        {lesson.title}
+                      </div>
+                    </td>
+                    <td style={{ padding: '14px 12px', color: 'var(--text-secondary)' }}>{lesson.subject}</td>
+                    <td style={{ padding: '14px 12px', color: 'var(--text-secondary)' }}>{lesson.class || lesson.grade || '—'}</td>
+                    <td style={{ padding: '14px 12px' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#EDE9FE', color: '#7C3AED' }}>
+                        {lesson.duration}
+                      </span>
+                    </td>
+                    <td style={{ padding: '14px 12px' }}><StatusBadge status={lesson.status} /></td>
+                    <td style={{ padding: '14px 12px', color: 'var(--text-secondary)' }}>{lesson.resourceCount ?? lesson.resources?.length ?? 0}</td>
+                    <td style={{ padding: '14px 12px', color: 'var(--text-muted)', fontSize: 13 }}>
+                      {new Date(lesson.createdAt).toLocaleDateString()}
+                    </td>
+                    <td style={{ padding: '14px 12px', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4 }} onClick={(e) => e.stopPropagation()}>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '4px 8px', gap: 4 }}
+                          onClick={() => openEdit(lesson)}
+                          title="Edit"
+                        >
+                          <Edit3 size={13} />
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '4px 8px', gap: 4 }}
+                          onClick={() => router.push(`/lessons/${lesson.id}`)}
+                          title="Preview"
+                        >
+                          <Eye size={13} />
+                        </button>
+                        {lesson.status !== 'ARCHIVED' && (
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '4px 8px', gap: 4, color: '#D97706' }}
+                            onClick={() => handleArchive(lesson.id)}
+                            title="Archive"
+                          >
+                            <Archive size={13} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {/* View Plan Modal */}
       <AnimatePresence>
-        {selectedPlan && (
+        {dialogOpen && (
           <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setSelectedPlan(null)}
-              style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(2px)' }} 
+              onClick={() => setDialogOpen(false)}
+              style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(2px)' }}
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 16 }}
               className="card"
-              style={{ width: '100%', maxWidth: 720, position: 'relative', zIndex: 101, padding: 24, maxHeight: '85vh', overflowY: 'auto' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                <div>
-                  <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>{selectedPlan.title}</h3>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                    {selectedPlan.subject} &middot; {selectedPlan.grade} &middot; {selectedPlan.duration} Plan
-                  </div>
-                </div>
-                <button onClick={() => setSelectedPlan(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                  <X size={18} />
-                </button>
-              </div>
-              <div 
-                style={{ fontSize: 14, lineHeight: 1.6, color: '#334155', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: 'var(--bg-secondary)', padding: 16, borderRadius: 8 }}
-              >
-                {selectedPlan.content}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Generate Wizard Modal */}
-      <AnimatePresence>
-        {isOpen && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsOpen(false)}
-              style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(2px)' }} 
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 16 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 16 }}
-              className="card"
-              style={{ width: '100%', maxWidth: 480, position: 'relative', zIndex: 101, padding: 24 }}
+              style={{ width: '100%', maxWidth: 720, position: 'relative', zIndex: 101, padding: 24, maxHeight: '90vh', overflowY: 'auto' }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                 <h3 style={{ fontSize: 18, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Sparkles size={20} color="var(--brand)" />
-                  AI Lesson Plan Builder
+                  <BookOpen size={20} color="var(--brand)" />
+                  {editingLesson ? 'Edit Lesson' : 'Create Lesson'}
                 </h3>
-                <button onClick={() => setIsOpen(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                <button onClick={() => setDialogOpen(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}>
                   <X size={18} />
                 </button>
               </div>
 
-              <form onSubmit={handleGeneratePlan} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div>
-                  <label htmlFor="planTitle" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                    Topic Name / Title
-                  </label>
-                  <input
-                    id="planTitle"
-                    type="text"
-                    required
-                    placeholder="e.g. Introduction to Sorting Algorithms"
-                    className="input"
-                    style={{ width: '100%' }}
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                  />
-                </div>
-
+              <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label htmlFor="planSubject" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                      Subject
-                    </label>
-                    <select
-                      id="planSubject"
-                      className="input"
-                      style={{ width: '100%', height: 38 }}
-                      value={subject}
-                      onChange={(e) => setSubject(e.target.value)}
-                    >
-                      <option value="Computer Science">Computer Science</option>
-                      <option value="Mathematics">Mathematics</option>
-                      <option value="Physics">Physics</option>
-                      <option value="Chemistry">Chemistry</option>
-                      <option value="Biology">Biology</option>
+                  <div className="input-group">
+                    <label className="label">Title</label>
+                    <input type="text" className="input" value={form.title} onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Lesson title" required />
+                  </div>
+                  <div className="input-group">
+                    <label className="label">Subject</label>
+                    <input type="text" className="input" value={form.subject} onChange={(e) => setForm(f => ({ ...f, subject: e.target.value }))} placeholder="e.g. Mathematics" required />
+                  </div>
+                  <div className="input-group">
+                    <label className="label">Grade/Class</label>
+                    <input type="text" className="input" value={form.grade} onChange={(e) => setForm(f => ({ ...f, grade: e.target.value }))} placeholder="e.g. Class 10" />
+                  </div>
+                  <div className="input-group">
+                    <label className="label">Duration</label>
+                    <select className="input" value={form.duration} onChange={(e) => setForm(f => ({ ...f, duration: e.target.value as LessonDuration }))} style={{ height: 38 }}>
+                      <option value="DAILY">Daily</option>
+                      <option value="WEEKLY">Weekly</option>
+                      <option value="MONTHLY">Monthly</option>
                     </select>
                   </div>
-                  <div>
-                    <label htmlFor="planGrade" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                      Grade Level
-                    </label>
-                    <input
-                      id="planGrade"
-                      type="text"
-                      required
-                      placeholder="e.g. Class 10"
-                      className="input"
-                      style={{ width: '100%' }}
-                      value={grade}
-                      onChange={(e) => setGrade(e.target.value)}
-                    />
+                </div>
+
+                <div className="input-group">
+                  <label className="label">Objectives</label>
+                  <textarea className="input" value={form.objectives} onChange={(e) => setForm(f => ({ ...f, objectives: e.target.value }))} placeholder="Learning objectives..." rows={3} style={{ resize: 'vertical' }} />
+                </div>
+
+                <div className="input-group">
+                  <label className="label">Content (Markdown supported)</label>
+                  <textarea className="input" value={form.content} onChange={(e) => setForm(f => ({ ...f, content: e.target.value }))} placeholder="Lesson content in markdown..." rows={6} style={{ resize: 'vertical', fontFamily: 'monospace' }} />
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <label className="label" style={{ fontSize: 14 }}>Activities</label>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={addActivity} style={{ gap: 4 }}>
+                      <Plus size={13} /> Add Activity
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {form.activities.map((activity) => (
+                      <div key={activity.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                        <GripVertical size={14} color="var(--text-muted)" style={{ marginTop: 10, flexShrink: 0 }} />
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <input type="text" className="input" placeholder="Activity title" value={activity.title}
+                            onChange={(e) => updateActivity(activity.id, 'title', e.target.value)} style={{ padding: '6px 10px', fontSize: 13 }} />
+                          <input type="text" className="input" placeholder="Description" value={activity.description}
+                            onChange={(e) => updateActivity(activity.id, 'description', e.target.value)} style={{ padding: '6px 10px', fontSize: 13 }} />
+                        </div>
+                        <button type="button" onClick={() => removeActivity(activity.id)}
+                          style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', marginTop: 6, padding: 4 }}>
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                <div>
-                  <label htmlFor="planDuration" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                    Plan Type
-                  </label>
-                  <select
-                    id="planDuration"
-                    className="input"
-                    style={{ width: '100%', height: 38 }}
-                    value={duration}
-                    onChange={(e) => setDuration(e.target.value as any)}
-                  >
-                    <option value="DAILY">Daily (1 Class)</option>
-                    <option value="WEEKLY">Weekly Plan</option>
-                    <option value="MONTHLY">Monthly Outline</option>
-                  </select>
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <label className="label" style={{ fontSize: 14 }}>Assessments</label>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={addAssessmentItem} style={{ gap: 4 }}>
+                      <Plus size={13} /> Add Assessment
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {form.assessments.map((item) => (
+                      <div key={item.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <FileText size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                        <input type="text" className="input" placeholder="Assessment title" value={item.title}
+                          onChange={(e) => updateAssessmentItem(item.id, 'title', e.target.value)} style={{ flex: 2, padding: '6px 10px', fontSize: 13 }} />
+                        <select className="input" value={item.type} onChange={(e) => updateAssessmentItem(item.id, 'type', e.target.value)} style={{ flex: 1, padding: '6px 10px', fontSize: 13, height: 30 }}>
+                          <option value="quiz">Quiz</option>
+                          <option value="test">Test</option>
+                          <option value="assignment">Assignment</option>
+                          <option value="exam">Exam</option>
+                        </select>
+                        <input type="number" className="input" placeholder="Marks" value={item.maxMarks}
+                          onChange={(e) => updateAssessmentItem(item.id, 'maxMarks', Number(e.target.value))} style={{ width: 70, padding: '6px 10px', fontSize: 13 }} />
+                        <button type="button" onClick={() => removeAssessmentItem(item.id)}
+                          style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}>
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div>
-                  <label htmlFor="planObjectives" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                    Learning Objectives & Outline
-                  </label>
-                  <textarea
-                    id="planObjectives"
-                    required
-                    placeholder="Describe what students should learn and any specific guidelines..."
-                    className="input"
-                    style={{ width: '100%', minHeight: 100 }}
-                    value={objectives}
-                    onChange={(e) => setObjectives(e.target.value)}
-                  />
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <label className="label" style={{ fontSize: 14 }}>Resources</label>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={addResource} style={{ gap: 4 }}>
+                      <Plus size={13} /> Add Resource
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {form.resources.map((resource, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <select className="input" value={resource.type} onChange={(e) => updateResource(i, 'type', e.target.value)} style={{ width: 100, padding: '6px 10px', fontSize: 13, height: 30 }}>
+                          <option value="pdf">PDF</option>
+                          <option value="notes">Notes</option>
+                          <option value="video">Video</option>
+                        </select>
+                        <input type="text" className="input" placeholder="Title" value={resource.title}
+                          onChange={(e) => updateResource(i, 'title', e.target.value)} style={{ flex: 1, padding: '6px 10px', fontSize: 13 }} />
+                        <input type="text" className="input" placeholder="URL" value={resource.url}
+                          onChange={(e) => updateResource(i, 'url', e.target.value)} style={{ flex: 2, padding: '6px 10px', fontSize: 13 }} />
+                        <button type="button" onClick={() => removeResource(i)}
+                          style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}>
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 10 }}>
-                  <button type="button" className="btn btn-secondary btn-pill" onClick={() => setIsOpen(false)}>Cancel</button>
-                  <button type="submit" className="btn btn-dark btn-pill" disabled={generating} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                    Generate Outline
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                  <button type="button" className="btn btn-secondary btn-pill" onClick={() => setDialogOpen(false)}>Cancel</button>
+                  <button type="submit" className="btn btn-dark btn-pill" disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                    {editingLesson ? 'Update Lesson' : 'Create Lesson'}
                   </button>
                 </div>
               </form>

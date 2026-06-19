@@ -33,6 +33,17 @@ api.interceptors.request.use(async (config) => {
     // Ignore errors during boot
   }
 
+  // Attach organization context header from admin-auth store
+  try {
+    const { useAdminAuthStore } = await import('@/store/admin-auth.store');
+    const orgId = useAdminAuthStore.getState().activeOrganizationId;
+    if (orgId) {
+      config.headers['X-Organization-Id'] = orgId;
+    }
+  } catch (err) {
+    // Ignore errors during boot
+  }
+
   if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
     if (config.headers) {
       delete config.headers['Content-Type'];

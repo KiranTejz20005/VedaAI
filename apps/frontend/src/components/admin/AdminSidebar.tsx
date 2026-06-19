@@ -1,47 +1,62 @@
 'use client';
 
+import React from 'react';
+
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutGrid,
   School,
-  Building2,
   Users,
-  KeyRound,
-  GraduationCap,
-  UsersRound,
-  FileText,
-  Database,
-  ClipboardList,
   PieChart,
-  Activity,
-  CreditCard,
-  Brain,
-  ListChecks,
   Settings,
   X,
-  LogOut
+  LogOut,
+  ShieldCheck,
+  Activity,
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
 
-const ADMIN_NAV = [
-  { href: '/admin', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/admin/institutions', label: 'Institutions', icon: School },
-  { href: '/admin/departments', label: 'Departments', icon: Building2 },
-  { href: '/admin/users', label: 'User Directory', icon: Users },
-  { href: '/admin/roles', label: 'Roles & RBAC', icon: KeyRound },
-  { href: '/admin/classes', label: 'Classes', icon: GraduationCap },
-  { href: '/admin/groups', label: 'Study Groups', icon: UsersRound },
-  { href: '/admin/papers', label: 'Paper Library', icon: FileText },
-  { href: '/admin/question-bank', label: 'Question Bank', icon: Database },
-  { href: '/admin/assignments', label: 'Assignments', icon: ClipboardList },
-  { href: '/admin/analytics', label: 'Extended Stats', icon: PieChart },
-  { href: '/admin/audit', label: 'Audit Trail Logs', icon: Activity },
-  { href: '/admin/billing', label: 'Billing & Plans', icon: CreditCard },
-  { href: '/admin/ai-providers', label: 'AI Health & Config', icon: Brain },
-  { href: '/admin/queues', label: 'BullMQ Job Queue', icon: ListChecks },
-  { href: '/admin/settings', label: 'Portal Settings', icon: Settings },
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.FC<{ size?: number; strokeWidth?: number }>;
+  exact?: boolean;
+};
+
+type NavSection = {
+  section: string;
+  items: NavItem[];
+};
+
+const ADMIN_NAV: NavSection[] = [
+  {
+    section: 'Overview',
+    items: [
+      { href: '/admin', label: 'Dashboard', icon: LayoutGrid, exact: true },
+    ],
+  },
+  {
+    section: 'Tenant Management',
+    items: [
+      { href: '/admin/institutions', label: 'Organizations', icon: School },
+      { href: '/admin/users', label: 'User Directory', icon: Users },
+    ],
+  },
+  {
+    section: 'Reports',
+    items: [
+      { href: '/admin/analytics', label: 'Analytics', icon: PieChart },
+      { href: '/admin/audit', label: 'Audit Logs', icon: Activity },
+    ],
+  },
+  {
+    section: 'System',
+    items: [
+      { href: '/admin/settings', label: 'Portal Settings', icon: Settings },
+    ],
+  },
 ];
 
 export function AdminSidebar() {
@@ -57,70 +72,182 @@ export function AdminSidebar() {
   return (
     <>
       {isOpen && (
-        <div className="sidebar-overlay" onClick={close} aria-hidden="true" />
+        <div
+          onClick={close}
+          aria-hidden="true"
+          style={{ display: 'block', position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 39 }}
+        />
       )}
 
-      <aside className={`sidebar${isOpen ? ' open' : ''}`} role="navigation" aria-label="Admin navigation">
-        <div className="sidebar-logo">
-          <div className="sidebar-logo-icon" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <text x="50%" y="55%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="14" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif">A</text>
-            </svg>
+      <aside
+        role="navigation"
+        aria-label="Admin navigation"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: '240px',
+          background: '#FFFFFF',
+          borderRight: '1px solid #E5E7EB',
+          display: 'flex',
+          flexDirection: 'column',
+          zIndex: 40,
+        }}
+      >
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '20px 16px 16px', borderBottom: '1px solid #F3F4F6', flexShrink: 0 }}>
+          <div
+            aria-hidden="true"
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <ShieldCheck size={16} color="white" />
           </div>
-          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>VedaAI Admin</span>
-          <button className="sidebar-close-btn" onClick={close} aria-label="Close navigation"><X size={18} /></button>
+          <span style={{ fontWeight: 800, fontSize: '14px', color: '#111827', flex: 1 }}>VedaAI Admin</span>
+          <button
+            onClick={close}
+            aria-label="Close navigation"
+            className="lg:hidden"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', padding: '4px' }}
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        <div className="px-4 py-2 text-[10px] uppercase tracking-wider font-semibold text-gray-400">
-          Command Center
-        </div>
-
-        <nav className="sidebar-nav overflow-y-auto max-h-[calc(100vh-180px)]" aria-label="Admin Operations">
-          {ADMIN_NAV.map(({ href, label, icon: Icon, exact }) => {
-            const active = isActive(href, exact);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={`sidebar-nav-item${active ? ' active' : ''}`}
-                style={{
-                  color: active ? '#1E3A8A' : undefined,
-                  backgroundColor: active ? '#EFF6FF' : undefined
-                }}
-                aria-current={active ? 'page' : undefined}
-                onClick={close}
-              >
-                <Icon size={18} strokeWidth={active ? 2.5 : 2} aria-hidden="true" style={{ color: active ? '#2563EB' : undefined }} />
-                <span>{label}</span>
-              </Link>
-            );
-          })}
+        {/* Navigation */}
+        <nav
+          aria-label="Admin Operations"
+          style={{ flex: 1, padding: '8px', overflowY: 'auto' }}
+        >
+          {ADMIN_NAV.map(({ section, items }) => (
+            <div key={section} style={{ marginBottom: '4px' }}>
+              <div style={{
+                fontSize: '10px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                color: '#9CA3AF',
+                padding: '12px 8px 4px',
+              }}>
+                {section}
+              </div>
+              {items.map(({ href, label, icon: Icon, exact = false }) => {
+                const active = isActive(href, exact);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={close}
+                    aria-current={active ? 'page' : undefined}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: active ? 600 : 500,
+                      color: active ? '#1D4ED8' : '#374151',
+                      background: active ? '#EFF6FF' : 'transparent',
+                      textDecoration: 'none',
+                      marginBottom: '2px',
+                      transition: 'all 0.15s',
+                    }}
+                    className="admin-nav-item"
+                  >
+                    <Icon size={16} strokeWidth={active ? 2.5 : 2} />
+                    <span>{label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
-        <div className="sidebar-bottom">
+        {/* Bottom: Sign out + profile */}
+        <div style={{ borderTop: '1px solid #F3F4F6', padding: '12px 8px', flexShrink: 0 }}>
           <button
             onClick={() => logout()}
-            className="sidebar-settings w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '8px 10px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: 500,
+              color: '#DC2626',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              width: '100%',
+              marginBottom: '8px',
+              transition: 'background 0.15s',
+            }}
+            className="admin-signout-btn"
           >
-            <LogOut size={18} />
+            <LogOut size={16} />
             <span>Sign Out</span>
           </button>
 
-          <div className="sidebar-profile" style={{ borderTop: '1px solid var(--border)' }}>
-            <div className="sidebar-profile-avatar" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #1E3A8A, #3B82F6)', color: 'white', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px' }}>
+            <div
+              aria-hidden="true"
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #1E3A8A, #3B82F6)',
+                color: 'white',
+                fontWeight: 700,
+                fontSize: 13,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
               {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'A'}
             </div>
-            <div className="sidebar-profile-info">
-              <div className="sidebar-profile-name">
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {user ? `${user.firstName} ${user.lastName}` : 'Administrator'}
               </div>
-              <div className="sidebar-profile-sub text-[10px] bg-blue-100 text-blue-800 rounded px-1.5 py-0.5 inline-block font-semibold mt-0.5">
+              <div style={{
+                fontSize: '10px',
+                background: '#EFF6FF',
+                color: '#1D4ED8',
+                borderRadius: '4px',
+                padding: '1px 6px',
+                display: 'inline-block',
+                fontWeight: 600,
+                marginTop: '2px',
+              }}>
                 {user?.role || 'SUPER_ADMIN'}
               </div>
             </div>
           </div>
         </div>
       </aside>
+
+      <style>{`
+        .admin-nav-item:hover {
+          background: #F9FAFB !important;
+          color: #1D4ED8 !important;
+        }
+        .admin-signout-btn:hover {
+          background: #FEF2F2 !important;
+        }
+      `}</style>
     </>
   );
 }

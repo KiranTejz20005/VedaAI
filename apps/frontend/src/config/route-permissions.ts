@@ -8,7 +8,10 @@ export const ROUTE_PERMISSIONS = {
     '/question-bank',
     '/syllabus',
     '/settings',
-    '/analytics'
+    '/analytics',
+    '/admin',
+    '/lessons',
+    '/assessments',
   ],
   ADMIN: [
     '/dashboard',
@@ -19,7 +22,9 @@ export const ROUTE_PERMISSIONS = {
     '/question-bank',
     '/syllabus',
     '/settings',
-    '/analytics'
+    '/analytics',
+    '/lessons',
+    '/assessments',
   ],
   TEACHER: [
     '/dashboard',
@@ -28,7 +33,9 @@ export const ROUTE_PERMISSIONS = {
     '/assignments/create',
     '/question-bank',
     '/syllabus',
-    '/settings'
+    '/settings',
+    '/lessons',
+    '/assessments',
   ],
   STUDENT: [
     '/dashboard',
@@ -36,13 +43,19 @@ export const ROUTE_PERMISSIONS = {
     '/assessments',
     '/tutor',
     '/notes',
-    '/settings'
+    '/settings',
+    '/student',
+    '/lessons',
   ]
 };
 
 export const canAccessRoute = (role: string, path: string): boolean => {
   if (!role) return false;
   const normalizedRole = role.toUpperCase();
+
+  // Super admin can access everything
+  if (normalizedRole === 'SUPER_ADMIN') return true;
+
   const allowedRoutes = ROUTE_PERMISSIONS[normalizedRole as keyof typeof ROUTE_PERMISSIONS] || [];
 
   // Exact matches or subdirectory matches

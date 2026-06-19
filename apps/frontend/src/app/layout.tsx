@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { AppChromeGate } from '@/components/layout/AppChromeGate';
+import { AppShell } from '@/components/layout/AppShell';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 
 export const metadata: Metadata = {
@@ -24,7 +24,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
         <ThemeProvider>
-          <AppChromeGate>{children}</AppChromeGate>
+          <AppShell>{children}</AppShell>
         </ThemeProvider>
       </body>
     </html>

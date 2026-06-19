@@ -32,7 +32,7 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(1);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [institutionName, setInstitutionName] = useState('');
+  const [organizationName, setOrganizationName] = useState('');
   const [department, setDepartment] = useState('');
   const [className, setClassName] = useState('');
   const [subject, setSubject] = useState('');
@@ -51,7 +51,7 @@ export default function OnboardingPage() {
     if (user) {
       setFirstName(user.firstName || '');
       setLastName(user.lastName || '');
-      setInstitutionName(user.institutionName || '');
+      setOrganizationName(user.organizationName || '');
       setDepartment(user.departmentName || '');
     }
   }, [user]);
@@ -99,7 +99,7 @@ export default function OnboardingPage() {
       toast.error('Please enter your first and last name.');
       return;
     }
-    if (step === 2 && !institutionName.trim()) {
+    if (step === 2 && !organizationName.trim()) {
       toast.error('Please enter your college/university name.');
       return;
     }
@@ -124,7 +124,7 @@ export default function OnboardingPage() {
     // Simulate progression logs
     const logs = [
       'Updating your profile information...',
-      'Provisioning new Institution tenant...',
+      'Provisioning new Organization tenant...',
       'Setting up Academic Department structures...',
       'Creating class syllabus group...',
       'Importing student rosters and emails...',
@@ -139,7 +139,7 @@ export default function OnboardingPage() {
     const result = await completeOnboarding({
       firstName,
       lastName,
-      institutionName,
+      organizationName,
       department,
       className,
       subject,
@@ -477,19 +477,19 @@ export default function OnboardingPage() {
               <div style={{ marginBottom: 28 }}>
                 <h2 className="step-title">
                   <School className="text-orange-500" size={26} />
-                  Your Institution/College
+                  Your Organization/College
                 </h2>
                 <p style={{ color: '#9CA3AF', fontSize: '14px', marginTop: 6 }}>Enter the college, school, or university where you teach.</p>
               </div>
 
               <div style={{ marginBottom: 32 }}>
-                <label style={{ fontSize: '13px', fontWeight: 600, color: '#D1D5DB' }}>Institution Name</label>
+                <label style={{ fontSize: '13px', fontWeight: 600, color: '#D1D5DB' }}>Organization Name</label>
                 <input 
                   type="text" 
                   className="onboarding-input" 
                   placeholder="e.g. Stanford University, IIT Delhi"
-                  value={institutionName}
-                  onChange={(e) => setInstitutionName(e.target.value)}
+                  value={organizationName}
+                  onChange={(e) => setOrganizationName(e.target.value)}
                 />
               </div>
 
@@ -710,7 +710,7 @@ export default function OnboardingPage() {
                 You&apos;re All Set!
               </h2>
               <p style={{ color: '#9CA3AF', fontSize: '15px', maxWidth: 440, margin: '0 auto 36px', lineHeight: 1.6 }}>
-                Your institution <strong>{institutionName}</strong> and department has been successfully linked. Class <strong>{className}</strong> with {students.length} students is initialized!
+                        Your organization <strong>{organizationName}</strong> and department has been successfully linked. Class <strong>{className}</strong> with {students.length} students is initialized!
               </p>
 
               <button 

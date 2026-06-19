@@ -4,25 +4,32 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutGrid,
+  Users,
+  GraduationCap,
   BookOpen,
+  FileText,
   ClipboardCheck,
-  TrendingUp,
+  BarChart3,
   Settings,
-  User,
   X,
+  BookMarked,
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
 
 const NAV_ITEMS = [
-  { href: '/student/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/student/lessons', label: 'My Lessons', icon: BookOpen },
-  { href: '/student/assessments', label: 'Assessments', icon: ClipboardCheck },
-  { href: '/student/results', label: 'Results', icon: TrendingUp },
-  { href: '/profile', label: 'Profile', icon: User },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true },
+  { href: '/admin/faculty', label: 'Faculty', icon: Users },
+  { href: '/admin/students', label: 'Students', icon: GraduationCap },
+  { href: '/admin/classes', label: 'Classes', icon: BookOpen },
+  { href: '/admin/subjects', label: 'Subjects', icon: BookMarked },
+  { href: '/admin/lessons', label: 'Lessons', icon: FileText },
+  { href: '/admin/approvals', label: 'Approvals', icon: ClipboardCheck },
+  { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
-export function StudentSidebar() {
+export function OrgAdminSidebar() {
   const pathname = usePathname();
   const { isOpen, close } = useSidebarStore();
   const { user } = useAuthStore();
@@ -42,17 +49,18 @@ export function StudentSidebar() {
           <div
             className="sidebar-logo-icon"
             aria-hidden="true"
-            style={{ background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 50%, #1D4ED8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ background: 'linear-gradient(135deg, #10B981 0%, #059669 50%, #047857 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <text x="50%" y="55%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="16" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif">V</text>
+              <text x="50%" y="55%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="16" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif">A</text>
             </svg>
           </div>
-          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>Student</span>
+          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>Admin</span>
           <button className="sidebar-close-btn" onClick={close} aria-label="Close navigation"><X size={18} /></button>
         </div>
 
-        <nav className="sidebar-nav" aria-label="Pages" style={{ marginTop: 24 }}>
+        <nav className="sidebar-nav" aria-label="Pages">
+          <div className="sidebar-nav-section-label">Management</div>
           {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
             const active = isActive(href, exact);
             return (
@@ -65,21 +73,16 @@ export function StudentSidebar() {
         </nav>
 
         <div className="sidebar-bottom">
-          <Link href="/settings" className="sidebar-settings" onClick={close}>
-            <Settings size={18} aria-hidden="true" />
-            <span>Settings</span>
-          </Link>
-
           <div className="sidebar-profile" role="button" tabIndex={0} aria-label="Account settings">
-            <div className="sidebar-profile-avatar" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', color: 'white', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'S'}
+            <div className="sidebar-profile-avatar" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #059669, #10B981)', color: 'white', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'A'}
             </div>
             <div className="sidebar-profile-info">
               <div className="sidebar-profile-name">
-                {user ? `${user.firstName} ${user.lastName}` : 'Student'}
+                {user ? `${user.firstName} ${user.lastName}` : 'Admin'}
               </div>
               <div className="sidebar-profile-sub">
-                {user?.organizationName || 'Student'}
+                {user?.organizationName || 'Organization'}
               </div>
             </div>
           </div>

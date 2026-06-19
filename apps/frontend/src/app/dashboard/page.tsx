@@ -1,333 +1,209 @@
 'use client';
-/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import Link from 'next/link';
+import { api } from '@/lib/api';
 import {
-  FileText,
-  HelpCircle,
-  Clock,
-  Sparkles,
-  BookOpen,
-  Plus,
-  ArrowRight,
-  TrendingUp,
-  Brain,
-  Gauge,
-  Layers,
   GraduationCap,
+  Users,
+  BookOpen,
+  Clock,
+  Plus,
+  UserPlus,
+  CheckCircle,
+  Activity,
+  TrendingUp,
+  ChevronRight
 } from 'lucide-react';
-import { fetchDashboardStats, type DashboardStats } from '@/services/analytics.service';
+import Link from 'next/link';
 import toast from 'react-hot-toast';
 
-export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const getStats = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await fetchDashboardStats();
-      setStats(data);
-    } catch {
-      setError('Could not connect to the API server.');
-      toast.error('Failed to load dashboard stats');
-    } finally {
-      setLoading(false);
-    }
+interface DashboardData {
+  stats: {
+    totalFaculty: number;
+    totalStudents: number;
+    totalClasses: number;
+    pendingApprovals: number;
   };
+  recentActivity: Array<{
+    id: string;
+    description: string;
+    timestamp: string;
+    type: string;
+  }>;
+  summary: {
+    publishedAssessments: number;
+    activeLessons: number;
+    submissionRate: number;
+  };
+}
+
+export default function AdminDashboard() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getStats();
+    (async () => {
+      try {
+        const res = await api.get('/admin/analytics');
+        if (res.data?.success) {
+          setData(res.data.data);
+        } else {
+          toast.error('Failed to load analytics');
+        }
+      } catch {
+        toast.error('Failed to load dashboard');
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: 'var(--page-pad)' }}>
-        {/* Header Skeleton */}
-        <div>
-          <div className="skeleton" style={{ height: 28, width: 220, borderRadius: 6, marginBottom: 8 }} />
-          <div className="skeleton" style={{ height: 16, width: 340, borderRadius: 4 }} />
-        </div>
-        {/* Cards Row Skeleton */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
-          {Array.from({ length: 3 }).map((_, idx) => (
-            <div key={idx} className="card" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div className="skeleton" style={{ height: 16, width: '40%', borderRadius: 4 }} />
-              <div className="skeleton" style={{ height: 32, width: '30%', borderRadius: 6 }} />
-            </div>
-          ))}
-        </div>
-        {/* Charts and Actions Grid Skeleton */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: 24 }}>
-          <div className="card" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div className="skeleton" style={{ height: 20, width: '50%', borderRadius: 4 }} />
-            {Array.from({ length: 4 }).map((_, idx) => (
-              <div key={idx} className="skeleton" style={{ height: 32, width: '100%', borderRadius: 6 }} />
-            ))}
-          </div>
-          <div className="card" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div className="skeleton" style={{ height: 20, width: '50%', borderRadius: 4 }} />
-            {Array.from({ length: 4 }).map((_, idx) => (
-              <div key={idx} className="skeleton" style={{ height: 32, width: '100%', borderRadius: 6 }} />
-            ))}
-          </div>
-        </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
-  if (error || !stats) {
-    return (
-      <div className="empty-state" style={{ padding: '80px var(--page-pad)' }}>
-        <h2 className="empty-title">Dashboard Unavailable</h2>
-        <p className="empty-desc">{error || 'Unable to retrieve statistics.'}</p>
-        <div className="empty-state-actions">
-          <button type="button" onClick={getStats} className="btn btn-dark btn-pill">
-            Retry Loading
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Calculate difficulty total count to compute percentages
-  const diffTotal = stats.difficultyDistribution.reduce((acc, curr) => acc + curr.count, 0) || 1;
-  const bloomTotal = stats.bloomDistribution.reduce((acc, curr) => acc + curr.count, 0) || 1;
-
-  // Pretty styling properties
-  const bloomColors: Record<string, string> = {
-    remember: '#EF4444',
-    understand: '#F59E0B',
-    apply: '#10B981',
-    analyze: '#3B82F6',
-    evaluate: '#6366F1',
-    create: '#8B5CF6',
-  };
-
-  const difficultyColors: Record<string, string> = {
-    easy: '#10B981',
-    medium: '#F59E0B',
-    hard: '#EF4444',
-  };
+  const stats = data?.stats || { totalFaculty: 0, totalStudents: 0, totalClasses: 0, pendingApprovals: 0 };
+  const activity = data?.recentActivity || [];
+  const summary = data?.summary || { publishedAssessments: 0, activeLessons: 0, submissionRate: 0 };
 
   return (
-    <div style={{ padding: 'var(--page-pad)', display: 'flex', flexDirection: 'column', gap: 28, maxWidth: 'var(--page-max-w)', margin: '0 auto' }}>
-      
-      {/* Header */}
-      <div className="desktop-page-header" style={{ marginBottom: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <TrendingUp size={24} color="var(--brand)" />
-          <h1 className="page-title">Institution Analytics</h1>
-        </div>
-        <p className="page-subtitle">Track generated content metrics, difficulty layouts, and cognitive distributions.</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div>
+        <h2 className="text-xl md:text-2xl font-bold text-gray-900">Organization Admin Dashboard</h2>
+        <p className="text-gray-500 text-xs md:text-sm">Monitor your institution at a glance.</p>
       </div>
 
-      <div className="mobile-page-header">
-        <h1 className="mobile-header-title">Dashboard</h1>
-      </div>
-
-      {/* Metric Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
-        {/* Total Questions Card */}
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '24px 20px', position: 'relative', overflow: 'hidden' }}>
-          <div style={{
-            width: 48,
-            height: 48,
-            borderRadius: 12,
-            background: 'rgba(232, 83, 29, 0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--brand)',
-            flexShrink: 0
-          }}>
-            <HelpCircle size={22} />
-          </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
           <div>
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', fontWeight: 500 }}>Total Questions</div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', marginTop: 4 }}>{stats.totals.questions}</div>
+            <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Total Faculty</span>
+            <h3 className="text-2xl font-bold text-gray-900 mt-1">{stats.totalFaculty}</h3>
+          </div>
+          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+            <GraduationCap size={22} />
           </div>
         </div>
 
-        {/* Total Assessments Card */}
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '24px 20px', position: 'relative', overflow: 'hidden' }}>
-          <div style={{
-            width: 48,
-            height: 48,
-            borderRadius: 12,
-            background: 'rgba(99, 102, 241, 0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#6366F1',
-            flexShrink: 0
-          }}>
-            <FileText size={22} />
-          </div>
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
           <div>
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', fontWeight: 500 }}>Assessments Generated</div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', marginTop: 4 }}>{stats.totals.assessments}</div>
+            <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Total Students</span>
+            <h3 className="text-2xl font-bold text-gray-900 mt-1">{stats.totalStudents}</h3>
+          </div>
+          <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+            <Users size={22} />
           </div>
         </div>
 
-        {/* Pending Reviews Card */}
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '24px 20px', position: 'relative', overflow: 'hidden' }}>
-          <div style={{
-            width: 48,
-            height: 48,
-            borderRadius: 12,
-            background: 'rgba(245, 158, 11, 0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#F59E0B',
-            flexShrink: 0
-          }}>
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Total Classes</span>
+            <h3 className="text-2xl font-bold text-gray-900 mt-1">{stats.totalClasses}</h3>
+          </div>
+          <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
+            <BookOpen size={22} />
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Pending Approvals</span>
+            <h3 className="text-2xl font-bold text-gray-900 mt-1">{stats.pendingApprovals}</h3>
+          </div>
+          <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
             <Clock size={22} />
           </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm lg:col-span-1 space-y-4">
           <div>
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', fontWeight: 500 }}>Pending Reviews</div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', marginTop: 4 }}>{stats.totals.pendingReviews}</div>
+            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Recent Activity</h3>
+            <p className="text-gray-400 text-[10px]">Latest actions across your organization.</p>
           </div>
-        </div>
-      </div>
 
-      {/* Main Grid: Charts & Distributions */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 24 }}>
-        
-        {/* Bloom's Taxonomy Distribution */}
-        <div className="card" style={{ padding: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-            <Brain size={18} color="var(--brand)" />
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Bloom&apos;s Taxonomy Levels</h3>
-          </div>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {stats.bloomDistribution.map((item) => {
-              const count = item.count;
-              const percentage = Math.round((count / bloomTotal) * 100);
-              const color = bloomColors[item.level.toLowerCase()] || 'var(--brand)';
-              return (
-                <div key={item.level} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 500 }}>
-                    <span style={{ textTransform: 'capitalize', color: 'var(--text-secondary)' }}>{item.level}</span>
-                    <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{count} ({percentage}%)</span>
+          {activity.length === 0 ? (
+            <div className="text-center py-8 text-gray-400 text-xs">No recent activity.</div>
+          ) : (
+            <div className="space-y-3">
+              {activity.map((a) => (
+                <div key={a.id} className="flex items-start gap-3 text-xs">
+                  <div className="w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Activity size={12} />
                   </div>
-                  <div style={{ width: '100%', height: 8, background: 'var(--bg-hover)', borderRadius: 4, overflow: 'hidden' }}>
-                    <div style={{ width: `${percentage}%`, height: '100%', background: color, borderRadius: 4 }} />
+                  <div className="min-w-0">
+                    <p className="text-gray-700 font-medium">{a.description}</p>
+                    <p className="text-gray-400 text-[10px]">{new Date(a.timestamp).toLocaleString()}</p>
                   </div>
                 </div>
-              );
-            })}
-            {stats.bloomDistribution.length === 0 && (
-              <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
-                No cognitive distribution data.
-              </div>
-            )}
+              ))}
+            </div>
+          )}
+
+          <Link href="/admin/audit" className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-semibold pt-2">
+            View All Activity <ChevronRight size={14} />
+          </Link>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+          <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Quick Actions</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <Link href="/admin/users" className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-xl text-xs font-semibold hover:bg-blue-100 transition-colors">
+              <GraduationCap size={16} /> Create Faculty
+            </Link>
+            <Link href="/admin/students" className="flex items-center gap-2 p-3 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-semibold hover:bg-emerald-100 transition-colors">
+              <UserPlus size={16} /> Add Student
+            </Link>
+            <Link href="/admin/classes" className="flex items-center gap-2 p-3 bg-purple-50 text-purple-700 rounded-xl text-xs font-semibold hover:bg-purple-100 transition-colors">
+              <Plus size={16} /> Create Class
+            </Link>
+            <Link href="/admin/approvals" className="flex items-center gap-2 p-3 bg-amber-50 text-amber-700 rounded-xl text-xs font-semibold hover:bg-amber-100 transition-colors">
+              <CheckCircle size={16} /> View Approvals
+            </Link>
           </div>
         </div>
 
-        {/* Difficulty Distribution */}
-        <div className="card" style={{ padding: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-            <Layers size={18} color="var(--brand)" />
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Difficulty Levels Distribution</h3>
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+          <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Stats Summary</h3>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs font-medium">
+                <span className="text-gray-500">Published Assessments</span>
+                <span className="text-gray-900 font-bold">{summary.publishedAssessments}</span>
+              </div>
+              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                <div className="bg-blue-600 h-full rounded-full" style={{ width: `${Math.min(summary.publishedAssessments * 10, 100)}%` }} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs font-medium">
+                <span className="text-gray-500">Active Lessons</span>
+                <span className="text-gray-900 font-bold">{summary.activeLessons}</span>
+              </div>
+              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                <div className="bg-purple-600 h-full rounded-full" style={{ width: `${Math.min(summary.activeLessons * 10, 100)}%` }} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs font-medium">
+                <span className="text-gray-500">Submission Rate</span>
+                <span className="text-gray-900 font-bold">{summary.submissionRate}%</span>
+              </div>
+              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${summary.submissionRate}%` }} />
+              </div>
+            </div>
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {stats.difficultyDistribution.map((item) => {
-              const count = item.count;
-              const percentage = Math.round((count / diffTotal) * 100);
-              const color = difficultyColors[item.level.toLowerCase()] || 'var(--brand)';
-              return (
-                <div key={item.level} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 500 }}>
-                    <span style={{ textTransform: 'capitalize', color: 'var(--text-secondary)' }}>{item.level} Level</span>
-                    <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{count} ({percentage}%)</span>
-                  </div>
-                  <div style={{ width: '100%', height: 8, background: 'var(--bg-hover)', borderRadius: 4, overflow: 'hidden' }}>
-                    <div style={{ width: `${percentage}%`, height: '100%', background: color, borderRadius: 4 }} />
-                  </div>
-                </div>
-              );
-            })}
-            {stats.difficultyDistribution.length === 0 && (
-              <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
-                No difficulty level statistics.
-              </div>
-            )}
+          <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-2 pt-2 border-t border-gray-100">
+            <TrendingUp size={12} className="text-emerald-500" />
+            <span>Submission rate is {summary.submissionRate >= 70 ? 'healthy' : 'needs improvement'}</span>
           </div>
-        </div>
-
-      </div>
-
-      {/* Quick Action Navigation Grid */}
-      <div className="card" style={{ padding: 24 }}>
-        <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Gauge size={18} color="var(--brand)" />
-          Quick Actions Launcher
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-          
-          <Link href="/assignments/create" style={{ textDecoration: 'none' }}>
-            <div className="quick-action-link" style={{ padding: 18, border: '1px solid var(--border)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 8, transition: 'all 0.2s', cursor: 'pointer' }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.background = 'var(--brand-light)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'transparent'; }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Plus size={20} color="var(--brand)" />
-                <ArrowRight size={14} color="var(--text-muted)" />
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 14 }}>Create Paper</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>Assemble a new assignment.</div>
-              </div>
-            </div>
-          </Link>
-
-          <Link href="/papers" style={{ textDecoration: 'none' }}>
-            <div className="quick-action-link" style={{ padding: 18, border: '1px solid var(--border)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 8, transition: 'all 0.2s', cursor: 'pointer' }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.background = 'var(--brand-light)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'transparent'; }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <FileText size={20} color="var(--brand)" />
-                <ArrowRight size={14} color="var(--text-muted)" />
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 14 }}>Paper Management</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>View and download PDF papers.</div>
-              </div>
-            </div>
-          </Link>
-
-          <Link href="/syllabus" style={{ textDecoration: 'none' }}>
-            <div className="quick-action-link" style={{ padding: 18, border: '1px solid var(--border)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 8, transition: 'all 0.2s', cursor: 'pointer' }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.background = 'var(--brand-light)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'transparent'; }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <GraduationCap size={20} color="var(--brand)" />
-                <ArrowRight size={14} color="var(--text-muted)" />
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 14 }}>Syllabus Preprocessor</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>Parse and index syllabus files.</div>
-              </div>
-            </div>
-          </Link>
-
-          <Link href="/question-bank" style={{ textDecoration: 'none' }}>
-            <div className="quick-action-link" style={{ padding: 18, border: '1px solid var(--border)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 8, transition: 'all 0.2s', cursor: 'pointer' }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.background = 'var(--brand-light)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'transparent'; }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <BookOpen size={20} color="var(--brand)" />
-                <ArrowRight size={14} color="var(--text-muted)" />
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 14 }}>Question Bank</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>Browse categorized templates.</div>
-              </div>
-            </div>
-          </Link>
-
         </div>
       </div>
-
     </div>
   );
 }
