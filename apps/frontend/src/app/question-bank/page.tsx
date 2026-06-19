@@ -252,8 +252,8 @@ export default function QuestionBankPage() {
           >
             {/* Filter Bar */}
             <div className="card" style={{ padding: 16, marginBottom: 20 }}>
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-                <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, alignItems: 'center' }}>
+                <div style={{ gridColumn: '1 / -1', position: 'relative' }}>
                   <Search size={15} style={{ position: 'absolute', left: 12, top: 12, color: 'var(--text-muted)' }} />
                   <input
                     type="text"
@@ -264,7 +264,7 @@ export default function QuestionBankPage() {
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
-                <select className="input" style={{ width: 140 }} value={subject} onChange={(e) => setSubject(e.target.value)}>
+                <select className="input" value={subject} onChange={(e) => setSubject(e.target.value)}>
                   <option value="">All Subjects</option>
                   <option value="Computer Science">Computer Science</option>
                   <option value="Mathematics">Mathematics</option>
@@ -272,13 +272,13 @@ export default function QuestionBankPage() {
                   <option value="Chemistry">Chemistry</option>
                   <option value="Biology">Biology</option>
                 </select>
-                <select className="input" style={{ width: 140 }} value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
+                <select className="input" value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
                   <option value="">All Difficulties</option>
                   <option value="EASY">Easy</option>
                   <option value="MEDIUM">Medium</option>
                   <option value="HARD">Hard</option>
                 </select>
-                <select className="input" style={{ width: 140 }} value={bloomLevel} onChange={(e) => setBloomLevel(e.target.value)}>
+                <select className="input" value={bloomLevel} onChange={(e) => setBloomLevel(e.target.value)}>
                   <option value="">All Bloom Levels</option>
                   <option value="REMEMBER">Remember</option>
                   <option value="UNDERSTAND">Understand</option>

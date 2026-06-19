@@ -75,7 +75,7 @@ export default function AssessmentsPage() {
       const params = new URLSearchParams();
       if (statusFilter !== 'ALL') params.set('status', statusFilter);
       if (search) params.set('search', search);
-      const res = await api.get<{ success: boolean; data: Assessment[] }>(`/assessments?${params}`);
+      const res = await api.get<{ success: boolean; data: Assessment[] }>(`/assignments?${params}`);
       setAssessments(res.data.data ?? []);
     } catch (err: any) {
       setError(err.message || 'Failed to load assessments');
@@ -294,7 +294,7 @@ export default function AssessmentsPage() {
                           </button>
                         )}
                         <button className="btn btn-secondary btn-sm" style={{ gap: 4, padding: '4px 8px' }}
-                          onClick={() => router.push(`/assignments/${assessment.id}`)} title="View">
+                          onClick={() => router.push(assessment.status === 'COMPLETED' || assessment.status === 'PUBLISHED' || assessment.status === 'ACTIVE' ? `/assignments/${assessment.id}/paper` : `/assignments/${assessment.id}`)} title="View">
                           <Eye size={13} /> View
                         </button>
                       </div>

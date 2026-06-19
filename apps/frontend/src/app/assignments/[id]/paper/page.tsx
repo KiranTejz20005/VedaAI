@@ -284,84 +284,92 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
       {/* Editor Panel & Preview split-layout or single layout */}
       <div style={{ display: 'grid', gridTemplateColumns: isEditMode ? '1fr 340px' : '1fr', gap: 20 }}>
         {/* Main Paper Layout */}
-        <div className="paper-card" style={{ fontFamily: '"Times New Roman", Times, serif', color: '#111827', background: '#fff', borderRadius: 8, padding: 32, border: '1px solid #e5e7eb', boxShadow: 'var(--shadow-sm)' }}>
-          {/* Header info */}
-          {isEditMode ? (
-            <div style={{ display: 'grid', gap: 12, marginBottom: 24, paddingBottom: 20, borderBottom: '2px solid #111827' }}>
+        <div className="paper-card" style={{ fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif', color: '#1a1a1a', background: '#fff', borderRadius: 12, padding: 40, border: '1px solid #e5e7eb', boxShadow: 'var(--shadow-sm)' }}>
+        {/* Header Banner with Introduction */}
+          {paper.canonicalMetadata?.sections && (
+            <div style={{
+              background: '#2c2c2c',
+              color: '#fff',
+              padding: '20px 24px',
+              borderRadius: 8,
+              marginBottom: 32,
+              fontSize: 14,
+              lineHeight: 1.6,
+            }}>
+              <p style={{ margin: 0 }}>This is a comprehensive assessment designed to evaluate your understanding of {paper.canonicalMetadata.subject}. Answer all questions unless stated otherwise. Please read each question carefully before responding.</p>
+            </div>
+          )}
+
+          {/* School/Institution Header */}
+          <div style={{ textAlign: 'center', marginBottom: 32, paddingBottom: 24, borderBottom: '3px solid #1a1a1a' }}>
+            <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, marginBottom: 8 }}>{schoolName}</h1>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, fontSize: 15, marginBottom: 16, maxWidth: 400, margin: '16px auto 0' }}>
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>School/Institution Name</label>
-                <input
-                  type="text"
-                  className="input"
-                  style={{ width: '100%', fontFamily: '"Times New Roman", Times, serif', fontSize: 18, fontWeight: 700, textAlign: 'center' }}
-                  value={schoolName}
-                  onChange={(e) => setSchoolName(e.target.value)}
-                />
+                <span style={{ fontWeight: 700 }}>Subject:</span> {paperTitle}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Subject/Title</label>
-                  <input
-                    type="text"
-                    className="input"
-                    style={{ width: '100%', fontFamily: '"Times New Roman", Times, serif', fontWeight: 700 }}
-                    value={paperTitle}
-                    onChange={(e) => setPaperTitle(e.target.value)}
-                  />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Duration (Mins)</label>
-                    <input
-                      type="number"
-                      className="input"
-                      value={duration}
-                      onChange={(e) => setDuration(Number(e.target.value))}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Max Marks</label>
-                    <input
-                      type="number"
-                      className="input"
-                      value={totalMarks}
-                      onChange={(e) => setTotalMarks(Number(e.target.value))}
-                    />
-                  </div>
-                </div>
+              <div>
+                <span style={{ fontWeight: 700 }}>Class:</span> {paper.canonicalMetadata?.className || '—'}
               </div>
             </div>
-          ) : (
-            <div style={{ textAlign: 'center', marginBottom: 28 }}>
-              <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>{schoolName}</h1>
-              <h2 style={{ fontSize: 18, fontWeight: 700, margin: '6px 0 0 0' }}>{paperTitle}</h2>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 700, borderBottom: '2px solid #111827', paddingBottom: 12, marginTop: 16 }}>
-                <span>Time Allowed: {duration} minutes</span>
-                <span>Maximum Marks: {totalMarks}</span>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, fontSize: 15, marginTop: 16 }}>
+              <div>
+                <span style={{ fontWeight: 700 }}>Time Allowed:</span> {duration} minutes
+              </div>
+              <div>
+                <span style={{ fontWeight: 700 }}>Maximum Marks:</span> {totalMarks}
+              </div>
+            </div>
+          </div>
+
+          {/* Instructions */}
+          <div style={{ background: '#f5f5f5', padding: '16px 20px', borderRadius: 6, marginBottom: 28, fontSize: 14 }}>
+            <p style={{ margin: 0, fontWeight: 500 }}>All questions are compulsory unless stated otherwise.</p>
+          </div>
+
+          {/* Student Info Section (for printing) */}
+          {!isEditMode && (
+            <div style={{ marginBottom: 32, fontSize: 13, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20 }}>
+              <div>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>Name:</div>
+                <div style={{ borderBottom: '1px solid #1a1a1a', minHeight: 24 }}></div>
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>Roll Number:</div>
+                <div style={{ borderBottom: '1px solid #1a1a1a', minHeight: 24 }}></div>
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>Section:</div>
+                <div style={{ borderBottom: '1px solid #1a1a1a', minHeight: 24 }}></div>
               </div>
             </div>
           )}
 
           {/* Sections list */}
-          {paper.sections.map((section, sIdx) => {
-            const sectionNumberStart = globalQuestionNumber;
-            globalQuestionNumber += section.questions.length;
+          {!paper.sections || paper.sections.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', color: '#9CA3AF' }}>
+              <p style={{ fontSize: 14, fontWeight: 500 }}>No questions have been generated yet.</p>
+              <p style={{ fontSize: 12, marginTop: 8 }}>Please generate the paper first.</p>
+            </div>
+          ) : (
+            paper.sections.map((section, sIdx) => {
+              const sectionNumberStart = globalQuestionNumber;
+              globalQuestionNumber += section.questions.length;
 
-            return (
-              <div key={sIdx} style={{ marginBottom: 36 }}>
-                <h3 style={{ fontSize: 18, fontWeight: 700, textAlign: 'center', marginBottom: 14 }}>
-                  {section.title}
-                </h3>
-                {section.instruction && (
-                  <p style={{ fontSize: 14, color: '#6b7280', fontStyle: 'italic', marginBottom: 12 }}>
-                    {section.instruction}
-                  </p>
-                )}
+              return (
+                <div key={sIdx} style={{ marginBottom: 36 }}>
+                  <h3 style={{ fontSize: 18, fontWeight: 700, textAlign: 'center', marginBottom: 14 }}>
+                    {section.title}
+                  </h3>
+                  {section.instruction && (
+                    <p style={{ fontSize: 14, color: '#6b7280', fontStyle: 'italic', marginBottom: 12 }}>
+                      {section.instruction}
+                    </p>
+                  )}
 
-                {/* Questions */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  {section.questions.map((q, qIdx) => {
-                    const qNum = sectionNumberStart + qIdx;
+                  {/* Questions */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    {section.questions.map((q, qIdx) => {
+                      const qNum = sectionNumberStart + qIdx;
                     return (
                       <div 
                         key={q.id || qIdx} 
@@ -397,6 +405,21 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
                               ))}
                             </div>
                           )}
+
+                          {/* Difficulty Badge */}
+                          <div style={{ marginTop: 8 }}>
+                            <span style={{
+                              display: 'inline-block',
+                              fontSize: 11,
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: 12,
+                              background: q.difficulty === 'easy' ? '#D1FAE5' : q.difficulty === 'medium' ? '#FEF3C7' : '#FED7AA',
+                              color: q.difficulty === 'easy' ? '#065F46' : q.difficulty === 'medium' ? '#92400E' : '#92400E',
+                            }}>
+                              {DIFFICULTY_LABELS[q.difficulty]}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Marks & Actions */}
@@ -453,7 +476,8 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
                 </div>
               </div>
             );
-          })}
+            })
+          )}
         </div>
 
         {/* Edit mode side panel (Regeneration Options) */}

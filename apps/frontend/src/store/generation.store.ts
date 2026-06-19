@@ -42,6 +42,8 @@ export const useGenerationStore = create<GenerationState>((set) => ({
       if (s.generationSeq !== null && s.generationSeq !== generationSeq) return s;
       if (version > 0 && version <= (s.lastVersion ?? 0)) return s;
       if (s.stage === 'completed' || s.stage === 'failed') return s;
+      // Don't regress if already past queued state
+      if (s.stage && s.stage !== 'queued') return s;
       return {
         status: 'queued',
         stage: 'queued',
@@ -61,7 +63,8 @@ export const useGenerationStore = create<GenerationState>((set) => ({
       // Ignore stale/out-of-order events.
       if (s.activeJobRecordId && s.activeJobRecordId !== jobRecordId) return s;
       if (s.generationSeq !== null && s.generationSeq !== generationSeq) return s;
-      if (version <= (s.lastVersion ?? 0)) return s;
+      // Allow same-version progress updates (e.g. polling catch-up when version stays 0)
+      if (version < (s.lastVersion ?? 0)) return s;
       // Never regress terminal states for the active job.
       if (s.stage === 'completed' || s.stage === 'failed') return s;
       if (progress < (s.progress ?? 0)) return s;
@@ -83,7 +86,7 @@ export const useGenerationStore = create<GenerationState>((set) => ({
     set((s) => {
       if (s.activeJobRecordId && s.activeJobRecordId !== jobRecordId) return s;
       if (s.generationSeq !== null && s.generationSeq !== generationSeq) return s;
-      if (version <= (s.lastVersion ?? 0)) return s;
+      if (version < (s.lastVersion ?? 0)) return s;
       return {
         ...s,
         status: partial ? 'partial_success' : 'completed',
@@ -103,7 +106,7 @@ export const useGenerationStore = create<GenerationState>((set) => ({
     set((s) => {
       if (s.activeJobRecordId && s.activeJobRecordId !== jobRecordId) return s;
       if (s.generationSeq !== null && s.generationSeq !== generationSeq) return s;
-      if (version <= (s.lastVersion ?? 0)) return s;
+      if (version < (s.lastVersion ?? 0)) return s;
       // Don't allow a late failure to overwrite completion for the active job.
       if (s.stage === 'completed') return s;
       return {

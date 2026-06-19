@@ -22,6 +22,9 @@ router.post('/organizations/:id/assign-admin', SuperAdminController.assignOrgani
 // Organization Users
 router.get('/organizations/:id/users', SuperAdminController.getOrganizationUsers);
 
+// All Users (across all organizations)
+router.get('/users', SuperAdminController.getAllUsers);
+
 // Organization Subscription
 router.get('/organizations/:id/subscription', SuperAdminController.getOrganizationSubscriptions);
 router.put('/organizations/:id/subscription', SuperAdminController.updateOrganizationSubscription);

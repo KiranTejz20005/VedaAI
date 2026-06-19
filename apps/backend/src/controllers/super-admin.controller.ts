@@ -227,6 +227,24 @@ export const getOrganizationUsers = async (req: Request, res: Response): Promise
   }
 };
 
+// ── GET ALL USERS (ACROSS ALL ORGANIZATIONS) ──
+export const getAllUsers = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const users = await prisma.user.findMany({
+      where: { status: { not: 'DELETED' } },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        organization: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true } },
+      },
+    });
+    res.json({ success: true, data: users });
+  } catch (error) {
+    logger.error(`[SuperAdmin - getAllUsers] Error: ${error}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch all users.' });
+  }
+};
+
 // ── GET ORGANIZATION SUBSCRIPTION ──
 export const getOrganizationSubscriptions = async (req: Request, res: Response): Promise<void> => {
   try {

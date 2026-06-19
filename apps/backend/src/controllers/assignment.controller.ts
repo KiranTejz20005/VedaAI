@@ -80,15 +80,13 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
   const requestId = (req.headers['x-request-id'] as string) || uuidv4();
 
   // Send response immediately, then process queue in background
-  let queueResult: any = null;
-  const queuePromise = (async () => {
+  void (async () => {
     try {
       const result = await enqueueGeneration(assignment.id, userId, organizationId);
       jobId = result.jobId;
       position = result.position;
       jobRecordId = result.jobRecordId;
       generationSeq = result.generationSeq;
-      queueResult = result;
 
       logger.info({
         action: 'Generation Started',
@@ -113,9 +111,14 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
       logger.error({ err, assignmentId: assignment.id }, 'Failed to enqueue generation in background');
       // Still emit error to client via WebSocket if available
       if (!err.message.includes('already in progress')) {
-        emitToAssignment(assignment.id, 'generation:error', {
+        emitToAssignment(assignment.id, 'generation:failed', {
           assignmentId: assignment.id,
           error: err.message,
+          retryable: true,
+          jobRecordId: 'unknown',
+          generationSeq: 0,
+          version: 0,
+          ts: Date.now(),
         });
       }
     }

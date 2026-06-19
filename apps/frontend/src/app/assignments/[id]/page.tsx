@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import {
   Brain, CheckCircle2, XCircle, AlertCircle, Clock, FileText, Zap, RefreshCw, Star,
-  Send, ThumbsUp, ThumbsDown, Edit3, Archive, Eye, Check, Loader2
+  Edit3, Eye, Check
 } from 'lucide-react';
 import { fetchAssignment, generateAssignment, fetchJobStatus } from '@/services/assignment.service';
 import { fetchPaper } from '@/services/paper.service';
@@ -17,7 +17,6 @@ import { useGenerationStore } from '@/store/generation.store';
 import { GenerationScreen } from '@/components/generation/GenerationScreen';
 import { useAssignmentPhase } from '@/hooks/useAssignmentPhase';
 import { useAuthStore } from '@/store/auth.store';
-import { api } from '@/lib/api';
 import type { Assignment } from '@/types/assignment.types';
 import type { GeneratedPaper } from '@/types/paper.types';
 import type { GenerationStage } from '@/types/socket.types';
@@ -25,9 +24,6 @@ import type { GenerationStage } from '@/types/socket.types';
 const WORKFLOW_STEPS = [
   { key: 'draft', label: 'Draft', icon: FileText },
   { key: 'generated', label: 'Generated', icon: Zap },
-  { key: 'pending_approval', label: 'Pending Approval', icon: Send },
-  { key: 'approved', label: 'Approved', icon: ThumbsUp },
-  { key: 'published', label: 'Published', icon: CheckCircle2 },
   { key: 'completed', label: 'Completed', icon: Check },
 ];
 
@@ -38,18 +34,12 @@ const BADGE_MAP: Record<string, string> = {
   completed: 'badge-completed',
   failed: 'badge-failed',
   partially_generated: 'badge-warning',
-  pending_approval: 'badge-queued',
-  approved: 'badge-completed',
-  published: 'badge-completed',
 };
 
 function getWorkflowStep(status: string | Assignment['status']): number {
   if (status === 'draft') return 0;
-  if (['queued', 'generating', 'completed', 'partially_generated', 'failed'].includes(status)) return 1;
-  if (status === 'pending_approval') return 2;
-  if (status === 'approved') return 3;
-  if (status === 'published') return 4;
-  if (status === 'completed') return 5;
+  if (['queued', 'generating'].includes(status)) return 1;
+  if (status === 'completed' || status === 'partially_generated') return 2;
   return 0;
 }
 
@@ -72,16 +62,14 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [showGenScreen, setShowGenScreen] = useState(false);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const hasAutoQueuedRef = useRef(false);
   const retryCooldownRef = useRef(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollErrorsRef = useRef(0);
   const { stage, status, message, error, reset, setQueued, setWarning } = useGenerationStore();
 
-  const userRole = user?.role?.toUpperCase() || '';
-  const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
-  const isFaculty = userRole === 'TEACHER' || userRole === 'FACULTY';
+  const isAdmin = user?.role?.toUpperCase() === 'ADMIN' || user?.role?.toUpperCase() === 'SUPER_ADMIN';
+  const isFaculty = user?.role?.toUpperCase() === 'TEACHER' || user?.role?.toUpperCase() === 'FACULTY';
 
   useGenerationSocket(id);
 
@@ -91,6 +79,14 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
       .catch((e) => { setFetchError(e instanceof Error ? e.message : 'Failed to load assignment'); })
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Listen for generation completion events and refresh assignment immediately
+  useEffect(() => {
+    const { stage: currentStage, status: currentStatus } = useGenerationStore.getState();
+    if (currentStatus === 'completed' || currentStatus === 'partial_success') {
+      fetchAssignment(id).then(setAssignment).catch(console.error);
+    }
+  }, [id, status]);
 
   useEffect(() => {
     if (!assignment) return;
@@ -123,11 +119,6 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   useEffect(() => { if (fetchError) toast.error(fetchError, { id: 'fetch-error', position: 'bottom-center' }); }, [fetchError]);
   useEffect(() => { if (error) toast.error(error, { id: 'generation-error', position: 'bottom-center' }); }, [error]);
 
-  useEffect(() => {
-    if (!assignment || (assignment.status !== 'completed' && assignment.status !== 'partially_generated')) return;
-    router.replace(`/assignments/${id}/paper`);
-  }, [assignment, id, router]);
-
   useEffect(() => { return () => { reset(); }; }, [reset]);
 
   useEffect(() => {
@@ -140,16 +131,15 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     if (retryCooldownRef.current) return;
     retryCooldownRef.current = true;
     setIsRetrying(true);
+    setShowGenScreen(true);
     try {
       const queued = await generateAssignment(id);
       setQueued(queued.jobRecordId, queued.generationSeq, 0, Date.now());
       setAssignment((prev) => (prev ? { ...prev, status: 'queued' } : prev));
-      setShowGenScreen(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to queue generation';
       if (msg.toLowerCase().includes('already in progress')) {
         setAssignment((prev) => (prev ? { ...prev, status: 'queued' } : prev));
-        setShowGenScreen(true);
         return;
       }
       toast.error(msg);
@@ -159,16 +149,24 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     }
   }, [id, setQueued]);
 
+  const handleViewPaper = useCallback(() => {
+    router.push(`/assignments/${id}/paper`);
+  }, [id, router]);
+
   useEffect(() => {
     if (!assignment || assignment.status !== 'draft' || hasAutoQueuedRef.current) return;
+    // Only auto-generate if explicitly requested via URL param or not in production
+    const shouldAutoGen = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('autoGenerate');
+    if (!shouldAutoGen) return;
+    
     hasAutoQueuedRef.current = true;
     handleGenerate();
   }, [assignment, id, handleGenerate]);
 
   useEffect(() => {
     const isTerminal = ['completed', 'failed', 'partially_generated'].includes(assignment?.status ?? '');
-    if (!['queued', 'generating'].includes(assignment?.status ?? '') && !stage) return;
-    if (isTerminal) return;
+    // Start polling if generation is queued/generating OR if we haven't finished fetching OR if socket stage exists
+    if (!['queued', 'generating'].includes(assignment?.status ?? '') && !stage && isTerminal) return;
 
     const poll = async () => {
       try {
@@ -203,6 +201,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
       }
     };
 
+    // Always do first poll immediately
     void poll();
     pollingRef.current = setInterval(() => void poll(), 8000);
     return () => {
@@ -211,21 +210,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     };
   }, [id, assignment?.status]);
 
-  const handleWorkflowAction = async (action: string) => {
-    setActionLoading(action);
-    try {
-      await api.post(`/assignments/${id}/${action}`);
-      toast.success(`Assessment ${action.replace('_', ' ')}ed successfully`);
-      const updated = await fetchAssignment(id);
-      setAssignment(updated);
-    } catch (err: any) {
-      toast.error(err.message || `Failed to ${action}`);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const showGeneration = Boolean(stage) || ['queued', 'generating'].includes(assignment?.status ?? '');
+  const showGeneration = ['queued', 'generating'].includes(assignment?.status ?? '');
   const genMeta = assignment?.generationMeta;
   const canonical = assignment?.generationState?.canonicalMetadata ?? paper?.canonicalMetadata;
   const requestedQuestionCount = canonical?.requestedQuestionCount ?? assignment?.questionConfig?.count ?? 0;
@@ -235,13 +220,12 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   const isPartial = assignment?.status === 'partially_generated';
   const failureReason = genMeta?.failureReason || error || null;
 
-  const isGenActive = showGeneration || showGenScreen ||
-    (stage !== null && status !== 'completed' && status !== 'partial_success' && status !== 'failed');
+  const isGenActive = showGenScreen && (stage !== null && ['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'].includes(stage as string));
   const phase = useAssignmentPhase({
     isLoading: loading,
     error: fetchError,
-    isProcessing: isGenActive,
-    isComplete: !isGenActive && (assignment?.status === 'completed' || assignment?.status === 'partially_generated'),
+    isProcessing: isGenActive || showGeneration,
+    isComplete: !isGenActive && !showGeneration && (assignment?.status === 'completed' || assignment?.status === 'partially_generated'),
   });
 
   if (loading) {
@@ -271,11 +255,6 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   }
 
   const currentStep = getWorkflowStep(assignment.status);
-  const assignStatus = assignment.status as string;
-  const qualityStatus = assignment.status === 'failed' ? 'Generation Failed'
-    : status === 'partial_success' || assignment.status === 'partially_generated' ? 'Partially Generated'
-    : assignment.status === 'completed' ? 'Complete'
-    : 'In Progress';
 
   return (
     <>
@@ -359,7 +338,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
               </div>
             </motion.div>
 
-            {(isFaculty || isAdmin) && (
+            {(assignment.status === 'draft' || assignment.status === 'completed' || assignment.status === 'partially_generated') && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }} className="card" style={{ marginBottom: 16 }}>
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>Actions</h3>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -368,65 +347,10 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                       <Edit3 size={14} /> Edit
                     </button>
                   )}
-                  {isFaculty && (assignment.status === 'completed' || assignment.status === 'partially_generated') && (
-                    <button
-                      className="btn btn-dark btn-sm"
-                      style={{ gap: 4 }}
-                      onClick={() => handleWorkflowAction('submit-for-approval')}
-                      disabled={actionLoading === 'submit-for-approval'}
-                    >
-                      {actionLoading === 'submit-for-approval' ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                      Submit for Approval
-                    </button>
-                  )}
-                  {isAdmin && assignStatus === 'pending_approval' && (
-                    <>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        style={{ gap: 4 }}
-                        onClick={() => handleWorkflowAction('approve')}
-                        disabled={actionLoading === 'approve'}
-                      >
-                        {actionLoading === 'approve' ? <Loader2 size={14} className="animate-spin" /> : <ThumbsUp size={14} />}
-                        Approve
-                      </button>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        style={{ gap: 4, color: '#EF4444' }}
-                        onClick={() => handleWorkflowAction('reject')}
-                        disabled={actionLoading === 'reject'}
-                      >
-                        {actionLoading === 'reject' ? <Loader2 size={14} className="animate-spin" /> : <ThumbsDown size={14} />}
-                        Reject
-                      </button>
-                    </>
-                  )}
-                  {isAdmin && assignStatus === 'approved' && (
-                    <button
-                      className="btn btn-dark btn-sm"
-                      style={{ gap: 4 }}
-                      onClick={() => handleWorkflowAction('publish')}
-                      disabled={actionLoading === 'publish'}
-                    >
-                      {actionLoading === 'publish' ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                      Publish
-                    </button>
-                  )}
-                  {(assignStatus === 'published' || assignStatus === 'completed') && (
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      style={{ gap: 4, color: '#D97706' }}
-                      onClick={() => handleWorkflowAction('archive')}
-                      disabled={actionLoading === 'archive'}
-                    >
-                      {actionLoading === 'archive' ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />}
-                      Archive
-                    </button>
-                  )}
                   {(assignment.status === 'completed' || assignment.status === 'partially_generated') && (
-                    <Link href={`/assignments/${id}/paper`} className="btn btn-secondary btn-sm" style={{ gap: 4 }}>
+                    <button onClick={handleViewPaper} className="btn btn-primary btn-sm" style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
                       <Eye size={14} /> Preview Paper
-                    </Link>
+                    </button>
                   )}
                 </div>
               </motion.div>
@@ -495,10 +419,10 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                 <p style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)', marginBottom: 16 }}>
                   {isPartial ? `Generated ${generatedQuestionCount}/${requestedQuestionCount} questions.` : 'Your assessment has been generated and validated successfully.'}
                 </p>
-                <Link href={`/assignments/${id}/paper`} className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <button onClick={handleViewPaper} className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   <Zap size={16} />
                   {isPartial ? 'View Partial Results' : 'View Generated Paper'}
-                </Link>
+                </button>
               </motion.div>
             )}
           </motion.div>
