@@ -10,13 +10,13 @@ const router = Router();
 router.use(authenticate);
 router.use(requirePermission('MANAGE_USERS'));
 
-// ── 1. Institution Management ──
-router.get('/institutions', asyncHandler(AdminController.getInstitutions));
-router.post('/institutions', asyncHandler(AdminController.createInstitution));
-router.put('/institutions/:id', asyncHandler(AdminController.updateInstitution));
-router.delete('/institutions/:id', asyncHandler(AdminController.deleteInstitution));
-router.put('/institutions/:id/suspend', asyncHandler(AdminController.suspendInstitution));
-router.get('/institutions/:id/analytics', asyncHandler(AdminController.getInstitutionAnalytics));
+// ── 1. Organization Management ──
+router.get('/organizations', asyncHandler(AdminController.getOrganizations));
+router.post('/organizations', asyncHandler(AdminController.createOrganization));
+router.put('/organizations/:id', asyncHandler(AdminController.updateOrganization));
+router.delete('/organizations/:id', asyncHandler(AdminController.deleteOrganization));
+router.put('/organizations/:id/suspend', asyncHandler(AdminController.suspendOrganization));
+router.get('/organizations/:id/analytics', asyncHandler(AdminController.getOrganizationAnalytics));
 
 // ── 2. Department Management ──
 router.get('/departments', asyncHandler(AdminController.getDepartments));
@@ -93,11 +93,11 @@ router.get('/audit', asyncHandler(AdminController.getAuditLogs));
 
 // ── 12. Billing & Subscription Management ──
 router.get('/billing/subscriptions', asyncHandler(AdminController.getBillingSubscriptions));
-router.get('/billing/subscriptions/:institutionId', asyncHandler(AdminController.getSubscription));
-router.put('/billing/subscriptions/:institutionId', asyncHandler(AdminController.updateSubscription));
+router.get('/billing/subscriptions/:organizationId', asyncHandler(AdminController.getSubscription));
+router.put('/billing/subscriptions/:organizationId', asyncHandler(AdminController.updateSubscription));
 router.get('/billing/invoices/:subscriptionId', asyncHandler(AdminController.getSubscriptionInvoices));
 router.post('/billing/invoices', asyncHandler(AdminController.createSubscriptionInvoice));
-router.get('/billing/usage/:institutionId', asyncHandler(AdminController.getBillingUsage));
+router.get('/billing/usage/:organizationId', asyncHandler(AdminController.getBillingUsage));
 
 // ── 13. AI Provider Management ──
 router.get('/ai-providers', asyncHandler(AdminController.getAiProviders));
@@ -112,5 +112,35 @@ router.post('/queues/retry', asyncHandler(AdminController.retryQueueJob));
 // ── 15. System Settings ──
 router.get('/settings', asyncHandler(AdminController.getSystemSettings));
 router.put('/settings', asyncHandler(AdminController.updateSystemSettings));
+
+// ── 16. Faculty Management ──
+router.get('/faculty', asyncHandler(AdminController.getFaculty));
+router.post('/faculty', asyncHandler(AdminController.createFaculty));
+router.put('/faculty/:id', asyncHandler(AdminController.updateFaculty));
+router.put('/faculty/:id/status', asyncHandler(AdminController.deactivateFaculty));
+router.post('/faculty/invite', asyncHandler(AdminController.inviteFaculty));
+router.post('/faculty/reset-password/:id', asyncHandler(AdminController.resetFacultyPassword));
+router.post('/faculty/import', asyncHandler(AdminController.importFacultyCsv));
+
+// ── 17. Student Management ──
+router.get('/students', asyncHandler(AdminController.getStudents));
+router.post('/students', asyncHandler(AdminController.createStudent));
+router.put('/students/:id', asyncHandler(AdminController.updateStudent));
+router.put('/students/:id/status', asyncHandler(AdminController.deactivateStudent));
+router.post('/students/import', asyncHandler(AdminController.importStudentsCsv));
+
+// ── 18. Approvals Management ──
+router.get('/approvals', asyncHandler(AdminController.getPendingApprovals));
+router.post('/approvals/:id/approve', asyncHandler(AdminController.approveAssessment));
+router.post('/approvals/:id/reject', asyncHandler(AdminController.rejectAssessment));
+router.post('/approvals/:id/request-changes', asyncHandler(AdminController.requestChanges));
+router.post('/approvals/:id/publish', asyncHandler(AdminController.publishAssessment));
+
+// ── 19. Organization Analytics Dashboard ──
+router.get('/analytics/dashboard', asyncHandler(AdminController.getOrgAnalyticsDashboard));
+
+// ── 20. Organization Settings ──
+router.get('/organization/settings', asyncHandler(AdminController.getOrganizationSettings));
+router.put('/organization/settings', asyncHandler(AdminController.updateOrganizationSettings));
 
 export default router;

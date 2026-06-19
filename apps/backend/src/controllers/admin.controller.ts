@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { logger } from '../utils/logger';
-import { InstitutionService } from '../services/admin/institution.service';
+import { OrganizationService } from '../services/admin/organization.service';
 import { DepartmentService } from '../services/admin/department.service';
 import { UserService } from '../services/admin/user.service';
 import { RoleService } from '../services/admin/role.service';
@@ -57,66 +57,66 @@ let failoverSettings = {
 };
 
 export class AdminController {
-  // ── 1. Institution Management ──
-  static async getInstitutions(_req: Request, res: Response) {
+  // ── 1. Organization Management ──
+  static async getOrganizations(_req: Request, res: Response) {
     try {
-      const list = await InstitutionService.getInstitutions();
+      const list = await OrganizationService.getOrganizations();
       res.json({ success: true, data: list });
     } catch (err: any) {
-      logger.error(`[Admin:getInstitutions] ${err}`);
+      logger.error(`[Admin:getOrganizations] ${err}`);
       res.status(500).json({ success: false, error: err.message });
     }
   }
 
-  static async createInstitution(req: Request, res: Response) {
+  static async createOrganization(req: Request, res: Response) {
     try {
-      const inst = await InstitutionService.createInstitution(req.body);
+      const org = await OrganizationService.createOrganization(req.body);
       // Automatically create a default subscription on creation
-      await BillingService.getSubscriptionByInstitution(inst.id);
-      res.status(201).json({ success: true, data: inst });
+      await BillingService.getSubscriptionByOrganization(org.id);
+      res.status(201).json({ success: true, data: org });
     } catch (err: any) {
-      logger.error(`[Admin:createInstitution] ${err}`);
+      logger.error(`[Admin:createOrganization] ${err}`);
       res.status(500).json({ success: false, error: err.message });
     }
   }
 
-  static async updateInstitution(req: Request, res: Response) {
+  static async updateOrganization(req: Request, res: Response) {
     try {
-      const inst = await InstitutionService.updateInstitution(req.params.id, req.body);
-      res.json({ success: true, data: inst });
+      const org = await OrganizationService.updateOrganization(req.params.id, req.body);
+      res.json({ success: true, data: org });
     } catch (err: any) {
-      logger.error(`[Admin:updateInstitution] ${err}`);
+      logger.error(`[Admin:updateOrganization] ${err}`);
       res.status(500).json({ success: false, error: err.message });
     }
   }
 
-  static async deleteInstitution(req: Request, res: Response) {
+  static async deleteOrganization(req: Request, res: Response) {
     try {
-      await InstitutionService.deleteInstitution(req.params.id);
-      res.json({ success: true, message: 'Institution deleted successfully' });
+      await OrganizationService.deleteOrganization(req.params.id);
+      res.json({ success: true, message: 'Organization deleted successfully' });
     } catch (err: any) {
-      logger.error(`[Admin:deleteInstitution] ${err}`);
+      logger.error(`[Admin:deleteOrganization] ${err}`);
       res.status(500).json({ success: false, error: err.message });
     }
   }
 
-  static async suspendInstitution(req: Request, res: Response) {
+  static async suspendOrganization(req: Request, res: Response) {
     try {
       const { suspend } = req.body;
-      const inst = await InstitutionService.suspendInstitution(req.params.id, suspend);
-      res.json({ success: true, data: inst });
+      const org = await OrganizationService.suspendOrganization(req.params.id, suspend);
+      res.json({ success: true, data: org });
     } catch (err: any) {
-      logger.error(`[Admin:suspendInstitution] ${err}`);
+      logger.error(`[Admin:suspendOrganization] ${err}`);
       res.status(500).json({ success: false, error: err.message });
     }
   }
 
-  static async getInstitutionAnalytics(req: Request, res: Response) {
+  static async getOrganizationAnalytics(req: Request, res: Response) {
     try {
-      const stats = await InstitutionService.getInstitutionAnalytics(req.params.id);
+      const stats = await OrganizationService.getOrganizationAnalytics(req.params.id);
       res.json({ success: true, data: stats });
     } catch (err: any) {
-      logger.error(`[Admin:getInstitutionAnalytics] ${err}`);
+      logger.error(`[Admin:getOrganizationAnalytics] ${err}`);
       res.status(500).json({ success: false, error: err.message });
     }
   }
@@ -124,8 +124,8 @@ export class AdminController {
   // ── 2. Department Management ──
   static async getDepartments(req: Request, res: Response) {
     try {
-      const instId = req.query.institutionId as string;
-      const list = await DepartmentService.getDepartments(instId);
+      const orgId = req.query.organizationId as string;
+      const list = await DepartmentService.getDepartments(orgId);
       res.json({ success: true, data: list });
     } catch (err: any) {
       logger.error(`[Admin:getDepartments] ${err}`);
@@ -188,8 +188,8 @@ export class AdminController {
   // ── 3. User Management ──
   static async getUsers(req: Request, res: Response) {
     try {
-      const instId = req.query.institutionId as string;
-      const list = await UserService.getUsers(instId);
+      const orgId = req.query.organizationId as string;
+      const list = await UserService.getUsers(orgId);
       res.json({ success: true, data: list });
     } catch (err: any) {
       logger.error(`[Admin:getUsers] ${err}`);
@@ -204,13 +204,13 @@ export class AdminController {
         res.status(403).json({ success: false, error: 'Cannot invite a SUPER_ADMIN' });
         return;
       }
-      const institutionId = req.user?.institutionId;
-      if (!institutionId) throw new Error('No institution scope');
+      const organizationId = req.user?.organizationId;
+      if (!organizationId) throw new Error('No organization scope');
 
       const invitation = await createInvitation({
         email,
         role,
-        institutionId,
+        organizationId,
         createdById: req.user!.id
       });
       res.status(201).json({ success: true, data: invitation });
@@ -223,16 +223,16 @@ export class AdminController {
   static async importUsersCsv(req: Request, res: Response) {
     try {
       if (!req.file) throw new Error('No CSV file uploaded');
-      const institutionId = req.user?.institutionId;
-      if (!institutionId) throw new Error('No institution scope');
+      const organizationId = req.user?.organizationId;
+      if (!organizationId) throw new Error('No organization scope');
 
-      const result = await processCsvImport(req.file.path, institutionId, req.user!.id);
+      const result = await processCsvImport(req.file.path, organizationId, req.user!.id);
 
       await prisma.auditLog.create({
         data: {
           action: 'CSV_IMPORTED',
-          entity: 'Institution',
-          entityId: institutionId,
+          entity: 'Organization',
+          entityId: organizationId,
           userId: req.user!.id,
           ipAddress: req.ip || '0.0.0.0',
           userAgent: req.headers['user-agent'] || 'unknown',
@@ -432,8 +432,8 @@ export class AdminController {
   // ── 5.1. Classroom Management ──
   static async getClassrooms(req: Request, res: Response) {
     try {
-      const instId = (req.query.institutionId as string) || req.user?.institutionId || undefined;
-      const list = await ClassroomService.getClassrooms(instId);
+      const orgId = (req.query.organizationId as string) || req.user?.organizationId || undefined;
+      const list = await ClassroomService.getClassrooms(orgId);
       res.json({ success: true, data: list });
     } catch (err: any) {
       logger.error(`[Admin:getClassrooms] ${err}`);
@@ -443,8 +443,8 @@ export class AdminController {
 
   static async createClassroom(req: Request, res: Response) {
     try {
-      const instId = req.body.institutionId || req.user?.institutionId;
-      const classroom = await ClassroomService.createClassroom({ name: req.body.name, institutionId: instId });
+      const orgId = req.body.organizationId || req.user?.organizationId;
+      const classroom = await ClassroomService.createClassroom({ name: req.body.name, organizationId: orgId });
       res.status(201).json({ success: true, data: classroom });
     } catch (err: any) {
       logger.error(`[Admin:createClassroom] ${err}`);
@@ -497,8 +497,8 @@ export class AdminController {
   // ── 6. Group Management ──
   static async getGroups(req: Request, res: Response) {
     try {
-      const instId = req.query.institutionId as string;
-      const list = await GroupService.getGroups(instId);
+      const orgId = req.query.organizationId as string;
+      const list = await GroupService.getGroups(orgId);
       res.json({ success: true, data: list });
     } catch (err: any) {
       logger.error(`[Admin:getGroups] ${err}`);
@@ -850,7 +850,7 @@ export class AdminController {
 
   static async getSubscription(req: Request, res: Response) {
     try {
-      const sub = await BillingService.getSubscriptionByInstitution(req.params.institutionId);
+      const sub = await BillingService.getSubscriptionByOrganization(req.params.organizationId);
       res.json({ success: true, data: sub });
     } catch (err: any) {
       logger.error(`[Admin:getSubscription] ${err}`);
@@ -860,7 +860,7 @@ export class AdminController {
 
   static async updateSubscription(req: Request, res: Response) {
     try {
-      const sub = await BillingService.updateSubscription(req.params.institutionId, req.body);
+      const sub = await BillingService.updateSubscription(req.params.organizationId, req.body);
       res.json({ success: true, data: sub });
     } catch (err: any) {
       logger.error(`[Admin:updateSubscription] ${err}`);
@@ -890,7 +890,7 @@ export class AdminController {
 
   static async getBillingUsage(req: Request, res: Response) {
     try {
-      const usage = await BillingService.getUsageTracking(req.params.institutionId);
+      const usage = await BillingService.getUsageTracking(req.params.organizationId);
       res.json({ success: true, data: usage });
     } catch (err: any) {
       logger.error(`[Admin:getBillingUsage] ${err}`);
@@ -1085,6 +1085,416 @@ export class AdminController {
       res.json({ success: true, message: 'Password reset successfully', data: updated });
     } catch (err: any) {
       logger.error(`[Admin:forceResetOwnPassword] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  // ── 16. Faculty Management ──
+  static async getFaculty(req: Request, res: Response) {
+    try {
+      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
+      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const faculty = await prisma.user.findMany({
+        where: { organizationId: orgId, role: 'TEACHER', status: { not: 'DELETED' } },
+        orderBy: { createdAt: 'desc' },
+        include: { department: { select: { name: true } } },
+      });
+      res.json({ success: true, data: faculty });
+    } catch (err: any) {
+      logger.error(`[Admin:getFaculty] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async createFaculty(req: Request, res: Response) {
+    try {
+      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
+      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const { firstName, lastName, email, password, departmentId } = req.body;
+      if (!firstName || !lastName || !email) {
+        res.status(400).json({ success: false, error: 'firstName, lastName, and email are required' }); return;
+      }
+      const pwd = password || 'TempPass@123';
+      const pwdHash = await argon2.hash(pwd);
+      const user = await prisma.user.create({
+        data: {
+          firstName, lastName, email,
+          passwordHash: pwdHash,
+          role: 'TEACHER',
+          organizationId: orgId,
+          departmentId: departmentId || null,
+          forcePasswordReset: true,
+        },
+      });
+      await prisma.auditLog.create({
+        data: {
+          action: 'FACULTY_CREATED',
+          entity: 'User',
+          entityId: user.id,
+          userId: req.user?.id,
+          ipAddress: req.ip || '0.0.0.0',
+          userAgent: req.headers['user-agent'] || 'system',
+          metadata: { email: user.email },
+        },
+      });
+      res.status(201).json({ success: true, data: user });
+    } catch (err: any) {
+      logger.error(`[Admin:createFaculty] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async updateFaculty(req: Request, res: Response) {
+    try {
+      if (req.user) await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+      const { firstName, lastName, email, departmentId } = req.body;
+      const data: any = {};
+      if (firstName) data.firstName = firstName;
+      if (lastName) data.lastName = lastName;
+      if (email) data.email = email;
+      if (departmentId) data.departmentId = departmentId;
+      const user = await prisma.user.update({ where: { id: req.params.id }, data });
+      res.json({ success: true, data: user });
+    } catch (err: any) {
+      logger.error(`[Admin:updateFaculty] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async deactivateFaculty(req: Request, res: Response) {
+    try {
+      if (req.user) await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+      const { status } = req.body;
+      if (!['ACTIVE', 'SUSPENDED'].includes(status)) {
+        res.status(400).json({ success: false, error: 'Status must be ACTIVE or SUSPENDED' }); return;
+      }
+      const user = await prisma.user.update({ where: { id: req.params.id }, data: { status } });
+      res.json({ success: true, data: user });
+    } catch (err: any) {
+      logger.error(`[Admin:deactivateFaculty] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async inviteFaculty(req: Request, res: Response) {
+    try {
+      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
+      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const { email } = req.body;
+      if (!email) { res.status(400).json({ success: false, error: 'Email is required' }); return; }
+      const invitation = await createInvitation({
+        email,
+        role: 'TEACHER',
+        organizationId: orgId,
+        createdById: req.user!.id,
+      });
+      res.status(201).json({ success: true, data: invitation });
+    } catch (err: any) {
+      logger.error(`[Admin:inviteFaculty] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async resetFacultyPassword(req: Request, res: Response) {
+    try {
+      if (req.user) await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+      const { newPassword } = req.body;
+      const user = await UserService.resetPassword(req.params.id, newPassword);
+      res.json({ success: true, data: user });
+    } catch (err: any) {
+      logger.error(`[Admin:resetFacultyPassword] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async importFacultyCsv(req: Request, res: Response) {
+    try {
+      if (!req.file) { res.status(400).json({ success: false, error: 'No CSV file uploaded' }); return; }
+      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
+      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const fs = require('fs');
+      const content = fs.readFileSync(req.file.path, 'utf-8');
+      const lines = content.split('\n').filter((l: string) => l.trim());
+      if (lines.length < 2) { res.status(400).json({ success: false, error: 'CSV has no data rows' }); return; }
+      const headers = lines[0].toLowerCase().split(',').map((h: string) => h.trim());
+      const firstNameIdx = headers.indexOf('firstname');
+      const lastNameIdx = headers.indexOf('lastname');
+      const emailIdx = headers.indexOf('email');
+      if (firstNameIdx === -1 || lastNameIdx === -1 || emailIdx === -1) {
+        res.status(400).json({ success: false, error: 'CSV must include firstName, lastName, email columns' }); return;
+      }
+      const created: any[] = [];
+      const errors: any[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map((c: string) => c.trim());
+        const firstName = cols[firstNameIdx];
+        const lastName = cols[lastNameIdx];
+        const email = cols[emailIdx];
+        if (!firstName || !lastName || !email) { errors.push({ row: i, error: 'Missing required fields' }); continue; }
+        try {
+          const pwdHash = await argon2.hash('TempPass@123');
+          const user = await prisma.user.create({
+            data: { firstName, lastName, email, passwordHash: pwdHash, role: 'TEACHER', organizationId: orgId, forcePasswordReset: true },
+          });
+          created.push(user);
+        } catch (e: any) {
+          errors.push({ row: i, email, error: e.message });
+        }
+      }
+      res.status(201).json({ success: true, data: { created: created.length, errors } });
+    } catch (err: any) {
+      logger.error(`[Admin:importFacultyCsv] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  // ── 17. Student Management ──
+  static async getStudents(req: Request, res: Response) {
+    try {
+      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
+      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const students = await prisma.user.findMany({
+        where: { organizationId: orgId, role: 'STUDENT', status: { not: 'DELETED' } },
+        orderBy: { createdAt: 'desc' },
+      });
+      res.json({ success: true, data: students });
+    } catch (err: any) {
+      logger.error(`[Admin:getStudents] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async createStudent(req: Request, res: Response) {
+    try {
+      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
+      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const { firstName, lastName, email } = req.body;
+      if (!firstName || !lastName || !email) {
+        res.status(400).json({ success: false, error: 'firstName, lastName, and email are required' }); return;
+      }
+      const pwdHash = await argon2.hash('Student@123');
+      const user = await prisma.user.create({
+        data: { firstName, lastName, email, passwordHash: pwdHash, role: 'STUDENT', organizationId: orgId, forcePasswordReset: true },
+      });
+      res.status(201).json({ success: true, data: user });
+    } catch (err: any) {
+      logger.error(`[Admin:createStudent] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async updateStudent(req: Request, res: Response) {
+    try {
+      const { firstName, lastName, email } = req.body;
+      const data: any = {};
+      if (firstName) data.firstName = firstName;
+      if (lastName) data.lastName = lastName;
+      if (email) data.email = email;
+      const user = await prisma.user.update({ where: { id: req.params.id }, data });
+      res.json({ success: true, data: user });
+    } catch (err: any) {
+      logger.error(`[Admin:updateStudent] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async deactivateStudent(req: Request, res: Response) {
+    try {
+      const { status } = req.body;
+      if (!['ACTIVE', 'SUSPENDED'].includes(status)) {
+        res.status(400).json({ success: false, error: 'Status must be ACTIVE or SUSPENDED' }); return;
+      }
+      const user = await prisma.user.update({ where: { id: req.params.id }, data: { status } });
+      res.json({ success: true, data: user });
+    } catch (err: any) {
+      logger.error(`[Admin:deactivateStudent] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async importStudentsCsv(req: Request, res: Response) {
+    try {
+      if (!req.file) { res.status(400).json({ success: false, error: 'No CSV file uploaded' }); return; }
+      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
+      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const fs = require('fs');
+      const content = fs.readFileSync(req.file.path, 'utf-8');
+      const lines = content.split('\n').filter((l: string) => l.trim());
+      if (lines.length < 2) { res.status(400).json({ success: false, error: 'CSV has no data rows' }); return; }
+      const headers = lines[0].toLowerCase().split(',').map((h: string) => h.trim());
+      const firstNameIdx = headers.indexOf('firstname');
+      const lastNameIdx = headers.indexOf('lastname');
+      const emailIdx = headers.indexOf('email');
+      if (firstNameIdx === -1 || lastNameIdx === -1 || emailIdx === -1) {
+        res.status(400).json({ success: false, error: 'CSV must include firstName, lastName, email columns' }); return;
+      }
+      const created: any[] = [];
+      const errors: any[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map((c: string) => c.trim());
+        const firstName = cols[firstNameIdx];
+        const lastName = cols[lastNameIdx];
+        const email = cols[emailIdx];
+        if (!firstName || !lastName || !email) { errors.push({ row: i, error: 'Missing required fields' }); continue; }
+        try {
+          const pwdHash = await argon2.hash('Student@123');
+          const user = await prisma.user.create({
+            data: { firstName, lastName, email, passwordHash: pwdHash, role: 'STUDENT', organizationId: orgId, forcePasswordReset: true },
+          });
+          created.push(user);
+        } catch (e: any) {
+          errors.push({ row: i, email, error: e.message });
+        }
+      }
+      res.status(201).json({ success: true, data: { created: created.length, errors } });
+    } catch (err: any) {
+      logger.error(`[Admin:importStudentsCsv] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  // ── 18. Approvals Management ──
+  static async getPendingApprovals(req: Request, res: Response) {
+    try {
+      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
+      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const pending = await prisma.assignment.findMany({
+        where: { organizationId: orgId, status: 'PENDING_APPROVAL' },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          _count: { select: { generatedPapers: true } },
+        },
+      });
+      res.json({ success: true, data: pending });
+    } catch (err: any) {
+      logger.error(`[Admin:getPendingApprovals] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async approveAssessment(req: Request, res: Response) {
+    try {
+      const updated = await prisma.assignment.update({
+        where: { id: req.params.id },
+        data: { status: 'APPROVED', approvedBy: req.user?.id, approvedAt: new Date() },
+      });
+      res.json({ success: true, data: updated });
+    } catch (err: any) {
+      logger.error(`[Admin:approveAssessment] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async rejectAssessment(req: Request, res: Response) {
+    try {
+      const { reviewComments } = req.body;
+      const updated = await prisma.assignment.update({
+        where: { id: req.params.id },
+        data: { status: 'REJECTED', rejectedBy: req.user?.id, rejectedAt: new Date(), reviewComments: reviewComments || null },
+      });
+      res.json({ success: true, data: updated });
+    } catch (err: any) {
+      logger.error(`[Admin:rejectAssessment] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async requestChanges(req: Request, res: Response) {
+    try {
+      const { reviewComments } = req.body;
+      const updated = await prisma.assignment.update({
+        where: { id: req.params.id },
+        data: { status: 'DRAFT', reviewComments: reviewComments || null },
+      });
+      res.json({ success: true, data: updated });
+    } catch (err: any) {
+      logger.error(`[Admin:requestChanges] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async publishAssessment(req: Request, res: Response) {
+    try {
+      const updated = await prisma.assignment.update({
+        where: { id: req.params.id },
+        data: { status: 'PUBLISHED', publishedAt: new Date() },
+      });
+      res.json({ success: true, data: updated });
+    } catch (err: any) {
+      logger.error(`[Admin:publishAssessment] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  // ── 19. Organization Analytics Dashboard ──
+  static async getOrgAnalyticsDashboard(req: Request, res: Response) {
+    try {
+      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
+      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+
+      const [totalFaculty, totalStudents, totalClasses, assignments, totalLessons, totalSubmissions, recentActivity] = await Promise.all([
+        prisma.user.count({ where: { organizationId: orgId, role: 'TEACHER', status: { not: 'DELETED' } } }),
+        prisma.user.count({ where: { organizationId: orgId, role: 'STUDENT', status: { not: 'DELETED' } } }),
+        prisma.class.count({ where: { organizationId: orgId } }),
+        prisma.assignment.findMany({ where: { organizationId: orgId }, select: { status: true } }),
+        prisma.lessonPlan.count({ where: { organizationId: orgId } }),
+        prisma.studentSubmission.count({ where: { organizationId: orgId } }),
+        prisma.auditLog.findMany({ where: { organizationId: orgId }, orderBy: { createdAt: 'desc' }, take: 10 }),
+      ]);
+
+      const assessmentsByStatus = assignments.reduce((acc: Record<string, number>, a) => {
+        acc[a.status] = (acc[a.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      res.json({
+        success: true,
+        data: {
+          totalFaculty,
+          totalStudents,
+          totalClasses,
+          totalAssessments: assignments.length,
+          assessmentsByStatus,
+          totalLessons,
+          totalSubmissions,
+          recentActivity,
+        },
+      });
+    } catch (err: any) {
+      logger.error(`[Admin:getOrgAnalyticsDashboard] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  // ── 20. Organization Settings ──
+  static async getOrganizationSettings(req: Request, res: Response) {
+    try {
+      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
+      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const org = await prisma.organization.findUnique({ where: { id: orgId } });
+      if (!org) { res.status(404).json({ success: false, error: 'Organization not found' }); return; }
+      res.json({ success: true, data: org });
+    } catch (err: any) {
+      logger.error(`[Admin:getOrganizationSettings] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async updateOrganizationSettings(req: Request, res: Response) {
+    try {
+      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
+      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const { name, email, phone, address, logo } = req.body;
+      const data: any = {};
+      if (name) data.name = name;
+      if (email) data.email = email;
+      if (phone) data.phone = phone;
+      if (address) data.address = address;
+      if (logo) data.logo = logo;
+      const org = await prisma.organization.update({ where: { id: orgId }, data });
+      res.json({ success: true, data: org });
+    } catch (err: any) {
+      logger.error(`[Admin:updateOrganizationSettings] ${err}`);
       res.status(500).json({ success: false, error: err.message });
     }
   }

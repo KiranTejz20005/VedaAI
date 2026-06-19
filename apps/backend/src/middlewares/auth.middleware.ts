@@ -9,7 +9,8 @@ declare global {
         id: string;
         email: string;
         role: string;
-        institutionId?: string | null;
+        organizationId?: string | null;
+        activeOrganizationId?: string | null;
         departmentId?: string | null;
       };
     }
@@ -40,7 +41,8 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
         id: decodedPayload.userId,
         email: decodedPayload.email,
         role: decodedPayload.role,
-        institutionId: decodedPayload.institutionId,
+        organizationId: decodedPayload.organizationId,
+        activeOrganizationId: decodedPayload.activeOrganizationId,
         departmentId: decodedPayload.departmentId,
       };
       return next();
@@ -55,7 +57,7 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
         id: mockUserId,
         email: 'demo@bloomverify.com',
         role: mockRole,
-        institutionId: 'demo-inst-id',
+        organizationId: 'demo-org-id',
         departmentId: 'dept-demo',
       };
       return next();
@@ -70,7 +72,7 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
         id: 'demo-faculty-id',
         email: 'demo@bloomverify.com',
         role: 'TEACHER',
-        institutionId: 'demo-inst-id',
+        organizationId: 'demo-org-id',
         departmentId: 'dept-demo',
       };
       return next();
@@ -99,9 +101,9 @@ export const requireOwnership = (_resourceType: string) => {
 };
 
 /**
- * Middleware to enforce institution-level data isolation
+ * Middleware to enforce organization-level data isolation
  */
-export const requireInstitutionScope = () => {
+export const requireOrganizationScope = () => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'Unauthorized' });
@@ -111,12 +113,13 @@ export const requireInstitutionScope = () => {
       return next();
     }
     
-    if (!req.user.institutionId) {
-      return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'User does not belong to an institution' });
+    const orgId = req.user.activeOrganizationId || req.user.organizationId;
+    if (!orgId) {
+      return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'User does not belong to an organization' });
     }
 
-    // Attach flag for controllers to filter by institution
-    req.body._requireInstitutionScope = req.user.institutionId;
+    // Attach flag for controllers to filter by organization
+    req.body._requireOrganizationScope = orgId;
     return next();
   }
 };

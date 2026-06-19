@@ -56,7 +56,7 @@ export const submitStudentAssignment = async (req: Request, res: Response): Prom
       data: {
         assignmentId,
         studentId,
-        institutionId: req.user?.institutionId || req.body._requireInstitutionScope || 'no-institution',
+        organizationId: req.user?.organizationId || req.body._requireOrganizationScope || 'no-organization',
         fileUrl: file.path,
         fileType: file.mimetype === 'application/pdf' ? 'PDF' : 'TXT',
         status: 'SUBMITTED',

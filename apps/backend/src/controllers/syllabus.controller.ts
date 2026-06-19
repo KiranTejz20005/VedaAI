@@ -13,7 +13,7 @@ async function ensureDemoUser(userId: string): Promise<void> {
   try {
     const exists = await prisma.user.findUnique({ where: { id: userId } });
     if (!exists) {
-      const inst = await prisma.institution.upsert({
+      const inst = await prisma.organization.upsert({
         where: { id: DEFAULT_INST_ID },
         create: { id: DEFAULT_INST_ID, name: 'VedaAI Demo School', code: 'VEDA_DEMO' },
         update: {},
@@ -26,7 +26,7 @@ async function ensureDemoUser(userId: string): Promise<void> {
           firstName: 'Demo',
           lastName: 'Faculty',
           role: 'TEACHER',
-          institutionId: inst.id,
+          organizationId: inst.id,
         },
       });
     }

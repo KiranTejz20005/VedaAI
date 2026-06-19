@@ -16,7 +16,7 @@ export async function savePaper(
 
   const existingAssignment = await prisma.assignment.findUnique({
     where: { id: assignmentId },
-    select: { institutionId: true },
+    select: { organizationId: true },
   });
   if (!existingAssignment) throw new Error(`Assignment ${assignmentId} not found`);
 
@@ -36,7 +36,7 @@ export async function savePaper(
   const saved = await prisma.generatedPaper.create({
     data: {
       assignmentId,
-      institutionId: existingAssignment.institutionId,
+          organizationId: existingAssignment.organizationId,
       title: validatedPaper.title,
       totalMarks: validatedPaper.totalMarks,
       duration: duration ?? 45,
@@ -64,7 +64,7 @@ export async function savePaper(
           hint: (q as any).hint || undefined,
           subject,
           topic,
-          institutionId: existingAssignment.institutionId,
+      organizationId: existingAssignment.organizationId,
           difficulty: diffMap[q.difficulty] || 'MEDIUM',
           bloomLevel: 'APPLY', // Default bloom level for generated output
           tags: [subject, q.type],

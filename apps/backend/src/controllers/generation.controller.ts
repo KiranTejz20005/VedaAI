@@ -190,7 +190,7 @@ export const saveQuizSession = async (req: Request, res: Response): Promise<void
     logger.info({
       action: 'Quiz Created',
       userId,
-      institutionId: (req as any).user?.institutionId || 'no-institution',
+      organizationId: (req as any).user?.organizationId || 'no-organization',
       requestId: req.headers['x-request-id'] || uuidv4(),
       quizId: session.id,
       timestamp: new Date().toISOString()

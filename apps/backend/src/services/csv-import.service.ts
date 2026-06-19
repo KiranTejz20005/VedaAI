@@ -11,7 +11,7 @@ export interface CsvImportReport {
   errors: Array<{ row: number; email: string; error: string }>;
 }
 
-export const processCsvImport = async (csvData: string, institutionId: string, createdById: string): Promise<CsvImportReport> => {
+export const processCsvImport = async (csvData: string, organizationId: string, createdById: string): Promise<CsvImportReport> => {
   const lines = csvData.split('\n').filter(line => line.trim() !== '');
   const report: CsvImportReport = {
     created: 0,
@@ -68,7 +68,7 @@ export const processCsvImport = async (csvData: string, institutionId: string, c
       await createInvitation({
         email,
         role: roleStr as SystemRole,
-        institutionId,
+        organizationId,
         createdById
       });
       report.created++;

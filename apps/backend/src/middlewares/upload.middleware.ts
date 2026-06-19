@@ -37,13 +37,13 @@ function fileFilter(
     cb(null, true);
   } else {
     const userId = req.user?.id || 'anonymous';
-    const institutionId = req.user?.institutionId || 'no-institution';
+    const organizationId = req.user?.organizationId || 'no-organization';
     const requestId = (req.headers['x-request-id'] as string) || uuidv4();
     
     logger.warn({
       action: 'Upload Rejected',
       userId,
-      institutionId,
+      organizationId,
       requestId,
       fileName: file.originalname,
       reason: `File type ${file.mimetype} with extension ${fileExt || '(none)'} is not allowed.`,

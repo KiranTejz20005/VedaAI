@@ -9,7 +9,7 @@ export interface SendNotificationPayload {
   message: string;
   type: string;
   metadata?: Record<string, any>;
-  institutionId?: string;
+  organizationId?: string;
 }
 
 export async function sendNotification(payload: SendNotificationPayload) {
@@ -20,7 +20,7 @@ export async function sendNotification(payload: SendNotificationPayload) {
         title: payload.title,
         message: payload.message,
         type: payload.type,
-        institutionId: payload.institutionId || 'no-institution'
+        organizationId: payload.organizationId || 'no-organization'
       }
     });
 

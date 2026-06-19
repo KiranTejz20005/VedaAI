@@ -44,7 +44,7 @@ export const paperGenerationRateLimiter = async (
   next: NextFunction
 ): Promise<void> => {
   const userId = req.user?.id || 'anonymous';
-  const institutionId = req.user?.institutionId || 'no-institution';
+  const organizationId = req.user?.organizationId || 'no-organization';
   const requestId = (req.headers['x-request-id'] as string) || uuidv4();
   const ip = req.ip;
 
@@ -58,7 +58,7 @@ export const paperGenerationRateLimiter = async (
     logger.warn({
       action: 'Rate Limit Triggered',
       userId,
-      institutionId,
+      organizationId,
       requestId,
       ip,
       limitType: 'IP_BURST_PAPER',
@@ -75,7 +75,7 @@ export const paperGenerationRateLimiter = async (
     logger.warn({
       action: 'Rate Limit Triggered',
       userId,
-      institutionId,
+      organizationId,
       requestId,
       ip,
       limitType: 'COOLDOWN_USER_PAPER',
@@ -95,7 +95,7 @@ export const paperGenerationRateLimiter = async (
     logger.warn({
       action: 'Rate Limit Triggered',
       userId,
-      institutionId,
+      organizationId,
       requestId,
       ip,
       limitType: 'USER_HOURLY_PAPER',
@@ -112,7 +112,7 @@ export const paperGenerationRateLimiter = async (
     logger.warn({
       action: 'Rate Limit Triggered',
       userId,
-      institutionId,
+      organizationId,
       requestId,
       ip,
       limitType: 'USER_DAILY_PAPER',
@@ -129,7 +129,7 @@ export const paperGenerationRateLimiter = async (
     logger.warn({
       action: 'Rate Limit Triggered',
       userId,
-      institutionId,
+      organizationId,
       requestId,
       ip,
       limitType: 'USER_MONTHLY_PAPER',
@@ -139,38 +139,38 @@ export const paperGenerationRateLimiter = async (
     return;
   }
 
-  // 6. Institution Daily Limit (100/day)
-  if (institutionId && institutionId !== 'no-institution') {
-    const instDayKey = `limit:paper:inst:${institutionId}:day`;
-    const instDayCheck = await checkLimit(instDayKey, 100, 86400);
-    if (!instDayCheck.allowed) {
+  // 6. Organization Daily Limit (100/day)
+  if (organizationId && organizationId !== 'no-organization') {
+    const orgDayKey = `limit:paper:org:${organizationId}:day`;
+    const orgDayCheck = await checkLimit(orgDayKey, 100, 86400);
+    if (!orgDayCheck.allowed) {
       logger.warn({
         action: 'Rate Limit Triggered',
         userId,
-        institutionId,
+        organizationId,
         requestId,
         ip,
-        limitType: 'INSTITUTION_DAILY_PAPER',
+        limitType: 'ORGANIZATION_DAILY_PAPER',
         timestamp,
       });
-      res.status(429).json({ success: false, error: 'Institution rate limit exceeded: 100 papers per day.' });
+      res.status(429).json({ success: false, error: 'Organization rate limit exceeded: 100 papers per day.' });
       return;
     }
 
-    // 7. Institution Monthly Limit (1000/month)
-    const instMonthKey = `limit:paper:inst:${institutionId}:month`;
-    const instMonthCheck = await checkLimit(instMonthKey, 1000, 2592000);
-    if (!instMonthCheck.allowed) {
+    // 7. Organization Monthly Limit (1000/month)
+    const orgMonthKey = `limit:paper:org:${organizationId}:month`;
+    const orgMonthCheck = await checkLimit(orgMonthKey, 1000, 2592000);
+    if (!orgMonthCheck.allowed) {
       logger.warn({
         action: 'Rate Limit Triggered',
         userId,
-        institutionId,
+        organizationId,
         requestId,
         ip,
-        limitType: 'INSTITUTION_MONTHLY_PAPER',
+        limitType: 'ORGANIZATION_MONTHLY_PAPER',
         timestamp,
       });
-      res.status(429).json({ success: false, error: 'Institution rate limit exceeded: 1000 papers per month.' });
+      res.status(429).json({ success: false, error: 'Organization rate limit exceeded: 1000 papers per month.' });
       return;
     }
   }
@@ -184,7 +184,7 @@ export const quizGenerationRateLimiter = async (
   next: NextFunction
 ): Promise<void> => {
   const userId = req.user?.id || 'anonymous';
-  const institutionId = req.user?.institutionId || 'no-institution';
+  const organizationId = req.user?.organizationId || 'no-organization';
   const requestId = (req.headers['x-request-id'] as string) || uuidv4();
   const ip = req.ip;
 
@@ -198,7 +198,7 @@ export const quizGenerationRateLimiter = async (
     logger.warn({
       action: 'Rate Limit Triggered',
       userId,
-      institutionId,
+      organizationId,
       requestId,
       ip,
       limitType: 'IP_BURST_QUIZ',
@@ -215,7 +215,7 @@ export const quizGenerationRateLimiter = async (
     logger.warn({
       action: 'Rate Limit Triggered',
       userId,
-      institutionId,
+      organizationId,
       requestId,
       ip,
       limitType: 'USER_HOURLY_QUIZ',
@@ -232,7 +232,7 @@ export const quizGenerationRateLimiter = async (
     logger.warn({
       action: 'Rate Limit Triggered',
       userId,
-      institutionId,
+      organizationId,
       requestId,
       ip,
       limitType: 'USER_DAILY_QUIZ',
@@ -242,21 +242,21 @@ export const quizGenerationRateLimiter = async (
     return;
   }
 
-  // 4. Institution Daily Limit (500/day)
-  if (institutionId && institutionId !== 'no-institution') {
-    const instDayKey = `limit:quiz:inst:${institutionId}:day`;
-    const instDayCheck = await checkLimit(instDayKey, 500, 86400);
-    if (!instDayCheck.allowed) {
+  // 4. Organization Daily Limit (500/day)
+  if (organizationId && organizationId !== 'no-organization') {
+    const orgDayKey = `limit:quiz:org:${organizationId}:day`;
+    const orgDayCheck = await checkLimit(orgDayKey, 500, 86400);
+    if (!orgDayCheck.allowed) {
       logger.warn({
         action: 'Rate Limit Triggered',
         userId,
-        institutionId,
+        organizationId,
         requestId,
         ip,
-        limitType: 'INSTITUTION_DAILY_QUIZ',
+        limitType: 'ORGANIZATION_DAILY_QUIZ',
         timestamp,
       });
-      res.status(429).json({ success: false, error: 'Institution rate limit exceeded: 500 quizzes per day.' });
+      res.status(429).json({ success: false, error: 'Organization rate limit exceeded: 500 quizzes per day.' });
       return;
     }
   }
@@ -270,7 +270,7 @@ export const uploadRateLimiter = async (
   next: NextFunction
 ): Promise<void> => {
   const userId = req.user?.id || 'anonymous';
-  const institutionId = req.user?.institutionId || 'no-institution';
+  const organizationId = req.user?.organizationId || 'no-organization';
   const requestId = (req.headers['x-request-id'] as string) || uuidv4();
   const ip = req.ip;
 
@@ -284,7 +284,7 @@ export const uploadRateLimiter = async (
     logger.warn({
       action: 'Rate Limit Triggered',
       userId,
-      institutionId,
+      organizationId,
       requestId,
       ip,
       limitType: 'USER_DAILY_UPLOAD',

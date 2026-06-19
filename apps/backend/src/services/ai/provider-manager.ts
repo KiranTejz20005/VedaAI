@@ -250,13 +250,13 @@ export class AIProviderManager {
     options: {
       temperature?: number;
       userId?: string;
-      institutionId?: string;
+      organizationId?: string;
       promptVersionId?: string;
     } = {}
   ): Promise<AIResponse> {
     const temp = options.temperature ?? 0.3;
     const userId = options.userId || 'demo-faculty-id';
-    const institutionId = options.institutionId || 'demo-inst-id';
+    const organizationId = options.organizationId || 'demo-org-id';
 
     const candidates = this.providers.filter((p) => this.health.canAttempt(p.providerName as any));
     if (candidates.length === 0) {
@@ -286,7 +286,7 @@ export class AIProviderManager {
               durationMs: duration,
               status: 'SUCCESS',
               userId,
-              institutionId,
+              organizationId,
             },
           }).catch((err) => logger.warn(`[AI_TELEMETRY] Failed to write prompt logs: ${err}`));
         }
@@ -317,7 +317,7 @@ export class AIProviderManager {
               status: 'FAILED',
               errorMessage: err.message,
               userId,
-              institutionId,
+              organizationId,
             },
           }).catch((dbErr) => logger.warn(`[AI_TELEMETRY] Failed to write failure logs: ${dbErr}`));
         }

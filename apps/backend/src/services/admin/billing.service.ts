@@ -1,4 +1,5 @@
 import prisma from '../../config/prisma';
+import { SubscriptionTier } from '@prisma/client';
 
 export interface PlanConfig {
   name: string;
@@ -19,7 +20,7 @@ export class BillingService {
   static async getSubscriptions() {
     return prisma.subscription.findMany({
       include: {
-        institution: {
+        organization: {
           select: {
             id: true,
             name: true,
@@ -31,9 +32,9 @@ export class BillingService {
     });
   }
 
-  static async getSubscriptionByInstitution(institutionId: string) {
+  static async getSubscriptionByOrganization(organizationId: string) {
     let sub = await prisma.subscription.findUnique({
-      where: { institutionId },
+      where: { organizationId },
       include: { invoices: true },
     });
 
@@ -41,8 +42,8 @@ export class BillingService {
       // Default to FREE plan if no subscription exists
       sub = await prisma.subscription.create({
         data: {
-          institutionId,
-          plan: 'FREE',
+          organizationId,
+          plan: 'FREE' as SubscriptionTier,
           status: 'ACTIVE',
           expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
         },
@@ -54,9 +55,9 @@ export class BillingService {
   }
 
   static async updateSubscription(
-    institutionId: string,
+    organizationId: string,
     data: {
-      plan?: string;
+      plan?: SubscriptionTier;
       status?: string;
       expiresAt?: Date;
       stripeCustomerId?: string;
@@ -64,11 +65,11 @@ export class BillingService {
     }
   ) {
     return prisma.subscription.upsert({
-      where: { institutionId },
+      where: { organizationId },
       update: data,
       create: {
-        institutionId,
-        plan: data.plan || 'FREE',
+        organizationId,
+        plan: (data.plan || 'FREE') as SubscriptionTier,
         status: data.status || 'ACTIVE',
         expiresAt: data.expiresAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         stripeCustomerId: data.stripeCustomerId,
@@ -104,13 +105,13 @@ export class BillingService {
     });
   }
 
-  static async getUsageTracking(institutionId: string) {
-    // 1. Generations: count GeneratedPaper in the database (Assignment has no direct authorId/institutionId relation)
+  static async getUsageTracking(organizationId: string) {
+    // 1. Generations: count GeneratedPaper in the database (Assignment has no direct authorId/organizationId relation)
     const paperCount = await prisma.generatedPaper.count({});
 
     // 2. AI Usage (Tokens)
     const promptExecs = await prisma.promptExecution.findMany({
-      where: { institutionId },
+      where: { organizationId },
       select: {
         tokensPrompt: true,
         tokensCompletion: true,
@@ -123,11 +124,11 @@ export class BillingService {
     const storageUsedMb = Math.floor(Math.random() * 25) + 5; // Mock 5-30 MB
 
     // 4. Plan Limits
-    const sub = await this.getSubscriptionByInstitution(institutionId);
+    const sub = await this.getSubscriptionByOrganization(organizationId);
     const planConfig = BILLING_PLANS[sub.plan] || BILLING_PLANS.FREE;
 
     return {
-      institutionId,
+      organizationId,
       plan: sub.plan,
       status: sub.status,
       usage: {

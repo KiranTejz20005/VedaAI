@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { asyncHandler } from '../utils/async-handler';
 import { uploadMiddleware } from '../middlewares/upload.middleware';
 import { paperGenerationRateLimiter, uploadRateLimiter } from '../middlewares/rate-limit.middleware';
-import { authenticate, requireOwnership, requireInstitutionScope } from '../middlewares/auth.middleware';
+import { authenticate, requireOwnership, requireOrganizationScope } from '../middlewares/auth.middleware';
 import fs from 'fs';
 import {
   createAssignmentHandler,
@@ -20,7 +20,7 @@ import { requirePermission } from '../security/access-control';
 const router = Router();
 
 router.use(authenticate);
-router.use(requireInstitutionScope());
+router.use(requireOrganizationScope());
 
 // GET /api/assignments
 router.get('/', requirePermission('VIEW_ASSIGNMENT'), asyncHandler(listAssignmentsHandler));

@@ -237,21 +237,21 @@ export class AnalyticsService {
     return rec;
   }
 
-  static async getAdminAnalytics(institutionId?: string) {
+  static async getAdminAnalytics(organizationId?: string) {
     const totalUsers = await prisma.user.count({
-      where: institutionId ? { institutionId } : {},
+      where: organizationId ? { organizationId } : {},
     });
     
     const totalTeachers = await prisma.user.count({
-      where: institutionId ? { institutionId, role: 'TEACHER' } : { role: 'TEACHER' },
+      where: organizationId ? { organizationId, role: 'TEACHER' } : { role: 'TEACHER' },
     });
 
     const totalStudents = await prisma.user.count({
-      where: institutionId ? { institutionId, role: 'STUDENT' } : { role: 'STUDENT' },
+      where: organizationId ? { organizationId, role: 'STUDENT' } : { role: 'STUDENT' },
     });
 
     const pendingInvites = await prisma.invitation.count({
-      where: institutionId ? { institutionId, status: 'PENDING' } : { status: 'PENDING' },
+      where: organizationId ? { organizationId, status: 'PENDING' } : { status: 'PENDING' },
     });
 
     const activeUsers = await prisma.session.count({
@@ -262,16 +262,16 @@ export class AnalyticsService {
     });
 
     const papersGenerated = await prisma.generatedPaper.count({
-      where: institutionId ? { institutionId } : {},
+      where: organizationId ? { organizationId } : {},
     });
 
     const assignmentsCreated = await prisma.assignment.count({
-      where: institutionId ? { institutionId } : {},
+      where: organizationId ? { organizationId } : {},
     });
 
     // Retrieve active tokens/costs dynamically or mock if empty
     const promptExecs = await prisma.promptExecution.findMany({
-      where: institutionId ? { institutionId } : {},
+      where: organizationId ? { organizationId } : {},
       select: {
         tokensPrompt: true,
         tokensCompletion: true,
@@ -316,7 +316,7 @@ export class AnalyticsService {
 
     // Dynamic department performance mocks
     const departments = await prisma.department.findMany({
-      where: institutionId ? { institutionId } : {},
+      where: organizationId ? { organizationId } : {},
       select: { id: true, name: true },
     });
 

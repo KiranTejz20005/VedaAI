@@ -12,7 +12,8 @@ export interface TokenPayload {
   userId: string;
   email: string;
   role: string;
-  institutionId?: string | null;
+  organizationId?: string | null;
+  activeOrganizationId?: string | null;
   departmentId?: string | null;
 }
 
@@ -58,7 +59,8 @@ export function generateAccessToken(payload: TokenPayload): string {
       id: payload.userId,
       email: payload.email,
       role: payload.role,
-      institutionId: payload.institutionId,
+      organizationId: payload.organizationId,
+      activeOrganizationId: payload.activeOrganizationId,
       departmentId: payload.departmentId,
     },
     env.JWT_SECRET,
@@ -76,7 +78,8 @@ export function verifyAccessToken(token: string): TokenPayload {
       userId: decoded.id,
       email: decoded.email,
       role: decoded.role,
-      institutionId: decoded.institutionId,
+      organizationId: decoded.organizationId,
+      activeOrganizationId: decoded.activeOrganizationId,
       departmentId: decoded.departmentId,
     };
   } catch (err) {
@@ -148,8 +151,9 @@ export async function rotateRefreshToken(rawToken: string): Promise<{ accessToke
     userId: record.userId,
     email: record.user.email,
     role: record.user.role,
-    institutionId: record.user.institutionId,
-    departmentId: record.user.departmentId,
+      organizationId: record.user.organizationId,
+      activeOrganizationId: record.user.activeOrganizationId,
+      departmentId: record.user.departmentId,
   });
 
   return { accessToken, newRefreshToken };

@@ -37,12 +37,12 @@ export const validateOwnership = (resourceOwnerId: string | null | undefined, us
 };
 
 /**
- * Validates institution scope.
- * If the user is a SUPER_ADMIN, they can access any institution.
- * Otherwise, the resource's institutionId must match the user's institutionId.
+ * Validates organization scope.
+ * If the user is a SUPER_ADMIN, they can access any organization.
+ * Otherwise, the resource's organizationId must match the user's organizationId.
  */
-export const validateInstitutionScope = (resourceInstitutionId: string | null | undefined, userInstitutionId: string | null | undefined, role: string): boolean => {
+export const validateOrganizationScope = (resourceOrganizationId: string | null | undefined, userOrganizationId: string | null | undefined, role: string): boolean => {
   if (role === 'SUPER_ADMIN') return true;
-  if (!resourceInstitutionId || !userInstitutionId) return false;
-  return resourceInstitutionId === userInstitutionId;
+  if (!resourceOrganizationId || !userOrganizationId) return false;
+  return resourceOrganizationId === userOrganizationId;
 };

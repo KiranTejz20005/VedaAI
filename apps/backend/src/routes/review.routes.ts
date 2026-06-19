@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { submitReview, getReviewsForQuestion, getPendingReviews } from '../controllers/review.controller';
-import { authenticate, requireInstitutionScope } from '../middlewares/auth.middleware';
+import { authenticate, requireOrganizationScope } from '../middlewares/auth.middleware';
 import { requirePermission } from '../security/access-control';
 
 const router = Router();
 
 router.use(authenticate);
-router.use(requireInstitutionScope());
+router.use(requireOrganizationScope());
 
 // Only specific roles can review questions
 router.get('/pending', requirePermission('APPROVE_PAPER'), getPendingReviews);

@@ -14,7 +14,7 @@ export interface AssignmentListResult {
 export async function createAssignment(
   input: CreateAssignmentInput,
   files: FileRef[],
-  institutionId: string,
+  organizationId: string,
 ) {
   const { typeBreakdown, ...rest } = input;
   const assignment = await prisma.assignment.create({
@@ -24,7 +24,7 @@ export async function createAssignment(
       dueDate: new Date(input.dueDate),
       uploadedFiles: files as any,
       status: 'DRAFT',
-      institutionId, // injected via the controller
+      organizationId, // injected via the controller
       questionConfig: rest.questionConfig as any,
     },
   });
@@ -38,7 +38,7 @@ import crypto from 'crypto';
 export async function enqueueGeneration(
   assignmentId: string,
   userId: string,
-  institutionId: string
+  organizationId: string
 ): Promise<{ jobId: string; position: number; jobRecordId: string; generationSeq: number }> {
   const assignment = await prisma.assignment.findUnique({ where: { id: assignmentId } });
   if (!assignment) throw new Error(`Assignment ${assignmentId} not found`);
@@ -87,7 +87,7 @@ export async function enqueueGeneration(
 
   const job = await queue.add(
     'generate-paper',
-    { assignmentId, jobRecordId: jobRecord.id, userId, institutionId },
+    { assignmentId, jobRecordId: jobRecord.id, userId, organizationId },
     { jobId: customJobId }
   );
 
@@ -106,11 +106,11 @@ export async function listAssignments(
   page = 1,
   limit = 10,
   status?: import('@prisma/client').WorkflowStatus,
-  institutionId?: string
+  organizationId?: string
 ): Promise<AssignmentListResult> {
   const filter: any = {};
   if (status) filter.status = status;
-  if (institutionId) filter.institutionId = institutionId;
+  if (organizationId) filter.organizationId = organizationId;
   
   const skip = (page - 1) * limit;
 
@@ -127,14 +127,14 @@ export async function listAssignments(
   return { assignments, total, page, limit };
 }
 
-export async function getAssignment(id: string, institutionId?: string) {
+export async function getAssignment(id: string, organizationId?: string) {
   const filter: any = { id };
-  if (institutionId) filter.institutionId = institutionId;
+  if (organizationId) filter.organizationId = organizationId;
   return prisma.assignment.findFirst({ where: filter });
 }
 
-export async function deleteAssignment(id: string, institutionId?: string): Promise<void> {
+export async function deleteAssignment(id: string, organizationId?: string): Promise<void> {
   const filter: any = { id };
-  if (institutionId) filter.institutionId = institutionId;
+  if (organizationId) filter.organizationId = organizationId;
   await prisma.assignment.deleteMany({ where: filter });
 }

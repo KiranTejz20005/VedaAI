@@ -10,7 +10,7 @@ export class UserService {
     lastName: string;
     role: string;
     phone?: string;
-    institutionId?: string;
+    organizationId?: string;
     departmentId?: string;
   }) {
     const password = data.password || 'Temporary@123';
@@ -25,7 +25,7 @@ export class UserService {
         lastName: data.lastName,
         role: data.role as import('@prisma/client').SystemRole,
         phone: data.phone || null,
-        institutionId: data.institutionId || null,
+        organizationId: data.organizationId || null,
         departmentId: data.departmentId || null,
         forcePasswordReset: true, // Default to true for admin-created users
       },
@@ -45,15 +45,15 @@ export class UserService {
     return user;
   }
 
-  static async getUsers(institutionId?: string) {
+  static async getUsers(organizationId?: string) {
     return prisma.user.findMany({
       where: {
-        institutionId: institutionId || undefined,
+        organizationId: organizationId || undefined,
         status: { not: 'DELETED' },
       },
       orderBy: { createdAt: 'desc' },
       include: {
-        institution: { select: { name: true } },
+        organization: { select: { name: true } },
         department: { select: { name: true } },
       },
     });
@@ -67,7 +67,7 @@ export class UserService {
       email?: string;
       phone?: string;
       role?: string;
-      institutionId?: string;
+      organizationId?: string;
       departmentId?: string;
       status?: string;
     }
@@ -133,7 +133,7 @@ export class UserService {
 
     const targetUser = await prisma.user.findUnique({
       where: { id: targetUserId },
-      include: { institution: true, department: true },
+      include: { organization: true, department: true },
     });
 
     if (!targetUser) {
@@ -145,7 +145,7 @@ export class UserService {
       userId: targetUser.id,
       email: targetUser.email,
       role: targetUser.role,
-      institutionId: targetUser.institutionId,
+      organizationId: targetUser.organizationId,
       departmentId: targetUser.departmentId,
     });
 

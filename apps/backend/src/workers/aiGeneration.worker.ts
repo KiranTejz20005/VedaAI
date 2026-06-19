@@ -137,7 +137,7 @@ export function createAiGenerationWorker() {
     'generation',
     async (job) => {
       activeJobCount++;
-      const { assignmentId, jobRecordId, userId, institutionId } = job.data;
+      const { assignmentId, jobRecordId, userId, organizationId } = job.data;
       const jobStartTime = Date.now();
       const workerId = `worker-${process.pid}-${job.id}`;
       const lock = new GenerationLock();
@@ -522,7 +522,7 @@ export function createAiGenerationWorker() {
           logger.error({
             action: 'Generation Failed',
             userId: userId || 'anon',
-            institutionId: institutionId || 'no-institution',
+            organizationId: organizationId || 'no-organization',
             requestId: jobRecordId,
             error: 'Generation failed or did not meet minimum quality criteria',
             timestamp: new Date().toISOString()
@@ -531,7 +531,7 @@ export function createAiGenerationWorker() {
           logger.info({
             action: 'Generation Completed',
             userId: userId || 'anon',
-            institutionId: institutionId || 'no-institution',
+            organizationId: organizationId || 'no-organization',
             requestId: jobRecordId,
             timestamp: new Date().toISOString()
           }, 'Generation Completed');
@@ -582,7 +582,7 @@ export function createAiGenerationWorker() {
         logger.error({
           action: 'Generation Failed',
           userId: userId || 'anon',
-          institutionId: institutionId || 'no-institution',
+          organizationId: organizationId || 'no-organization',
           requestId: jobRecordId,
           error: message,
           timestamp: new Date().toISOString()

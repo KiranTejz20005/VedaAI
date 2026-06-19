@@ -4,14 +4,14 @@ export class GroupService {
   static async createGroup(data: {
     name: string;
     subject?: string;
-    institutionId: string;
+    organizationId: string;
     facultyId?: string;
   }) {
     return prisma.group.create({
       data: {
         name: data.name,
         subject: data.subject || 'General',
-        institutionId: data.institutionId,
+        organizationId: data.organizationId,
         facultyId: data.facultyId || null,
       },
       include: {
@@ -20,9 +20,9 @@ export class GroupService {
     });
   }
 
-  static async getGroups(institutionId?: string) {
+  static async getGroups(organizationId?: string) {
     return prisma.group.findMany({
-      where: institutionId ? { institutionId } : {},
+      where: organizationId ? { organizationId } : {},
       orderBy: { createdAt: 'desc' },
       include: {
         faculty: { select: { firstName: true, lastName: true } },

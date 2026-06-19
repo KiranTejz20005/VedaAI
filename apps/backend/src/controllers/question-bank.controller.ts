@@ -11,9 +11,9 @@ import prisma from '../config/prisma';
 
 export const addToBank = async (req: Request, res: Response): Promise<void> => {
   try {
-    const institutionId = req.user?.institutionId;
-    if (!institutionId) {
-      res.status(400).json({ success: false, error: 'No institution scope found on user' });
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+      res.status(400).json({ success: false, error: 'No organization scope found on user' });
       return;
     }
     const { content, options, answer, hint, subject, topic, difficulty, bloomLevel, tags } = req.body;
@@ -24,7 +24,7 @@ export const addToBank = async (req: Request, res: Response): Promise<void> => {
       hint,
       subject,
       topic,
-      institutionId,
+      organizationId,
       difficulty,
       bloomLevel,
       tags,

@@ -72,15 +72,15 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
     path: f.path,
   }));
 
-  const institutionId = req.user?.institutionId || req.body._requireInstitutionScope || 'no-institution';
-  const assignment = await createAssignment(parsed.data, files, institutionId);
+  const organizationId = req.user?.organizationId || req.body._requireOrganizationScope || 'no-organization';
+  const assignment = await createAssignment(parsed.data, files, organizationId);
   
   let jobId: string, position: number, jobRecordId: string, generationSeq: number;
   const userId = req.user?.id || 'anon';
   const requestId = (req.headers['x-request-id'] as string) || uuidv4();
 
   try {
-    const result = await enqueueGeneration(assignment.id, userId, institutionId);
+    const result = await enqueueGeneration(assignment.id, userId, organizationId);
     jobId = result.jobId;
     position = result.position;
     jobRecordId = result.jobRecordId;
@@ -96,7 +96,7 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
   logger.info({
     action: 'Generation Started',
     userId,
-    institutionId,
+    organizationId,
     requestId,
     timestamp: new Date().toISOString()
   }, 'Generation Started');
@@ -119,11 +119,11 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
 export async function generateAssignmentHandler(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
   const force = req.query.force === 'true';
-  const institutionIdScope = req.body._requireInstitutionScope;
+  const organizationIdScope = req.body._requireOrganizationScope;
 
   logger.debug(`[generateHandler] START | assignmentId=${id} | force=${force}`);
 
-  const assignment = await getAssignment(id, institutionIdScope);
+  const assignment = await getAssignment(id, organizationIdScope);
   if (!assignment) {
     logger.warn(`[generateHandler] Assignment ${id} not found`);
     sendError(res, 'Assignment not found', 404);
@@ -155,11 +155,11 @@ export async function generateAssignmentHandler(req: Request, res: Response): Pr
   
   let jobId: string, position: number, jobRecordId: string, generationSeq: number;
   const userId = req.user?.id || 'anon';
-  const institutionId = req.user?.institutionId || 'no-institution';
+  const organizationId = req.user?.organizationId || 'no-organization';
   const requestId = (req.headers['x-request-id'] as string) || uuidv4();
 
   try {
-    const result = await enqueueGeneration(id, userId, institutionId);
+    const result = await enqueueGeneration(id, userId, organizationId);
     jobId = result.jobId;
     position = result.position;
     jobRecordId = result.jobRecordId;
@@ -175,7 +175,7 @@ export async function generateAssignmentHandler(req: Request, res: Response): Pr
   logger.info({
     action: 'Generation Started',
     userId,
-    institutionId,
+    organizationId,
     requestId,
     timestamp: new Date().toISOString()
   }, 'Generation Started');
@@ -218,8 +218,8 @@ export async function listAssignmentsHandler(req: Request, res: Response): Promi
       ? (rawStatus as any)
       : undefined;
 
-  const institutionIdScope = req.body._requireInstitutionScope;
-  const result = await listAssignments(page, limit, status, institutionIdScope);
+  const organizationIdScope = req.body._requireOrganizationScope;
+  const result = await listAssignments(page, limit, status, organizationIdScope);
 
   res.status(200).json({
     success: true,
@@ -234,8 +234,8 @@ export async function listAssignmentsHandler(req: Request, res: Response): Promi
 }
 
 export async function getAssignmentHandler(req: Request, res: Response): Promise<void> {
-  const institutionIdScope = req.body._requireInstitutionScope;
-  const assignment = await getAssignment(req.params.id, institutionIdScope);
+  const organizationIdScope = req.body._requireOrganizationScope;
+  const assignment = await getAssignment(req.params.id, organizationIdScope);
   if (!assignment) {
     sendError(res, 'Assignment not found', 404);
     return;
@@ -256,8 +256,8 @@ export async function getAssignmentHandler(req: Request, res: Response): Promise
 }
 
 export async function deleteAssignmentHandler(req: Request, res: Response): Promise<void> {
-  const institutionIdScope = req.body._requireInstitutionScope;
-  const assignment = await getAssignment(req.params.id, institutionIdScope);
+  const organizationIdScope = req.body._requireOrganizationScope;
+  const assignment = await getAssignment(req.params.id, organizationIdScope);
   if (!assignment) {
     sendError(res, 'Assignment not found', 404);
     return;
@@ -282,7 +282,7 @@ export async function deleteAssignmentHandler(req: Request, res: Response): Prom
     logger.warn(`Assignment ${req.params.id} had stale status=${assignment.status} with no active job; allowing delete`);
   }
 
-  await deleteAssignment(req.params.id, institutionIdScope);
+  await deleteAssignment(req.params.id, organizationIdScope);
   logger.info(`Assignment deleted: ${req.params.id}`);
   sendSuccess(res, null, 200, 'Assignment deleted successfully');
 }
@@ -290,8 +290,8 @@ export async function deleteAssignmentHandler(req: Request, res: Response): Prom
 import { AuditService } from '../services/audit.service';
 
 export async function submitAssignmentForApproval(req: Request, res: Response): Promise<void> {
-  const institutionIdScope = req.body._requireInstitutionScope;
-  const assignment = await getAssignment(req.params.id, institutionIdScope);
+  const organizationIdScope = req.body._requireOrganizationScope;
+  const assignment = await getAssignment(req.params.id, organizationIdScope);
   if (!assignment) return sendError(res, 'Assignment not found', 404);
   
   if (!workflowEngine.canTransition(assignment.status as any, 'PENDING_APPROVAL')) {
@@ -308,8 +308,8 @@ export async function submitAssignmentForApproval(req: Request, res: Response): 
 }
 
 export async function approveAssignment(req: Request, res: Response): Promise<void> {
-  const institutionIdScope = req.body._requireInstitutionScope;
-  const assignment = await getAssignment(req.params.id, institutionIdScope);
+  const organizationIdScope = req.body._requireOrganizationScope;
+  const assignment = await getAssignment(req.params.id, organizationIdScope);
   if (!assignment) return sendError(res, 'Assignment not found', 404);
   
   if (!workflowEngine.canTransition(assignment.status as any, 'APPROVED')) {
@@ -327,8 +327,8 @@ export async function approveAssignment(req: Request, res: Response): Promise<vo
 
 export async function rejectAssignment(req: Request, res: Response): Promise<void> {
   const { comments } = req.body;
-  const institutionIdScope = req.body._requireInstitutionScope;
-  const assignment = await getAssignment(req.params.id, institutionIdScope);
+  const organizationIdScope = req.body._requireOrganizationScope;
+  const assignment = await getAssignment(req.params.id, organizationIdScope);
   if (!assignment) return sendError(res, 'Assignment not found', 404);
   
   if (!workflowEngine.canTransition(assignment.status as any, 'REJECTED')) {
@@ -345,8 +345,8 @@ export async function rejectAssignment(req: Request, res: Response): Promise<voi
 }
 
 export async function publishAssignment(req: Request, res: Response): Promise<void> {
-  const institutionIdScope = req.body._requireInstitutionScope;
-  const assignment = await getAssignment(req.params.id, institutionIdScope);
+  const organizationIdScope = req.body._requireOrganizationScope;
+  const assignment = await getAssignment(req.params.id, organizationIdScope);
   if (!assignment) return sendError(res, 'Assignment not found', 404);
   
   if (!workflowEngine.canTransition(assignment.status as any, 'PUBLISHED')) {

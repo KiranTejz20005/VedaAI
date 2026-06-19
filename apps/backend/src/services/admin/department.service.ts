@@ -4,25 +4,25 @@ export class DepartmentService {
   static async createDepartment(data: {
     name: string;
     code: string;
-    institutionId: string;
+    organizationId: string;
     hodId?: string;
   }) {
     return prisma.department.create({
       data: {
         name: data.name,
         code: data.code,
-        institutionId: data.institutionId,
+        organizationId: data.organizationId,
         hodId: data.hodId || null,
       },
     });
   }
 
-  static async getDepartments(institutionId?: string) {
+  static async getDepartments(organizationId?: string) {
     return prisma.department.findMany({
-      where: institutionId ? { institutionId } : {},
+      where: organizationId ? { organizationId } : {},
       orderBy: { createdAt: 'desc' },
       include: {
-        institution: { select: { name: true } },
+        organization: { select: { name: true } },
         _count: { select: { users: true } },
       },
     });
@@ -32,7 +32,7 @@ export class DepartmentService {
     return prisma.department.findUnique({
       where: { id },
       include: {
-        institution: true,
+        organization: true,
         users: true,
       },
     });

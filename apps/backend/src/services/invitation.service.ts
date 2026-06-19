@@ -7,12 +7,12 @@ import { SystemRole } from '@prisma/client';
 export const createInvitation = async ({
   email,
   role,
-  institutionId,
+  organizationId,
   createdById
 }: {
   email: string;
   role: SystemRole;
-  institutionId: string;
+  organizationId: string;
   createdById: string;
 }) => {
   try {
@@ -36,7 +36,7 @@ export const createInvitation = async ({
       data: {
         email,
         role,
-        institutionId,
+        organizationId,
         token,
         expiresAt,
         createdById,

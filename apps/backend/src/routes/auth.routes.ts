@@ -4,7 +4,8 @@ import {
   getMe,
   updateProfile,
   updatePreferences,
-  updateInstitution,
+  updateOrganization,
+  switchOrganization,
   signup,
   login,
   refresh,
@@ -31,6 +32,7 @@ router.post('/onboarding/complete', asyncHandler(completeOnboarding));
 router.put('/me', asyncHandler(updateProfile));
 router.put('/me/profile', asyncHandler(updateProfile));
 router.put('/me/preferences', asyncHandler(updatePreferences));
-router.put('/me/institution', asyncHandler(updateInstitution));
+router.post('/me/switch-organization', asyncHandler(switchOrganization));
+router.put('/me/organization', asyncHandler(updateOrganization));
 
 export default router;

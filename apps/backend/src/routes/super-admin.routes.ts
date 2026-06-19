@@ -8,16 +8,23 @@ const router = Router();
 // Protect all super-admin routes
 router.use(authenticate, requirePermission('MANAGE_SYSTEM'));
 
-// Institution Management
-router.post('/institutions', SuperAdminController.createInstitution);
-router.get('/institutions', SuperAdminController.getInstitutions);
-router.get('/institutions/:id', SuperAdminController.getInstitutionById);
-router.put('/institutions/:id', SuperAdminController.updateInstitution);
-router.delete('/institutions/:id', SuperAdminController.deleteInstitution);
-router.post('/institutions/:id/suspend', SuperAdminController.suspendInstitution);
+// Organization Management
+router.post('/organizations', SuperAdminController.createOrganization);
+router.get('/organizations', SuperAdminController.getOrganizations);
+router.get('/organizations/:id', SuperAdminController.getOrganizationById);
+router.put('/organizations/:id', SuperAdminController.updateOrganization);
+router.delete('/organizations/:id', SuperAdminController.deleteOrganization);
+router.post('/organizations/:id/suspend', SuperAdminController.suspendOrganization);
 
 // Admin Assignment
-router.post('/institutions/:id/assign-admin', SuperAdminController.assignInstitutionAdmin);
+router.post('/organizations/:id/assign-admin', SuperAdminController.assignOrganizationAdmin);
+
+// Organization Users
+router.get('/organizations/:id/users', SuperAdminController.getOrganizationUsers);
+
+// Organization Subscription
+router.get('/organizations/:id/subscription', SuperAdminController.getOrganizationSubscriptions);
+router.put('/organizations/:id/subscription', SuperAdminController.updateOrganizationSubscription);
 
 // Platform Analytics
 router.get('/platform/analytics', SuperAdminController.getPlatformAnalytics);

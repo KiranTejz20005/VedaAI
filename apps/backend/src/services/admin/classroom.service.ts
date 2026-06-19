@@ -1,11 +1,11 @@
 import prisma from '../../config/prisma';
 
 export class ClassroomService {
-  static async createClassroom(data: { name: string; institutionId: string }) {
+  static async createClassroom(data: { name: string; organizationId: string }) {
     return prisma.classroom.create({
       data: {
         name: data.name,
-        institutionId: data.institutionId,
+        organizationId: data.organizationId,
       },
       include: {
         _count: { select: { sections: true } }
@@ -13,9 +13,9 @@ export class ClassroomService {
     });
   }
 
-  static async getClassrooms(institutionId?: string) {
+  static async getClassrooms(organizationId?: string) {
     return prisma.classroom.findMany({
-      where: institutionId ? { institutionId } : {},
+      where: organizationId ? { organizationId } : {},
       orderBy: { createdAt: 'desc' },
       include: {
         sections: {
