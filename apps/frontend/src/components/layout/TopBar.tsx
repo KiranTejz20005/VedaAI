@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { ChevronRight, Bell, Menu, ChevronDown, Grid2x2 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
+import { useAuthStore } from '@/store/auth.store';
+import Link from 'next/link';
 
 const BREADCRUMB_MAP: Record<string, string> = {
   '/': 'Dashboard',
@@ -58,9 +60,19 @@ function getBreadcrumb(pathname: string): { parent?: string; current: string } {
 export function TopBar() {
   const pathname = usePathname();
   const { parent, current } = getBreadcrumb(pathname);
+  const router = useRouter();
+  const { user, logout } = useAuthStore();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const toggle = useSidebarStore((s) => s.toggle);
   const showBackButton = pathname !== '/' && pathname !== '/dashboard';
   const [hiddenOnScroll, setHiddenOnScroll] = useState(false);
+
+  useEffect(() => {
+    if (!isDropdownOpen) return;
+    const handleClose = () => setIsDropdownOpen(false);
+    window.addEventListener('click', handleClose);
+    return () => window.removeEventListener('click', handleClose);
+  }, [isDropdownOpen]);
 
   useEffect(() => {
     let lastY = window.scrollY;
@@ -133,12 +145,100 @@ export function TopBar() {
             <span style={{ position: 'absolute', top: 6, right: 6, width: 7, height: 7, background: '#EF4444', borderRadius: '50%', border: '1.5px solid white' }} aria-hidden="true" />
           </button>
 
-          <div className="topbar-user" role="button" tabIndex={0} aria-label="Account menu">
+          <div 
+            className="topbar-user" 
+            role="button" 
+            tabIndex={0} 
+            aria-label="Account menu"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsDropdownOpen(!isDropdownOpen);
+            }}
+            style={{ position: 'relative' }}
+          >
             <div className="topbar-user-avatar" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" fill="white" /><path d="M6 20c0-3.3 2.7-6 6-6s6 2.7 6 6" fill="white" /></svg>
+              {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'U'}
             </div>
-            <span className="topbar-user-name">John Doe</span>
+            <span className="topbar-user-name">
+              {user ? `${user.firstName} ${user.lastName}` : 'Guest User'}
+            </span>
             <ChevronDown size={13} color="#6B7280" aria-hidden="true" />
+
+            {isDropdownOpen && (
+              <div 
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '100%',
+                  marginTop: 8,
+                  width: 220,
+                  background: 'white',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-lg)',
+                  boxShadow: 'var(--shadow-lg)',
+                  padding: 8,
+                  zIndex: 100,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{ padding: '8px 12px', textAlign: 'left' }}>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {user?.firstName} {user?.lastName}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>
+                    {user?.email}
+                  </div>
+                  {user?.role && (
+                    <div style={{ display: 'inline-block', fontSize: 10, fontWeight: 700, background: 'rgba(234, 88, 12, 0.1)', color: '#EA580C', padding: '2px 6px', borderRadius: 4, marginTop: 6, textTransform: 'capitalize' }}>
+                      {user.role.toLowerCase().replace('_', ' ')}
+                    </div>
+                  )}
+                </div>
+                
+                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                
+                <Link 
+                  href="/settings" 
+                  style={{ textDecoration: 'none', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 500, padding: '8px 12px', borderRadius: 'var(--radius-sm)', display: 'block', transition: 'background 0.15s', textAlign: 'left' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  onClick={() => setIsDropdownOpen(false)}
+                >
+                  Account Settings
+                </Link>
+
+                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+
+                <button 
+                  type="button"
+                  onClick={async () => {
+                    setIsDropdownOpen(false);
+                    await logout();
+                    router.push('/login');
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    textAlign: 'left',
+                    color: '#EF4444',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-sm)',
+                    cursor: 'pointer',
+                    width: '100%',
+                    transition: 'background 0.15s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
+                  Sign Out
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

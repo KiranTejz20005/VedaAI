@@ -13,57 +13,60 @@ model Institution {
   id        String   @id @default(uuid())
   name      String
   domain    String?  @unique
+  code      String?  @unique
+  address   String?
+  contact   String?
+  website   String?
+  status    String   @default("ACTIVE") // ACTIVE, SUSPENDED
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   users     User[]
   departments Department[]
+  classes   Class[]
+  groups    Group[]
   subscription Subscription?
 }
 
 model Department {
   id            String   @id @default(uuid())
   name          String
+  code          String?
+  status        String   @default("ACTIVE")
+  hodId         String?
   institutionId String
-  institution   Institution @relation(fields: [institutionId], references: [id])
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
   users         User[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
-
-enum Role {
-  SUPER_ADMIN
-  INSTITUTION_ADMIN
-  DEPARTMENT_ADMIN
-  HOD
-  FACULTY
-  REVIEWER
-  EXAM_CELL
-  EXTERNAL_AUDITOR
-  STUDENT
-}
-
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  passwordHash  String
-  firstName     String
-  lastName      String
-  role          Role     @default(FACULTY)
-  institutionId String?
-  institution   Institution? @relation(fields: [institutionId], references: [id])
-  departmentId  String?
-  department    Department? @relation(fields: [departmentId], references: [id])
-  preferences   Json?    // { emailNotifications, darkMode, autoSave, weeklyDigest, ... }
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  email              String   @unique
+  passwordHash       String
+  firstName          String
+  lastName           String
+  role               String   @default("FACULTY")
+  phone              String?
+  status             String   @default("ACTIVE") // ACTIVE, SUSPENDED, DELETED
+  forcePasswordReset Boolean  @default(false)
+  institutionId      String?
+  institution        Institution? @relation(fields: [institutionId], references: [id])
+  departmentId       String?
+  department         Department? @relation(fields: [departmentId], references: [id])
+  preferences        Json?    // { emailNotifications, darkMode, autoSave, weeklyDigest, ... }
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  questions     Question[] @relation("QuestionAuthor")
-  reviews       QuestionReview[]
-  assessments   Assessment[]
-  sessions      Session[]
-  refreshTokens RefreshToken[]
-  loginHistories LoginHistory[]
-  passwordResets PasswordResetToken[]
+  questions          Question[] @relation("QuestionAuthor")
+  reviews            QuestionReview[]
+  assessments        Assessment[]
+  sessions           Session[]
+  refreshTokens      RefreshToken[]
+  loginHistories     LoginHistory[]
+  passwordResets     PasswordResetToken[]
+  userRoles          UserRole[]
+  classes            Class[]    @relation("ClassFaculty")
+  groups             Group[]    @relation("GroupFaculty")
 }
 
 
@@ -459,6 +462,7 @@ model Subscription {
   expiresAt      DateTime
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
+  invoices       Invoice[]
 }
 
 model Rubric {
@@ -580,6 +584,111 @@ model GeneratedNotes {
   content        String
   userId         String            @default("demo-faculty-id")
   createdAt      DateTime          @default(now())
+}
+
+model Role {
+  id            String       @id @default(uuid())
+  name          String       @unique
+  description   String?
+  permissions   Permission[] @relation("RolePermissions")
+  userRoles     UserRole[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Permission {
+  id            String   @id @default(uuid())
+  name          String   @unique
+  description   String?
+  roles         Role[]   @relation("RolePermissions")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+model Class {
+  id            String         @id @default(uuid())
+  grade         String
+  section       String
+  academicYear  String
+  institutionId String
+  institution   Institution   @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  facultyId     String?
+  faculty       User?          @relation("ClassFaculty", fields: [facultyId], references: [id], onDelete: SetNull)
+  students      ClassStudent[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([institutionId])
+  @@index([facultyId])
+}
+
+model ClassStudent {
+  id        String   @id @default(uuid())
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  name      String
+  rollNo    String
+  email     String
+  isActive  Boolean  @default(true)
+  joinedAt  DateTime @default(now())
+
+  @@index([classId])
+}
+
+model Group {
+  id            String         @id @default(uuid())
+  name          String
+  subject       String         @default("General")
+  institutionId String
+  institution   Institution   @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  facultyId     String?
+  faculty       User?          @relation("GroupFaculty", fields: [facultyId], references: [id], onDelete: SetNull)
+  students      GroupStudent[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([institutionId])
+  @@index([facultyId])
+}
+
+model GroupStudent {
+  id        String   @id @default(uuid())
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name      String
+  rollNo    String
+  email     String
+  isActive  Boolean  @default(true)
+  joinedAt  DateTime @default(now())
+
+  @@index([groupId])
+}
+
+model Invoice {
+  id             String       @id @default(uuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  amount         Float
+  currency       String       @default("USD")
+  status         String       // PAID, UNPAID, VOID
+  pdfUrl         String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([subscriptionId])
 }
 
 

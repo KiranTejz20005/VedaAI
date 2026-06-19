@@ -362,23 +362,39 @@ export const updateInstitution = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    if (institutionName && user.institutionId) {
-      await prisma.institution.update({
-        where: { id: user.institutionId },
-        data: { name: institutionName },
-      });
+    if (institutionName) {
+      if (user.institutionId && user.institutionId !== DEFAULT_INST_ID) {
+        await prisma.institution.update({
+          where: { id: user.institutionId },
+          data: { name: institutionName },
+        });
+      } else {
+        const inst = await prisma.institution.create({
+          data: {
+            name: institutionName,
+            domain: user.email.split('@')[1] || null,
+          },
+        });
+        await prisma.user.update({
+          where: { id: userId },
+          data: { institutionId: inst.id },
+        });
+        user.institutionId = inst.id;
+      }
     }
 
     if (department && user.institutionId) {
-      const dept = await prisma.department.upsert({
-        where: { id: user.departmentId || 'dept-demo' },
-        create: {
-          id: 'dept-demo',
-          name: department,
-          institutionId: user.institutionId,
-        },
-        update: { name: department },
+      let dept = await prisma.department.findFirst({
+        where: { name: department, institutionId: user.institutionId },
       });
+      if (!dept) {
+        dept = await prisma.department.create({
+          data: {
+            name: department,
+            institutionId: user.institutionId,
+          },
+        });
+      }
       await prisma.user.update({
         where: { id: userId },
         data: { departmentId: dept.id },

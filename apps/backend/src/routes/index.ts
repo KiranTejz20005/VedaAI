@@ -19,6 +19,7 @@ import lessonRoutes from './lessons.routes';
 import worksheetRoutes from './worksheets.routes';
 import tutorRoutes from './tutor.routes';
 import notesRoutes from './notes.routes';
+import adminRoutes from './admin.routes';
 
 const apiRouter = Router();
 
@@ -78,6 +79,7 @@ apiRouter.use('/v1/lessons', lessonRoutes);
 apiRouter.use('/v1/worksheets', worksheetRoutes);
 apiRouter.use('/v1/tutor', tutorRoutes);
 apiRouter.use('/v1/notes', notesRoutes);
+apiRouter.use('/v1/admin', adminRoutes);
 
 // Backward compatible legacy aliases
 apiRouter.use('/assignments', assignmentRoutes);

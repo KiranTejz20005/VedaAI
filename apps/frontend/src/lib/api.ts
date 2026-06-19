@@ -19,8 +19,19 @@ export const api = axios.create({
   },
 });
 
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
   config.baseURL = getBaseURL();
+
+  // Dynamic import to break dependency cycle
+  try {
+    const { useAuthStore } = await import('@/store/auth.store');
+    const token = useAuthStore.getState().accessToken;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch (err) {
+    // Ignore errors during boot
+  }
 
   if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
     if (config.headers) {
@@ -62,7 +73,7 @@ api.interceptors.response.use(
     }
     return response;
   },
-  (error) => {
+  async (error) => {
     if (axios.isAxiosError(error)) {
       const status = error.response?.status;
       const backendMessage =
@@ -84,6 +95,16 @@ api.interceptors.response.use(
           message: error.message,
           response: error.response?.data,
         });
+      }
+
+      // Handle unauthorized errors automatically
+      if (status === 401) {
+        try {
+          const { useAuthStore } = await import('@/store/auth.store');
+          useAuthStore.getState().clearAuth();
+        } catch {
+          // ignore
+        }
       }
 
       return Promise.reject(new Error(message));

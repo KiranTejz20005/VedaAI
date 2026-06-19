@@ -20,6 +20,7 @@ import {
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAssignmentStore } from '@/store/assignment.store';
 import { useMounted } from '@/hooks/useMounted';
+import { useAuthStore } from '@/store/auth.store';
 
 function MyGroupsIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -68,6 +69,7 @@ export function Sidebar() {
   const mounted = useMounted();
   const { isOpen, close } = useSidebarStore();
   const totalCount = useAssignmentStore((s) => s.totalCount);
+  const { user } = useAuthStore();
 
   function isActive(href: string, exact = false) {
     if (exact) return pathname === href;
@@ -142,12 +144,16 @@ export function Sidebar() {
           </Link>
 
           <div className="sidebar-profile" role="button" tabIndex={0} aria-label="Account settings" onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); } }}>
-            <div className="sidebar-profile-avatar" aria-hidden="true">
-              <Image src="/monkey-avatar.png" alt="" fill sizes="48px" style={{ objectFit: 'cover' }} />
+            <div className="sidebar-profile-avatar" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #E8531D, #F97316)', color: 'white', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'U'}
             </div>
             <div className="sidebar-profile-info">
-              <div className="sidebar-profile-name">Admin User</div>
-              <div className="sidebar-profile-sub">Demo Institution</div>
+              <div className="sidebar-profile-name">
+                {user ? `${user.firstName} ${user.lastName}` : 'Guest User'}
+              </div>
+              <div className="sidebar-profile-sub">
+                {user?.institutionName || 'Demo Institution'}
+              </div>
             </div>
           </div>
         </div>
