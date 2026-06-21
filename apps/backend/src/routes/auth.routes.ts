@@ -13,6 +13,7 @@ import {
   logout,
   completeOnboarding,
   acceptInvite,
+  ssoLogin,
 } from '../controllers/auth.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 
@@ -22,6 +23,7 @@ const router = Router();
 router.post('/signup', asyncHandler(signup));
 router.post('/accept-invite', asyncHandler(acceptInvite));
 router.post('/login', asyncHandler(login));
+router.post('/sso', asyncHandler(ssoLogin));
 router.post('/refresh', asyncHandler(refresh));
 router.post('/logout', asyncHandler(logout));
 

@@ -41,10 +41,97 @@ function clearRefreshCookie(res: Response) {
 }
 
 // ── POST /auth/signup ──
-export const signup = async (_req: Request, res: Response): Promise<void> => {
-  // Disabling direct signup in favor of the new Invitation flow.
-  res.status(403).json({ success: false, error: 'Direct registration is disabled. Please contact your organization administrator for an invitation.' });
-  return;
+export const signup = async (req: Request, res: Response): Promise<void> => {
+  const ipAddress = req.ip || '0.0.0.0';
+  const userAgent = req.headers['user-agent'] || 'unknown';
+
+  try {
+    const { email, password, firstName, lastName } = req.body;
+
+    if (!email || !password || !firstName || !lastName) {
+      res.status(400).json({ success: false, error: 'All fields are required' });
+      return;
+    }
+
+    if (String(password).length < 6) {
+      res.status(400).json({ success: false, error: 'Password must be at least 6 characters long' });
+      return;
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (existingUser) {
+      res.status(409).json({ success: false, error: 'An account with this email already exists' });
+      return;
+    }
+
+    const pwdHash = await hashPassword(password);
+    const user = await prisma.user.create({
+      data: {
+        email: normalizedEmail,
+        passwordHash: pwdHash,
+        firstName: String(firstName).trim(),
+        lastName: String(lastName).trim(),
+        role: 'TEACHER',
+        hasCompletedOnboarding: false,
+      },
+    });
+
+    const accessToken = generateAccessToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      organizationId: user.organizationId,
+      activeOrganizationId: user.activeOrganizationId,
+      departmentId: user.departmentId,
+    });
+
+    const refreshToken = await createRefreshToken(user.id);
+
+    await prisma.loginHistory.create({
+      data: {
+        userId: user.id,
+        ipAddress,
+        userAgent,
+        status: 'SIGNUP_SUCCESS',
+      },
+    });
+
+    const sessionExpiry = new Date();
+    sessionExpiry.setDate(sessionExpiry.getDate() + 30);
+    await prisma.session.create({
+      data: {
+        userId: user.id,
+        userAgent,
+        ipAddress,
+        expiresAt: sessionExpiry,
+      },
+    });
+
+    setRefreshCookie(res, refreshToken);
+
+    res.status(201).json({
+      success: true,
+      message: 'Account created successfully',
+      data: {
+        accessToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          organizationId: user.organizationId,
+          activeOrganizationId: user.activeOrganizationId,
+          departmentId: user.departmentId,
+          hasCompletedOnboarding: user.hasCompletedOnboarding,
+        },
+      },
+    });
+  } catch (error: any) {
+    logger.error(`[signup] ${error}`);
+    res.status(500).json({ success: false, error: error.message || 'Registration failed' });
+  }
 };
 
 // ── POST /auth/accept-invite ──
@@ -507,5 +594,95 @@ export const updateOrganization = async (req: Request, res: Response): Promise<v
   } catch (error) {
     logger.error(`[updateOrganization] ${error}`);
     res.status(500).json({ success: false, error: 'Failed to update organization' });
+  }
+};
+
+// ── POST /auth/sso ──
+export const ssoLogin = async (req: Request, res: Response): Promise<void> => {
+  const ipAddress = req.ip || '0.0.0.0';
+  const userAgent = req.headers['user-agent'] || 'unknown';
+
+  try {
+    const { email, firstName, lastName, provider } = req.body;
+
+    if (!email) {
+      res.status(400).json({ success: false, error: 'Email is required' });
+      return;
+    }
+
+    // Attempt to find user
+    let user = await prisma.user.findUnique({ where: { email } });
+    
+    // If user does not exist, create a new one (SSO auto-onboarding)
+    if (!user) {
+      const crypto = require('crypto');
+      const randomPassword = crypto.randomBytes(16).toString('hex');
+      const pwdHash = await hashPassword(randomPassword);
+      user = await prisma.user.create({
+        data: {
+          email,
+          passwordHash: pwdHash,
+          firstName: firstName || 'SSO',
+          lastName: lastName || 'User',
+          role: 'TEACHER', // default role
+          hasCompletedOnboarding: false,
+        },
+      });
+    }
+
+    // Generate tokens
+    const accessToken = generateAccessToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      organizationId: user.organizationId,
+      activeOrganizationId: user.activeOrganizationId,
+      departmentId: user.departmentId,
+    });
+
+    const refreshToken = await createRefreshToken(user.id);
+
+    // Save success history
+    await prisma.loginHistory.create({
+      data: {
+        userId: user.id,
+        ipAddress,
+        userAgent,
+        status: `SSO_${String(provider).toUpperCase()}_SUCCESS`,
+      },
+    });
+
+    // Create session record
+    const sessionExpiry = new Date();
+    sessionExpiry.setDate(sessionExpiry.getDate() + 30);
+    await prisma.session.create({
+      data: {
+        userId: user.id,
+        userAgent,
+        ipAddress,
+        expiresAt: sessionExpiry,
+      },
+    });
+
+    setRefreshCookie(res, refreshToken);
+
+    res.json({
+      success: true,
+      message: 'SSO Login successful',
+      data: {
+        accessToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          hasCompletedOnboarding: user.hasCompletedOnboarding,
+        },
+      },
+    });
+  } catch (error: any) {
+    logger.error(`[ssoLogin] ${error}`);
+    res.status(500).json({ success: false, error: error.message || 'SSO Authentication failed' });
   }
 };

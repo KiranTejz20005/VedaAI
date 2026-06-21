@@ -6,65 +6,57 @@ import {
   downloadPdfByAssignmentIdHandler,
   updatePaperHandler,
   regenerateQuestionHandler,
+  getPaperJobStatusHandler,
 } from '../controllers/paper.controller';
-import prisma from '../config/prisma';
-import { getPaper } from '../services/paper.service';
-import { buildCanonicalGenerationState } from '../services/canonical-metadata.service';
+import { authenticate, requireOrganizationScope } from '../middlewares/auth.middleware';
+import { requirePermission } from '../security/access-control';
+import { PERMISSIONS } from '../security/permissions';
 
 const router = Router();
 
-// GET /api/papers/:assignmentId/pdf - PDF download by assignmentId
-router.get('/:assignmentId/pdf', asyncHandler(downloadPdfByAssignmentIdHandler));
+router.use(authenticate);
+router.use(requireOrganizationScope());
 
-// GET /api/papers/job/:assignmentId - job status for polling (must be before /:assignmentId)
-router.get('/job/:assignmentId', asyncHandler(async (req, res) => {
-  const { assignmentId } = req.params;
-  const [assignment, job, paper] = await Promise.all([
-    prisma.assignment.findUnique({ where: { id: assignmentId } }),
-    prisma.generationJob.findFirst({
-      where: { assignmentId },
-      orderBy: [{ generationSeq: 'desc' }, { createdAt: 'desc' }],
-    }),
-    getPaper(assignmentId),
-  ]);
+// GET /api/papers/:assignmentId/pdf
+router.get(
+  '/:assignmentId/pdf',
+  requirePermission(PERMISSIONS.VIEW_PAPER),
+  asyncHandler(downloadPdfByAssignmentIdHandler),
+);
 
-  if (!assignment) {
-    res.status(404).json({ success: false, error: 'Assignment not found' });
-    return;
-  }
+// GET /api/papers/job/:assignmentId
+router.get(
+  '/job/:assignmentId',
+  requirePermission(PERMISSIONS.VIEW_PAPER),
+  asyncHandler(getPaperJobStatusHandler),
+);
 
-  const state = buildCanonicalGenerationState({
-    assignment: assignment as any,
-    job: (job as any) ?? null,
-    paper: (paper as any) ?? null,
-  });
-
-  res.json({
-    success: true,
-    data: {
-      status: job?.status ?? 'queued',
-      error: job?.error ?? null,
-      jobRecordId: job?.id ?? null,
-      generationSeq: job?.generationSeq ?? (assignment as any).generationSeq ?? 0,
-      version: job?.progressVersion ?? 0,
-      paperId: (paper as any)?.id ?? null,
-      ts: job?.updatedAt ? new Date(job.updatedAt).getTime() : Date.now(),
-      ...state,
-    },
-  });
-}));
-
-// GET /api/papers/download/:filename - must be before /:assignmentId
-router.get('/download/:filename', asyncHandler(downloadPdfHandler));
+// GET /api/papers/download/:filename
+router.get(
+  '/download/:filename',
+  requirePermission(PERMISSIONS.VIEW_PAPER),
+  asyncHandler(downloadPdfHandler),
+);
 
 // GET /api/papers/:assignmentId
-router.get('/:assignmentId', asyncHandler(getPaperHandler));
+router.get(
+  '/:assignmentId',
+  requirePermission(PERMISSIONS.VIEW_PAPER),
+  asyncHandler(getPaperHandler),
+);
 
-// PUT /api/papers/:id - Save paper changes
-router.put('/:id', asyncHandler(updatePaperHandler));
+// PUT /api/papers/:id
+router.put(
+  '/:id',
+  requirePermission(PERMISSIONS.EDIT_ASSIGNMENT),
+  asyncHandler(updatePaperHandler),
+);
 
-// POST /api/papers/:id/regenerate-question - Regenerate single question
-router.post('/:id/regenerate-question', asyncHandler(regenerateQuestionHandler));
+// POST /api/papers/:id/regenerate-question
+router.post(
+  '/:id/regenerate-question',
+  requirePermission(PERMISSIONS.GENERATE_PAPER),
+  asyncHandler(regenerateQuestionHandler),
+);
 
 export default router;
-

@@ -15,6 +15,8 @@ export async function createAssignment(
   input: CreateAssignmentInput,
   files: FileRef[],
   organizationId: string,
+  createdById?: string,
+  classId?: string | null,
 ) {
   const { typeBreakdown, ...rest } = input;
   const assignment = await prisma.assignment.create({
@@ -24,12 +26,14 @@ export async function createAssignment(
       dueDate: new Date(input.dueDate),
       uploadedFiles: files as any,
       status: 'DRAFT',
-      organizationId, // injected via the controller
+      organizationId,
+      createdById: createdById ?? null,
+      classId: classId ?? null,
       questionConfig: rest.questionConfig as any,
     },
   });
 
-  logger.info(`Assignment created: ${assignment.id}`);
+  logger.info(`Assignment created: ${assignment.id} by ${createdById ?? 'unknown'}`);
   return assignment;
 }
 
@@ -40,7 +44,9 @@ export async function enqueueGeneration(
   userId: string,
   organizationId: string
 ): Promise<{ jobId: string; position: number; jobRecordId: string; generationSeq: number }> {
-  const assignment = await prisma.assignment.findUnique({ where: { id: assignmentId } });
+  const assignment = await prisma.assignment.findFirst({
+    where: { id: assignmentId, organizationId },
+  });
   if (!assignment) throw new Error(`Assignment ${assignmentId} not found`);
 
   // BullMQ Queue Protection (Idempotency)
@@ -119,11 +125,13 @@ export async function listAssignments(
   page = 1,
   limit = 10,
   status?: import('@prisma/client').WorkflowStatus,
-  organizationId?: string
+  organizationId?: string,
+  createdById?: string,
 ): Promise<AssignmentListResult> {
-  const filter: any = {};
+  const filter: Record<string, unknown> = {};
   if (status) filter.status = status;
   if (organizationId) filter.organizationId = organizationId;
+  if (createdById) filter.createdById = createdById;
   
   const skip = (page - 1) * limit;
 

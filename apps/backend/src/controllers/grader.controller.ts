@@ -1,10 +1,17 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { evaluateSubmission } from '../services/grader.service';
+import {
+  assertCanGradeAssignment,
+  loadSubmissionScoped,
+  handleAccessError,
+} from '../security/assignment-access';
+import { requireRequestOrgId, getRequestUserId } from '../security/request-context';
 
 export const saveGradingConfig = async (req: Request, res: Response): Promise<void> => {
   try {
     const { assignmentId } = req.params;
+    await assertCanGradeAssignment(req, assignmentId);
     const { rubricId, answerKeyText } = req.body;
 
     const config = await prisma.assignmentGradingConfig.upsert({
@@ -21,7 +28,8 @@ export const saveGradingConfig = async (req: Request, res: Response): Promise<vo
     });
 
     res.json({ success: true, data: config });
-  } catch (error) {
+  } catch (err) {
+    if (handleAccessError(res, err)) return;
     res.status(500).json({ success: false, error: 'Failed to save grading config' });
   }
 };
@@ -29,76 +37,52 @@ export const saveGradingConfig = async (req: Request, res: Response): Promise<vo
 export const getGradingConfig = async (req: Request, res: Response): Promise<void> => {
   try {
     const { assignmentId } = req.params;
+    await assertCanGradeAssignment(req, assignmentId);
     const config = await prisma.assignmentGradingConfig.findUnique({
       where: { assignmentId },
       include: { rubric: true },
     });
     res.json({ success: true, data: config });
-  } catch (error) {
+  } catch (err) {
+    if (handleAccessError(res, err)) return;
     res.status(500).json({ success: false, error: 'Failed to fetch grading config' });
-  }
-};
-
-export const submitStudentAssignment = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { assignmentId } = req.params;
-    const files = req.files as Express.Multer.File[];
-
-    if (!files || files.length === 0) {
-      res.status(400).json({ success: false, error: 'No files uploaded' });
-      return;
-    }
-
-    const file = files[0];
-    const studentId = req.user?.id || 'demo-student-id';
-
-    const submission = await prisma.studentSubmission.create({
-      data: {
-        assignmentId,
-        studentId,
-        organizationId: req.user?.organizationId || req.body._requireOrganizationScope || 'no-organization',
-        fileUrl: file.path,
-        fileType: file.mimetype === 'application/pdf' ? 'PDF' : 'TXT',
-        status: 'SUBMITTED',
-      },
-    });
-
-    res.status(201).json({ success: true, data: submission });
-  } catch (error) {
-    res.status(500).json({ success: false, error: 'Failed to submit assignment' });
   }
 };
 
 export const runAIEvaluation = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { submissionId } = req.params;
-    const evaluation = await evaluateSubmission(submissionId);
+    const submission = await loadSubmissionScoped(req, req.params.submissionId);
+    await assertCanGradeAssignment(req, submission.assignmentId);
+    const evaluation = await evaluateSubmission(submission.id);
     res.json({ success: true, data: evaluation });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Evaluation failed' });
+  } catch (err) {
+    if (handleAccessError(res, err)) return;
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Evaluation failed' });
   }
 };
 
 export const getSubmissionEvaluation = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { submissionId } = req.params;
+    const submission = await loadSubmissionScoped(req, req.params.submissionId);
     const evaluation = await prisma.submissionEvaluation.findUnique({
-      where: { submissionId },
+      where: { submissionId: submission.id },
       include: { submission: true },
     });
     res.json({ success: true, data: evaluation });
-  } catch (error) {
+  } catch (err) {
+    if (handleAccessError(res, err)) return;
     res.status(500).json({ success: false, error: 'Failed to fetch evaluation' });
   }
 };
 
 export const manualGradeOverride = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { submissionId } = req.params;
+    const submission = await loadSubmissionScoped(req, req.params.submissionId);
+    await assertCanGradeAssignment(req, submission.assignmentId);
     const { overrideScore, reason } = req.body;
 
     const evaluation = await prisma.submissionEvaluation.findUnique({
-      where: { submissionId },
+      where: { submissionId: submission.id },
     });
 
     if (!evaluation) {
@@ -107,7 +91,7 @@ export const manualGradeOverride = async (req: Request, res: Response): Promise<
     }
 
     const updated = await prisma.submissionEvaluation.update({
-      where: { submissionId },
+      where: { submissionId: submission.id },
       data: {
         score: Number(overrideScore),
         teacherOverride: {
@@ -115,17 +99,19 @@ export const manualGradeOverride = async (req: Request, res: Response): Promise<
           overrideScore: Number(overrideScore),
           reason,
           updatedAt: new Date().toISOString(),
+          updatedBy: getRequestUserId(req),
         },
       },
     });
 
     await prisma.studentSubmission.update({
-      where: { id: submissionId },
-      data: { status: 'GRADED' }, // Using GRADED instead of REVIEWED
+      where: { id: submission.id },
+      data: { status: 'GRADED' },
     });
 
     res.json({ success: true, data: updated });
-  } catch (error) {
+  } catch (err) {
+    if (handleAccessError(res, err)) return;
     res.status(500).json({ success: false, error: 'Override failed' });
   }
 };
@@ -133,13 +119,17 @@ export const manualGradeOverride = async (req: Request, res: Response): Promise<
 export const listSubmissions = async (req: Request, res: Response): Promise<void> => {
   try {
     const { assignmentId } = req.params;
+    await assertCanGradeAssignment(req, assignmentId);
+    const orgId = requireRequestOrgId(req);
+
     const submissions = await prisma.studentSubmission.findMany({
-      where: { assignmentId },
+      where: { assignmentId, organizationId: orgId },
       include: { evaluations: true },
       orderBy: { submittedAt: 'desc' },
     });
     res.json({ success: true, data: submissions });
-  } catch (error) {
+  } catch (err) {
+    if (handleAccessError(res, err)) return;
     res.status(500).json({ success: false, error: 'Failed to list submissions' });
   }
 };
@@ -147,13 +137,15 @@ export const listSubmissions = async (req: Request, res: Response): Promise<void
 export const createRubric = async (req: Request, res: Response): Promise<void> => {
   try {
     const { title, description, criteria } = req.body;
-    const authorId = req.user?.id || 'demo-faculty-id';
+    const authorId = getRequestUserId(req);
+    const organizationId = requireRequestOrgId(req);
 
     const rubric = await prisma.rubric.create({
       data: {
         title,
         description,
         authorId,
+        organizationId,
         criteria: {
           create: criteria.map((c: any) => ({
             name: c.name,
@@ -171,9 +163,11 @@ export const createRubric = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-export const listRubrics = async (_req: Request, res: Response): Promise<void> => {
+export const listRubrics = async (req: Request, res: Response): Promise<void> => {
   try {
+    const organizationId = requireRequestOrgId(req);
     const rubrics = await prisma.rubric.findMany({
+      where: { organizationId },
       include: { criteria: true },
       orderBy: { createdAt: 'desc' },
     });

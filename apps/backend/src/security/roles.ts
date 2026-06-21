@@ -53,6 +53,21 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     PERMISSIONS.MANAGE_QUESTION_BANK,
     PERMISSIONS.MANAGE_SYLLABUS,
   ],
+  FACULTY: [
+    PERMISSIONS.CREATE_ASSIGNMENT,
+    PERMISSIONS.EDIT_ASSIGNMENT,
+    PERMISSIONS.DELETE_ASSIGNMENT,
+    PERMISSIONS.VIEW_ASSIGNMENT,
+    PERMISSIONS.GENERATE_PAPER,
+    PERMISSIONS.VIEW_PAPER,
+    PERMISSIONS.SUBMIT_FOR_APPROVAL,
+    PERMISSIONS.VIEW_ANALYTICS,
+    PERMISSIONS.VIEW_ROSTER,
+    PERMISSIONS.GRADE_ASSESSMENT,
+    PERMISSIONS.PUBLISH_RESULTS,
+    PERMISSIONS.MANAGE_QUESTION_BANK,
+    PERMISSIONS.MANAGE_SYLLABUS,
+  ],
   STUDENT: [
     PERMISSIONS.ATTEMPT_ASSESSMENT,
     PERMISSIONS.SUBMIT_ASSESSMENT,
@@ -61,8 +76,9 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
 };
 
 export const hasPermission = (role: string, permission: Permission): boolean => {
-  if (role === 'SUPER_ADMIN') return true;
-  const permissions = ROLE_PERMISSIONS[role];
+  const normalizedRole = role === 'FACULTY' ? 'TEACHER' : role;
+  if (normalizedRole === 'SUPER_ADMIN') return true;
+  const permissions = ROLE_PERMISSIONS[normalizedRole] ?? ROLE_PERMISSIONS[role];
   if (!permissions) return false;
   return permissions.includes(permission);
 };

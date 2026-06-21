@@ -56,10 +56,37 @@ let failoverSettings = {
   autoFailover: true,
 };
 
+function getAdminOrgId(req: Request): string {
+  if (req.user?.role === 'SUPER_ADMIN') {
+    const orgId = (req.query.organizationId as string) || (req.body.organizationId as string);
+    if (orgId) return orgId;
+  }
+  const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
+  if (!orgId) throw new Error('Organization scope required');
+  return orgId;
+}
+
+function getAdminOrgIdOptional(req: Request): string | undefined {
+  if (req.user?.role === 'SUPER_ADMIN') {
+    return (req.query.organizationId as string) || (req.body.organizationId as string) || undefined;
+  }
+  return req.user?.activeOrganizationId || req.user?.organizationId || undefined;
+}
+
 export class AdminController {
   // ── 1. Organization Management ──
-  static async getOrganizations(_req: Request, res: Response) {
+  static async getOrganizations(req: Request, res: Response) {
     try {
+      if (req.user?.role !== 'SUPER_ADMIN') {
+        const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
+        if (!orgId) {
+          res.status(403).json({ success: false, error: 'No organization scope' });
+          return;
+        }
+        const org = await OrganizationService.getOrganizationById(orgId);
+        res.json({ success: true, data: org ? [org] : [] });
+        return;
+      }
       const list = await OrganizationService.getOrganizations();
       res.json({ success: true, data: list });
     } catch (err: any) {
@@ -70,6 +97,10 @@ export class AdminController {
 
   static async createOrganization(req: Request, res: Response) {
     try {
+      if (req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Only SUPER_ADMIN can create organizations.' });
+        return;
+      }
       const org = await OrganizationService.createOrganization(req.body);
       // Automatically create a default subscription on creation
       await BillingService.getSubscriptionByOrganization(org.id);
@@ -82,6 +113,10 @@ export class AdminController {
 
   static async updateOrganization(req: Request, res: Response) {
     try {
+      if (req.user?.role !== 'SUPER_ADMIN' && req.params.id !== (req.user?.activeOrganizationId || req.user?.organizationId)) {
+        res.status(403).json({ success: false, error: 'Access denied: Cannot update other organizations.' });
+        return;
+      }
       const org = await OrganizationService.updateOrganization(req.params.id, req.body);
       res.json({ success: true, data: org });
     } catch (err: any) {
@@ -92,6 +127,10 @@ export class AdminController {
 
   static async deleteOrganization(req: Request, res: Response) {
     try {
+      if (req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Only SUPER_ADMIN can delete organizations.' });
+        return;
+      }
       await OrganizationService.deleteOrganization(req.params.id);
       res.json({ success: true, message: 'Organization deleted successfully' });
     } catch (err: any) {
@@ -102,6 +141,10 @@ export class AdminController {
 
   static async suspendOrganization(req: Request, res: Response) {
     try {
+      if (req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Only SUPER_ADMIN can suspend organizations.' });
+        return;
+      }
       const { suspend } = req.body;
       const org = await OrganizationService.suspendOrganization(req.params.id, suspend);
       res.json({ success: true, data: org });
@@ -113,6 +156,10 @@ export class AdminController {
 
   static async getOrganizationAnalytics(req: Request, res: Response) {
     try {
+      if (req.user?.role !== 'SUPER_ADMIN' && req.params.id !== (req.user?.activeOrganizationId || req.user?.organizationId)) {
+        res.status(403).json({ success: false, error: 'Access denied: Cannot access other organization analytics.' });
+        return;
+      }
       const stats = await OrganizationService.getOrganizationAnalytics(req.params.id);
       res.json({ success: true, data: stats });
     } catch (err: any) {
@@ -124,11 +171,7 @@ export class AdminController {
   // ── 2. Department Management ──
   static async getDepartments(req: Request, res: Response) {
     try {
-      const orgId = (req.query.organizationId as string) || req.user?.organizationId;
-      if (!orgId) {
-        res.status(400).json({ success: false, error: 'No organization scope found' });
-        return;
-      }
+      const orgId = getAdminOrgId(req);
       const list = await DepartmentService.getDepartments(orgId);
       res.json({ success: true, data: list });
     } catch (err: any) {
@@ -139,7 +182,9 @@ export class AdminController {
 
   static async createDepartment(req: Request, res: Response) {
     try {
-      const dept = await DepartmentService.createDepartment(req.body);
+      const orgId = getAdminOrgId(req);
+      const payload = { ...req.body, organizationId: orgId };
+      const dept = await DepartmentService.createDepartment(payload);
       res.status(201).json({ success: true, data: dept });
     } catch (err: any) {
       logger.error(`[Admin:createDepartment] ${err}`);
@@ -149,6 +194,14 @@ export class AdminController {
 
   static async updateDepartment(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const deptExists = await prisma.department.findFirst({
+        where: { id: req.params.id, organizationId: orgId }
+      });
+      if (!deptExists && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Department belongs to another organization.' });
+        return;
+      }
       const dept = await DepartmentService.updateDepartment(req.params.id, req.body);
       res.json({ success: true, data: dept });
     } catch (err: any) {
@@ -159,7 +212,22 @@ export class AdminController {
 
   static async assignHOD(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const deptExists = await prisma.department.findFirst({
+        where: { id: req.params.id, organizationId: orgId }
+      });
+      if (!deptExists && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Department belongs to another organization.' });
+        return;
+      }
       const { hodId } = req.body;
+      const userExists = await prisma.user.findFirst({
+        where: { id: hodId, organizationId: orgId }
+      });
+      if (!userExists && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: HOD user belongs to another organization.' });
+        return;
+      }
       const dept = await DepartmentService.assignHOD(req.params.id, hodId);
       res.json({ success: true, data: dept });
     } catch (err: any) {
@@ -170,7 +238,16 @@ export class AdminController {
 
   static async transferFaculty(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
       const { facultyId, targetDepartmentId } = req.body;
+      const [facultyUser, targetDept] = await Promise.all([
+        prisma.user.findFirst({ where: { id: facultyId, organizationId: orgId } }),
+        prisma.department.findFirst({ where: { id: targetDepartmentId, organizationId: orgId } })
+      ]);
+      if ((!facultyUser || !targetDept) && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Faculty or Department belongs to another organization.' });
+        return;
+      }
       const user = await DepartmentService.transferFaculty(facultyId, targetDepartmentId);
       res.json({ success: true, data: user });
     } catch (err: any) {
@@ -181,6 +258,14 @@ export class AdminController {
 
   static async archiveDepartment(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const deptExists = await prisma.department.findFirst({
+        where: { id: req.params.id, organizationId: orgId }
+      });
+      if (!deptExists && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Department belongs to another organization.' });
+        return;
+      }
       const dept = await DepartmentService.archiveDepartment(req.params.id);
       res.json({ success: true, data: dept });
     } catch (err: any) {
@@ -192,11 +277,7 @@ export class AdminController {
   // ── 3. User Management ──
   static async getUsers(req: Request, res: Response) {
     try {
-      const orgId = (req.query.organizationId as string) || req.user?.organizationId;
-      if (!orgId) {
-        res.status(400).json({ success: false, error: 'No organization scope found' });
-        return;
-      }
+      const orgId = getAdminOrgId(req);
       const list = await UserService.getUsers(orgId);
       res.json({ success: true, data: list });
     } catch (err: any) {
@@ -212,8 +293,7 @@ export class AdminController {
         res.status(403).json({ success: false, error: 'Cannot invite a SUPER_ADMIN' });
         return;
       }
-      const organizationId = req.user?.organizationId;
-      if (!organizationId) throw new Error('No organization scope');
+      const organizationId = getAdminOrgId(req);
 
       const invitation = await createInvitation({
         email,
@@ -231,8 +311,7 @@ export class AdminController {
   static async importUsersCsv(req: Request, res: Response) {
     try {
       if (!req.file) throw new Error('No CSV file uploaded');
-      const organizationId = req.user?.organizationId;
-      if (!organizationId) throw new Error('No organization scope');
+      const organizationId = getAdminOrgId(req);
 
       const result = await processCsvImport(req.file.path, organizationId, req.user!.id);
 
@@ -273,12 +352,7 @@ export class AdminController {
         return;
       }
       
-      // Inject organizationId from authenticated user's context
-      const organizationId = req.user?.organizationId;
-      if (!organizationId) {
-        res.status(400).json({ success: false, error: 'No organization scope found' });
-        return;
-      }
+      const organizationId = getAdminOrgId(req);
       
       const payload = {
         ...req.body,
@@ -302,8 +376,14 @@ export class AdminController {
 
   static async updateUser(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
       if (req.user) {
         await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+      }
+      const targetUser = await prisma.user.findUnique({ where: { id: req.params.id } });
+      if (targetUser && targetUser.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: User belongs to another organization.' });
+        return;
       }
       const { role } = req.body;
       if (role === 'SUPER_ADMIN' && req.user?.role !== 'SUPER_ADMIN') {
@@ -320,8 +400,14 @@ export class AdminController {
 
   static async suspendUser(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
       if (req.user) {
         await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+      }
+      const targetUser = await prisma.user.findUnique({ where: { id: req.params.id } });
+      if (targetUser && targetUser.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: User belongs to another organization.' });
+        return;
       }
       const { suspend } = req.body;
       const user = await UserService.suspendUser(req.params.id, suspend);
@@ -334,8 +420,14 @@ export class AdminController {
 
   static async deleteUser(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
       if (req.user) {
         await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+      }
+      const targetUser = await prisma.user.findUnique({ where: { id: req.params.id } });
+      if (targetUser && targetUser.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: User belongs to another organization.' });
+        return;
       }
       await UserService.deleteUser(req.params.id);
       res.json({ success: true, message: 'User soft-deleted successfully' });
@@ -347,8 +439,14 @@ export class AdminController {
 
   static async resetPassword(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
       if (req.user) {
         await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+      }
+      const targetUser = await prisma.user.findUnique({ where: { id: req.params.id } });
+      if (targetUser && targetUser.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: User belongs to another organization.' });
+        return;
       }
       const { newPassword } = req.body;
       const user = await UserService.resetPassword(req.params.id, newPassword);
@@ -453,7 +551,7 @@ export class AdminController {
   // ── 5.1. Classroom Management ──
   static async getClassrooms(req: Request, res: Response) {
     try {
-      const orgId = (req.query.organizationId as string) || req.user?.organizationId || undefined;
+      const orgId = getAdminOrgId(req);
       const list = await ClassroomService.getClassrooms(orgId);
       res.json({ success: true, data: list });
     } catch (err: any) {
@@ -464,7 +562,7 @@ export class AdminController {
 
   static async createClassroom(req: Request, res: Response) {
     try {
-      const orgId = req.body.organizationId || req.user?.organizationId;
+      const orgId = getAdminOrgId(req);
       const classroom = await ClassroomService.createClassroom({ name: req.body.name, organizationId: orgId });
       res.status(201).json({ success: true, data: classroom });
     } catch (err: any) {
@@ -475,6 +573,12 @@ export class AdminController {
 
   static async updateClassroom(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const targetClassroom = await prisma.classroom.findUnique({ where: { id: req.params.id } });
+      if (targetClassroom && targetClassroom.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Classroom belongs to another organization.' });
+        return;
+      }
       const classroom = await ClassroomService.updateClassroom(req.params.id, req.body);
       res.json({ success: true, data: classroom });
     } catch (err: any) {
@@ -485,6 +589,12 @@ export class AdminController {
 
   static async deleteClassroom(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const targetClassroom = await prisma.classroom.findUnique({ where: { id: req.params.id } });
+      if (targetClassroom && targetClassroom.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Classroom belongs to another organization.' });
+        return;
+      }
       await ClassroomService.deleteClassroom(req.params.id);
       res.json({ success: true, message: 'Classroom deleted' });
     } catch (err: any) {
@@ -495,6 +605,12 @@ export class AdminController {
 
   static async createSection(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const targetClassroom = await prisma.classroom.findUnique({ where: { id: req.body.classroomId } });
+      if (targetClassroom && targetClassroom.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Classroom belongs to another organization.' });
+        return;
+      }
       const section = await ClassroomService.createSection(req.body);
       res.status(201).json({ success: true, data: section });
     } catch (err: any) {
@@ -505,6 +621,15 @@ export class AdminController {
 
   static async enrollStudents(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const targetSection = await prisma.section.findUnique({
+        where: { id: req.params.sectionId },
+        include: { classroom: true }
+      });
+      if (targetSection && targetSection.classroom.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Section belongs to another organization.' });
+        return;
+      }
       const { studentIds } = req.body;
       const count = await ClassroomService.enrollStudents(req.params.sectionId, studentIds);
       res.json({ success: true, data: count });
@@ -518,7 +643,7 @@ export class AdminController {
   // ── 6. Group Management ──
   static async getGroups(req: Request, res: Response) {
     try {
-      const orgId = req.query.organizationId as string;
+      const orgId = getAdminOrgId(req);
       const list = await GroupService.getGroups(orgId);
       res.json({ success: true, data: list });
     } catch (err: any) {
@@ -529,7 +654,9 @@ export class AdminController {
 
   static async createGroup(req: Request, res: Response) {
     try {
-      const grp = await GroupService.createGroup(req.body);
+      const orgId = getAdminOrgId(req);
+      const payload = { ...req.body, organizationId: orgId };
+      const grp = await GroupService.createGroup(payload);
       res.status(201).json({ success: true, data: grp });
     } catch (err: any) {
       logger.error(`[Admin:createGroup] ${err}`);
@@ -539,6 +666,12 @@ export class AdminController {
 
   static async updateGroup(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const targetGroup = await prisma.group.findUnique({ where: { id: req.params.id } });
+      if (targetGroup && targetGroup.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Group belongs to another organization.' });
+        return;
+      }
       const grp = await GroupService.updateGroup(req.params.id, req.body);
       res.json({ success: true, data: grp });
     } catch (err: any) {
@@ -549,6 +682,12 @@ export class AdminController {
 
   static async deleteGroup(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const targetGroup = await prisma.group.findUnique({ where: { id: req.params.id } });
+      if (targetGroup && targetGroup.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Group belongs to another organization.' });
+        return;
+      }
       await prisma.group.delete({ where: { id: req.params.id } });
       res.json({ success: true, message: 'Group deleted successfully' });
     } catch (err: any) {
@@ -559,6 +698,12 @@ export class AdminController {
 
   static async assignGroupFaculty(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const targetGroup = await prisma.group.findUnique({ where: { id: req.params.id } });
+      if (targetGroup && targetGroup.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Group belongs to another organization.' });
+        return;
+      }
       const { facultyId } = req.body;
       const grp = await GroupService.updateGroup(req.params.id, { facultyId });
       res.json({ success: true, data: grp });
@@ -570,6 +715,12 @@ export class AdminController {
 
   static async assignGroupStudents(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const targetGroup = await prisma.group.findUnique({ where: { id: req.params.id } });
+      if (targetGroup && targetGroup.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Group belongs to another organization.' });
+        return;
+      }
       const { students } = req.body;
       await GroupService.assignStudents(req.params.id, students);
       res.json({ success: true, message: 'Group students updated successfully' });
@@ -581,6 +732,12 @@ export class AdminController {
 
   static async importGroupStudents(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const targetGroup = await prisma.group.findUnique({ where: { id: req.params.id } });
+      if (targetGroup && targetGroup.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Group belongs to another organization.' });
+        return;
+      }
       const { students } = req.body;
       await GroupService.bulkImportStudents(req.params.id, students);
       res.json({ success: true, message: `${students.length} students imported successfully` });
@@ -592,8 +749,13 @@ export class AdminController {
 
   static async assignGroupPapers(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const targetGroup = await prisma.group.findUnique({ where: { id: req.params.id } });
+      if (targetGroup && targetGroup.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Group belongs to another organization.' });
+        return;
+      }
       const { paperId } = req.body;
-      // In this setup, mapping papers is simulated as links or assignment updates
       res.json({ success: true, message: `Paper ${paperId} successfully assigned to group ${req.params.id}` });
     } catch (err: any) {
       logger.error(`[Admin:assignGroupPapers] ${err}`);
@@ -767,9 +929,11 @@ export class AdminController {
   }
 
   // ── 9. Assignment Management ──
-  static async getAssignments(_req: Request, res: Response) {
+  static async getAssignments(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
       const list = await prisma.assignment.findMany({
+        where: { organizationId: orgId },
         orderBy: { createdAt: 'desc' },
       });
       res.json({ success: true, data: list });
@@ -781,6 +945,17 @@ export class AdminController {
 
   static async reassignAssignment(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const existing = await prisma.assignment.findFirst({
+        where: {
+          id: req.params.id,
+          organizationId: orgId,
+        },
+      });
+      if (!existing && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(404).json({ success: false, error: 'Assignment not found' });
+        return;
+      }
       const { dueDate } = req.body;
       const updated = await prisma.assignment.update({
         where: { id: req.params.id },
@@ -795,6 +970,17 @@ export class AdminController {
 
   static async closeAssignment(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const existing = await prisma.assignment.findFirst({
+        where: {
+          id: req.params.id,
+          organizationId: orgId,
+        },
+      });
+      if (!existing && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(404).json({ success: false, error: 'Assignment not found' });
+        return;
+      }
       const updated = await prisma.assignment.update({
         where: { id: req.params.id },
         data: { status: 'ARCHIVED' },
@@ -808,6 +994,17 @@ export class AdminController {
 
   static async reopenAssignment(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const existing = await prisma.assignment.findFirst({
+        where: {
+          id: req.params.id,
+          organizationId: orgId,
+        },
+      });
+      if (!existing && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(404).json({ success: false, error: 'Assignment not found' });
+        return;
+      }
       const { dueDate } = req.body;
       const updated = await prisma.assignment.update({
         where: { id: req.params.id },
@@ -822,7 +1019,17 @@ export class AdminController {
 
   static async exportAssignmentResults(req: Request, res: Response) {
     try {
-      // Mock CSV data generation for grading configurations or papers
+      const orgId = getAdminOrgId(req);
+      const existing = await prisma.assignment.findFirst({
+        where: {
+          id: req.params.id,
+          organizationId: orgId,
+        },
+      });
+      if (!existing && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(404).json({ success: false, error: 'Assignment not found' });
+        return;
+      }
       const csvData = `"Student Name","Email","Score","Total Marks","Status"\n"Alice Johnson","alice.johnson@school.edu",84.5,100,"GRADED"\n"Bob Smith","bob.smith@school.edu",72.0,100,"GRADED"\n`;
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', `attachment; filename=assignment_${req.params.id}_grades.csv`);
@@ -834,9 +1041,10 @@ export class AdminController {
   }
 
   // ── 10. Analytics Dashboard ──
-  static async getAnalytics(_req: Request, res: Response) {
+  static async getAnalytics(req: Request, res: Response) {
     try {
-      const data = await AnalyticsService.getAdminAnalytics();
+      const orgId = getAdminOrgIdOptional(req);
+      const data = await AnalyticsService.getAdminAnalytics(orgId);
       res.json({ success: true, data });
     } catch (err: any) {
       logger.error(`[Admin:getAnalytics] ${err}`);
@@ -845,9 +1053,11 @@ export class AdminController {
   }
 
   // ── 11. Audit Logs ──
-  static async getAuditLogs(_req: Request, res: Response) {
+  static async getAuditLogs(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgIdOptional(req);
       const logs = await prisma.auditLog.findMany({
+        where: orgId ? { organizationId: orgId } : undefined,
         orderBy: { createdAt: 'desc' },
         take: 100,
       });
@@ -859,8 +1069,18 @@ export class AdminController {
   }
 
   // ── 12. Billing & Subscription Management ──
-  static async getBillingSubscriptions(_req: Request, res: Response) {
+  static async getBillingSubscriptions(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgIdOptional(req);
+      if (req.user?.role !== 'SUPER_ADMIN') {
+        if (!orgId) {
+          res.status(403).json({ success: false, error: 'No organization scope' });
+          return;
+        }
+        const sub = await BillingService.getSubscriptionByOrganization(orgId);
+        res.json({ success: true, data: sub ? [sub] : [] });
+        return;
+      }
       const subs = await BillingService.getSubscriptions();
       res.json({ success: true, data: subs });
     } catch (err: any) {
@@ -871,6 +1091,11 @@ export class AdminController {
 
   static async getSubscription(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      if (req.params.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Cannot access other organization subscription.' });
+        return;
+      }
       const sub = await BillingService.getSubscriptionByOrganization(req.params.organizationId);
       res.json({ success: true, data: sub });
     } catch (err: any) {
@@ -881,6 +1106,11 @@ export class AdminController {
 
   static async updateSubscription(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      if (req.params.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Cannot update other organization subscription.' });
+        return;
+      }
       const sub = await BillingService.updateSubscription(req.params.organizationId, req.body);
       res.json({ success: true, data: sub });
     } catch (err: any) {
@@ -891,6 +1121,12 @@ export class AdminController {
 
   static async getSubscriptionInvoices(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const sub = await prisma.subscription.findUnique({ where: { id: req.params.subscriptionId } });
+      if (sub && sub.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Subscription belongs to another organization.' });
+        return;
+      }
       const invoices = await BillingService.getInvoices(req.params.subscriptionId);
       res.json({ success: true, data: invoices });
     } catch (err: any) {
@@ -901,6 +1137,12 @@ export class AdminController {
 
   static async createSubscriptionInvoice(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const sub = await prisma.subscription.findUnique({ where: { id: req.body.subscriptionId } });
+      if (sub && sub.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Subscription belongs to another organization.' });
+        return;
+      }
       const invoice = await BillingService.createInvoice(req.body.subscriptionId, req.body);
       res.status(201).json({ success: true, data: invoice });
     } catch (err: any) {
@@ -911,6 +1153,11 @@ export class AdminController {
 
   static async getBillingUsage(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      if (req.params.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: Cannot access other organization billing usage.' });
+        return;
+      }
       const usage = await BillingService.getUsageTracking(req.params.organizationId);
       res.json({ success: true, data: usage });
     } catch (err: any) {

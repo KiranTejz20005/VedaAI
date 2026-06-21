@@ -171,6 +171,7 @@ model User {
   createdInvitations Invitation[]     @relation("CreatedInvitations")
   taughtSections     Section[]        @relation("TeacherSections")
   enrollments        Enrollment[]     @relation("StudentEnrollments")
+  createdAssignments Assignment[]     @relation("AssignmentCreator")
 }
 
 // ── ClassGroup (legacy) ──
@@ -397,6 +398,10 @@ model Assignment {
   subject                String
   organizationId         String
   organization           Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById            String?
+  createdBy              User?          @relation("AssignmentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  classId                String?
+  class                  Class?         @relation(fields: [classId], references: [id], onDelete: SetNull)
   description            String         @default("")
   dueDate                DateTime
   duration               Int
@@ -421,10 +426,13 @@ model Assignment {
 
   generatedPapers GeneratedPaper[]
   generationJobs  GenerationJob[]
+  submissions     StudentSubmission[]
 
   @@index([status, createdAt])
   @@index([subject])
   @@index([organizationId])
+  @@index([createdById])
+  @@index([classId])
 }
 
 model GeneratedPaper {
@@ -751,6 +759,7 @@ model AssignmentGradingConfig {
 model StudentSubmission {
   id             String                 @id @default(uuid())
   assignmentId   String
+  assignment     Assignment             @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   studentId      String
   organizationId String
   organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -762,6 +771,7 @@ model StudentSubmission {
   createdAt      DateTime               @default(now())
   updatedAt      DateTime               @updatedAt
 
+  @@unique([assignmentId, studentId])
   @@index([assignmentId])
   @@index([studentId])
   @@index([organizationId])
@@ -910,6 +920,7 @@ model Class {
   facultyId      String?
   faculty        User?        @relation("ClassFaculty", fields: [facultyId], references: [id], onDelete: SetNull)
   students       ClassStudent[]
+  assignments    Assignment[]
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 

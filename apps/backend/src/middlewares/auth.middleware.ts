@@ -30,53 +30,44 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
       token = authHeader.substring(7);
     }
 
-    // 2. Extract from cookie (if cookie-parser is registered)
+    // 2. Extract from cookie
     if (!token && req.cookies && req.cookies.access_token) {
       token = req.cookies.access_token;
     }
 
-    if (token) {
-      const decodedPayload = verifyAccessToken(token);
-      req.user = {
-        id: decodedPayload.userId,
-        email: decodedPayload.email,
-        role: decodedPayload.role,
-        organizationId: decodedPayload.organizationId,
-        activeOrganizationId: decodedPayload.activeOrganizationId,
-        departmentId: decodedPayload.departmentId,
-      };
-      return next();
+    if (!token) {
+      // 3. Fallback for local development / testing
+      const isMockAuthEnabled =
+        process.env.NODE_ENV !== 'production' &&
+        (process.env.NODE_ENV === 'test' || process.env.ENABLE_MOCK_AUTH === 'true' || process.env.NODE_ENV === 'development');
+      if (isMockAuthEnabled) {
+        const mockRole = (req.headers['x-mock-role'] as string) || 'TEACHER';
+        const mockUserId = (req.headers['x-mock-userid'] as string) || 'demo-faculty-id';
+        req.user = {
+          id: mockUserId,
+          email: 'demo@bloomverify.com',
+          role: mockRole,
+          organizationId: 'demo-org-id',
+          activeOrganizationId: 'demo-org-id',
+          departmentId: 'dept-demo',
+        };
+        return next();
+      }
+      return res.status(401).json({ success: false, error: 'Authentication required' });
     }
 
-    // 3. Fallback for local development / testing (if enabled)
-    const isMockAuthEnabled = process.env.NODE_ENV !== 'production' || process.env.ENABLE_MOCK_AUTH === 'true';
-    if (isMockAuthEnabled) {
-      const mockRole = (req.headers['x-mock-role'] as string) || 'TEACHER';
-      const mockUserId = (req.headers['x-mock-userid'] as string) || 'demo-faculty-id';
-      req.user = {
-        id: mockUserId,
-        email: 'demo@bloomverify.com',
-        role: mockRole,
-        organizationId: 'demo-org-id',
-        departmentId: 'dept-demo',
-      };
-      return next();
-    }
-
-    return res.status(401).json({ success: false, error: 'Authentication required' });
+    // Token exists, verify it
+    const decodedPayload = verifyAccessToken(token);
+    req.user = {
+      id: decodedPayload.userId,
+      email: decodedPayload.email,
+      role: decodedPayload.role,
+      organizationId: decodedPayload.organizationId,
+      activeOrganizationId: decodedPayload.activeOrganizationId,
+      departmentId: decodedPayload.departmentId,
+    };
+    return next();
   } catch (err: any) {
-    const isMockAuthEnabled = process.env.NODE_ENV !== 'production' || process.env.ENABLE_MOCK_AUTH === 'true';
-    if (isMockAuthEnabled) {
-      // Allow bypass on error in dev mode if explicitly requested
-      req.user = {
-        id: 'demo-faculty-id',
-        email: 'demo@bloomverify.com',
-        role: 'TEACHER',
-        organizationId: 'demo-org-id',
-        departmentId: 'dept-demo',
-      };
-      return next();
-    }
     return res.status(401).json({ success: false, error: err.message || 'Invalid authentication credentials' });
   }
 };
