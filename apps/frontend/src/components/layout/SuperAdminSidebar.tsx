@@ -20,8 +20,6 @@ const NAV_ITEMS = [
   { href: '/dashboard',                   label: 'Dashboard',         icon: LayoutGrid, exact: true },
   { href: '/super-admin/organizations',   label: 'Organizations',     icon: Building2 },
   { href: '/super-admin/users',           label: 'User Directory',    icon: Users },
-  { href: '/super-admin/analytics',       label: 'Platform Analytics',icon: BarChart3 },
-  { href: '/super-admin/subscriptions',   label: 'Subscriptions',     icon: CreditCard },
   { href: '/super-admin/audit',           label: 'Audit Logs',        icon: ScrollText },
   { href: '/super-admin/settings',        label: 'Settings',          icon: Settings },
 ];

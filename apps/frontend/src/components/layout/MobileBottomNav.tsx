@@ -1,21 +1,32 @@
 'use client';
 
-import { LayoutGrid, FileText, GraduationCap, Library, Sparkles, Plus } from 'lucide-react';
+import { LayoutGrid, FileText, GraduationCap, Sparkles, Plus, BookOpen, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuthStore } from '@/store/auth.store';
 
-const MOBILE_NAV = [
+const FACULTY_NAV = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true },
   { href: '/papers', label: 'Papers', icon: FileText },
   { href: '/syllabus', label: 'Syllabus', icon: GraduationCap },
   { href: '/generate', label: 'Quiz Room', icon: Sparkles },
 ];
 
+const STUDENT_NAV = [
+  { href: '/student', label: 'Home', icon: LayoutGrid, exact: true },
+  { href: '/student/assessments', label: 'Assessments', icon: ClipboardList },
+  { href: '/student/lessons', label: 'Lessons', icon: BookOpen },
+  { href: '/student/results', label: 'Results', icon: FileText },
+];
+
 export function MobileBottomNav() {
   const pathname = usePathname();
+  const role = useAuthStore((s) => s.user?.role?.toUpperCase() || '');
+  const isStudent = role === 'STUDENT';
+  const navItems = isStudent ? STUDENT_NAV : FACULTY_NAV;
 
-  const firstTwo = MOBILE_NAV.slice(0, 2);
-  const lastTwo = MOBILE_NAV.slice(2, 4);
+  const firstTwo = navItems.slice(0, 2);
+  const lastTwo = navItems.slice(2, 4);
 
   return (
     <nav className="mobile-bottom-nav" role="navigation" aria-label="Mobile navigation">
@@ -29,9 +40,11 @@ export function MobileBottomNav() {
         );
       })}
 
-      <Link href="/assignments/create" className="mobile-nav-fab" aria-label="Create Assignment">
-        <Plus size={22} aria-hidden="true" />
-      </Link>
+      {!isStudent && (
+        <Link href="/assignments/create" className="mobile-nav-fab" aria-label="Create Assignment">
+          <Plus size={22} aria-hidden="true" />
+        </Link>
+      )}
 
       {lastTwo.map(({ href, label, icon: Icon, exact }) => {
         const active = exact ? pathname === href : pathname.startsWith(href);

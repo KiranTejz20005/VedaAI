@@ -58,8 +58,9 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, isLoading, user, pathname, router]);
 
-  // Premium loading screen for authentication checks (except landing page)
-  if (isLoading && pathname !== '/') {
+  // Premium loading screen for authentication checks (except public pages)
+  const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/register' || pathname === '/forgot-password';
+  if (isLoading && !isPublicPage) {
     return (
       <div style={{
         minHeight: '100vh',

@@ -69,6 +69,14 @@ export default function SuperAdminAudit() {
     return 'draft';
   };
 
+  const formatIpAddress = (ip: string) => {
+    if (!ip) return '-';
+    let cleanIp = ip.split(',')[0].trim();
+    if (cleanIp === '::1') return '127.0.0.1';
+    if (cleanIp.startsWith('::ffff:')) return cleanIp.substring(7);
+    return cleanIp;
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <PageHeader
@@ -149,7 +157,7 @@ export default function SuperAdminAudit() {
                           <div>{log.entity || '-'}</div>
                           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{log.entityId ? log.entityId.substring(0, 12) + '...' : '-'}</div>
                         </td>
-                        <td style={{ padding: '10px 14px', color: 'var(--text-secondary)', fontFamily: 'monospace', fontSize: 'var(--text-xs)' }}>{log.ipAddress || '-'}</td>
+                        <td style={{ padding: '10px 14px', color: 'var(--text-secondary)', fontFamily: 'monospace', fontSize: 'var(--text-xs)' }}>{formatIpAddress(log.ipAddress)}</td>
                         <td style={{ padding: '10px 14px', textAlign: 'right' }}>
                           <Button variant="ghost" size="sm" onClick={() => setSelectedLog(log)}>View</Button>
                         </td>
@@ -196,7 +204,7 @@ export default function SuperAdminAudit() {
                   { label: 'User', value: selectedLog.userEmail || selectedLog.userId || 'System' },
                   { label: 'Entity', value: selectedLog.entity || '-' },
                   { label: 'Entity ID', value: selectedLog.entityId || '-' },
-                  { label: 'IP Address', value: selectedLog.ipAddress || '-' },
+                  { label: 'IP Address', value: formatIpAddress(selectedLog.ipAddress) },
                 ].map(({ label, value }) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: 'var(--text-muted)' }}>{label}</span>

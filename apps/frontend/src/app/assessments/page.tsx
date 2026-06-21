@@ -88,9 +88,16 @@ export default function AssessmentsPage() {
   useEffect(() => { fetchAssessments(); }, [fetchAssessments]);
 
   const handleAction = async (action: string, id: string) => {
+    const actionRouteMap: Record<string, string> = {
+      'submit-for-approval': 'submit',
+      approve: 'approve',
+      reject: 'reject',
+      publish: 'publish',
+    };
+    const routeAction = actionRouteMap[action] ?? action;
     try {
-      await api.post(`/assessments/${id}/${action}`);
-      toast.success(`Assessment ${action.replace('_', ' ')}d successfully`);
+      await api.post(`/assignments/${id}/${routeAction}`);
+      toast.success(`Assessment ${action.replace(/-/g, ' ')} successful`);
       await fetchAssessments();
     } catch (err: any) {
       toast.error(err.message || `Failed to ${action}`);

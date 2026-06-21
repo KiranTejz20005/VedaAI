@@ -63,6 +63,14 @@ export default function AuditLogsAdmin() {
     return 'bg-gray-100 text-gray-700 border-gray-200';
   };
 
+  const formatIpAddress = (ip: string) => {
+    if (!ip) return '-';
+    let cleanIp = ip.split(',')[0].trim();
+    if (cleanIp === '::1') return '127.0.0.1';
+    if (cleanIp.startsWith('::ffff:')) return cleanIp.substring(7);
+    return cleanIp;
+  };
+
   // Distinct action names for filter
   const actions = Array.from(new Set(logs.map(l => l.action))).filter(Boolean);
 
@@ -138,7 +146,7 @@ export default function AuditLogsAdmin() {
                         <div className="text-[9px] text-gray-400 mt-1 font-semibold">User: {log.userId || 'Guest User'}</div>
                       </td>
                       <td className="py-3 text-gray-500 font-semibold">
-                        <div className="text-gray-700">{log.ipAddress}</div>
+                        <div className="text-gray-700">{formatIpAddress(log.ipAddress)}</div>
                         <div className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5 max-w-[160px] truncate">
                           {getDeviceIcon(log.userAgent)} {log.userAgent}
                         </div>

@@ -30,8 +30,6 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/profile': 'Profile',
   '/super-admin/dashboard': 'Dashboard',
   '/super-admin/organizations': 'Organizations',
-  '/super-admin/analytics': 'Platform Analytics',
-  '/super-admin/subscriptions': 'Subscriptions',
   '/super-admin/audit': 'Audit Logs',
   '/super-admin/settings': 'Settings',
   '/admin': 'Dashboard',
@@ -187,7 +185,9 @@ export function Topbar() {
                 }}
               >
                 <Building2 size={14} color="var(--text-muted)" />
-                <span>{user.organizationName || 'Select Organization'}</span>
+                <span>
+                  {availableOrganizations.find(org => org.id === activeOrganizationId)?.name || user.organizationName || 'Select Organization'}
+                </span>
                 <ChevronDown size={12} color="var(--text-muted)" />
               </button>
 

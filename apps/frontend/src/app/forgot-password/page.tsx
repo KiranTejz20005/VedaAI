@@ -1,15 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Mail, ArrowRight, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,268 +23,300 @@ export default function ForgotPasswordPage() {
     }
 
     setIsSubmitting(true);
-    // Simulate API call for password reset
     setTimeout(() => {
       setIsSubmitting(false);
       setIsSubmitted(true);
       toast.success('Password reset link sent!');
-    }, 1500);
+    }, 1200);
   };
 
+  // Falling petals generation helper
+  const renderPetals = () => {
+    if (!mounted) return null;
+    return Array.from({ length: 20 }).map((_, i) => {
+      const left = Math.random() * 100;
+      const delay = Math.random() * 10;
+      const duration = 6 + Math.random() * 6;
+      const size = 6 + Math.random() * 8;
+      
+      return (
+        <span 
+          key={i} 
+          className="petal"
+          style={{
+            left: `${left}%`,
+            animationDelay: `${delay}s`,
+            animationDuration: `${duration}s`,
+            width: `${size}px`,
+            height: `${size * 0.7}px`
+          }}
+        />
+      );
+    });
+  };
+
+  const cherryBlossomPanel = (
+    <div className="art-panel">
+      {renderPetals()}
+    </div>
+  );
+
   return (
-    <div className="login-wrapper">
+    <div className="saas-root">
       <style dangerouslySetInnerHTML={{ __html: `
-        .login-wrapper {
+        .saas-root {
           min-height: 100vh;
+          width: 100vw;
+          background: #FFFFFF;
           display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #030712;
           font-family: 'Inter', sans-serif;
-          position: relative;
           overflow: hidden;
-          padding: 24px;
         }
-
-        .glow-1 {
-          position: absolute;
-          width: 500px;
-          height: 500px;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(234, 88, 12, 0.15) 0%, rgba(0, 0, 0, 0) 70%);
-          top: -10%;
-          left: -10%;
-          filter: blur(80px);
-          animation: floatGlow1 20s infinite alternate ease-in-out;
-        }
-
-        .glow-2 {
-          position: absolute;
-          width: 600px;
-          height: 600px;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, rgba(0, 0, 0, 0) 70%);
-          bottom: -10%;
-          right: -10%;
-          filter: blur(100px);
-          animation: floatGlow2 25s infinite alternate ease-in-out;
-        }
-
-        @keyframes floatGlow1 {
-          0% { transform: translate(0, 0) scale(1); }
-          100% { transform: translate(80px, 50px) scale(1.2); }
-        }
-
-        @keyframes floatGlow2 {
-          0% { transform: translate(0, 0) scale(1); }
-          100% { transform: translate(-60px, -90px) scale(1.1); }
-        }
-
-        .grid-mask {
-          position: absolute;
-          inset: 0;
-          background-image: 
-            linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-          background-size: 50px 50px;
-          mask-image: radial-gradient(circle at 50% 50%, black, transparent 85%);
-          -webkit-mask-image: radial-gradient(circle at 50% 50%, black, transparent 85%);
-          pointer-events: none;
-        }
-
-        .glass-login-card {
-          background: rgba(17, 24, 39, 0.7);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 24px;
-          padding: 48px 40px;
+        .outer-frame {
+          display: flex;
           width: 100%;
-          max-width: 480px;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-          position: relative;
-          z-index: 10;
+          min-height: 100vh;
+          background: #FFFFFF;
+          overflow: hidden;
         }
-
-        .input-group {
+        @media (max-width: 860px) {
+          .outer-frame {
+            flex-direction: column;
+          }
+          .art-panel {
+            display: none;
+          }
+        }
+        
+        /* Left Column */
+        .form-panel {
+          flex: 1;
+          padding: 48px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
           position: relative;
+        }
+        .header-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 32px;
+        }
+        .logo-text {
+          font-size: 15px;
+          font-weight: 700;
+          color: #111111;
+          letter-spacing: -0.5px;
+          text-decoration: none;
+        }
+        .top-action-btn {
+          font-size: 13px;
+          font-weight: 600;
+          color: #4B5563;
+          text-decoration: none;
+        }
+        .top-action-btn:hover {
+          color: #111111;
+        }
+        
+        .main-form-wrap {
+          max-width: 360px;
+          width: 100%;
+          margin: 0 auto;
+        }
+        .form-header-title {
+          font-size: 24px;
+          font-weight: 800;
+          letter-spacing: -0.5px;
+          color: #111111;
           margin-bottom: 24px;
         }
-
-        .input-icon {
-          position: absolute;
-          left: 14px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: #9CA3AF;
-          transition: color 0.2s;
-        }
-
-        .login-input {
+        .input-box {
           width: 100%;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 12px;
-          padding: 14px 16px 14px 44px;
-          color: white;
+          border: 1px solid #E5E7EB;
+          border-radius: 8px;
+          padding: 12px 14px;
           font-size: 14px;
+          color: #111111;
           outline: none;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          background: #FFFFFF;
+          margin-bottom: 16px;
+          transition: border-color 0.2s;
         }
-
-        .login-input:focus {
-          border-color: #EA580C;
-          background: rgba(255, 255, 255, 0.07);
-          box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.25);
+        .input-box:focus {
+          border-color: #111111;
         }
-
-        .login-input:focus + .input-icon {
-          color: #EA580C;
-        }
-
-        .btn-submit {
+        
+        .btn-submit-arrow {
           width: 100%;
-          background: linear-gradient(135deg, #F97316 0%, #EA580C 100%);
-          color: white;
-          padding: 14px;
+          background: #111111;
+          color: #FFFFFF;
           border: none;
-          border-radius: 12px;
-          font-weight: 600;
+          border-radius: 100px;
+          padding: 14px;
           font-size: 15px;
+          font-weight: 700;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
-          transition: all 0.2s ease-in-out;
-          box-shadow: 0 4px 14px rgba(234, 88, 12, 0.35);
+          transition: background-color 0.2s;
+          margin-top: 8px;
         }
-
-        .btn-submit:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 6px 20px rgba(234, 88, 12, 0.45);
+        .btn-submit-arrow:hover {
+          background: #222222;
         }
-
-        .btn-submit:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
-
-        .link-text {
-          color: #9CA3AF;
-          font-size: 14px;
+        
+        .trouble-text {
+          font-size: 12px;
+          color: #6B7280;
           text-align: center;
           margin-top: 24px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
+          line-height: 1.5;
         }
-
-        .link-highlight {
-          color: #EA580C;
-          text-decoration: none;
-          font-weight: 600;
-        }
-
-        .link-highlight:hover {
+        .trouble-text a {
+          color: #111111;
           text-decoration: underline;
         }
+        .login-link-container {
+          text-align: center;
+          margin-top: 20px;
+          font-size: 13px;
+          color: #4B5563;
+        }
+        .login-link-container a {
+          color: #111111;
+          font-weight: 700;
+          text-decoration: underline;
+        }
+        
+        .footer-row-meta {
+          display: flex;
+          justify-content: space-between;
+          font-size: 11px;
+          color: #9CA3AF;
+          margin-top: 32px;
+        }
+        .footer-row-meta a {
+          color: #9CA3AF;
+          text-decoration: none;
+          margin-left: 12px;
+        }
+        .footer-row-meta a:hover {
+          color: #111111;
+        }
 
-        @keyframes spin {
-          to { transform: rotate(360deg); }
+        /* Right Column Cherry Blossom */
+        .art-panel {
+          flex: 1.2;
+          background-image: url('/sakura_tree.png');
+          background-size: cover;
+          background-position: center;
+          position: relative;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          height: 100vh;
+        }
+        
+        /* Petals Falling Animation */
+        .petal {
+          position: absolute;
+          background: #FBCFE8;
+          border-radius: 150% 0 150% 150%;
+          z-index: 2;
+          opacity: 0.85;
+          top: -20px;
+          transform: rotate(-45deg);
+          animation: fall linear infinite;
+        }
+        
+        @keyframes fall {
+          0% {
+            top: -20px;
+            transform: translate(0, 0) rotate(-45deg) scale(0.8);
+            opacity: 0.85;
+          }
+          50% {
+            opacity: 0.9;
+          }
+          100% {
+            top: 105%;
+            transform: translate(-180px, 400px) rotate(240deg) scale(1.1);
+            opacity: 0;
+          }
         }
       ` }} />
 
-      <div className="glow-1" />
-      <div className="glow-2" />
-      <div className="grid-mask" />
+      <div className="outer-frame">
+        {/* Left Form Column */}
+        <div className="form-panel">
+          <div className="header-row">
+            <Link href="/" className="logo-text">shiksha ai</Link>
+            <Link href="/login" className="top-action-btn">Log in</Link>
+          </div>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className="glass-login-card"
-      >
-        {!isSubmitted ? (
-          <>
-            <div style={{ textAlign: 'center', marginBottom: 32 }}>
-              <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(234, 88, 12, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', border: '1px solid rgba(234, 88, 12, 0.2)' }}>
-                <Mail size={24} color="#EA580C" />
-              </div>
-              <h2 style={{ fontSize: '24px', fontWeight: 700, color: 'white', marginBottom: 8 }}>Forgot password?</h2>
-              <p style={{ color: '#9CA3AF', fontSize: '14px', lineHeight: 1.5 }}>
-                No worries, we'll send you reset instructions.
-              </p>
-            </div>
+          <div className="main-form-wrap">
+            <h1 className="form-header-title">Forgot password</h1>
 
-            <form onSubmit={handleSubmit}>
-              <div className="input-group">
-                <input 
-                  type="email" 
-                  className="login-input" 
-                  placeholder="Enter your email"
+            {!isSubmitted ? (
+              <form onSubmit={handleSubmit}>
+                <input
+                  type="email"
+                  className="input-box"
+                  placeholder="Email address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={isSubmitting}
                   required
                 />
-                <Mail className="input-icon" size={18} />
+                <button type="submit" className="btn-submit-arrow" disabled={isSubmitting}>
+                  {isSubmitting ? 'Resetting...' : 'Reset password →'}
+                </button>
+              </form>
+            ) : (
+              <div style={{ textAlign: 'center', width: '100%' }}>
+                <p style={{ fontSize: '14px', color: '#10B981', fontWeight: 600, marginBottom: 20 }}>
+                  Password reset link sent to your email successfully!
+                </p>
+                <button 
+                  type="button" 
+                  className="btn-submit-arrow" 
+                  onClick={() => {
+                    setIsSubmitted(false);
+                    setEmail('');
+                  }}
+                >
+                  Reset another email →
+                </button>
               </div>
+            )}
 
-              <button 
-                type="submit" 
-                className="btn-submit"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <span className="spinner" style={{
-                    width: 18,
-                    height: 18,
-                    border: '2px solid rgba(255,255,255,0.3)',
-                    borderTopColor: 'white',
-                    borderRadius: '50%',
-                    animation: 'spin 0.8s linear infinite'
-                  }} />
-                ) : (
-                  <>
-                    Send reset instructions
-                  </>
-                )}
-              </button>
-            </form>
-          </>
-        ) : (
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-              <Mail size={24} color="#10B981" />
-            </div>
-            <h2 style={{ fontSize: '24px', fontWeight: 700, color: 'white', marginBottom: 8 }}>Check your email</h2>
-            <p style={{ color: '#9CA3AF', fontSize: '14px', lineHeight: 1.5, marginBottom: 24 }}>
-              We sent a password reset link to <br/>
-              <span style={{ color: 'white', fontWeight: 600 }}>{email}</span>
+            <p className="trouble-text">
+              If you have any trouble resetting your password,<br/>
+              contact us at <a href="mailto:support@shiksha.ai">support@shiksha.ai</a>.
             </p>
-            <button 
-              type="button" 
-              className="btn-submit"
-              onClick={() => {
-                setIsSubmitted(false);
-                setEmail('');
-              }}
-              style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'white', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: 'none' }}
-            >
-              Try another email address
-            </button>
-          </div>
-        )}
 
-        <div className="link-text">
-          <ArrowLeft size={14} />
-          <Link href="/login" className="link-highlight">
-            Back to log in
-          </Link>
+            <div className="login-link-container">
+              Remember password? <Link href="/login" style={{ fontWeight: '700', textDecoration: 'underline' }}>Log in</Link>
+            </div>
+          </div>
+
+          <div className="footer-row-meta">
+            <span>© 2026 shiksha ai</span>
+            <div>
+              <a href="#">Privacy</a>
+              <a href="#">Terms</a>
+            </div>
+          </div>
         </div>
-      </motion.div>
+
+        {/* Right Cherry Blossom Column */}
+        {cherryBlossomPanel}
+      </div>
     </div>
   );
 }

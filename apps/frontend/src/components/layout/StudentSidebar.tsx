@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
+import { useAdminAuthStore } from '@/store/admin-auth.store';
 
 const NAV_ITEMS = [
   { href: '/student/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true },
@@ -26,6 +27,7 @@ export function StudentSidebar() {
   const pathname = usePathname();
   const { isOpen, close } = useSidebarStore();
   const { user } = useAuthStore();
+  const { availableOrganizations, activeOrganizationId } = useAdminAuthStore();
 
   function isActive(href: string, exact = false) {
     if (exact) return pathname === href;
@@ -79,7 +81,7 @@ export function StudentSidebar() {
                 {user ? `${user.firstName} ${user.lastName}` : 'Student'}
               </div>
               <div className="sidebar-profile-sub">
-                {user?.organizationName || 'Student'}
+                {availableOrganizations.find(org => org.id === activeOrganizationId)?.name || user?.organizationName || 'Student'}
               </div>
             </div>
           </div>

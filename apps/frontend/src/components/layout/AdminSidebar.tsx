@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
+import { useAdminAuthStore } from '@/store/admin-auth.store';
 
 function MyGroupsIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -41,8 +42,6 @@ const NAV_ITEMS = [
 const SUPER_ADMIN_ITEMS = [
   { href: '/super-admin/organizations', label: 'Organizations', icon: Building2 },
   { href: '/super-admin/users', label: 'User Directory', icon: Users },
-  { href: '/super-admin/analytics', label: 'Platform Analytics', icon: BarChart3 },
-  { href: '/super-admin/subscriptions', label: 'Subscriptions', icon: CreditCard },
   { href: '/super-admin/audit', label: 'Audit Logs', icon: ScrollText },
 ];
 
@@ -50,6 +49,7 @@ export function AdminSidebar() {
   const pathname = usePathname();
   const { isOpen, close } = useSidebarStore();
   const { user } = useAuthStore();
+  const { availableOrganizations, activeOrganizationId } = useAdminAuthStore();
 
   function isActive(href: string, exact = false) {
     if (exact) return pathname === href;
@@ -125,7 +125,7 @@ export function AdminSidebar() {
                 {user ? `${user.firstName} ${user.lastName}` : 'Admin User'}
               </div>
               <div className="sidebar-profile-sub">
-                {user?.organizationName || 'System Admin'}
+                {availableOrganizations.find(org => org.id === activeOrganizationId)?.name || user?.organizationName || 'System Admin'}
               </div>
             </div>
           </div>

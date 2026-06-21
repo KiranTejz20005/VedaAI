@@ -22,6 +22,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/*
+          Inline synchronous script — runs BEFORE React hydration.
+          This intercepts setAttribute to block browser extensions (e.g. Built-in Browser)
+          from injecting `bis_skin_checked` and similar attrs that cause hydration mismatches.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var b=['bis_skin_checked','bis_status','bis_frame_id','bis_register'];var o=Element.prototype.setAttribute;Element.prototype.setAttribute=function(n,v){if(b.indexOf(n)!==-1)return;o.call(this,n,v);};})();`,
+          }}
+        />
+      </head>
       <body suppressHydrationWarning>
         <ThemeProvider>
           <AppShell>{children}</AppShell>

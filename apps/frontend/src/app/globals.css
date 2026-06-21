@@ -553,6 +553,9 @@ img, svg, video, canvas { max-width: 100%; height: auto; display: block; }
 .desktop-page-header {
   padding-top: clamp(20px, 2.5vw, 28px);
   margin-bottom: clamp(14px, 1.8vw, 20px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .page-title {
@@ -2594,4 +2597,784 @@ hr { border: none; border-top: 1px solid var(--border); }
   .print-hidden { display: none !important; }
   .outer-paper-container { background: transparent; border-radius: 0; padding: 0; box-shadow: none; }
   .paper-card { border-radius: 0; padding: 0; box-shadow: none; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   Landing Page v2 — Funvera-inspired (Shiksha AI brand)
+   ════════════════════════════════════════════════════════════ */
+.landing-v2 {
+  --lp-red: #FF5C5C;
+  --lp-yellow: #FFD93D;
+  --lp-purple: #9D65FF;
+  --lp-pink: #FF80BF;
+  --lp-ink: #111827;
+  --lp-muted: #6B7280;
+  --lp-bg: #FFFFFF;
+  --lp-surface: #FAFAFA;
+  min-height: 100vh;
+  background: var(--lp-bg);
+  color: var(--lp-ink);
+  overflow-x: hidden;
+  position: relative;
+}
+
+.landing-v2::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+  mask-image: linear-gradient(to bottom, black 0%, black 40%, transparent 85%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 40%, transparent 85%);
+}
+
+.landing-v2-inner {
+  position: relative;
+  z-index: 1;
+}
+
+/* Header */
+.lp-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.lp-header-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.lp-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--lp-ink);
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: -0.4px;
+  flex-shrink: 0;
+}
+
+.lp-logo-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--lp-red), var(--lp-purple));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 900;
+  font-size: 18px;
+  box-shadow: 0 4px 14px rgba(157, 101, 255, 0.25);
+}
+
+.lp-nav {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.lp-nav-link {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--lp-muted);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.lp-nav-link:hover {
+  color: var(--lp-ink);
+}
+
+.lp-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.lp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 10px 22px;
+  border-radius: 999px;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.lp-btn:active {
+  transform: scale(0.97);
+}
+
+.lp-btn-dark {
+  background: var(--lp-ink);
+  color: white;
+  box-shadow: 0 4px 16px rgba(17, 24, 39, 0.18);
+}
+
+.lp-btn-dark:hover {
+  background: #1f2937;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(17, 24, 39, 0.22);
+}
+
+.lp-btn-ghost {
+  background: transparent;
+  color: var(--lp-ink);
+  padding: 10px 14px;
+}
+
+.lp-btn-ghost:hover {
+  color: var(--lp-purple);
+}
+
+.lp-btn-lg {
+  padding: 14px 32px;
+  font-size: 15px;
+}
+
+.lp-menu-toggle {
+  display: none;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: white;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--lp-ink);
+}
+
+.lp-mobile-nav {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 20px 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.lp-mobile-nav.open {
+  display: flex;
+}
+
+.lp-mobile-nav .lp-nav-link {
+  padding: 12px 4px;
+  font-size: 15px;
+}
+
+/* Hero */
+.lp-hero {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: clamp(48px, 8vw, 80px) 24px 32px;
+  text-align: center;
+}
+
+.lp-social-proof {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.lp-avatars {
+  display: flex;
+}
+
+.lp-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid white;
+  margin-left: -8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+}
+
+.lp-avatar:first-child {
+  margin-left: 0;
+}
+
+.lp-social-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lp-muted);
+}
+
+.lp-social-text span {
+  color: var(--lp-yellow);
+}
+
+.lp-hero-title {
+  font-size: clamp(36px, 6.5vw, 64px);
+  font-weight: 800;
+  letter-spacing: -2px;
+  line-height: 1.05;
+  margin-bottom: 20px;
+}
+
+.lp-hero-sub {
+  font-size: clamp(15px, 1.3vw, 18px);
+  color: var(--lp-muted);
+  max-width: 560px;
+  margin: 0 auto 32px;
+  line-height: 1.65;
+}
+
+/* Puzzle grid */
+.lp-puzzle-banner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 20px 48px;
+}
+
+.lp-puzzle-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: repeat(2, minmax(100px, 130px));
+  gap: 0;
+  border-radius: 28px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+}
+
+.lp-puzzle-piece {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  cursor: default;
+  overflow: hidden;
+  min-height: 100px;
+}
+
+.lp-puzzle-piece::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+}
+
+.lp-puzzle-text {
+  font-size: clamp(11px, 1.2vw, 14px);
+  font-weight: 800;
+  color: white;
+  text-align: center;
+  line-height: 1.3;
+  letter-spacing: -0.2px;
+  z-index: 1;
+}
+
+.lp-puzzle-emoji {
+  font-size: clamp(28px, 4vw, 42px);
+  z-index: 1;
+}
+
+.lp-puzzle-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  z-index: 1;
+}
+
+.lp-puzzle-brand-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 14px;
+  color: white;
+}
+
+.lp-puzzle-brand span {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.lp-puzzle-wave {
+  width: 80%;
+  height: 40%;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.4) 0,
+    rgba(255, 255, 255, 0.4) 8px,
+    transparent 8px,
+    transparent 16px
+  );
+  border-radius: 999px;
+  transform: rotate(-8deg);
+}
+
+/* Partners */
+.lp-partners {
+  padding: 40px 24px;
+  text-align: center;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  background: var(--lp-surface);
+}
+
+.lp-partners-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--lp-muted);
+  margin-bottom: 24px;
+}
+
+.lp-partners-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(24px, 5vw, 48px);
+  flex-wrap: wrap;
+}
+
+.lp-partner-logo {
+  font-size: clamp(14px, 2vw, 18px);
+  font-weight: 800;
+  color: #D1D5DB;
+  letter-spacing: -0.5px;
+  transition: color 0.2s ease;
+}
+
+.lp-partner-logo:hover {
+  color: #9CA3AF;
+}
+
+/* About */
+.lp-about {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: clamp(64px, 10vw, 96px) 24px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(32px, 6vw, 64px);
+  align-items: center;
+}
+
+.lp-section-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--lp-purple);
+  margin-bottom: 16px;
+}
+
+.lp-about-title {
+  font-size: clamp(26px, 3.5vw, 38px);
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.15;
+  margin-bottom: 20px;
+}
+
+.lp-about-desc {
+  font-size: 15px;
+  color: var(--lp-muted);
+  line-height: 1.7;
+  margin-bottom: 28px;
+}
+
+.lp-about-puzzle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.08);
+}
+
+.lp-about-piece {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(32px, 5vw, 48px);
+}
+
+/* Lessons */
+.lp-lessons {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: clamp(48px, 8vw, 80px) 24px;
+}
+
+.lp-lessons-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.lp-lessons-title {
+  font-size: clamp(26px, 3.5vw, 38px);
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.15;
+  max-width: 640px;
+  margin: 0 auto 12px;
+}
+
+.lp-lessons-sub {
+  font-size: 15px;
+  color: var(--lp-muted);
+}
+
+.lp-lessons-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.lp-lesson-card {
+  position: relative;
+  background: white;
+  border-radius: 20px;
+  padding: 24px 20px;
+  border: 3px solid transparent;
+  text-align: center;
+  cursor: pointer;
+  transition: box-shadow 0.3s ease;
+  overflow: visible;
+}
+
+.lp-lesson-card::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 22px;
+  z-index: -1;
+}
+
+.lp-lesson-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.lp-lesson-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--lp-ink);
+  letter-spacing: -0.2px;
+}
+
+.lp-lesson-notch {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: var(--lp-bg);
+  border-radius: 50%;
+  z-index: 2;
+}
+
+.lp-lesson-notch--right {
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.lp-lesson-notch--left {
+  left: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Stats bar */
+.lp-stats-bar {
+  background: var(--lp-ink);
+  color: white;
+  padding: 20px 24px;
+}
+
+.lp-stats-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.lp-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.lp-stat-item strong {
+  font-weight: 800;
+}
+
+.lp-stat-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+/* Testimonials */
+.lp-testimonials {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: clamp(64px, 10vw, 96px) 24px;
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: clamp(32px, 5vw, 56px);
+  align-items: start;
+}
+
+.lp-bubbles {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lp-bubble {
+  padding: 18px 22px;
+  border-radius: 20px 20px 20px 6px;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.lp-bubble:hover {
+  transform: translateX(4px);
+}
+
+.lp-bubble.active {
+  transform: scale(1.02);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.lp-bubble-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.lp-testimonial-featured {
+  padding-top: 8px;
+}
+
+.lp-testimonial-quote {
+  font-size: clamp(22px, 2.5vw, 30px);
+  font-weight: 800;
+  letter-spacing: -0.8px;
+  line-height: 1.25;
+  margin: 16px 0 24px;
+}
+
+.lp-testimonial-body {
+  font-size: 16px;
+  color: var(--lp-muted);
+  line-height: 1.7;
+  margin-bottom: 24px;
+}
+
+.lp-testimonial-author {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lp-testimonial-author-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+  color: white;
+}
+
+.lp-testimonial-author-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.lp-testimonial-author-role {
+  font-size: 13px;
+  color: var(--lp-muted);
+}
+
+/* CTA */
+.lp-cta {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 24px clamp(64px, 10vw, 96px);
+  text-align: center;
+}
+
+.lp-cta-card {
+  background: linear-gradient(135deg, rgba(255, 92, 92, 0.08), rgba(157, 101, 255, 0.08));
+  border: 1px solid rgba(157, 101, 255, 0.15);
+  border-radius: 28px;
+  padding: clamp(40px, 6vw, 56px) clamp(24px, 4vw, 40px);
+}
+
+.lp-cta-title {
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.8px;
+  margin-bottom: 12px;
+}
+
+.lp-cta-desc {
+  font-size: 15px;
+  color: var(--lp-muted);
+  margin-bottom: 28px;
+  line-height: 1.6;
+}
+
+.lp-cta-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.lp-footer {
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 28px 24px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--lp-muted);
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .lp-nav,
+  .lp-header-actions .lp-btn-ghost {
+    display: none;
+  }
+
+  .lp-menu-toggle {
+    display: flex;
+  }
+
+  .lp-puzzle-grid {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(4, minmax(90px, 110px));
+    border-radius: 20px;
+  }
+
+  .lp-about {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-about-puzzle {
+    max-width: 360px;
+    margin: 0 auto;
+  }
+
+  .lp-lessons-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .lp-lesson-notch {
+    display: none;
+  }
+
+  .lp-testimonials {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-bubbles {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    gap: 12px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .lp-bubble {
+    min-width: 240px;
+    scroll-snap-align: start;
+    border-radius: 16px;
+  }
+}
+
+@media (max-width: 520px) {
+  .lp-puzzle-grid {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(6, minmax(80px, 100px));
+  }
+
+  .lp-lessons-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .lp-lesson-card {
+    padding: 18px 14px;
+  }
+
+  .lp-stats-inner {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .lp-header-actions .lp-btn-dark:not(.lp-btn-lg) {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
 }

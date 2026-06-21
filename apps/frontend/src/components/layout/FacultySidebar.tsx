@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
+import { useAdminAuthStore } from '@/store/admin-auth.store';
 
 function QuestionBankIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -43,6 +44,7 @@ export function FacultySidebar() {
   const pathname = usePathname();
   const { isOpen, close } = useSidebarStore();
   const { user } = useAuthStore();
+  const { availableOrganizations, activeOrganizationId } = useAdminAuthStore();
 
   function isActive(href: string, exact = false) {
     if (exact) return pathname === href;
@@ -102,7 +104,7 @@ export function FacultySidebar() {
                 {user ? `${user.firstName} ${user.lastName}` : 'Faculty'}
               </div>
               <div className="sidebar-profile-sub">
-                {user?.departmentName || 'Faculty'}
+                {availableOrganizations.find(org => org.id === activeOrganizationId)?.name || user?.organizationName || user?.departmentName || 'Faculty'}
               </div>
             </div>
           </div>

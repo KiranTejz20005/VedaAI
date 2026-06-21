@@ -638,6 +638,22 @@ export default function CreateAssignmentPage() {
       toast.error('Please set a due date');
       return;
     }
+    if (!formData.title.trim()) {
+      toast.error('Please enter a title');
+      return;
+    }
+    if (!formData.subject.trim()) {
+      toast.error('Please select a subject');
+      return;
+    }
+    if (totalQuestions < 1) {
+      toast.error('Add at least one question');
+      return;
+    }
+    if (totalMarks < 1) {
+      toast.error('Total marks must be at least 1');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -660,29 +676,8 @@ export default function CreateAssignmentPage() {
         .join('\n')
         .slice(0, 2000);
 
-      const title = formData.title.trim() || 'Assignment';
-      const subject = formData.subject.trim() || 'General';
-
-      if (title.length < 1) {
-        toast.error('Please enter a title');
-        setIsSubmitting(false);
-        return;
-      }
-      if (subject.length < 1) {
-        toast.error('Please select a subject');
-        setIsSubmitting(false);
-        return;
-      }
-      if (totalQuestions < 1) {
-        toast.error('Add at least one question');
-        setIsSubmitting(false);
-        return;
-      }
-      if (totalMarks < 1) {
-        toast.error('Total marks must be at least 1');
-        setIsSubmitting(false);
-        return;
-      }
+      const title = formData.title.trim();
+      const subject = formData.subject.trim();
 
       const payload = {
         title,
@@ -709,18 +704,39 @@ export default function CreateAssignmentPage() {
       toast.success('Assignment created! Generation started…', { duration: 4000 });
       router.push(`/assignments/${assignment.id}`);
     } catch (e: unknown) {
+      setIsSubmitting(false);
       let errorMsg = 'Failed to create assignment';
       if (e instanceof Error) {
         errorMsg = e.message;
       }
       toast.error(errorMsg);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   return (
     <>
+      <AnimatePresence>
+        {isSubmitting && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gray-50/95 backdrop-blur-sm"
+            role="status"
+            aria-live="polite"
+            aria-label="Creating assignment"
+          >
+            <Loader2 size={40} className="animate-spin text-orange-500" aria-hidden="true" />
+            <p style={{ marginTop: 16, fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>
+              Creating assignment…
+            </p>
+            <p style={{ marginTop: 6, fontSize: 13, color: 'var(--text-muted)' }}>
+              You will be redirected to generation when ready.
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Page heading (responsive structures defined in globals.css) */}
       <div className="page-header-container" style={{ marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid #E5E7EB' }}>
         {/* Desktop-only Page Header */}

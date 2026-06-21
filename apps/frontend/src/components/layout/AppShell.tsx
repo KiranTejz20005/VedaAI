@@ -41,9 +41,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         if (isAuthPage) {
           router.push('/dashboard');
         } else {
-          const isExcludedPath = pathname.startsWith('/admin');
           const role = user?.role || '';
-          const hasAccess = isExcludedPath || canAccessRoute(role, pathname);
+          const hasAccess = canAccessRoute(role, pathname);
 
           if (!hasAccess) {
             router.push('/dashboard');
@@ -57,7 +56,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, isLoading, user, pathname, router]);
 
-  if (isLoading && pathname !== '/') {
+  const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/register' || pathname === '/forgot-password';
+  if (isLoading && !isPublicPage) {
     return (
       <div suppressHydrationWarning style={{
         minHeight: '100vh',
@@ -75,7 +75,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           height: 50,
           marginBottom: 16
         }}>
-          <div style={{
+          <div suppressHydrationWarning style={{
             position: 'absolute',
             width: '100%',
             height: '100%',
@@ -104,21 +104,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <>
         {children}
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            style: {
-              background: '#1F2937',
-              color: '#F9FAFB',
-              border: '1px solid #374151',
-              borderRadius: '12px',
-              fontSize: '14px',
-              fontFamily: 'ui-sans-serif, system-ui',
-            },
-            success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
-            error: { iconTheme: { primary: '#EF4444', secondary: '#fff' } },
-          }}
-        />
+        <ClientOnly>
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              style: {
+                background: '#1F2937',
+                color: '#F9FAFB',
+                border: '1px solid #374151',
+                borderRadius: '12px',
+                fontSize: '14px',
+                fontFamily: 'ui-sans-serif, system-ui',
+              },
+              success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
+              error: { iconTheme: { primary: '#EF4444', secondary: '#fff' } },
+            }}
+          />
+        </ClientOnly>
       </>
     );
   }
@@ -126,8 +128,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const role = user?.role?.toUpperCase() || '';
 
   let SidebarComponent = <FacultySidebar />;
-  if (role === 'SUPER_ADMIN' || role === 'ADMIN') {
+  if (role === 'SUPER_ADMIN') {
     SidebarComponent = <AdminSidebar />;
+  } else if (role === 'ADMIN' || role === 'ORG_ADMIN') {
+    SidebarComponent = <OrgAdminSidebar />;
   } else if (role === 'TEACHER' || role === 'FACULTY') {
     SidebarComponent = <FacultySidebar />;
   } else if (role === 'STUDENT') {
@@ -146,22 +150,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <MobileBottomNav />
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          style: {
-            background: '#ffffff',
-            color: '#111827',
-            border: '1px solid #E5E7EB',
-            borderRadius: '12px',
-            fontSize: '14px',
-            fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-          },
-          success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
-          error: { iconTheme: { primary: '#EF4444', secondary: '#fff' } },
-        }}
-      />
+      <ClientOnly>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            style: {
+              background: '#ffffff',
+              color: '#111827',
+              border: '1px solid #E5E7EB',
+              borderRadius: '12px',
+              fontSize: '14px',
+              fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+            },
+            success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
+            error: { iconTheme: { primary: '#EF4444', secondary: '#fff' } },
+          }}
+        />
+      </ClientOnly>
     </div>
   );
 }
