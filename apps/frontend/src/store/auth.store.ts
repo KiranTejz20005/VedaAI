@@ -31,6 +31,13 @@ interface AuthStore {
   clearAuth: () => void;
   initialize: () => Promise<boolean>;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  ssoLogin: (data: {
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    provider: string;
+    token?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
   signup: (data: {
     email: string;
     password?: string;
@@ -122,12 +129,44 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     }
   },
 
+  ssoLogin: async (data) => {
+    try {
+      set({ isLoading: true });
+      const res = await api.post('/auth/sso', data);
+      const { accessToken, user } = res.data?.data || {};
+      if (accessToken && user) {
+        set({
+          user,
+          accessToken,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+        return { success: true };
+      }
+      set({ isLoading: false });
+      return { success: false, error: 'Invalid response from auth server.' };
+    } catch (err: any) {
+      set({ isLoading: false });
+      return { success: false, error: err.message || 'SSO Login failed.' };
+    }
+  },
+
   signup: async (data) => {
     try {
       set({ isLoading: true });
-      await api.post('/auth/signup', data);
+      const res = await api.post('/auth/signup', data);
+      const { accessToken, user } = res.data?.data || {};
+      if (accessToken && user) {
+        set({
+          user,
+          accessToken,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+        return { success: true };
+      }
       set({ isLoading: false });
-      return { success: true };
+      return { success: false, error: 'Invalid response from auth server.' };
     } catch (err: any) {
       set({ isLoading: false });
       return { success: false, error: err.message || 'Signup failed.' };
