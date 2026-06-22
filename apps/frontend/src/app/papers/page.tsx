@@ -245,9 +245,12 @@ export default function PapersPage() {
   const handleView = (assignmentId: string, status?: Assignment['status']) => {
     const resolved =
       status ?? assignments.find((a) => a.id === assignmentId)?.status;
+    // Always navigate directly to paper page for completed/partial status
+    // For draft/generating, show the detail page with generation progress
     if (resolved === 'completed' || resolved === 'partially_generated') {
       router.push(`/assignments/${assignmentId}/paper`);
     } else {
+      // For non-completed statuses, still go to detail page to show generation progress
       router.push(`/assignments/${assignmentId}`);
     }
   };
