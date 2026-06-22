@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import {
   Brain, CheckCircle2, XCircle, AlertCircle, Clock, FileText, Zap, RefreshCw, Star,
-  Edit3, Eye, Check
+  Edit3, Eye, Check, Download
 } from 'lucide-react';
 import { fetchAssignment, generateAssignment, fetchJobStatus } from '@/services/assignment.service';
 import { fetchPaper } from '@/services/paper.service';
@@ -62,6 +62,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [showGenScreen, setShowGenScreen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const hasAutoQueuedRef = useRef(false);
   const retryCooldownRef = useRef(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -348,9 +349,34 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                     </button>
                   )}
                   {(assignment.status === 'completed' || assignment.status === 'partially_generated') && (
-                    <button onClick={handleViewPaper} className="btn btn-primary btn-sm" style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
-                      <Eye size={14} /> Preview Paper
-                    </button>
+                    <>
+                      <button onClick={handleViewPaper} className="btn btn-primary btn-sm" style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
+                        <Eye size={14} /> Preview Paper
+                      </button>
+                      <button onClick={async () => { 
+                        setDownloading(true);
+                        try {
+                          const res = await fetch(`http://localhost:3001/api/v1/papers/${assignment.id}/pdf`);
+                          if (!res.ok) throw new Error('PDF not available');
+                          const blob = await res.blob();
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `paper-${assignment.id}.pdf`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                          toast.success('PDF downloaded');
+                        } catch {
+                          toast.error('PDF not yet available');
+                        } finally {
+                          setDownloading(false);
+                        }
+                      }} className="btn btn-secondary btn-sm" style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }} disabled={downloading}>
+                        <Download size={14} /> {downloading ? 'Downloading...' : 'Download PDF'}
+                      </button>
+                    </>
                   )}
                 </div>
               </motion.div>
