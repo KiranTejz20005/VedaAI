@@ -137,6 +137,14 @@ export function emitToAssignment<E extends keyof ServerToClientEvents>(
   payload: Parameters<ServerToClientEvents[E]>[0]
 ): void {
   if (!io) return;
-  // Socket.IO's emit typings don't accept generic event maps cleanly; payload is validated at call sites.
-  (io.to(`assignment:${assignmentId}`) as { emit: (ev: string, data: unknown) => void }).emit(event, payload);
+  (io.to(`assignment:${assignmentId}`) as { emit: (ev: string, data: unknown) => void }).emit(event as any, payload);
+}
+
+export function emitToConversation(
+  conversationId: string,
+  event: string,
+  payload: any
+): void {
+  if (!io) return;
+  io.to(`conversation:${conversationId}`).emit(event as any, payload);
 }

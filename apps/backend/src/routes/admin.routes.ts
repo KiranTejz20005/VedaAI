@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { asyncHandler } from '../utils/async-handler';
 import { AdminController } from '../controllers/admin.controller';
-import { authenticate } from '../middlewares/auth.middleware';
+import { authenticate, authorize } from '../middlewares/auth.middleware';
 import { requirePermission } from '../security/access-control';
 
 const router = Router();
 
 // Enforce auth and admin permission requirements
 router.use(authenticate);
+router.use(authorize(['ADMIN', 'ORG_ADMIN']));
 router.use(requirePermission('MANAGE_USERS'));
 
 // ── 1. Organization Management ──

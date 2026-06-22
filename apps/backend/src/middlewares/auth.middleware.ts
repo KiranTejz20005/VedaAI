@@ -114,3 +114,29 @@ export const requireOrganizationScope = () => {
     return next();
   }
 };
+
+/**
+ * Middleware to enforce strict role-based access control (RBAC).
+ * Allows access if the user's role is in the allowedRoles array or if they are a SUPER_ADMIN.
+ */
+export const authorize = (allowedRoles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+    const role = req.user.role.toUpperCase();
+
+    // Super Admins bypass role restrictions
+    if (role === 'SUPER_ADMIN') {
+      return next();
+    }
+
+    const normalizedAllowedRoles = allowedRoles.map(r => r.toUpperCase());
+    if (normalizedAllowedRoles.includes(role)) {
+      return next();
+    }
+
+    // Role is not authorized
+    return res.status(403).json({ success: false, error: 'Forbidden: Insufficient privileges' });
+  };
+};

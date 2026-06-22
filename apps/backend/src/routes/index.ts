@@ -23,6 +23,11 @@ import adminRoutes from './admin.routes';
 import notificationRoutes from './notification.routes';
 import superAdminRoutes from './super-admin.routes';
 import studentRoutes from './student.routes';
+import communityRoutes from './community.routes';
+import chatRoutes from './chat.routes';
+import voiceRoutes from './voice.routes';
+import moderationRoutes from './moderation.routes';
+import meetingRoutes from './meeting.routes';
 
 const apiRouter = Router();
 
@@ -91,5 +96,12 @@ apiRouter.use('/v1/student', studentRoutes);
 apiRouter.use('/assignments', assignmentRoutes);
 apiRouter.use('/papers', paperRoutes);
 apiRouter.use('/questions', questionRoutes);
+
+// Community Hub
+apiRouter.use('/v1/community', communityRoutes);
+apiRouter.use('/v1/chat', chatRoutes);
+apiRouter.use('/v1/voice', voiceRoutes);
+apiRouter.use('/v1/meetings', meetingRoutes);
+apiRouter.use('/v1/admin/community', moderationRoutes);
 
 export default apiRouter;

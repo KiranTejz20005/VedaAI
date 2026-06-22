@@ -119,6 +119,10 @@ model Organization {
   rubrics          Rubric[]
   promptTemplates  PromptTemplate[]
   classGroups      ClassGroup[]
+  communityPosts   CommunityPost[]
+  communityGroups  CommunityGroup[]
+  voiceRooms       VoiceRoom[]
+  meetings         Meeting[]
 }
 
 model Department {
@@ -172,6 +176,14 @@ model User {
   taughtSections     Section[]        @relation("TeacherSections")
   enrollments        Enrollment[]     @relation("StudentEnrollments")
   createdAssignments Assignment[]     @relation("AssignmentCreator")
+  communityPosts     CommunityPost[]  @relation("CommunityPosts")
+  ownedGroups        CommunityGroup[] @relation("OwnedGroups")
+  groupMemberships   GroupMember[]    @relation("GroupMemberships")
+  sentMessages       Message[]        @relation("SentMessages")
+  createdVoiceRooms  VoiceRoom[]      @relation("CreatedVoiceRooms")
+  voiceParticipations VoiceRoomParticipant[] @relation("VoiceParticipations")
+  hostedMeetings     Meeting[]        @relation("HostedMeetings")
+  questionCollections QuestionCollection[]
 }
 
 // ── ClassGroup (legacy) ──
@@ -797,6 +809,7 @@ model QuestionCollection {
   name        String
   description String?
   userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
   questions   QuestionBank[]
@@ -986,5 +999,120 @@ model Notification {
   createdAt      DateTime     @default(now())
 
   @@index([userId, isRead])
+  @@index([organizationId])
+}
+
+// ── Community Hub ──
+
+model CommunityPost {
+  id             String   @id @default(uuid())
+  authorId       String
+  author         User     @relation("CommunityPosts", fields: [authorId], references: [id], onDelete: Cascade)
+  title          String?
+  content        String
+  type           String   @default("DISCUSSION") // DISCUSSION, QUESTION, PROJECT, ANNOUNCEMENT
+  attachments    Json?    @default("[]")
+  tags           Json?    @default("[]")
+  imageUrl       String?
+  likesCount     Int      @default(0)
+  commentsCount  Int      @default(0)
+  visibility     String   @default("PUBLIC") // PUBLIC, PRIVATE, ORG_ONLY
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([authorId])
+  @@index([organizationId])
+  @@index([createdAt])
+}
+
+model CommunityGroup {
+  id             String        @id @default(uuid())
+  name           String
+  description    String?
+  ownerId        String
+  owner          User          @relation("OwnedGroups", fields: [ownerId], references: [id], onDelete: Cascade)
+  type           String        @default("PUBLIC") // PUBLIC, PRIVATE, INVITE_ONLY
+  avatar         String?
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  members        GroupMember[]
+
+  @@index([ownerId])
+  @@index([organizationId])
+}
+
+model GroupMember {
+  id        String         @id @default(uuid())
+  groupId   String
+  group     CommunityGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation("GroupMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  role      String         @default("MEMBER") // OWNER, ADMIN, MEMBER
+  joinedAt  DateTime       @default(now())
+
+  @@unique([groupId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String   // Group ID or DM Room ID
+  senderId       String
+  sender         User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  message        String
+  attachments    Json?    @default("[]")
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+model VoiceRoom {
+  id             String   @id @default(uuid())
+  name           String
+  createdById    String
+  createdBy      User     @relation("CreatedVoiceRooms", fields: [createdById], references: [id], onDelete: Cascade)
+  type           String   @default("CASUAL") // STUDY, PROJECT, CASUAL, INTERVIEW
+  isActive       Boolean  @default(true)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  participants   VoiceRoomParticipant[]
+
+  @@index([createdById])
+  @@index([organizationId])
+}
+
+model VoiceRoomParticipant {
+  id         String    @id @default(uuid())
+  roomId     String
+  room       VoiceRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User      @relation("VoiceParticipations", fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt   DateTime  @default(now())
+  leftAt     DateTime?
+
+  @@unique([roomId, userId])
+  @@index([roomId])
+  @@index([userId])
+}
+
+model Meeting {
+  id             String   @id @default(uuid())
+  title          String
+  hostId         String
+  host           User     @relation("HostedMeetings", fields: [hostId], references: [id], onDelete: Cascade)
+  scheduledAt    DateTime
+  meetingLink    String?
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+
+  @@index([hostId])
   @@index([organizationId])
 }

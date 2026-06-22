@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import { authenticate } from '../middlewares/auth.middleware';
+import { authenticate, authorize } from '../middlewares/auth.middleware';
 import { requirePermission } from '../security/access-control';
 import * as SuperAdminController from '../controllers/super-admin.controller';
 
 const router = Router();
 
 // Protect all super-admin routes
-router.use(authenticate, requirePermission('MANAGE_SYSTEM'));
+router.use(authenticate, authorize(['SUPER_ADMIN']), requirePermission('MANAGE_SYSTEM'));
 
 // Organization Management
 router.post('/organizations', SuperAdminController.createOrganization);

@@ -293,8 +293,9 @@ export const getMyResults = async (req: Request, res: Response): Promise<void> =
     const userId = getUserId(req);
     const orgId = getOrgId(req);
 
+    logger.info(`[Student:getMyResults] Fetching results for userId=${userId}, orgId=${orgId}`);
     const submissions = await prisma.studentSubmission.findMany({
-      where: { studentId: userId, organizationId: orgId, status: { in: ['GRADED', 'RESULT_PUBLISHED'] } },
+      where: { studentId: userId, organizationId: orgId, status: { in: ['SUBMITTED', 'GRADED', 'RESULT_PUBLISHED'] } },
       orderBy: { submittedAt: 'desc' },
       include: { evaluations: true, assignment: { select: { title: true, subject: true, totalMarks: true, organizationId: true } } },
     });
@@ -312,6 +313,7 @@ export const getMyResults = async (req: Request, res: Response): Promise<void> =
           score: evalObj?.score || 0,
           percentage: evalObj ? (evalObj.score / evalObj.totalMarks) * 100 : 0,
           feedback: evalObj?.generalFeedback || null,
+          status: s.status,
           submittedAt: s.submittedAt,
           gradedAt: evalObj?.createdAt || null,
         };
@@ -334,7 +336,7 @@ export const getResultDetail = async (req: Request, res: Response): Promise<void
         id: req.params.id,
         studentId: userId,
         organizationId: orgId,
-        status: { in: ['GRADED', 'RESULT_PUBLISHED'] },
+        status: { in: ['SUBMITTED', 'GRADED', 'RESULT_PUBLISHED'] },
       },
       include: {
         evaluations: true,
