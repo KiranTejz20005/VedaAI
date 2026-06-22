@@ -1766,4 +1766,80 @@ export class AdminController {
       res.status(500).json({ success: false, error: err.message });
     }
   }
+
+  // ── Dashboard Stats ──
+  static async getDashboardStats(req: Request, res: Response) {
+    try {
+      const orgId = getAdminOrgIdOptional(req);
+      
+      // If no orgId, return aggregated stats for SUPER_ADMIN
+      if (!orgId) {
+        const [totalUsers, totalStudents, totalTeachers, totalFaculty, activeExams] = await Promise.all([
+          prisma.user.count({ where: { status: { not: 'DELETED' } } }),
+          prisma.user.count({ where: { role: 'STUDENT', status: { not: 'DELETED' } } }),
+          prisma.user.count({ where: { role: 'TEACHER', status: { not: 'DELETED' } } }),
+          prisma.user.count({ where: { role: 'TEACHER', status: { not: 'DELETED' } } }),
+          prisma.assignment.count({ where: { status: 'ACTIVE' } }),
+        ]);
+
+        // Calculate attendance percentage (simple: count users with recent activity)
+        const recentUsers = await prisma.auditLog.findMany({
+          where: { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+          distinct: ['userId'],
+          select: { userId: true },
+        });
+
+        const attendance = totalUsers > 0 ? Math.round((recentUsers.length / totalUsers) * 100) : 0;
+
+        res.json({
+          success: true,
+          data: {
+            totalUsers,
+            totalStudents,
+            totalTeachers,
+            totalFaculty,
+            attendance,
+            activeExams,
+          },
+        });
+        return;
+      }
+
+      // Organization-specific stats
+      const [totalUsers, totalStudents, totalTeachers, totalFaculty, activeExams] = await Promise.all([
+        prisma.user.count({ where: { organizationId: orgId, status: { not: 'DELETED' } } }),
+        prisma.user.count({ where: { organizationId: orgId, role: 'STUDENT', status: { not: 'DELETED' } } }),
+        prisma.user.count({ where: { organizationId: orgId, role: 'TEACHER', status: { not: 'DELETED' } } }),
+        prisma.user.count({ where: { organizationId: orgId, role: 'TEACHER', status: { not: 'DELETED' } } }),
+        prisma.assignment.count({ where: { organizationId: orgId, status: 'ACTIVE' } }),
+      ]);
+
+      // Calculate attendance percentage (count users with recent activity in the organization)
+      const recentUsers = await prisma.auditLog.findMany({
+        where: { 
+          organizationId: orgId,
+          createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+        },
+        distinct: ['userId'],
+        select: { userId: true },
+      });
+
+      const attendance = totalUsers > 0 ? Math.round((recentUsers.length / totalUsers) * 100) : 0;
+
+      res.json({
+        success: true,
+        data: {
+          totalUsers,
+          totalStudents,
+          totalTeachers,
+          totalFaculty,
+          attendance,
+          activeExams,
+        },
+      });
+    } catch (err: any) {
+      logger.error(`[Admin:getDashboardStats] ${err}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
 }

@@ -144,4 +144,7 @@ router.get('/analytics/dashboard', asyncHandler(AdminController.getOrgAnalyticsD
 router.get('/organization/settings', asyncHandler(AdminController.getOrganizationSettings));
 router.put('/organization/settings', asyncHandler(AdminController.updateOrganizationSettings));
 
+// ── 21. Dashboard Stats ──
+router.get('/dashboard/stats', asyncHandler(AdminController.getDashboardStats));
+
 export default router;
