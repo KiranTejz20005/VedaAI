@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import toast from 'react-hot-toast';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function RegisterPage() {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -37,7 +39,8 @@ export default function RegisterPage() {
           toast.success(`Successfully registered and logged in with ${event.data.provider || 'SSO'}!`);
           const user = useAuthStore.getState().user;
           const isOnboarded = user?.hasCompletedOnboarding === true || (user?.organizationId && user?.departmentId);
-          router.replace(isOnboarded ? '/dashboard' : '/onboarding');
+          const rolePath = user?.role ? user.role.toLowerCase().replace('_', '-') : 'student';
+          router.replace(isOnboarded ? `/dashboard/${rolePath}` : '/onboarding');
         } else {
           toast.error(result.error || 'SSO registration failed.');
         }
@@ -379,7 +382,8 @@ export default function RegisterPage() {
       toast.success('Account registered successfully!');
       const user = useAuthStore.getState().user;
       const isOnboarded = user?.hasCompletedOnboarding === true || (user?.organizationId && user?.departmentId);
-      router.replace(isOnboarded ? '/dashboard' : '/onboarding');
+      const rolePath = user?.role ? user.role.toLowerCase().replace('_', '-') : 'student';
+      router.replace(isOnboarded ? `/dashboard/${rolePath}` : '/onboarding');
     } else {
       toast.error(signupResult.error || 'Registration failed. Email might already be registered.');
     }
@@ -830,15 +834,39 @@ export default function RegisterPage() {
                 required
               />
 
-              <input
-                type="password"
-                className="input-box"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isSubmitting}
-                required
-              />
+              <div style={{ position: 'relative', marginBottom: '12px' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="input-box"
+                  placeholder="Password"
+                  style={{ marginBottom: 0, paddingRight: '40px' }}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isSubmitting}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: '#9CA3AF',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0
+                  }}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
 
               <button type="submit" className="btn-submit-arrow" disabled={isSubmitting}>
                 {isSubmitting ? 'Signing up...' : 'Sign up →'}

@@ -26,6 +26,7 @@ interface AssessmentResult {
   totalMarks: number;
   percentage: number;
   grade: string;
+  status: string;
   submittedAt: string;
   questions?: QuestionResult[];
 }
@@ -90,20 +91,21 @@ export default function StudentResultsPage() {
               <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>{selectedResult.subject}</p>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 28, fontWeight: 800, color: selectedResult.percentage >= 40 ? '#10B981' : '#EF4444' }}>
-                {selectedResult.percentage}%
+              <div style={{ fontSize: 28, fontWeight: 800, color: selectedResult.status === 'SUBMITTED' ? '#9CA3AF' : (selectedResult.percentage >= 40 ? '#10B981' : '#EF4444') }}>
+                {selectedResult.status === 'SUBMITTED' ? 'Pending' : `${selectedResult.percentage}%`}
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                {selectedResult.score}/{selectedResult.totalMarks} marks
+                {selectedResult.status === 'SUBMITTED' ? 'Not graded yet' : `${selectedResult.score}/${selectedResult.totalMarks} marks`}
               </div>
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
             {[
-              { label: 'Grade', value: selectedResult.grade },
-              { label: 'Score', value: `${selectedResult.score}/${selectedResult.totalMarks}` },
-              { label: 'Percentage', value: `${selectedResult.percentage}%` },
+              { label: 'Status', value: selectedResult.status === 'SUBMITTED' ? 'Pending' : 'Graded' },
+              { label: 'Grade', value: selectedResult.status === 'SUBMITTED' ? 'Pending' : selectedResult.grade || (selectedResult.percentage >= 40 ? 'PASS' : 'FAIL') },
+              { label: 'Score', value: selectedResult.status === 'SUBMITTED' ? 'Pending' : `${selectedResult.score}/${selectedResult.totalMarks}` },
+              { label: 'Percentage', value: selectedResult.status === 'SUBMITTED' ? 'Pending' : `${selectedResult.percentage}%` },
               { label: 'Submitted', value: new Date(selectedResult.submittedAt).toLocaleDateString() },
             ].map(({ label, value }) => (
               <div key={label} style={{ textAlign: 'center' }}>
@@ -209,6 +211,7 @@ export default function StudentResultsPage() {
               <tbody>
                 {results.map((r) => {
                   const passed = r.percentage >= 40;
+                  const isPending = r.status === 'SUBMITTED';
                   return (
                     <tr
                       key={r.id}
@@ -223,24 +226,24 @@ export default function StudentResultsPage() {
                         </div>
                       </td>
                       <td style={{ padding: '14px 12px', color: 'var(--text-secondary)' }}>{r.subject}</td>
-                      <td style={{ padding: '14px 12px', textAlign: 'center', fontWeight: 700, color: passed ? '#10B981' : '#EF4444' }}>{r.score}</td>
+                      <td style={{ padding: '14px 12px', textAlign: 'center', fontWeight: 700, color: isPending ? 'var(--text-muted)' : (passed ? '#10B981' : '#EF4444') }}>{isPending ? '-' : r.score}</td>
                       <td style={{ padding: '14px 12px', textAlign: 'center', color: 'var(--text-secondary)' }}>{r.totalMarks}</td>
                       <td style={{ padding: '14px 12px', textAlign: 'center' }}>
                         <span style={{
                           display: 'inline-block', padding: '2px 10px', borderRadius: 100, fontSize: 12, fontWeight: 700,
-                          background: passed ? '#D1FAE5' : '#FEE2E2',
-                          color: passed ? '#065F46' : '#991B1B',
+                          background: isPending ? '#F3F4F6' : (passed ? '#D1FAE5' : '#FEE2E2'),
+                          color: isPending ? '#6B7280' : (passed ? '#065F46' : '#991B1B'),
                         }}>
-                          {r.percentage}%
+                          {isPending ? 'Pending' : `${r.percentage}%`}
                         </span>
                       </td>
                       <td style={{ padding: '14px 12px', textAlign: 'center' }}>
                         <span style={{
                           display: 'inline-block', padding: '2px 8px', borderRadius: 100, fontSize: 12, fontWeight: 700,
-                          background: passed ? '#DBEAFE' : '#FEF3C7',
-                          color: passed ? '#1E40AF' : '#92400E',
+                          background: isPending ? '#F3F4F6' : (passed ? '#DBEAFE' : '#FEF3C7'),
+                          color: isPending ? '#6B7280' : (passed ? '#1E40AF' : '#92400E'),
                         }}>
-                          {r.grade || (passed ? 'PASS' : 'FAIL')}
+                          {isPending ? 'Pending' : (r.grade || (passed ? 'PASS' : 'FAIL'))}
                         </span>
                       </td>
                       <td style={{ padding: '14px 12px', color: 'var(--text-muted)', fontSize: 13 }}>

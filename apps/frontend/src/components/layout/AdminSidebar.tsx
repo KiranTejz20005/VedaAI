@@ -31,18 +31,23 @@ function MyGroupsIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/reviews', label: 'Paper Approvals', icon: ClipboardCheck },
-  { href: '/groups', label: 'Roster Management', icon: Users },
-  { href: '/question-bank', label: 'Question Bank', icon: MyGroupsIcon },
-  { href: '/syllabus', label: 'Syllabus', icon: GraduationCap },
-  { href: '/analytics', label: 'Analytics', icon: PieChart },
+  { href: '/dashboard/admin', label: 'Dashboard', icon: LayoutGrid, exact: true },
+  { href: '/dashboard/admin/users', label: 'Users', icon: Users },
+  { href: '/dashboard/admin/students', label: 'Students', icon: GraduationCap },
+  { href: '/dashboard/admin/teachers', label: 'Teachers', icon: ScrollText },
+  { href: '/dashboard/admin/faculty', label: 'Faculty', icon: Building2 },
+  { href: '/dashboard/admin/classes', label: 'Classes', icon: ClipboardCheck },
+  { href: '/dashboard/admin/analytics', label: 'Analytics', icon: PieChart },
+  { href: '/dashboard/admin/settings', label: 'Settings', icon: Settings },
 ];
 
 const SUPER_ADMIN_ITEMS = [
-  { href: '/super-admin/organizations', label: 'Organizations', icon: Building2 },
-  { href: '/super-admin/users', label: 'User Directory', icon: Users },
-  { href: '/super-admin/audit', label: 'Audit Logs', icon: ScrollText },
+  { href: '/dashboard/super-admin', label: 'Dashboard', icon: LayoutGrid, exact: true },
+  { href: '/dashboard/super-admin/system', label: 'System', icon: Building2 },
+  { href: '/dashboard/super-admin/security', label: 'Security', icon: ShieldCheck },
+  { href: '/dashboard/super-admin/logs', label: 'Logs', icon: ScrollText },
+  { href: '/dashboard/super-admin/analytics', label: 'Analytics', icon: PieChart },
+  { href: '/dashboard/super-admin/settings', label: 'Settings', icon: Settings },
 ];
 
 export function AdminSidebar() {

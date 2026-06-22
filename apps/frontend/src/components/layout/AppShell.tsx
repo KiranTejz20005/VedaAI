@@ -9,6 +9,7 @@ import { AdminSidebar } from './AdminSidebar';
 import { OrgAdminSidebar } from './OrgAdminSidebar';
 import { FacultySidebar } from './FacultySidebar';
 import { StudentSidebar } from './StudentSidebar';
+import { TeacherSidebar } from './TeacherSidebar';
 import { Topbar } from './TopBar';
 import { MobileBottomNav } from './MobileBottomNav';
 import { canAccessRoute } from '@/config/route-permissions';
@@ -25,7 +26,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
-    const isPublicPath = pathname === '/' || pathname === '/login' || pathname === '/register';
+    if (pathname === '/') return; // Never redirect from landing page
+
+    const isPublicPath = pathname === '/login' || pathname === '/register';
     const isAuthPage = pathname === '/login' || pathname === '/register';
     const isOnboardingPage = pathname === '/onboarding';
 
@@ -37,15 +40,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       const userRole = user?.role?.toUpperCase() || '';
       const isSuperAdminOrAdmin = userRole === 'SUPER_ADMIN' || userRole === 'ADMIN';
       const isOnboarded = isSuperAdminOrAdmin || user?.hasCompletedOnboarding === true || (user?.organizationId && user?.departmentId);
+      
+      const rolePath = userRole ? userRole.toLowerCase().replace('_', '-') : 'student';
+      
       if (isOnboarded) {
         if (isAuthPage) {
-          router.push('/dashboard');
+          router.push(`/dashboard/${rolePath}`);
         } else {
-          const role = user?.role || '';
-          const hasAccess = canAccessRoute(role, pathname);
+          const hasAccess = canAccessRoute(userRole, pathname);
 
           if (!hasAccess) {
-            router.push('/dashboard');
+            router.push(`/dashboard/${rolePath}`);
           }
         }
       } else {
@@ -132,7 +137,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     SidebarComponent = <AdminSidebar />;
   } else if (role === 'ADMIN' || role === 'ORG_ADMIN') {
     SidebarComponent = <OrgAdminSidebar />;
-  } else if (role === 'TEACHER' || role === 'FACULTY') {
+  } else if (role === 'TEACHER') {
+    SidebarComponent = <TeacherSidebar />;
+  } else if (role === 'FACULTY') {
     SidebarComponent = <FacultySidebar />;
   } else if (role === 'STUDENT') {
     SidebarComponent = <StudentSidebar />;

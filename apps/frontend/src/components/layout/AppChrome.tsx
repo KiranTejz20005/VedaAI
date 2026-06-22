@@ -21,11 +21,12 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     initialize();
   }, [initialize]);
 
-  // Route guarding logic
   useEffect(() => {
     if (isLoading) return;
 
-    const isPublicPath = pathname === '/' || pathname === '/login' || pathname === '/register';
+    if (pathname === '/') return; // Never redirect from landing page
+
+    const isPublicPath = pathname === '/login' || pathname === '/register';
     const isAuthPage = pathname === '/login' || pathname === '/register';
     const isOnboardingPage = pathname === '/onboarding';
 
@@ -37,9 +38,12 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       const userRole = user?.role?.toUpperCase() || '';
       const isSuperAdminOrAdmin = userRole === 'SUPER_ADMIN' || userRole === 'ADMIN';
       const isOnboarded = isSuperAdminOrAdmin || user?.hasCompletedOnboarding === true || (user?.organizationId && user?.departmentId);
+      
+      const rolePath = userRole ? userRole.toLowerCase().replace('_', '-') : 'student';
+
       if (isOnboarded) {
         if (isAuthPage || isOnboardingPage) {
-          router.push('/dashboard');
+          router.push(`/dashboard/${rolePath}`);
         } else {
           // /admin/* has its own layout with its own auth guard — skip check here
           const isAdminPath = pathname.startsWith('/admin');
@@ -47,7 +51,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           const hasAccess = isAdminPath || canAccessRoute(role, pathname);
           
           if (!hasAccess) {
-            router.push('/dashboard');
+            router.push(`/dashboard/${rolePath}`);
           }
         }
       } else {
