@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Toaster } from 'react-hot-toast';
 import { ClientOnly } from '@/components/ui/ClientOnly';
 import { useAuthStore } from '@/store/auth.store';
+import { useAdminAuthStore } from '@/store/admin-auth.store';
 import { AdminSidebar } from './AdminSidebar';
 import { OrgAdminSidebar } from './OrgAdminSidebar';
 import { FacultySidebar } from './FacultySidebar';
@@ -18,10 +19,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthenticated, isLoading, initialize } = useAuthStore();
+  const { initializeFromStorage } = useAdminAuthStore();
 
   useEffect(() => {
     initialize();
-  }, [initialize]);
+    initializeFromStorage();
+  }, [initialize, initializeFromStorage]);
 
   useEffect(() => {
     if (isLoading) return;

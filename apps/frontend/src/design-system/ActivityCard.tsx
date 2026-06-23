@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Card } from './Card';
+import { formatDateTime } from '@/utils/format';
 
 interface ActivityItem {
   id: string;
@@ -51,7 +52,7 @@ export function ActivityCard({ title, items, emptyMessage = 'No recent activity'
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.4 }}>{item.description}</p>
                   <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 2 }}>
-                    {new Date(item.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    {formatDateTime(item.timestamp)}
                   </p>
                 </div>
               </div>

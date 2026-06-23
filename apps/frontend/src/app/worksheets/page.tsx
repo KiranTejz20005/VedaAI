@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/services/api.client';
+import { formatDate } from '@/utils/format';
 
 interface Worksheet {
   id: string;
@@ -149,7 +150,7 @@ export default function WorksheetsPage() {
               </div>
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Calendar size={12} /> {new Date(sheet.createdAt).toLocaleDateString()}
+                  <Calendar size={12} /> {formatDate(sheet.createdAt)}
                 </span>
                 <span>View Sheet &rarr;</span>
               </div>

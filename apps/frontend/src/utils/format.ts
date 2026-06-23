@@ -28,3 +28,42 @@ export function getStatusColor(status: AssignmentStatus): string {
 export function truncate(str: string, max: number): string {
   return str.length > max ? `${str.slice(0, max)}…` : str;
 }
+
+/**
+ * Format date consistently with fixed locale to prevent hydration mismatches
+ * between server and client rendering.
+ */
+export function formatDate(
+  date: string | Date,
+  options?: Intl.DateTimeFormatOptions
+): string {
+  try {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '-';
+    // Always use 'en-US' locale for consistent server/client rendering
+    return d.toLocaleDateString('en-US', options || { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return '-';
+  }
+}
+
+/**
+ * Format date with time consistently with fixed locale.
+ */
+export function formatDateTime(
+  date: string | Date,
+  options?: Intl.DateTimeFormatOptions
+): string {
+  try {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleString('en-US', options || {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '-';
+  }
+}

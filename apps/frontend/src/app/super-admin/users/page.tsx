@@ -10,6 +10,7 @@ import { LoadingState } from '@/design-system/LoadingState';
 import { ErrorState } from '@/design-system/ErrorState';
 import { Search, Mail, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { formatDate } from '@/utils/format';
 
 interface User {
   id: string;
@@ -122,7 +123,7 @@ export default function SuperAdminUsersPage() {
           {
             key: 'createdAt',
             header: 'Created',
-            render: (value: string) => new Date(value).toLocaleDateString(),
+            render: (value: string) => formatDate(value),
           },
         ]}
         data={filteredUsers}

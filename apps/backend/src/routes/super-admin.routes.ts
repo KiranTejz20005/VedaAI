@@ -1,12 +1,42 @@
 import { Router } from 'express';
+import { asyncHandler } from '../utils/async-handler';
 import { authenticate, authorize } from '../middlewares/auth.middleware';
 import { requirePermission } from '../security/access-control';
 import * as SuperAdminController from '../controllers/super-admin.controller';
+import prisma from '../config/prisma';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
 // Protect all super-admin routes
 router.use(authenticate, authorize(['SUPER_ADMIN']), requirePermission('MANAGE_SYSTEM'));
+
+// Dashboard Stats
+router.get('/dashboard/stats', asyncHandler(async (_req, res) => {
+  const [totalOrganizations, totalUsers, securityAlerts] = await Promise.all([
+    prisma.organization.count(),
+    prisma.user.count(),
+    prisma.auditLog.count({
+      where: { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+    }),
+  ]);
+
+  const activeSessions = Math.floor(totalUsers * 0.1); // Placeholder
+  const apiUsage = 84; // Placeholder
+  const systemUptime = 99.99; // Placeholder
+
+  res.json({
+    success: true,
+    data: {
+      totalOrganizations,
+      totalUsers,
+      activeSessions,
+      apiUsage,
+      systemUptime,
+      securityAlerts,
+    },
+  });
+}));
 
 // Organization Management
 router.post('/organizations', SuperAdminController.createOrganization);

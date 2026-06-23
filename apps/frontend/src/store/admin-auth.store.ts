@@ -14,6 +14,7 @@ interface AdminAuthStore {
   availableOrganizations: AvailableOrganization[];
   activeOrganizationId: string | null;
   setOriginalAdminToken: (token: string | null) => void;
+  initializeFromStorage: () => void;
   exitImpersonation: () => Promise<void>;
   fetchAvailableOrganizations: () => Promise<void>;
   switchOrganization: (orgId: string) => Promise<boolean>;
@@ -21,10 +22,10 @@ interface AdminAuthStore {
 }
 
 export const useAdminAuthStore = create<AdminAuthStore>((set, get) => ({
-  originalAdminToken: typeof window !== 'undefined' ? window.sessionStorage.getItem('original_admin_token') : null,
-  isImpersonating: typeof window !== 'undefined' ? !!window.sessionStorage.getItem('original_admin_token') : false,
+  originalAdminToken: null,
+  isImpersonating: false,
   availableOrganizations: [],
-  activeOrganizationId: typeof window !== 'undefined' ? window.localStorage.getItem('active_organization_id') : null,
+  activeOrganizationId: null,
 
   setOriginalAdminToken: (token) => {
     if (typeof window !== 'undefined') {
@@ -35,6 +36,17 @@ export const useAdminAuthStore = create<AdminAuthStore>((set, get) => ({
       }
     }
     set({ originalAdminToken: token, isImpersonating: !!token });
+  },
+
+  initializeFromStorage: () => {
+    if (typeof window === 'undefined') return;
+    const originalAdminToken = window.sessionStorage.getItem('original_admin_token');
+    const activeOrganizationId = window.localStorage.getItem('active_organization_id');
+    set({
+      originalAdminToken,
+      isImpersonating: !!originalAdminToken,
+      activeOrganizationId,
+    });
   },
 
   exitImpersonation: async () => {

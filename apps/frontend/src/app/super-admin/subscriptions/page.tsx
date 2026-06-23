@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import { formatDate } from '@/utils/format';
 
 interface OrgSubscription {
   id: string;
@@ -110,7 +111,7 @@ export default function SuperAdminSubscriptions() {
                         {sub.status}
                       </span>
                     </td>
-                    <td className="py-3 text-gray-400">{sub.expiresAt ? new Date(sub.expiresAt).toLocaleDateString() : 'N/A'}</td>
+                    <td className="py-3 text-gray-400">{sub.expiresAt ? formatDate(sub.expiresAt) : 'N/A'}</td>
                     <td className="py-3 text-right">
                       <div className="relative inline-block text-left group">
                         <button className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 font-semibold py-1 px-3 rounded-lg text-[10px] flex items-center gap-1">

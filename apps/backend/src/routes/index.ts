@@ -23,6 +23,8 @@ import adminRoutes from './admin.routes';
 import notificationRoutes from './notification.routes';
 import superAdminRoutes from './super-admin.routes';
 import studentRoutes from './student.routes';
+import teacherRoutes from './teacher.routes';
+import facultyRoutes from './faculty.routes';
 import communityRoutes from './community.routes';
 import chatRoutes from './chat.routes';
 import voiceRoutes from './voice.routes';
@@ -89,6 +91,8 @@ apiRouter.use('/v1/tutor', tutorRoutes);
 apiRouter.use('/v1/notes', notesRoutes);
 apiRouter.use('/v1/admin', adminRoutes);
 apiRouter.use('/v1/super-admin', superAdminRoutes);
+apiRouter.use('/v1/teacher', teacherRoutes);
+apiRouter.use('/v1/faculty', facultyRoutes);
 apiRouter.use('/v1/notifications', notificationRoutes);
 apiRouter.use('/v1/student', studentRoutes);
 
