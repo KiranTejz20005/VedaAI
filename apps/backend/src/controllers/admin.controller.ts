@@ -1360,12 +1360,11 @@ export class AdminController {
   // ── 16. Faculty Management ──
   static async getFaculty(req: Request, res: Response) {
     try {
-      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
-      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const orgId = getAdminOrgId(req);
       const faculty = await prisma.user.findMany({
         where: { organizationId: orgId, role: 'TEACHER', status: { not: 'DELETED' } },
         orderBy: { createdAt: 'desc' },
-        include: { department: { select: { name: true } } },
+        include: { department: { select: { name: true } }, organization: { select: { name: true } } },
       });
       res.json({ success: true, data: faculty });
     } catch (err: any) {
@@ -1376,8 +1375,7 @@ export class AdminController {
 
   static async createFaculty(req: Request, res: Response) {
     try {
-      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
-      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const orgId = getAdminOrgId(req);
       const { firstName, lastName, email, password, departmentId } = req.body;
       if (!firstName || !lastName || !email) {
         res.status(400).json({ success: false, error: 'firstName, lastName, and email are required' }); return;
@@ -1392,6 +1390,7 @@ export class AdminController {
           organizationId: orgId,
           departmentId: departmentId || null,
           forcePasswordReset: true,
+          hasCompletedOnboarding: true,
         },
       });
       await prisma.auditLog.create({
@@ -1519,13 +1518,22 @@ export class AdminController {
   // ── 17. Student Management ──
   static async getStudents(req: Request, res: Response) {
     try {
-      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
-      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const orgId = getAdminOrgId(req);
       const students = await prisma.user.findMany({
         where: { organizationId: orgId, role: 'STUDENT', status: { not: 'DELETED' } },
         orderBy: { createdAt: 'desc' },
       });
-      res.json({ success: true, data: students });
+      const mappedStudents = students.map((s: any) => {
+        const pref = s.preferences || {};
+        return {
+          ...s,
+          rollNo: pref.rollNo,
+          classId: pref.classId,
+          section: pref.section,
+          class: pref.classId ? { grade: pref.classId, section: pref.section || '' } : undefined
+        };
+      });
+      res.json({ success: true, data: mappedStudents });
     } catch (err: any) {
       logger.error(`[Admin:getStudents] ${err}`);
       res.status(500).json({ success: false, error: err.message });
@@ -1534,15 +1542,15 @@ export class AdminController {
 
   static async createStudent(req: Request, res: Response) {
     try {
-      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
-      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const orgId = getAdminOrgId(req);
       const { firstName, lastName, email } = req.body;
       if (!firstName || !lastName || !email) {
         res.status(400).json({ success: false, error: 'firstName, lastName, and email are required' }); return;
       }
       const pwdHash = await argon2.hash('Student@123');
+      const preferences = { rollNo: req.body.rollNo, classId: req.body.classId, section: req.body.section };
       const user = await prisma.user.create({
-        data: { firstName, lastName, email, passwordHash: pwdHash, role: 'STUDENT', organizationId: orgId, forcePasswordReset: true },
+        data: { firstName, lastName, email, passwordHash: pwdHash, role: 'STUDENT', organizationId: orgId, forcePasswordReset: true, hasCompletedOnboarding: true, preferences },
       });
       res.status(201).json({ success: true, data: user });
     } catch (err: any) {
@@ -1558,6 +1566,16 @@ export class AdminController {
       if (firstName) data.firstName = firstName;
       if (lastName) data.lastName = lastName;
       if (email) data.email = email;
+      
+      const existingUser = await prisma.user.findUnique({ where: { id: req.params.id } });
+      const preferences = { 
+        ...(existingUser?.preferences as any || {}),
+        ...(req.body.rollNo !== undefined && { rollNo: req.body.rollNo }),
+        ...(req.body.classId !== undefined && { classId: req.body.classId }),
+        ...(req.body.section !== undefined && { section: req.body.section })
+      };
+      data.preferences = preferences;
+
       const user = await prisma.user.update({ where: { id: req.params.id }, data });
       res.json({ success: true, data: user });
     } catch (err: any) {
@@ -1583,8 +1601,8 @@ export class AdminController {
   static async importStudentsCsv(req: Request, res: Response) {
     try {
       if (!req.file) { res.status(400).json({ success: false, error: 'No CSV file uploaded' }); return; }
-      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
-      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const orgId = getAdminOrgId(req);
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const fs = require('fs');
       const content = fs.readFileSync(req.file.path, 'utf-8');
       const lines = content.split('\n').filter((l: string) => l.trim());

@@ -453,16 +453,16 @@ export const getAvailableOrganizations = async (req: Request, res: Response): Pr
       return;
     }
 
-    let orgs: { id: string; name: string; code: string }[] = [];
+    let orgs: { id: string; name: string; code: string; email: string | null }[] = [];
     if (user.role === 'SUPER_ADMIN') {
       orgs = await prisma.organization.findMany({
         orderBy: { name: 'asc' },
-        select: { id: true, name: true, code: true },
+        select: { id: true, name: true, code: true, email: true },
       });
     } else if (user.organizationId) {
       const org = await prisma.organization.findUnique({
         where: { id: user.organizationId },
-        select: { id: true, name: true, code: true },
+        select: { id: true, name: true, code: true, email: true },
       });
       if (org) orgs = [org];
     }
@@ -474,6 +474,7 @@ export const getAvailableOrganizations = async (req: Request, res: Response): Pr
         name: org.name,
         code: org.code,
         role: user.role,
+        email: org.email,
       })),
     });
   } catch (error) {

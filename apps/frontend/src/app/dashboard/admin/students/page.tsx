@@ -10,10 +10,12 @@ import {
   Upload,
   X,
   Mail,
-  User,
+  User as UserIcon,
   Loader2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/store/auth.store';
+import { useAdminAuthStore } from '@/store/admin-auth.store';
 
 interface StudentRecord {
   id: string;
@@ -45,7 +47,19 @@ export default function StudentManagement() {
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
+  const [emailPrefix, setEmailPrefix] = useState('');
+
+  const { user } = useAuthStore();
+  const { activeOrganizationId, availableOrganizations } = useAdminAuthStore();
+
+  let domain = 'vedaai.com';
+  if (user?.role === 'SUPER_ADMIN') {
+    const activeOrg = availableOrganizations.find(o => o.id === activeOrganizationId);
+    if (activeOrg?.email) domain = activeOrg.email.split('@')[1];
+  } else {
+    if (user?.email) domain = user.email.split('@')[1];
+  }
+  
   const [rollNo, setRollNo] = useState('');
   const [classId, setClassId] = useState('');
   const [section, setSection] = useState('');
@@ -56,9 +70,13 @@ export default function StudentManagement() {
   const loadData = async () => {
     try {
       setLoading(true);
+      const queryParams = user?.role === 'SUPER_ADMIN' && activeOrganizationId 
+        ? `?organizationId=${activeOrganizationId}` 
+        : '';
+        
       const [stuRes, clsRes] = await Promise.all([
-        api.get('/admin/students'),
-        api.get('/admin/classrooms'),
+        api.get(`/admin/students${queryParams}`),
+        api.get(`/admin/classrooms${queryParams}`),
       ]);
       if (stuRes.data?.success) setList(stuRes.data.data);
       if (clsRes.data?.success) setClasses(clsRes.data.data);
@@ -69,34 +87,42 @@ export default function StudentManagement() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { 
+    if (user?.role === 'SUPER_ADMIN' && !activeOrganizationId) return;
+    loadData(); 
+  }, [user?.role, activeOrganizationId]);
 
   const handleOpenCreate = () => {
     setModalType('create'); setSelectedStudent(null);
-    setFirstName(''); setLastName(''); setEmail(''); setRollNo(''); setClassId(''); setSection('');
+    setFirstName(''); setLastName(''); setEmailPrefix(''); setRollNo(''); setClassId(''); setSection('');
     setShowModal(true);
   };
 
   const handleOpenEdit = (s: StudentRecord) => {
     setModalType('edit'); setSelectedStudent(s);
-    setFirstName(s.firstName); setLastName(s.lastName); setEmail(s.email);
+    setFirstName(s.firstName); setLastName(s.lastName); 
+    setEmailPrefix(s.email.split('@')[0]);
     setRollNo(s.rollNo || ''); setClassId(s.classId || ''); setSection(s.section || '');
     setShowModal(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName || !lastName || !email) {
-      toast.error('First Name, Last Name, and Email are required.');
+    if (!firstName || !lastName || !emailPrefix) {
+      toast.error('First Name, Last Name, and Email Prefix are required.');
       return;
     }
+    const fullEmail = `${emailPrefix}@${domain}`;
     const payload: Record<string, unknown> = {
-      firstName, lastName, email,
+      firstName, lastName, email: fullEmail,
       role: 'STUDENT',
       rollNo: rollNo || undefined,
       classId: classId || undefined,
       section: section || undefined,
     };
+    if (user?.role === 'SUPER_ADMIN' && activeOrganizationId) {
+      payload.organizationId = activeOrganizationId;
+    }
 
     try {
       if (modalType === 'create') {
@@ -112,7 +138,10 @@ export default function StudentManagement() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this student?')) return;
     try {
-      const res = await api.delete(`/admin/students/${id}`);
+      const queryParams = user?.role === 'SUPER_ADMIN' && activeOrganizationId 
+        ? `?organizationId=${activeOrganizationId}` 
+        : '';
+      const res = await api.delete(`/admin/users/${id}${queryParams}`);
       if (res.data?.success) { toast.success('Student deleted.'); loadData(); }
     } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Deletion failed'); }
   };
@@ -123,7 +152,10 @@ export default function StudentManagement() {
     const formData = new FormData();
     formData.append('file', csvFile);
     try {
-      const res = await api.post('/admin/students/import', formData, {
+      const queryParams = user?.role === 'SUPER_ADMIN' && activeOrganizationId 
+        ? `?organizationId=${activeOrganizationId}` 
+        : '';
+      const res = await api.post(`/admin/students/import${queryParams}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       if (res.data?.success) { toast.success('Students imported successfully!'); setShowImportModal(false); setCsvFile(null); loadData(); }
@@ -191,7 +223,7 @@ export default function StudentManagement() {
                   <tr key={s.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
                       <div className="font-semibold text-gray-900 flex items-center gap-2">
-                        <User size={16} className="text-blue-600" />
+                        <UserIcon size={16} className="text-blue-600" />
                         {s.firstName} {s.lastName}
                       </div>
                     </td>
@@ -242,8 +274,13 @@ export default function StudentManagement() {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Email *</label>
-                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="john.doe@school.edu" />
+                <div className="flex">
+                  <input type="text" required value={emailPrefix} onChange={(e) => setEmailPrefix(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-300 rounded-l-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="john.doe" />
+                  <span className="inline-flex items-center px-3 rounded-r-lg border border-l-0 border-gray-300 bg-gray-100 text-gray-500 text-sm">
+                    @{domain}
+                  </span>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -262,7 +299,11 @@ export default function StudentManagement() {
                 <select value={classId} onChange={(e) => setClassId(e.target.value)}
                   className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
                   <option value="">Select Class</option>
-                  {classes.map(c => <option key={c.id} value={c.id}>{c.grade} - {c.section}</option>)}
+                  {[...Array(10)].map((_, i) => (
+                    <option key={i + 1} value={`Class ${i + 1}`}>
+                      Class {i + 1}
+                    </option>
+                  ))}
                 </select>
               </div>
               <button type="submit"
