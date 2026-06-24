@@ -1,6 +1,5 @@
 import React, { useEffect } from "react";
 import { ArrowLeft, Shield, FileText, CheckCircle, Scale, ScrollText, Users, Lock, HeartHandshake } from "lucide-react";
-import { motion } from "framer-motion";
 
 interface LegalPageProps {
   initialTab: "privacy" | "terms";

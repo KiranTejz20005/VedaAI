@@ -4,8 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import {
-  BookOpen, FileText, Clock, CheckCircle2, GraduationCap, ArrowRight,
-  RefreshCw, Library, ClipboardCheck, BarChart3, Sparkles
+  BookOpen, FileText, Clock, CheckCircle2, ArrowRight, Library, ClipboardCheck, BarChart3
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';

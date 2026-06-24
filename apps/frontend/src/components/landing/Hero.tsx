@@ -1,5 +1,5 @@
 import React from "react";
-import { Sparkles, Calendar, ArrowRight, ArrowUpRight } from "lucide-react";
+import { Calendar, ArrowUpRight } from "lucide-react";
 import { motion } from "framer-motion";
 import DashboardMockup from "./DashboardMockup";
 

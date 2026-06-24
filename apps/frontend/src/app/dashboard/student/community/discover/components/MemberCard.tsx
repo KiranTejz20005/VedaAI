@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Check, Star, Sparkles } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { Member } from '../types';
 
 interface MemberCardProps {
@@ -9,6 +9,12 @@ interface MemberCardProps {
   isFollowing: boolean;
   onToggleFollow: (id: string) => void;
 }
+
+const BlueBadge = () => (
+  <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-[#1d9bf0] text-white shrink-0 ml-1 shadow-sm">
+    <Check className="w-2.5 h-2.5 stroke-[4]" />
+  </span>
+);
 
 export function MemberCard({ member, isFollowing, onToggleFollow }: MemberCardProps) {
   const rawRole = member.role.toUpperCase();
@@ -23,12 +29,6 @@ export function MemberCard({ member, isFollowing, onToggleFollow }: MemberCardPr
   } else if (isStudent) {
     badgeStyles = 'bg-blue-50 text-blue-600 border-blue-100';
   }
-
-  const BlueBadge = () => (
-    <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-[#1d9bf0] text-white shrink-0 ml-1 shadow-sm">
-      <Check className="w-2.5 h-2.5 stroke-[4]" />
-    </span>
-  );
 
   return (
     <div

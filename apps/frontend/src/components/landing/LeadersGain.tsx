@@ -7,14 +7,8 @@ import {
   ShieldCheck, 
   Landmark, 
   TrendingUp, 
-  Clock, 
   CheckCircle2, 
-  ChevronRight, 
-  Layers, 
-  DollarSign, 
-  BarChart3, 
-  ShieldAlert,
-  ArrowUpRight
+  DollarSign
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 

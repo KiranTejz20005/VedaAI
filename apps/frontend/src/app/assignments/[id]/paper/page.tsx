@@ -1,11 +1,10 @@
 'use client';
 
-import { use, useEffect, useState, useCallback } from 'react';
+import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { 
-  Download, RefreshCw, Loader2, Edit, Save, Eye, ArrowUp, ArrowDown, Sparkles, X, Check, BookOpen 
+  Download, Loader2, Edit, Save, ArrowUp, ArrowDown, Sparkles, BookOpen 
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fetchPaper } from '@/services/paper.service';

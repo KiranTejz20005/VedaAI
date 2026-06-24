@@ -1,5 +1,5 @@
 import React from "react";
-import { ShieldAlert, KeyRound, DatabaseZap, HardDrive, Lock, ShieldCheck } from "lucide-react";
+import { KeyRound, DatabaseZap, Lock, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function SecurityPrivacy() {

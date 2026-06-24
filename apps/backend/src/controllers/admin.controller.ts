@@ -1480,6 +1480,7 @@ export class AdminController {
       if (!req.file) { res.status(400).json({ success: false, error: 'No CSV file uploaded' }); return; }
       const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
       if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const fs = require('fs');
       const content = fs.readFileSync(req.file.path, 'utf-8');
       const lines = content.split('\n').filter((l: string) => l.trim());
@@ -1585,6 +1586,7 @@ export class AdminController {
       if (!req.file) { res.status(400).json({ success: false, error: 'No CSV file uploaded' }); return; }
       const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
       if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const fs = require('fs');
       const content = fs.readFileSync(req.file.path, 'utf-8');
       const lines = content.split('\n').filter((l: string) => l.trim());

@@ -204,7 +204,7 @@ export default function VoiceRoomsPage() {
             {rooms.map((room) => {
               const joined = room.id === joinedRoomId;
               const host = room.createdBy ? `${room.createdBy.firstName} ${room.createdBy.lastName}` : 'Open Room';
-              const count = room.participantCount ?? Math.floor(Math.random() * 20) + 2;
+              const count = room.participantCount ?? (room.id.charCodeAt(0) % 20) + 2;
               return (
                 <article key={room.id} style={{ background: '#fff', borderRadius: 20, border: '1px solid #e2e8f0', padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 200 }}>
                   <div>

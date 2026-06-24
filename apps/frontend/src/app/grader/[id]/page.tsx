@@ -42,10 +42,6 @@ export default function GradeReviewPage() {
   const [overrideReason, setOverrideReason] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, [submissionId]);
-
   const loadData = async () => {
     try {
       setLoading(true);
@@ -70,6 +66,10 @@ export default function GradeReviewPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadData();
+  }, [submissionId]);
 
   const calculateTotalScore = () => {
     return Object.values(manualGrades).reduce((sum, current) => sum + current, 0);

@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { 
-  Plus, Search, Loader2, AlertCircle, Bookmark, Layers, 
-  Filter, History, Edit3, X, Check, CheckSquare, Square, Eye, FolderPlus
+  Plus, Search, Loader2, AlertCircle, Bookmark, History, Edit3, X, CheckSquare, Square, Eye, FolderPlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';

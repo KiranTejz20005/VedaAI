@@ -639,6 +639,7 @@ export const ssoLogin = async (req: Request, res: Response): Promise<void> => {
     
     // If user does not exist, create a new one (SSO auto-onboarding)
     if (!user) {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const crypto = require('crypto');
       const randomPassword = crypto.randomBytes(16).toString('hex');
       const pwdHash = await hashPassword(randomPassword);

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, CalendarDays, Sparkles, Send, Check } from "lucide-react";
+import { X, CalendarDays, Send, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ContactModalProps {

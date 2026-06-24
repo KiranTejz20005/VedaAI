@@ -2,14 +2,10 @@ import React, { useState } from "react";
 import { 
   Clock, 
   Award, 
-  Check, 
   Star, 
-  ArrowUpRight, 
   TrendingUp, 
-  ShieldCheck, 
-  MessageSquare,
-  Sparkles,
-  Users
+  ShieldCheck,
+  Sparkles
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 

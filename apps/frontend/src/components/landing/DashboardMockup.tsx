@@ -1,9 +1,8 @@
 import React, { useState } from "react";
 import { 
-  Plus, Home, Users, BarChart3, BookOpen, Settings, AlertTriangle, 
-  CheckCircle, FileText, Sparkles, Send, RefreshCw, Bookmark, ChevronRight
+  Plus, Home, Users, BarChart3, BookOpen, 
+  CheckCircle, FileText, Sparkles, ChevronRight
 } from "lucide-react";
-import { motion } from "framer-motion";
 
 export default function DashboardMockup() {
   const [activeTab, setActiveTab] = useState<"summary" | "gaps" | "actions">("summary");

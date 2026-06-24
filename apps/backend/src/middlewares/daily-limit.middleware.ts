@@ -5,6 +5,7 @@ import { logger } from '../config/logger';
 
 // Extend Express Request to include user info
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: {

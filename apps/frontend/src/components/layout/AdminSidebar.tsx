@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutGrid,
   PieChart,
-  BarChart3,
   Settings,
   X,
   GraduationCap,
@@ -13,8 +12,6 @@ import {
   ClipboardCheck,
   ShieldCheck,
   Building2,
-  CreditCard,
-  ScrollText,
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';

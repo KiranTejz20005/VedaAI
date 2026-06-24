@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -12,7 +12,6 @@ import {
   User,
   X,
   Users,
-  Home,
   MessageSquare,
   Volume2,
   Video,

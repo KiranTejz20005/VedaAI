@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { Sparkles, FileText, CheckCircle, XCircle, FileWarning, AlertCircle, Plus, Info } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles, CheckCircle, XCircle, AlertCircle, Info } from "lucide-react";
 
 interface QuestionGrading {
   num: string;

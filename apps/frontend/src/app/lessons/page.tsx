@@ -5,8 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import {
-  Plus, Search, Loader2, BookOpen, Eye, Archive, Edit3, X, Calendar,
-  FileText, Video, Link as LinkIcon, Trash2, GripVertical, Save
+  Plus, Search, Loader2, BookOpen, Eye, Archive, Edit3, X,
+  FileText, GripVertical, Save
 } from 'lucide-react';
 import { api } from '@/lib/api';
 

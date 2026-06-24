@@ -6,9 +6,7 @@ import { useAuthStore } from '@/store/auth.store';
 import {
   Building2,
   Users,
-  Activity,
   FileText,
-  TrendingUp,
   ChevronRight,
   ShieldCheck,
   BarChart3,

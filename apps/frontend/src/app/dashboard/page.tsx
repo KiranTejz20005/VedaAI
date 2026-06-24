@@ -10,12 +10,8 @@ import {
   Plus,
   UserPlus,
   CheckCircle,
-  Activity,
   TrendingUp,
-  Bell,
 } from 'lucide-react';
-import Link from 'next/link';
-import toast from 'react-hot-toast';
 import { PageHeader } from '@/design-system/PageHeader';
 import { MetricCard } from '@/design-system/MetricCard';
 import { ActionCard } from '@/design-system/ActionCard';

@@ -10,8 +10,6 @@ import {
   Loader2, 
   AlertCircle, 
   ArrowLeft, 
-  GraduationCap, 
-  Calendar, 
   Trash2, 
   Eye, 
   CheckCircle,

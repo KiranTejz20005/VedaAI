@@ -5,8 +5,6 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutGrid,
   Building2,
-  BarChart3,
-  CreditCard,
   ScrollText,
   Settings,
   X,

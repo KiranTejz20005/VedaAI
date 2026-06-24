@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  PieChart as PieIcon, BarChart as BarIcon, Loader2, AlertCircle, TrendingUp, Users, Sparkles, RefreshCw, Award, AlertTriangle 
+  PieChart as PieIcon, BarChart as BarIcon, Loader2, AlertCircle, TrendingUp, Sparkles, RefreshCw, Award 
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/services/api.client';

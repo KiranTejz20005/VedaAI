@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import {
-  FileText, Search, Plus, Eye, Loader2, CheckCircle2, Clock, AlertCircle,
+  FileText, Search, Plus, Eye, CheckCircle2, Clock, AlertCircle,
   FileQuestion, Archive, Send, ThumbsUp, XCircle, Edit3, RefreshCw
 } from 'lucide-react';
 import { api } from '@/lib/api';

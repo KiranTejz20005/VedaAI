@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import {
-  ClipboardCheck, Play, Eye, Loader2, RefreshCw, Clock, FileText,
-  CheckCircle2, AlertCircle, ArrowRight, BarChart3
+  ClipboardCheck, Play, Eye, RefreshCw, Clock, FileText,
+  CheckCircle2, AlertCircle, BarChart3
 } from 'lucide-react';
 import { api } from '@/lib/api';
 

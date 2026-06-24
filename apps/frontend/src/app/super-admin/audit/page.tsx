@@ -71,7 +71,7 @@ export default function SuperAdminAudit() {
 
   const formatIpAddress = (ip: string) => {
     if (!ip) return '-';
-    let cleanIp = ip.split(',')[0].trim();
+    const cleanIp = ip.split(',')[0].trim();
     if (cleanIp === '::1') return '127.0.0.1';
     if (cleanIp.startsWith('::ffff:')) return cleanIp.substring(7);
     return cleanIp;

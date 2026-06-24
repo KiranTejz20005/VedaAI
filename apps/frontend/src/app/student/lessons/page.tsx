@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import {
-  BookOpen, Loader2, RefreshCw, CheckCircle2, Circle, Clock, ArrowRight, GraduationCap
+  BookOpen, RefreshCw, CheckCircle2, Circle, Clock, ArrowRight
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';

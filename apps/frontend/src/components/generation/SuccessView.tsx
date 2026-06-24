@@ -1,7 +1,7 @@
 'use client';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { RefreshCw, Zap, CheckCircle2, ChevronRight, FileText, Clock, Trophy } from 'lucide-react';
+import { RefreshCw, Zap, CheckCircle2, FileText, Clock, Trophy } from 'lucide-react';
 
 interface SuccessViewProps {
   assignmentId: string;

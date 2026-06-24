@@ -2,8 +2,8 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
 
 import { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Loader2, CheckCircle, AlertCircle, ImageOff, Check, X, Eye, History, Trash2, RotateCcw, Clock, Award, BookOpen, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Sparkles, Loader2, CheckCircle, AlertCircle, ImageOff, Check, X, Eye, History, Trash2, RotateCcw, Clock, Award, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/services/api.client';
 

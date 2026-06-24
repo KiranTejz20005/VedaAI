@@ -4,17 +4,8 @@ import {
   LineChart, 
   Sparkles, 
   CheckSquare, 
-  BookOpen, 
-  TrendingUp, 
   ChevronRight, 
-  User, 
-  Check, 
-  FileText, 
-  Settings, 
-  Sliders, 
-  RefreshCw, 
-  Award,
-  AlertCircle
+  Check
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 

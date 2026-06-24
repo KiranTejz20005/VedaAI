@@ -1,11 +1,11 @@
 'use client';
-/* eslint-disable react-hooks/set-state-in-effect */
+ 
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ClipboardCheck, Plus, CheckCircle, AlertCircle, Loader2,
-  FileText, Upload, Settings, ChevronRight, User, Trash2
+  ClipboardCheck, Plus, Loader2,
+  FileText, Upload, ChevronRight, User
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/services/api.client';
@@ -59,10 +59,6 @@ export default function GraderDashboard() {
   const [criteria, setCriteria] = useState([{ name: 'Accuracy', maxMarks: 10, description: 'Correct answer structure' }]);
   const [creatingRubric, setCreatingRubric] = useState(false);
 
-  useEffect(() => {
-    loadInitialData();
-  }, []);
-
   const loadInitialData = async () => {
     try {
       setLoading(true);
@@ -79,6 +75,10 @@ export default function GraderDashboard() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadInitialData();
+  }, []);
 
   const loadSubmissions = async (assignmentId: string) => {
     try {

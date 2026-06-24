@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import {
-  BookOpen, Calendar, CheckCircle2, Circle, Download, FileText,
-  Video, Link as LinkIcon, ArrowLeft, Loader2, CheckCheck, Target, ListTodo, FileQuestion
+  BookOpen, Calendar, Circle, Download, FileText,
+  Video, ArrowLeft, Loader2, CheckCheck, Target, ListTodo, FileQuestion
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';

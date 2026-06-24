@@ -6,7 +6,6 @@ import {
   LayoutGrid,
   Users,
   BookOpen,
-  ClipboardList,
   Settings,
   X,
   GraduationCap,

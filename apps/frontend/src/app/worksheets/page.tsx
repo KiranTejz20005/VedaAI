@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Plus, Loader2, FileText, Trash2, Eye, Calendar, Sparkles, X, Check, BookOpen 
+  Plus, Loader2, FileText, Trash2, Calendar, Sparkles, X 
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/services/api.client';

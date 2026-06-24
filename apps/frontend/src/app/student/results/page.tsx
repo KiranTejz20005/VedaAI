@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import {
-  BarChart3, CheckCircle2, XCircle, Loader2, RefreshCw, ArrowLeft, ArrowRight, FileText, Eye
+  BarChart3, CheckCircle2, XCircle, RefreshCw, ArrowLeft, FileText, Eye
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
