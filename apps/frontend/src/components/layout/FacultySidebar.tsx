@@ -30,11 +30,11 @@ function QuestionBankIcon(props: React.SVGProps<SVGSVGElement>) {
 
 const NAV_ITEMS = [
   { href: '/dashboard/faculty', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/dashboard/faculty/teachers', label: 'Teachers', icon: Users },
-  { href: '/dashboard/faculty/students', label: 'Students', icon: GraduationCap },
-  { href: '/dashboard/faculty/reports', label: 'Reports', icon: FileText },
-  { href: '/dashboard/faculty/analytics', label: 'Analytics', icon: BrainCircuit },
-  { href: '/dashboard/faculty/classes', label: 'Classes', icon: BookOpen },
+  { href: '/dashboard/teacher', label: 'Teachers', icon: Users },
+  { href: '/dashboard/student', label: 'Students', icon: GraduationCap },
+  { href: '/analytics', label: 'Reports', icon: FileText },
+  { href: '/analytics', label: 'Analytics', icon: BrainCircuit },
+  { href: '/classes', label: 'Classes', icon: BookOpen },
 ];
 
 export function FacultySidebar() {

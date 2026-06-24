@@ -134,11 +134,13 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
 
   const userRole = user?.role?.toUpperCase() || '';
   
-  let DynamicSidebar = <TeacherSidebar />;
-  if (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') {
+  let DynamicSidebar = null;
+  if (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN' || userRole === 'ORG_ADMIN') {
     DynamicSidebar = <AdminSidebar />;
   } else if (userRole === 'STUDENT') {
     DynamicSidebar = <StudentSidebar />;
+  } else if (userRole === 'FACULTY' || userRole === 'TEACHER') {
+    DynamicSidebar = <TeacherSidebar />;
   }
 
   return (
