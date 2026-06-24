@@ -34,7 +34,6 @@ const NAV_ITEMS = [
   { href: '/dashboard/admin', label: 'Dashboard', icon: LayoutGrid, exact: true },
   { href: '/dashboard/admin/users', label: 'Users', icon: Users },
   { href: '/dashboard/admin/students', label: 'Students', icon: GraduationCap },
-  { href: '/dashboard/admin/teachers', label: 'Teachers', icon: ScrollText },
   { href: '/dashboard/admin/faculty', label: 'Faculty', icon: Building2 },
   { href: '/dashboard/admin/classes', label: 'Classes', icon: ClipboardCheck },
   { href: '/dashboard/admin/analytics', label: 'Analytics', icon: PieChart },
@@ -43,11 +42,11 @@ const NAV_ITEMS = [
 
 const SUPER_ADMIN_ITEMS = [
   { href: '/dashboard/super-admin', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/dashboard/super-admin/system', label: 'System', icon: Building2 },
-  { href: '/dashboard/super-admin/security', label: 'Security', icon: ShieldCheck },
-  { href: '/dashboard/super-admin/logs', label: 'Logs', icon: ScrollText },
-  { href: '/dashboard/super-admin/analytics', label: 'Analytics', icon: PieChart },
-  { href: '/dashboard/super-admin/settings', label: 'Settings', icon: Settings },
+  { href: '/super-admin/organizations', label: 'Organizations', icon: Building2 },
+  { href: '/super-admin/users', label: 'Users', icon: Users },
+  { href: '/super-admin/audit', label: 'Security & Logs', icon: ShieldCheck },
+  { href: '/super-admin/analytics', label: 'Analytics', icon: PieChart },
+  { href: '/super-admin/settings', label: 'Settings', icon: Settings },
 ];
 
 export function AdminSidebar() {
@@ -83,7 +82,7 @@ export function AdminSidebar() {
           {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
             const active = isActive(href, exact);
             return (
-              <Link key={href} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>
+              <Link key={label} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>
                 <Icon size={18} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
                 <span>{label}</span>
               </Link>
@@ -101,7 +100,7 @@ export function AdminSidebar() {
                 const active = isActive(href);
                 return (
                   <Link
-                    key={href}
+                    key={label}
                     href={href}
                     className={`sidebar-nav-item${active ? ' active' : ''}`}
                     onClick={close}

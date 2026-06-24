@@ -24,7 +24,7 @@ const NAV_ITEMS = [
   { href: '/admin/students', label: 'Students', icon: GraduationCap },
   { href: '/admin/classes', label: 'Classes', icon: BookOpen },
   { href: '/admin/subjects', label: 'Subjects', icon: BookMarked },
-  { href: '/admin/lessons', label: 'Lessons', icon: FileText },
+  { href: '/lessons', label: 'Lessons', icon: FileText },
   { href: '/admin/approvals', label: 'Approvals', icon: ClipboardCheck },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
@@ -66,7 +66,7 @@ export function OrgAdminSidebar() {
           {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
             const active = isActive(href, exact);
             return (
-              <Link key={href} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>
+              <Link key={label} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>
                 <Icon size={18} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
                 <span>{label}</span>
               </Link>
