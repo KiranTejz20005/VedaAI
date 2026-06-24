@@ -16,12 +16,32 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [role, setRole] = useState<'STUDENT' | 'TEACHER'>('TEACHER');
+  const [organizationId, setOrganizationId] = useState('');
+  const [organizations, setOrganizations] = useState<{ id: string; name: string }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    
+    // Fetch available organizations
+    const fetchOrganizations = async () => {
+      try {
+        const { api } = await import('@/lib/api');
+        const res = await api.get('/auth/public-organizations');
+        if (res.data?.success) {
+          setOrganizations(res.data.data);
+          if (res.data.data.length > 0) {
+            setOrganizationId(res.data.data[0].id);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load organizations', err);
+      }
+    };
+    fetchOrganizations();
 
     const handleMessage = async (event: MessageEvent) => {
       if (event.data && event.data.type === 'SSO_SUCCESS') {
@@ -357,7 +377,7 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName || !lastName || !email || !password) {
+    if (!firstName || !lastName || !email || !password || !organizationId) {
       toast.error('All fields are required.');
       return;
     }
@@ -373,7 +393,8 @@ export default function RegisterPage() {
       password,
       firstName,
       lastName,
-      role: 'TEACHER',
+      role,
+      organizationId,
     });
 
     setIsSubmitting(false);
@@ -868,7 +889,37 @@ export default function RegisterPage() {
                 </button>
               </div>
 
-              <button type="submit" className="btn-submit-arrow" disabled={isSubmitting}>
+              <div className="inline-inputs">
+                <select 
+                  className="input-box" 
+                  value={role} 
+                  onChange={(e) => setRole(e.target.value as 'STUDENT' | 'TEACHER')}
+                  disabled={isSubmitting}
+                >
+                  <option value="STUDENT">Student</option>
+                  <option value="TEACHER">Faculty</option>
+                </select>
+
+                <select 
+                  className="input-box" 
+                  value={organizationId} 
+                  onChange={(e) => setOrganizationId(e.target.value)}
+                  disabled={organizations.length === 0 || isSubmitting}
+                  required
+                >
+                  {organizations.length === 0 ? (
+                    <option value="">Loading organizations...</option>
+                  ) : (
+                    organizations.map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+
+              <button type="submit" className="btn-submit-arrow" disabled={isSubmitting || !organizationId}>
                 {isSubmitting ? 'Signing up...' : 'Sign up →'}
               </button>
             </form>

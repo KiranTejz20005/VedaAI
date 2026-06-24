@@ -46,7 +46,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
   const userAgent = req.headers['user-agent'] || 'unknown';
 
   try {
-    const { email, password, firstName, lastName } = req.body;
+    const { email, password, firstName, lastName, role, organizationId } = req.body;
 
     if (!email || !password || !firstName || !lastName) {
       res.status(400).json({ success: false, error: 'All fields are required' });
@@ -57,6 +57,9 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({ success: false, error: 'Password must be at least 6 characters long' });
       return;
     }
+
+    // Role validation
+    const assignedRole = role === 'STUDENT' ? 'STUDENT' : 'TEACHER';
 
     const normalizedEmail = String(email).trim().toLowerCase();
     const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
@@ -72,7 +75,9 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
         passwordHash: pwdHash,
         firstName: String(firstName).trim(),
         lastName: String(lastName).trim(),
-        role: 'TEACHER',
+        role: assignedRole,
+        organizationId: organizationId || null,
+        activeOrganizationId: organizationId || null,
         hasCompletedOnboarding: false,
       },
     });
@@ -474,6 +479,25 @@ export const getAvailableOrganizations = async (req: Request, res: Response): Pr
   } catch (error) {
     logger.error(`[getAvailableOrganizations] ${error}`);
     res.status(500).json({ success: false, error: 'Failed to fetch organizations' });
+  }
+};
+
+// ── GET /auth/public-organizations ──
+export const getPublicOrganizations = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const orgs = await prisma.organization.findMany({
+      where: { status: 'ACTIVE' },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, code: true },
+    });
+
+    res.json({
+      success: true,
+      data: orgs,
+    });
+  } catch (error) {
+    logger.error(`[getPublicOrganizations] ${error}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch public organizations' });
   }
 };
 

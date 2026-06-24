@@ -228,10 +228,17 @@ export const getOrganizationUsers = async (req: Request, res: Response): Promise
 };
 
 // ── GET ALL USERS (ACROSS ALL ORGANIZATIONS) ──
-export const getAllUsers = async (_req: Request, res: Response): Promise<void> => {
+export const getAllUsers = async (req: Request, res: Response): Promise<void> => {
   try {
+    const orgId = req.headers['x-organization-id'] as string;
+    const whereClause: any = { status: { not: 'DELETED' } };
+    
+    if (orgId) {
+      whereClause.organizationId = orgId;
+    }
+
     const users = await prisma.user.findMany({
-      where: { status: { not: 'DELETED' } },
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
       include: {
         organization: { select: { id: true, name: true } },

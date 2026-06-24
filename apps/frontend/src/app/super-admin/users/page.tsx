@@ -63,7 +63,7 @@ export default function SuperAdminUsersPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <PageHeader
         title="User Directory"
-        subtitle="View all users across all organizations."
+        subtitle="View all users for the selected organization."
       />
 
       <Input

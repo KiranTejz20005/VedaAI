@@ -43,8 +43,8 @@ interface AuthStore {
     password?: string;
     firstName: string;
     lastName: string;
-    role?: string;
-    organizationName?: string;
+    role: 'STUDENT' | 'TEACHER';
+    organizationId: string;
   }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateProfile: (data: { firstName?: string; lastName?: string; email?: string }) => Promise<{ success: boolean; error?: string }>;

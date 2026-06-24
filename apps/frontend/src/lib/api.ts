@@ -68,6 +68,20 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: (value?: unknown) => void; reject: (reason?: any) => void }> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 api.interceptors.response.use(
   (response) => {
     if (isApiDebugEnabled) {
@@ -108,8 +122,57 @@ api.interceptors.response.use(
         });
       }
 
-      // Handle unauthorized errors automatically
-      if (status === 401) {
+      const originalRequest = error.config;
+
+      // Handle unauthorized errors automatically with token refresh
+      if (status === 401 && originalRequest && !originalRequest.url?.includes('/auth/refresh') && !originalRequest.url?.includes('/auth/login')) {
+        if (!isRefreshing) {
+          isRefreshing = true;
+          try {
+            // Attempt to refresh the token using a clean axios instance to avoid interceptor loops
+            const refreshUrl = originalRequest.baseURL ? joinUrl(originalRequest.baseURL, '/auth/refresh') : '/auth/refresh';
+            const res = await axios.post(refreshUrl, {}, { withCredentials: true });
+            const token = res.data?.data?.accessToken;
+            
+            if (token) {
+              const { useAuthStore } = await import('@/store/auth.store');
+              const user = useAuthStore.getState().user;
+              if (user) {
+                useAuthStore.getState().setAuth(user, token);
+              }
+              
+              processQueue(null, token);
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              return api(originalRequest);
+            } else {
+              throw new Error('No access token returned from refresh');
+            }
+          } catch (refreshError) {
+            processQueue(refreshError, null);
+            try {
+              const { useAuthStore } = await import('@/store/auth.store');
+              useAuthStore.getState().clearAuth();
+            } catch {
+              // ignore
+            }
+            return Promise.reject(new Error('Session expired. Please log in again.'));
+          } finally {
+            isRefreshing = false;
+          }
+        } else {
+          return new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
+          }).then(token => {
+            if (originalRequest.headers) {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+            }
+            return api(originalRequest);
+          }).catch(err => {
+            return Promise.reject(err);
+          });
+        }
+      } else if (status === 401) {
+        // If the refresh token itself expired or failed, clear auth
         try {
           const { useAuthStore } = await import('@/store/auth.store');
           useAuthStore.getState().clearAuth();

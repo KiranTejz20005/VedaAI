@@ -27,7 +27,7 @@ const NAV_ITEMS = [
   { href: '/lessons', label: 'Lessons', icon: FileText },
   { href: '/admin/approvals', label: 'Approvals', icon: ClipboardCheck },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/admin/settings', label: 'Settings', icon: Settings },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export function OrgAdminSidebar() {

@@ -10,10 +10,10 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
-const connectionString =
-  process.env.DATABASE_URL ||
-  'postgresql://neondb_owner:npg_o0OQsB4nRHTU@ep-small-bird-attn88l3-pooler.c-9.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
-
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is required. Set it to your Supabase connection string.');
+}
+const connectionString = process.env.DATABASE_URL;
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 

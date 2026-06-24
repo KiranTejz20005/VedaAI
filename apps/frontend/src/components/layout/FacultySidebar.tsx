@@ -35,6 +35,7 @@ const NAV_ITEMS = [
   { href: '/analytics', label: 'Reports', icon: FileText },
   { href: '/analytics', label: 'Analytics', icon: BrainCircuit },
   { href: '/classes', label: 'Classes', icon: BookOpen },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export function FacultySidebar() {
@@ -87,11 +88,6 @@ export function FacultySidebar() {
         </nav>
 
         <div className="sidebar-bottom">
-          <Link href="/settings" className="sidebar-settings" onClick={close}>
-            <Settings size={18} aria-hidden="true" />
-            <span>Settings</span>
-          </Link>
-
           <div className="sidebar-profile" role="button" tabIndex={0} aria-label="Account settings">
             <div className="sidebar-profile-avatar" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #E8531D, #F97316)', color: 'white', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'F'}

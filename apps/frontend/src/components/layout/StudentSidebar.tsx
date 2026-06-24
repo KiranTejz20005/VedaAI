@@ -32,6 +32,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/student', label: 'Attendance', icon: User },
   { href: '/student/results', label: 'Results', icon: TrendingUp },
   { href: '/dashboard/student/community', label: 'Community', icon: Users },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 const COMMUNITY_SUB_ITEMS = [
@@ -148,11 +149,6 @@ export function StudentSidebar() {
         </nav>
 
         <div className="sidebar-bottom">
-          <Link href="/settings" className="sidebar-settings" onClick={close}>
-            <Settings size={18} aria-hidden="true" />
-            <span>Settings</span>
-          </Link>
-
           <div className="sidebar-profile" role="button" tabIndex={0} aria-label="Account settings">
             <div className="sidebar-profile-avatar" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', color: 'white', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'S'}

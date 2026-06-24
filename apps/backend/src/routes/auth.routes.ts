@@ -6,6 +6,7 @@ import {
   updatePreferences,
   updateOrganization,
   getAvailableOrganizations,
+  getPublicOrganizations,
   switchOrganization,
   signup,
   login,
@@ -20,6 +21,7 @@ import { authenticate } from '../middlewares/auth.middleware';
 const router = Router();
 
 // Public auth endpoints
+router.get('/public-organizations', asyncHandler(getPublicOrganizations));
 router.post('/signup', asyncHandler(signup));
 router.post('/accept-invite', asyncHandler(acceptInvite));
 router.post('/login', asyncHandler(login));

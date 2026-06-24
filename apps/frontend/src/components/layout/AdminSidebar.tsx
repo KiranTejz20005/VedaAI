@@ -30,23 +30,25 @@ function MyGroupsIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-const NAV_ITEMS = [
+const ADMIN_NAV_ITEMS = [
   { href: '/dashboard/admin', label: 'Dashboard', icon: LayoutGrid, exact: true },
   { href: '/dashboard/admin/users', label: 'Users', icon: Users },
   { href: '/dashboard/admin/students', label: 'Students', icon: GraduationCap },
   { href: '/dashboard/admin/faculty', label: 'Faculty', icon: Building2 },
   { href: '/dashboard/admin/classes', label: 'Classes', icon: ClipboardCheck },
   { href: '/dashboard/admin/analytics', label: 'Analytics', icon: PieChart },
-  { href: '/dashboard/admin/settings', label: 'Settings', icon: Settings },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
-const SUPER_ADMIN_ITEMS = [
+const SUPER_ADMIN_NAV_ITEMS = [
   { href: '/dashboard/super-admin', label: 'Dashboard', icon: LayoutGrid, exact: true },
   { href: '/super-admin/organizations', label: 'Organizations', icon: Building2 },
   { href: '/super-admin/users', label: 'Users', icon: Users },
-  { href: '/super-admin/audit', label: 'Security & Logs', icon: ShieldCheck },
+  { href: '/dashboard/admin/students', label: 'Students', icon: GraduationCap },
+  { href: '/dashboard/admin/classes', label: 'Classes', icon: ClipboardCheck },
   { href: '/super-admin/analytics', label: 'Analytics', icon: PieChart },
-  { href: '/super-admin/settings', label: 'Settings', icon: Settings },
+  { href: '/super-admin/audit', label: 'Security & Logs', icon: ShieldCheck },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export function AdminSidebar() {
@@ -79,7 +81,7 @@ export function AdminSidebar() {
 
         <nav className="sidebar-nav" aria-label="Pages">
           <div className="sidebar-nav-section-label">Management</div>
-          {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
+          {(user?.role === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV_ITEMS : ADMIN_NAV_ITEMS).map(({ href, label, icon: Icon, exact }) => {
             const active = isActive(href, exact);
             return (
               <Link key={label} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>
@@ -88,38 +90,9 @@ export function AdminSidebar() {
               </Link>
             );
           })}
-
-          {/* Super Admin: system-level pages */}
-          {user?.role === 'SUPER_ADMIN' && (
-            <>
-              <div className="sidebar-nav-section-label" style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <ShieldCheck size={10} />
-                System
-              </div>
-              {SUPER_ADMIN_ITEMS.map(({ href, label, icon: Icon }) => {
-                const active = isActive(href);
-                return (
-                  <Link
-                    key={label}
-                    href={href}
-                    className={`sidebar-nav-item${active ? ' active' : ''}`}
-                    onClick={close}
-                  >
-                    <Icon size={18} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
-                    <span>{label}</span>
-                  </Link>
-                );
-              })}
-            </>
-          )}
         </nav>
 
         <div className="sidebar-bottom">
-          <Link href="/settings" className="sidebar-settings" onClick={close}>
-            <Settings size={18} aria-hidden="true" />
-            <span>Settings</span>
-          </Link>
-
           <div className="sidebar-profile" role="button" tabIndex={0} aria-label="Account settings">
             <div className="sidebar-profile-avatar" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #059669, #10B981)', color: 'white', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'A'}
