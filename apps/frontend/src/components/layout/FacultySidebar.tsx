@@ -78,7 +78,7 @@ export function FacultySidebar() {
           {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
             const active = isActive(href, exact);
             return (
-              <Link key={href} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>
+              <Link key={label} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>
                 <Icon size={18} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
                 <span>{label}</span>
               </Link>
