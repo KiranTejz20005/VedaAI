@@ -161,7 +161,10 @@ api.interceptors.response.use(
               // ignore
             }
             if (typeof window !== 'undefined') {
-              window.location.href = '/login';
+              const publicPaths = ['/login', '/register', '/forgot-password', '/'];
+              if (!publicPaths.includes(window.location.pathname)) {
+                window.location.href = '/login';
+              }
             }
             return Promise.reject(new Error('Session expired. Please log in again.'));
           } finally {
@@ -188,7 +191,10 @@ api.interceptors.response.use(
           // ignore
         }
         if (typeof window !== 'undefined') {
-          window.location.href = '/login';
+          const publicPaths = ['/login', '/register', '/forgot-password', '/'];
+          if (!publicPaths.includes(window.location.pathname)) {
+            window.location.href = '/login';
+          }
         }
       }
 

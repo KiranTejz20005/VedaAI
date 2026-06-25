@@ -89,6 +89,7 @@ model Organization {
   phone            String?
   address          String?
   logo             String?
+  brandColor       String?
   subscriptionPlan SubscriptionTier   @default(FREE)
   status           OrganizationStatus @default(ACTIVE)
   createdAt        DateTime           @default(now())
@@ -1133,4 +1134,19 @@ model Meeting {
 
   @@index([hostId])
   @@index([organizationId])
+}
+
+// ── System Settings ──
+model SystemSetting {
+  id                String   @id @default("global")
+  platformName      String   @default("Vidya AI Education")
+  brandColor        String   @default("#2563EB")
+  logoUrl           String?
+  maintenanceMode   Boolean  @default(false)
+  defaultTimezone   String   @default("UTC-5:00 Eastern Time (US & Canada)")
+  dataRetentionDays Int      @default(90)
+  enableAiAnalytics Boolean  @default(true)
+  notifyApiSpikes   Boolean  @default(true)
+  forceMfa          Boolean  @default(false)
+  updatedAt         DateTime @updatedAt
 }

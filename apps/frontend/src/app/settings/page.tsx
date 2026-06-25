@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Bell, Shield, Palette, Database, ChevronRight, Building2,
-  Loader2, Check, Moon, Sun, Globe, Key, Smartphone, Download, Trash2, Save,
+  Loader2, Check, Moon, Sun, Globe, Key, Smartphone, Download, Trash2, Save, Eye,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/services/api.client';
@@ -40,6 +40,46 @@ function Toggle({ enabled, onChange }: { enabled: boolean; onChange: () => void 
     </button>
   );
 }
+function PasswordInput({ label, placeholder, value, onChange, style }: { label: string; placeholder: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; style?: React.CSSProperties }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="input-group" style={style}>
+      <label className="label">{label}</label>
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+        <input
+          type={show ? "text" : "password"}
+          className="input"
+          placeholder={placeholder}
+          value={value}
+          onChange={onChange}
+          style={{ width: '100%', paddingRight: 40 }}
+        />
+        <button
+          type="button"
+          onMouseDown={() => setShow(true)}
+          onMouseUp={() => setShow(false)}
+          onMouseLeave={() => setShow(false)}
+          onTouchStart={() => setShow(true)}
+          onTouchEnd={() => setShow(false)}
+          style={{
+            position: 'absolute',
+            right: 12,
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 0
+          }}
+        >
+          <Eye size={18} />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function SectionPanel({ id, onClose, profile, onProfileUpdate }: { id: SectionId; onClose: () => void; profile: UserProfile | null; onProfileUpdate: () => void }) {
   switch (id) {
@@ -66,8 +106,10 @@ function AccountPanel({ onClose, profile, onProfileUpdate }: { onClose: () => vo
   const [email, setEmail] = useState(profile?.email || '');
   const [avatar, setAvatar] = useState(profile?.avatar || '');
   const [currentPassword, setCurrentPassword] = useState('');
+  const [reEnterPassword, setReEnterPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -87,9 +129,23 @@ function AccountPanel({ onClose, profile, onProfileUpdate }: { onClose: () => vo
     try {
       await apiClient.put('/auth/me', { firstName, lastName, email: email.trim(), avatar });
       
-      if (currentPassword && newPassword) {
+      if (showPasswordChange) {
+        if (!currentPassword || !reEnterPassword || !newPassword) {
+          toast.error('Please fill all password fields');
+          setSaving(false);
+          return;
+        }
+        if (currentPassword !== reEnterPassword) {
+          toast.error('Current passwords do not match');
+          setSaving(false);
+          return;
+        }
         await apiClient.put('/auth/me/password', { currentPassword, newPassword });
         toast.success('Profile and password updated');
+        setShowPasswordChange(false);
+        setCurrentPassword('');
+        setReEnterPassword('');
+        setNewPassword('');
       } else {
         toast.success('Profile updated');
       }
@@ -128,14 +184,40 @@ function AccountPanel({ onClose, profile, onProfileUpdate }: { onClose: () => vo
         <input type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
       </div>
 
-      <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 16 }}>Change Password</h3>
-      <div className="input-group" style={{ marginBottom: 14 }}>
-        <label className="label">Current Password</label>
-        <input type="password" className="input" placeholder="Required to change password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
-      </div>
-      <div className="input-group" style={{ marginBottom: 20 }}>
-        <label className="label">New Password</label>
-        <input type="password" className="input" placeholder="Leave blank to keep current" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+      <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+        {!showPasswordChange ? (
+          <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
+            <button className="btn btn-ghost" style={{ color: 'var(--brand)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14, padding: 0, fontWeight: 600 }} onClick={() => setShowPasswordChange(true)}>Forgot Password?</button>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Change Password</h3>
+              <button className="btn btn-ghost" style={{ color: 'var(--brand)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14, padding: 0 }} onClick={() => setShowPasswordChange(false)}>Cancel</button>
+            </div>
+            <PasswordInput
+              label="Current Password"
+              placeholder="Enter current password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              style={{ marginBottom: 14 }}
+            />
+            <PasswordInput
+              label="Re-enter Current Password"
+              placeholder="Re-enter current password"
+              value={reEnterPassword}
+              onChange={(e) => setReEnterPassword(e.target.value)}
+              style={{ marginBottom: 14 }}
+            />
+            <PasswordInput
+              label="New Password"
+              placeholder="Enter new password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              style={{ marginBottom: 20 }}
+            />
+          </>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>

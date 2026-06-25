@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
+import { useSystemStore } from '@/store/system.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
 
 function MyGroupsIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -34,7 +35,7 @@ const ADMIN_NAV_ITEMS = [
   { href: '/dashboard/admin/faculty', label: 'Faculty', icon: Building2 },
   { href: '/dashboard/admin/classes', label: 'Classes', icon: ClipboardCheck },
   { href: '/dashboard/admin/analytics', label: 'Analytics', icon: PieChart },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/dashboard/admin/settings', label: 'Settings', icon: Settings },
 ];
 
 const SUPER_ADMIN_NAV_ITEMS = [
@@ -45,13 +46,14 @@ const SUPER_ADMIN_NAV_ITEMS = [
   { href: '/dashboard/admin/classes', label: 'Classes', icon: ClipboardCheck },
   { href: '/super-admin/analytics', label: 'Analytics', icon: PieChart },
   { href: '/super-admin/audit', label: 'Security & Logs', icon: ShieldCheck },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/super-admin/settings', label: 'Settings', icon: Settings },
 ];
 
 export function AdminSidebar() {
   const pathname = usePathname();
   const { isOpen, close } = useSidebarStore();
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
+  const { settings } = useSystemStore();
   const { availableOrganizations, activeOrganizationId } = useAdminAuthStore();
 
   function isActive(href: string, exact = false) {
@@ -67,12 +69,16 @@ export function AdminSidebar() {
 
       <aside className={`sidebar${isOpen ? ' open' : ''}`} role="navigation" aria-label="Main navigation">
         <div className="sidebar-logo">
-          <div className="sidebar-logo-icon" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #10B981 0%, #059669 50%, #047857 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <text x="50%" y="55%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="16" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif">S</text>
-            </svg>
-          </div>
-          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>Shiksha Admin</span>
+          {settings?.logoUrl ? (
+            <img src={settings.logoUrl} alt="Logo" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'contain' }} />
+          ) : (
+            <div className="sidebar-logo-icon" aria-hidden="true" style={{ background: settings?.brandColor || 'linear-gradient(135deg, #10B981 0%, #059669 50%, #047857 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <text x="50%" y="55%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="16" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif">S</text>
+              </svg>
+            </div>
+          )}
+          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>{settings?.platformName || 'Shiksha Admin'}</span>
           <button className="sidebar-close-btn" onClick={close} aria-label="Close navigation"><X size={18} /></button>
         </div>
 

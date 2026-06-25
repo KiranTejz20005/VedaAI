@@ -14,17 +14,21 @@ import { TeacherSidebar } from './TeacherSidebar';
 import { Topbar } from './TopBar';
 import { MobileBottomNav } from './MobileBottomNav';
 import { canAccessRoute } from '@/config/route-permissions';
+import { useSystemStore } from '@/store/system.store';
+import { AlertTriangle } from 'lucide-react';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthenticated, isLoading, initialize } = useAuthStore();
   const { initializeFromStorage } = useAdminAuthStore();
+  const { settings, fetchSettings, initialized } = useSystemStore();
 
   useEffect(() => {
     initialize();
     initializeFromStorage();
-  }, [initialize, initializeFromStorage]);
+    fetchSettings();
+  }, [initialize, initializeFromStorage, fetchSettings]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -148,6 +152,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     SidebarComponent = <FacultySidebar />;
   } else if (role === 'STUDENT') {
     SidebarComponent = <StudentSidebar />;
+  }
+
+  // Maintenance mode check
+  if (initialized && settings?.maintenanceMode && role !== 'SUPER_ADMIN' && role !== 'ADMIN' && role !== 'ORG_ADMIN') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-center p-6">
+        <AlertTriangle className="w-16 h-16 text-yellow-500 mb-6" />
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">System Under Maintenance</h1>
+        <p className="text-gray-600 max-w-md">
+          We are currently performing scheduled maintenance to improve our services. 
+          Please check back later. We apologize for the inconvenience.
+        </p>
+      </div>
+    );
   }
 
   return (

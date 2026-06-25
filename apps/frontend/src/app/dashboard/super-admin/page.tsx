@@ -80,9 +80,7 @@ export default function SuperAdminDashboard() {
         <MetricCard icon={<Building size={18} />} label="Total Organizations" value={data.totalOrganizations} />
         <MetricCard icon={<Users size={18} />} label="Total Users" value={data.totalUsers} />
         <MetricCard icon={<Activity size={18} />} label="Active Sessions" value={data.activeSessions} />
-        <MetricCard icon={<LinkIcon size={18} />} label="API Usage" value={`${data.apiUsage}%`} />
         <MetricCard icon={<Server size={18} />} label="System Uptime" value={`${data.systemUptime}%`} />
-        <MetricCard icon={<Shield size={18} />} label="Security Alerts" value={data.securityAlerts} />
       </div>
 
       <div style={{

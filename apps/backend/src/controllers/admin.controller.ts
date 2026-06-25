@@ -1884,7 +1884,16 @@ export class AdminController {
       if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
       const org = await prisma.organization.findUnique({ where: { id: orgId } });
       if (!org) { res.status(404).json({ success: false, error: 'Organization not found' }); return; }
-      res.json({ success: true, data: org });
+      
+      // Alias fields for system.store.ts
+      res.json({ 
+        success: true, 
+        data: {
+          ...org,
+          platformName: org.name,
+          logoUrl: org.logo
+        } 
+      });
     } catch (err: any) {
       logger.error(`[Admin:getOrganizationSettings] ${err}`);
       res.status(500).json({ success: false, error: err.message });
@@ -1895,21 +1904,33 @@ export class AdminController {
     try {
       const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
       if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
-      const { name, email, phone, address, logo } = req.body;
+      const { name, email, phone, address, logo, platformName, brandColor, logoUrl } = req.body;
       const data: any = {};
-      if (name) data.name = name;
-      if (email) data.email = email;
-      if (phone) data.phone = phone;
-      if (address) data.address = address;
-      if (logo) data.logo = logo;
+      
+      // Support both old and new field names
+      if (name !== undefined) data.name = name;
+      if (platformName !== undefined) data.name = platformName;
+      if (email !== undefined) data.email = email;
+      if (phone !== undefined) data.phone = phone;
+      if (address !== undefined) data.address = address;
+      if (logo !== undefined) data.logo = logo;
+      if (logoUrl !== undefined) data.logo = logoUrl;
+      if (brandColor !== undefined) data.brandColor = brandColor;
+
       const org = await prisma.organization.update({ where: { id: orgId }, data });
-      res.json({ success: true, data: org });
+      res.json({ 
+        success: true, 
+        data: {
+          ...org,
+          platformName: org.name,
+          logoUrl: org.logo
+        } 
+      });
     } catch (err: any) {
       logger.error(`[Admin:updateOrganizationSettings] ${err}`);
       res.status(500).json({ success: false, error: err.message });
     }
   }
-
   // ── Dashboard Stats ──
   static async getDashboardStats(req: Request, res: Response) {
     try {

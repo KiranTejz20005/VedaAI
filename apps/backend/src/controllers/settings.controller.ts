@@ -1,0 +1,100 @@
+import { Request, Response } from 'express';
+import prisma from '../config/prisma';
+import logger from '../utils/logger';
+import { env } from '../config/env';
+
+// Fetch global system settings
+export const getSettings = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    let settings = await prisma.systemSetting.findUnique({
+      where: { id: 'global' },
+    });
+
+    if (!settings) {
+      settings = await prisma.systemSetting.create({
+        data: { id: 'global' },
+      });
+    }
+
+    res.json({ success: true, data: settings });
+  } catch (error) {
+    logger.error(`[Settings - getSettings] Error: ${error}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch settings.' });
+  }
+};
+
+// Update global system settings
+export const updateSettings = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const {
+      platformName,
+      brandColor,
+      logoUrl,
+      maintenanceMode,
+      defaultTimezone,
+      dataRetentionDays,
+      enableAiAnalytics,
+      notifyApiSpikes,
+      forceMfa,
+    } = req.body;
+
+    const data: any = {};
+    if (platformName !== undefined) data.platformName = platformName;
+    if (brandColor !== undefined) data.brandColor = brandColor;
+    if (logoUrl !== undefined) data.logoUrl = logoUrl;
+    if (maintenanceMode !== undefined) data.maintenanceMode = maintenanceMode;
+    if (defaultTimezone !== undefined) data.defaultTimezone = defaultTimezone;
+    if (dataRetentionDays !== undefined) data.dataRetentionDays = dataRetentionDays;
+    if (enableAiAnalytics !== undefined) data.enableAiAnalytics = enableAiAnalytics;
+    if (notifyApiSpikes !== undefined) data.notifyApiSpikes = notifyApiSpikes;
+    if (forceMfa !== undefined) data.forceMfa = forceMfa;
+
+    const updatedSettings = await prisma.systemSetting.upsert({
+      where: { id: 'global' },
+      update: data,
+      create: { id: 'global', ...data },
+    });
+
+    res.json({ success: true, data: updatedSettings });
+  } catch (error) {
+    logger.error(`[Settings - updateSettings] Error: ${error}`);
+    res.status(500).json({ success: false, error: 'Failed to update settings.' });
+  }
+};
+
+// Fetch API integrations status
+export const getIntegrations = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const integrations = [
+      {
+        id: 'openai',
+        name: 'OpenAI GPT-4o',
+        status: env.OPENAI_API_KEY ? 'active' : 'setup_required',
+        description: env.OPENAI_API_KEY ? 'Connected' : 'Setup Required - Click to config',
+      },
+      {
+        id: 'anthropic',
+        name: 'Anthropic Claude',
+        status: env.ANTHROPIC_API_KEY ? 'active' : 'setup_required',
+        description: env.ANTHROPIC_API_KEY ? 'Connected' : 'Setup Required - Click to config',
+      },
+      {
+        id: 'canvas',
+        name: 'Canvas LMS Connector',
+        status: 'active', // Mocked as active for now as per original UI
+        description: 'Active - 12/12 Institutions live',
+      },
+      {
+        id: 'google',
+        name: 'Google Workspace Auth',
+        status: 'setup_required', // Mocked as setup required
+        description: 'Setup Required - Click to config',
+      }
+    ];
+
+    res.json({ success: true, data: integrations });
+  } catch (error) {
+    logger.error(`[Settings - getIntegrations] Error: ${error}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch integrations.' });
+  }
+};

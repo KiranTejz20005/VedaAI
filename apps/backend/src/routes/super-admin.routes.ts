@@ -3,6 +3,7 @@ import { asyncHandler } from '../utils/async-handler';
 import { authenticate, authorize } from '../middlewares/auth.middleware';
 import { requirePermission } from '../security/access-control';
 import * as SuperAdminController from '../controllers/super-admin.controller';
+import * as SettingsController from '../controllers/settings.controller';
 import prisma from '../config/prisma';
 
 const router = Router();
@@ -60,5 +61,12 @@ router.put('/organizations/:id/subscription', SuperAdminController.updateOrganiz
 
 // Platform Analytics
 router.get('/analytics', SuperAdminController.getPlatformAnalytics);
+
+// Global Settings
+router.get('/settings', SettingsController.getSettings);
+router.put('/settings', SettingsController.updateSettings);
+
+// Integrations
+router.get('/integrations', SettingsController.getIntegrations);
 
 export default router;

@@ -109,8 +109,10 @@ router.get('/queues/failed', asyncHandler(AdminController.getFailedJobs));
 router.post('/queues/retry', asyncHandler(AdminController.retryQueueJob));
 
 // ── 15. System Settings ──
-router.get('/settings', asyncHandler(AdminController.getSystemSettings));
-router.put('/settings', asyncHandler(AdminController.updateSystemSettings));
+// System settings are fetched from SettingsController.
+import * as SettingsController from '../controllers/settings.controller';
+router.get('/settings', SettingsController.getSettings);
+router.put('/settings', SettingsController.updateSettings);
 
 // ── 16. Faculty Management ──
 router.get('/faculty', asyncHandler(AdminController.getFaculty));

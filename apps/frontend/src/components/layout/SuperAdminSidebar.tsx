@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
+import { useSystemStore } from '@/store/system.store';
 
 const NAV_ITEMS = [
   { href: '/dashboard',                   label: 'Dashboard',         icon: LayoutGrid, exact: true },
@@ -26,6 +27,7 @@ export function SuperAdminSidebar() {
   const pathname = usePathname();
   const { isOpen, close } = useSidebarStore();
   const { user, logout } = useAuthStore();
+  const { settings } = useSystemStore();
 
   function isActive(href: string, exact = false) {
     if (exact) return pathname === href;
@@ -62,19 +64,23 @@ export function SuperAdminSidebar() {
       >
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '20px 16px 16px', borderBottom: '1px solid #F3F4F6', flexShrink: 0 }}>
-          <div
-            aria-hidden="true"
-            style={{
-              width: 32, height: 32, borderRadius: 8,
-              background: 'linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <text x="50%" y="55%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="14" fontWeight="900" fontFamily="system-ui,sans-serif">S</text>
-            </svg>
-          </div>
-          <span style={{ fontWeight: 800, fontSize: 14, color: '#111827', flex: 1 }}>Super Admin</span>
+          {settings?.logoUrl ? (
+            <img src={settings.logoUrl} alt="Logo" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'contain' }} />
+          ) : (
+            <div
+              aria-hidden="true"
+              style={{
+                width: 32, height: 32, borderRadius: 8,
+                background: settings?.brandColor || 'linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <text x="50%" y="55%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="14" fontWeight="900" fontFamily="system-ui,sans-serif">S</text>
+              </svg>
+            </div>
+          )}
+          <span style={{ fontWeight: 800, fontSize: 14, color: '#111827', flex: 1 }}>{settings?.platformName || 'Super Admin'}</span>
           <button
             onClick={close}
             aria-label="Close navigation"
