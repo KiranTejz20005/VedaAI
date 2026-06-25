@@ -23,8 +23,8 @@ export default function LoginPage() {
       if (event.data && event.data.type === 'SSO_SUCCESS') {
         setIsSubmitting(true);
         const result = await ssoLogin({
-          email: event.data.email || 'faculty@vidyaai.com',
-          firstName: event.data.firstName || 'Faculty',
+          email: event.data.email || 'student@vidyaai.com',
+          firstName: event.data.firstName || 'Student',
           lastName: event.data.lastName || 'Member',
           provider: event.data.provider || 'SSO',
           token: event.data.token
