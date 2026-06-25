@@ -45,6 +45,7 @@ export default function SuperAdminOrganizations() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
 
   const load = async () => {
     try {
@@ -59,28 +60,31 @@ export default function SuperAdminOrganizations() {
 
   const openCreate = () => {
     setModalType('create'); setSelectedId(null);
-    setName(''); setCode(''); setEmail(''); setPhone(''); setAddress('');
+    setName(''); setCode(''); setEmail(''); setPhone(''); setAddress(''); setAdminEmail('');
     setShowModal(true);
   };
 
-  const openEdit = (org: Organization) => {
+  const openEdit = (org: Organization & { users?: { email: string }[] }) => {
     setModalType('edit'); setSelectedId(org.id);
     setName(org.name); setCode(org.code);
     setEmail(org.email || ''); setPhone(org.phone || ''); setAddress(org.address || '');
+    setAdminEmail(org.users?.[0]?.email || '');
     setShowModal(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !code) { toast.error('Name and Code are required.'); return; }
-    const payload = { name, code, email, phone, address };
+    
     try {
       if (modalType === 'create') {
+        const payload = { name, code, email, phone, address, adminEmail };
         const res = await api.post('/super-admin/organizations', payload);
         if (res.data?.success) { toast.success('Organization created!'); setShowModal(false); load(); fetchAvailableOrganizations(); }
       } else {
-        const res = await api.put(`/super-admin/organizations/${selectedId}`, payload);
-        if (res.data?.success) { toast.success('Organization updated!'); setShowModal(false); load(); fetchAvailableOrganizations(); }
+        const payload = { name, code, email, phone, address, adminEmail };
+        const res = await api.post(`/super-admin/organizations/${selectedId}/update`, payload);
+        if (res.data?.success) { toast.success('Organization updated!'); setShowModal(false); load(); if (typeof fetchAvailableOrganizations === 'function') fetchAvailableOrganizations(); }
       }
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Operation failed'); }
   };
@@ -189,7 +193,8 @@ export default function SuperAdminOrganizations() {
             <Input label="Name *" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Acme University" />
             <Input label="Code *" required value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. ACME" />
           </div>
-          <Input label="Email" icon={<Mail size={14} />} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@acme.edu" />
+          <Input label="Admin Email" icon={<Mail size={14} />} type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="admin@organization.com" />
+          <Input label="General Email" icon={<Mail size={14} />} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@organization.com" />
           <Input label="Phone" icon={<Phone size={14} />} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1-555-1234" />
           <Input label="Address" icon={<MapPin size={14} />} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Main St, City" />
           <div style={{ display: 'flex', gap: 8 }}>

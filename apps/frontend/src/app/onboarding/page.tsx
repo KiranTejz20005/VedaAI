@@ -65,7 +65,7 @@ export default function OnboardingPage() {
 
   if (isLoading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#030712', color: 'white' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F3F4F6', color: '#111827' }}>
         <Loader2 className="animate-spin text-orange-500" size={32} />
       </div>
     );
@@ -169,7 +169,7 @@ export default function OnboardingPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #030712;
+          background: #F3F4F6;
           font-family: 'Inter', sans-serif;
           position: relative;
           overflow: hidden;
@@ -204,22 +204,22 @@ export default function OnboardingPage() {
           position: absolute;
           inset: 0;
           background-image: 
-            linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+            linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
           background-size: 40px 40px;
           mask-image: radial-gradient(circle at 50% 50%, black, transparent 80%);
           pointer-events: none;
         }
 
         .glass-card {
-          background: rgba(17, 24, 39, 0.75);
+          background: rgba(255, 255, 255, 0.85);
           backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(0, 0, 0, 0.08);
           border-radius: 24px;
           padding: 44px 40px;
           width: 100%;
           max-width: 640px;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
           position: relative;
           z-index: 10;
         }
@@ -242,9 +242,9 @@ export default function OnboardingPage() {
           font-weight: 700;
           font-size: 13px;
           transition: all 0.3s;
-          border: 2px solid rgba(255,255,255,0.1);
-          color: #9CA3AF;
-          background: rgba(255,255,255,0.02);
+          border: 2px solid rgba(0,0,0,0.1);
+          color: #6B7280;
+          background: rgba(0,0,0,0.03);
           z-index: 2;
         }
 
@@ -264,7 +264,7 @@ export default function OnboardingPage() {
         .indicator-line {
           position: absolute;
           height: 2px;
-          background: rgba(255,255,255,0.06);
+          background: rgba(0,0,0,0.06);
           top: 50%;
           left: 16px;
           right: 16px;
@@ -274,11 +274,11 @@ export default function OnboardingPage() {
 
         .onboarding-input {
           width: 100%;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: white;
+          border: 1px solid rgba(0, 0, 0, 0.1);
           border-radius: 12px;
           padding: 14px 16px;
-          color: white;
+          color: #111827;
           font-size: 14px;
           outline: none;
           transition: all 0.3s;
@@ -287,8 +287,8 @@ export default function OnboardingPage() {
 
         .onboarding-input:focus {
           border-color: #EA580C;
-          background: rgba(255, 255, 255, 0.06);
-          box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.25);
+          background: white;
+          box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.15);
         }
 
         .student-item {
@@ -296,8 +296,8 @@ export default function OnboardingPage() {
           align-items: center;
           justify-content: space-between;
           padding: 10px 16px;
-          background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(255,255,255,0.05);
+          background: white;
+          border: 1px solid rgba(0,0,0,0.08);
           border-radius: 8px;
           margin-bottom: 8px;
         }
@@ -338,8 +338,8 @@ export default function OnboardingPage() {
 
         .btn-outline {
           background: transparent;
-          color: #E5E7EB;
-          border: 1px solid rgba(255,255,255,0.15);
+          color: #374151;
+          border: 1px solid rgba(0,0,0,0.15);
           padding: 12px 24px;
           border-radius: 12px;
           font-weight: 500;
@@ -352,14 +352,14 @@ export default function OnboardingPage() {
         }
 
         .btn-outline:hover {
-          background: rgba(255,255,255,0.05);
-          border-color: rgba(255,255,255,0.25);
+          background: rgba(0,0,0,0.03);
+          border-color: rgba(0,0,0,0.25);
         }
 
         .step-title {
           font-size: 24px;
           font-weight: 800;
-          color: white;
+          color: #111827;
           letter-spacing: -0.5px;
           display: flex;
           align-items: center;
@@ -418,8 +418,8 @@ export default function OnboardingPage() {
                   animation: 'spin 1.5s linear reverse infinite'
                 }} />
               </div>
-              <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'white', marginBottom: 12 }}>Configuring Your Workspace</h2>
-              <p style={{ color: '#9CA3AF', fontSize: '14px' }}>{onboardingProgressText}</p>
+              <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#111827', marginBottom: 12 }}>Configuring Your Workspace</h2>
+              <p style={{ color: '#4B5563', fontSize: '14px' }}>{onboardingProgressText}</p>
             </motion.div>
           ) : step === 1 ? (
             <motion.div
@@ -435,12 +435,12 @@ export default function OnboardingPage() {
                   <GraduationCap className="text-orange-500" size={26} />
                   Faculty Profile Details
                 </h2>
-                <p style={{ color: '#9CA3AF', fontSize: '14px', marginTop: 6 }}>Confirm your details as an academic educator.</p>
+                <p style={{ color: '#4B5563', fontSize: '14px', marginTop: 6 }}>Confirm your details as an academic educator.</p>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 32 }}>
                 <div>
-                  <label style={{ fontSize: '13px', fontWeight: 600, color: '#D1D5DB' }}>First Name</label>
+                  <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>First Name</label>
                   <input 
                     type="text" 
                     className="onboarding-input" 
@@ -449,7 +449,7 @@ export default function OnboardingPage() {
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '13px', fontWeight: 600, color: '#D1D5DB' }}>Last Name</label>
+                  <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Last Name</label>
                   <input 
                     type="text" 
                     className="onboarding-input" 
@@ -479,11 +479,11 @@ export default function OnboardingPage() {
                   <School className="text-orange-500" size={26} />
                   Your Organization/College
                 </h2>
-                <p style={{ color: '#9CA3AF', fontSize: '14px', marginTop: 6 }}>Enter the college, school, or university where you teach.</p>
+                <p style={{ color: '#4B5563', fontSize: '14px', marginTop: 6 }}>Enter the college, school, or university where you teach.</p>
               </div>
 
               <div style={{ marginBottom: 32 }}>
-                <label style={{ fontSize: '13px', fontWeight: 600, color: '#D1D5DB' }}>Organization Name</label>
+                <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Organization Name</label>
                 <input 
                   type="text" 
                   className="onboarding-input" 
@@ -516,11 +516,11 @@ export default function OnboardingPage() {
                   <BookOpen className="text-orange-500" size={26} />
                   Academic Department
                 </h2>
-                <p style={{ color: '#9CA3AF', fontSize: '14px', marginTop: 6 }}>Specify your teaching division or department.</p>
+                <p style={{ color: '#4B5563', fontSize: '14px', marginTop: 6 }}>Specify your teaching division or department.</p>
               </div>
 
               <div style={{ marginBottom: 32 }}>
-                <label style={{ fontSize: '13px', fontWeight: 600, color: '#D1D5DB' }}>Department Name</label>
+                <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Department Name</label>
                 <input 
                   type="text" 
                   className="onboarding-input" 
@@ -553,12 +553,12 @@ export default function OnboardingPage() {
                   <Users className="text-orange-500" size={26} />
                   Your First Class
                 </h2>
-                <p style={{ color: '#9CA3AF', fontSize: '14px', marginTop: 6 }}>Onboard your first class group of students.</p>
+                <p style={{ color: '#4B5563', fontSize: '14px', marginTop: 6 }}>Onboard your first class group of students.</p>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 32 }}>
                 <div>
-                  <label style={{ fontSize: '13px', fontWeight: 600, color: '#D1D5DB' }}>Class Name</label>
+                  <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Class Name</label>
                   <input 
                     type="text" 
                     className="onboarding-input" 
@@ -568,7 +568,7 @@ export default function OnboardingPage() {
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '13px', fontWeight: 600, color: '#D1D5DB' }}>Subject</label>
+                  <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Subject</label>
                   <input 
                     type="text" 
                     className="onboarding-input" 
@@ -602,14 +602,14 @@ export default function OnboardingPage() {
                   <Users className="text-orange-500" size={26} />
                   Add Students (Roster)
                 </h2>
-                <p style={{ color: '#9CA3AF', fontSize: '14px', marginTop: 6 }}>Build your student list for {className || 'the new class'}.</p>
+                <p style={{ color: '#4B5563', fontSize: '14px', marginTop: 6 }}>Build your student list for {className || 'the new class'}.</p>
               </div>
 
               {/* Add Student Inputs */}
               <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: 18, marginBottom: 24 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                   <div>
-                    <label style={{ fontSize: '12px', color: '#9CA3AF' }}>Student Name</label>
+                    <label style={{ fontSize: '12px', color: '#4B5563' }}>Student Name</label>
                     <input 
                       type="text" 
                       className="onboarding-input" 
@@ -620,7 +620,7 @@ export default function OnboardingPage() {
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: '12px', color: '#9CA3AF' }}>Roll Number</label>
+                    <label style={{ fontSize: '12px', color: '#4B5563' }}>Roll Number</label>
                     <input 
                       type="text" 
                       className="onboarding-input" 
@@ -633,7 +633,7 @@ export default function OnboardingPage() {
                 </div>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
                   <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: '12px', color: '#9CA3AF' }}>Email Address</label>
+                    <label style={{ fontSize: '12px', color: '#4B5563' }}>Email Address</label>
                     <input 
                       type="email" 
                       className="onboarding-input" 
@@ -658,8 +658,8 @@ export default function OnboardingPage() {
                         {stud.name.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <div style={{ fontWeight: 600, color: 'white', fontSize: 13 }}>{stud.name}</div>
-                        <div style={{ fontSize: 11, color: '#9CA3AF' }}>{stud.rollNo} &bull; {stud.email}</div>
+                        <div style={{ fontWeight: 600, color: '#111827', fontSize: 13 }}>{stud.name}</div>
+                        <div style={{ fontSize: 11, color: '#4B5563' }}>{stud.rollNo} &bull; {stud.email}</div>
                       </div>
                     </div>
                     <button onClick={() => removeStudent(idx)} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', padding: 6 }}>
@@ -668,7 +668,7 @@ export default function OnboardingPage() {
                   </div>
                 ))}
                 {students.length === 0 && (
-                  <div style={{ textAlign: 'center', color: '#9CA3AF', fontSize: 13, padding: '24px 0' }}>
+                  <div style={{ textAlign: 'center', color: '#4B5563', fontSize: 13, padding: '24px 0' }}>
                     No students added yet. You can also skip this and add them later.
                   </div>
                 )}
@@ -706,10 +706,10 @@ export default function OnboardingPage() {
                 <Check size={36} strokeWidth={3} />
               </div>
 
-              <h2 style={{ fontSize: '28px', fontWeight: 850, color: 'white', letterSpacing: '-0.8px', marginBottom: 12 }}>
+              <h2 style={{ fontSize: '28px', fontWeight: 850, color: '#111827', letterSpacing: '-0.8px', marginBottom: 12 }}>
                 You&apos;re All Set!
               </h2>
-              <p style={{ color: '#9CA3AF', fontSize: '15px', maxWidth: 440, margin: '0 auto 36px', lineHeight: 1.6 }}>
+              <p style={{ color: '#4B5563', fontSize: '15px', maxWidth: 440, margin: '0 auto 36px', lineHeight: 1.6 }}>
                         Your organization <strong>{organizationName}</strong> and department has been successfully linked. Class <strong>{className}</strong> with {students.length} students is initialized!
               </p>
 

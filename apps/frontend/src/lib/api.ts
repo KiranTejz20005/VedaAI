@@ -187,7 +187,7 @@ api.interceptors.response.use(
         } catch {
           // ignore
         }
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
           window.location.href = '/login';
         }
       }

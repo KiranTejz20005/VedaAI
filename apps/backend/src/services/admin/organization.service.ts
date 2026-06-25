@@ -1,5 +1,7 @@
 import prisma from '../../config/prisma';
 
+import { hashPassword } from '../auth.service';
+
 export class OrganizationService {
   static async createOrganization(data: {
     name: string;
@@ -7,17 +9,39 @@ export class OrganizationService {
     email?: string;
     phone?: string;
     address?: string;
+    adminEmail?: string;
   }) {
-    return prisma.organization.create({
-      data: {
-        name: data.name,
-        code: data.code,
-        slug: data.name.toLowerCase().replace(/\s+/g, '-'),
-        email: data.email || null,
-        phone: data.phone || null,
-        address: data.address || null,
-        status: 'ACTIVE',
-      },
+    return prisma.$transaction(async (tx) => {
+      const org = await tx.organization.create({
+        data: {
+          name: data.name,
+          code: data.code,
+          slug: data.name.toLowerCase().replace(/\s+/g, '-'),
+          email: data.email || null,
+          phone: data.phone || null,
+          address: data.address || null,
+          status: 'ACTIVE',
+        },
+      });
+
+      if (data.adminEmail) {
+        const defaultPasswordHash = await hashPassword('Admin@123');
+        await tx.user.create({
+          data: {
+            email: data.adminEmail,
+            passwordHash: defaultPasswordHash,
+            firstName: 'Admin',
+            lastName: org.name,
+            role: 'ADMIN',
+            organizationId: org.id,
+            status: 'ACTIVE',
+            forcePasswordReset: true,
+            hasCompletedOnboarding: false,
+          },
+        });
+      }
+
+      return org;
     });
   }
 
@@ -25,6 +49,11 @@ export class OrganizationService {
     return prisma.organization.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
+        users: {
+          where: { role: 'ADMIN' },
+          select: { email: true },
+          take: 1,
+        },
         _count: {
           select: {
             users: true,
@@ -53,11 +82,51 @@ export class OrganizationService {
       address?: string;
       phone?: string;
       status?: import('@prisma/client').OrganizationStatus;
+      adminEmail?: string;
     }
   ) {
-    return prisma.organization.update({
-      where: { id },
-      data,
+    return prisma.$transaction(async (tx) => {
+      const org = await tx.organization.update({
+        where: { id },
+        data: {
+          name: data.name,
+          code: data.code,
+          email: data.email,
+          address: data.address,
+          phone: data.phone,
+          status: data.status,
+        },
+      });
+
+      if (data.adminEmail) {
+        const existingAdmin = await tx.user.findFirst({
+          where: { organizationId: id, role: 'ADMIN' },
+        });
+
+        if (existingAdmin) {
+          await tx.user.update({
+            where: { id: existingAdmin.id },
+            data: { email: data.adminEmail },
+          });
+        } else {
+          const defaultPasswordHash = await hashPassword('Admin@123');
+          await tx.user.create({
+            data: {
+              email: data.adminEmail,
+              passwordHash: defaultPasswordHash,
+              firstName: 'Admin',
+              lastName: org.name,
+              role: 'ADMIN',
+              organizationId: org.id,
+              status: 'ACTIVE',
+              forcePasswordReset: true,
+              hasCompletedOnboarding: false,
+            },
+          });
+        }
+      }
+
+      return org;
     });
   }
 
