@@ -14,6 +14,8 @@ import {
   Loader2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/store/auth.store';
+import { useAdminAuthStore } from '@/store/admin-auth.store';
 
 interface FacultyRecord {
   id: string;
@@ -44,10 +46,21 @@ export default function FacultyManagement() {
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
+  const [emailPrefix, setEmailPrefix] = useState('');
   const [departmentId, setDepartmentId] = useState('');
   const [designation, setDesignation] = useState('');
   const [subjects, setSubjects] = useState('');
+
+  const { user } = useAuthStore();
+  const { activeOrganizationId, availableOrganizations } = useAdminAuthStore();
+
+  let domain = 'vedaai.com';
+  if (user?.role === 'SUPER_ADMIN') {
+    const activeOrg = availableOrganizations.find(o => o.id === activeOrganizationId);
+    if (activeOrg?.email) domain = activeOrg.email.split('@')[1];
+  } else {
+    if (user?.email) domain = user.email.split('@')[1];
+  }
 
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -55,9 +68,13 @@ export default function FacultyManagement() {
   const loadData = async () => {
     try {
       setLoading(true);
+      const queryParams = user?.role === 'SUPER_ADMIN' && activeOrganizationId 
+        ? `?organizationId=${activeOrganizationId}` 
+        : '';
+        
       const [facRes, deptRes] = await Promise.all([
-        api.get('/admin/faculty'),
-        api.get('/admin/departments'),
+        api.get(`/admin/faculty${queryParams}`),
+        api.get(`/admin/departments${queryParams}`),
       ]);
       if (facRes.data?.success) setList(facRes.data.data);
       if (deptRes.data?.success) setDepartments(deptRes.data.data);
@@ -69,12 +86,15 @@ export default function FacultyManagement() {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { 
+    if (user?.role === 'SUPER_ADMIN' && !activeOrganizationId) return;
+    loadData(); 
+  }, [user?.role, activeOrganizationId]);
 
   const handleOpenCreate = () => {
     setModalType('create');
     setSelectedFaculty(null);
-    setFirstName(''); setLastName(''); setEmail(''); setDepartmentId(''); setDesignation(''); setSubjects('');
+    setFirstName(''); setLastName(''); setEmailPrefix(''); setDepartmentId(''); setDesignation(''); setSubjects('');
     setShowModal(true);
   };
 
@@ -83,7 +103,7 @@ export default function FacultyManagement() {
     setSelectedFaculty(f);
     setFirstName(f.firstName);
     setLastName(f.lastName);
-    setEmail(f.email);
+    setEmailPrefix(f.email.split('@')[0]);
     setDepartmentId(f.departmentId || '');
     setDesignation(f.designation || '');
     setSubjects(f.subjects?.join(', ') || '');
@@ -92,20 +112,24 @@ export default function FacultyManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName || !lastName || !email) {
-      toast.error('First Name, Last Name, and Email are required.');
+    if (!firstName || !lastName || !emailPrefix) {
+      toast.error('First Name, Last Name, and Email Prefix are required.');
       return;
     }
 
+    const fullEmail = `${emailPrefix}@${domain}`;
     const payload: Record<string, unknown> = {
       firstName,
       lastName,
-      email,
+      email: fullEmail,
       role: 'FACULTY',
       departmentId: departmentId || undefined,
       designation: designation || undefined,
       subjects: subjects ? subjects.split(',').map(s => s.trim()).filter(Boolean) : [],
     };
+    if (user?.role === 'SUPER_ADMIN' && activeOrganizationId) {
+      payload.organizationId = activeOrganizationId;
+    }
 
     try {
       if (modalType === 'create') {
@@ -131,7 +155,10 @@ export default function FacultyManagement() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this faculty member?')) return;
     try {
-      const res = await api.delete(`/admin/faculty/${id}`);
+      const queryParams = user?.role === 'SUPER_ADMIN' && activeOrganizationId 
+        ? `?organizationId=${activeOrganizationId}` 
+        : '';
+      const res = await api.delete(`/admin/users/${id}${queryParams}`);
       if (res.data?.success) {
         toast.success('Faculty member deleted.');
         loadData();
@@ -150,7 +177,10 @@ export default function FacultyManagement() {
     const formData = new FormData();
     formData.append('file', csvFile);
     try {
-      const res = await api.post('/admin/faculty/import', formData, {
+      const queryParams = user?.role === 'SUPER_ADMIN' && activeOrganizationId 
+        ? `?organizationId=${activeOrganizationId}` 
+        : '';
+      const res = await api.post(`/admin/faculty/import${queryParams}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       if (res.data?.success) {
@@ -294,14 +324,19 @@ export default function FacultyManagement() {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Email *</label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  placeholder="john.smith@school.edu"
-                />
+                <div className="flex">
+                  <input
+                    type="text"
+                    required
+                    value={emailPrefix}
+                    onChange={(e) => setEmailPrefix(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-300 rounded-l-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    placeholder="john.smith"
+                  />
+                  <span className="inline-flex items-center px-3 rounded-r-lg border border-l-0 border-gray-300 bg-gray-100 text-gray-500 text-sm">
+                    @{domain}
+                  </span>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

@@ -51,8 +51,6 @@ router.get('/classrooms', asyncHandler(AdminController.getClassrooms));
 router.post('/classrooms', asyncHandler(AdminController.createClassroom));
 router.put('/classrooms/:id', asyncHandler(AdminController.updateClassroom));
 router.delete('/classrooms/:id', asyncHandler(AdminController.deleteClassroom));
-router.post('/classrooms/sections', asyncHandler(AdminController.createSection));
-router.post('/classrooms/sections/:sectionId/enroll', asyncHandler(AdminController.enrollStudents));
 
 // ── 6. Group Management ──
 router.get('/groups', asyncHandler(AdminController.getGroups));

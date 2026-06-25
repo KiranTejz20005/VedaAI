@@ -1,5 +1,5 @@
 import Redis from 'ioredis';
-import { logger } from '../config/logger';
+import { logger } from '../utils/logger';
 
 export interface DailyLimitConfig {
   STUDENT_QUIZ_LIMIT: number;
@@ -162,7 +162,7 @@ export class DailyLimitService {
       }
     }
 
-    logger.info(`[DailyLimit] Reset usage for user ${userId}`, { type });
+    logger.info({ type }, `[DailyLimit] Reset usage for user ${userId}`);
   }
 
   /**

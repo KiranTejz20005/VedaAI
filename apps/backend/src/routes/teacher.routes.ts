@@ -46,7 +46,6 @@ router.get('/dashboard/stats', asyncHandler(async (req, res) => {
 
   const absent = Math.max(0, totalStudents - presentToday);
   const averageClassScore = 76; // Placeholder - can be calculated from submissions
-  const ongoingExams = 0; // Placeholder
 
   res.json({
     success: true,

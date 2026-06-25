@@ -4,3 +4,6 @@ node_modules/
 uploads/pdfs/
 *.env
 .env
+
+# Ignore custom seed scripts containing test credentials
+seed-custom-users.ts

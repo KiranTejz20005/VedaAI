@@ -40,7 +40,7 @@ const ADMIN_NAV_ITEMS = [
 const SUPER_ADMIN_NAV_ITEMS = [
   { href: '/dashboard/super-admin', label: 'Dashboard', icon: LayoutGrid, exact: true },
   { href: '/super-admin/organizations', label: 'Organizations', icon: Building2 },
-  { href: '/super-admin/users', label: 'Users', icon: Users },
+  { href: '/super-admin/users', label: 'Faculty', icon: Users },
   { href: '/dashboard/admin/students', label: 'Students', icon: GraduationCap },
   { href: '/dashboard/admin/classes', label: 'Classes', icon: ClipboardCheck },
   { href: '/super-admin/analytics', label: 'Analytics', icon: PieChart },

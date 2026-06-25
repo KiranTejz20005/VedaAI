@@ -563,7 +563,10 @@ export class AdminController {
   static async createClassroom(req: Request, res: Response) {
     try {
       const orgId = getAdminOrgId(req);
-      const classroom = await ClassroomService.createClassroom({ name: req.body.name, organizationId: orgId });
+      const { grade, section, academicYear, facultyId } = req.body;
+      const classroom = await ClassroomService.createClassroom({ 
+        grade, section, academicYear, facultyId, organizationId: orgId 
+      });
       res.status(201).json({ success: true, data: classroom });
     } catch (err: any) {
       logger.error(`[Admin:createClassroom] ${err}`);
@@ -574,9 +577,9 @@ export class AdminController {
   static async updateClassroom(req: Request, res: Response) {
     try {
       const orgId = getAdminOrgId(req);
-      const targetClassroom = await prisma.classroom.findUnique({ where: { id: req.params.id } });
+      const targetClassroom = await prisma.class.findUnique({ where: { id: req.params.id } });
       if (targetClassroom && targetClassroom.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
-        res.status(403).json({ success: false, error: 'Access denied: Classroom belongs to another organization.' });
+        res.status(403).json({ success: false, error: 'Access denied: Class belongs to another organization.' });
         return;
       }
       const classroom = await ClassroomService.updateClassroom(req.params.id, req.body);
@@ -590,51 +593,15 @@ export class AdminController {
   static async deleteClassroom(req: Request, res: Response) {
     try {
       const orgId = getAdminOrgId(req);
-      const targetClassroom = await prisma.classroom.findUnique({ where: { id: req.params.id } });
+      const targetClassroom = await prisma.class.findUnique({ where: { id: req.params.id } });
       if (targetClassroom && targetClassroom.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
-        res.status(403).json({ success: false, error: 'Access denied: Classroom belongs to another organization.' });
+        res.status(403).json({ success: false, error: 'Access denied: Class belongs to another organization.' });
         return;
       }
       await ClassroomService.deleteClassroom(req.params.id);
-      res.json({ success: true, message: 'Classroom deleted' });
+      res.json({ success: true, message: 'Class deleted' });
     } catch (err: any) {
       logger.error(`[Admin:deleteClassroom] ${err}`);
-      res.status(500).json({ success: false, error: err.message });
-    }
-  }
-
-  static async createSection(req: Request, res: Response) {
-    try {
-      const orgId = getAdminOrgId(req);
-      const targetClassroom = await prisma.classroom.findUnique({ where: { id: req.body.classroomId } });
-      if (targetClassroom && targetClassroom.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
-        res.status(403).json({ success: false, error: 'Access denied: Classroom belongs to another organization.' });
-        return;
-      }
-      const section = await ClassroomService.createSection(req.body);
-      res.status(201).json({ success: true, data: section });
-    } catch (err: any) {
-      logger.error(`[Admin:createSection] ${err}`);
-      res.status(500).json({ success: false, error: err.message });
-    }
-  }
-
-  static async enrollStudents(req: Request, res: Response) {
-    try {
-      const orgId = getAdminOrgId(req);
-      const targetSection = await prisma.section.findUnique({
-        where: { id: req.params.sectionId },
-        include: { classroom: true }
-      });
-      if (targetSection && targetSection.classroom.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
-        res.status(403).json({ success: false, error: 'Access denied: Section belongs to another organization.' });
-        return;
-      }
-      const { studentIds } = req.body;
-      const count = await ClassroomService.enrollStudents(req.params.sectionId, studentIds);
-      res.json({ success: true, data: count });
-    } catch (err: any) {
-      logger.error(`[Admin:enrollStudents] ${err}`);
       res.status(500).json({ success: false, error: err.message });
     }
   }
@@ -1360,12 +1327,11 @@ export class AdminController {
   // ── 16. Faculty Management ──
   static async getFaculty(req: Request, res: Response) {
     try {
-      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
-      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const orgId = getAdminOrgId(req);
       const faculty = await prisma.user.findMany({
         where: { organizationId: orgId, role: 'TEACHER', status: { not: 'DELETED' } },
         orderBy: { createdAt: 'desc' },
-        include: { department: { select: { name: true } } },
+        include: { department: { select: { name: true } }, organization: { select: { name: true } } },
       });
       res.json({ success: true, data: faculty });
     } catch (err: any) {
@@ -1376,8 +1342,7 @@ export class AdminController {
 
   static async createFaculty(req: Request, res: Response) {
     try {
-      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
-      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const orgId = getAdminOrgId(req);
       const { firstName, lastName, email, password, departmentId } = req.body;
       if (!firstName || !lastName || !email) {
         res.status(400).json({ success: false, error: 'firstName, lastName, and email are required' }); return;
@@ -1392,6 +1357,7 @@ export class AdminController {
           organizationId: orgId,
           departmentId: departmentId || null,
           forcePasswordReset: true,
+          hasCompletedOnboarding: true,
         },
       });
       await prisma.auditLog.create({
@@ -1480,7 +1446,6 @@ export class AdminController {
       if (!req.file) { res.status(400).json({ success: false, error: 'No CSV file uploaded' }); return; }
       const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
       if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const fs = require('fs');
       const content = fs.readFileSync(req.file.path, 'utf-8');
       const lines = content.split('\n').filter((l: string) => l.trim());
@@ -1520,13 +1485,28 @@ export class AdminController {
   // ── 17. Student Management ──
   static async getStudents(req: Request, res: Response) {
     try {
-      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
-      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const orgId = getAdminOrgId(req);
       const students = await prisma.user.findMany({
         where: { organizationId: orgId, role: 'STUDENT', status: { not: 'DELETED' } },
         orderBy: { createdAt: 'desc' },
       });
-      res.json({ success: true, data: students });
+      const classes = await prisma.class.findMany({
+        where: { organizationId: orgId }
+      });
+      const classMap = new Map(classes.map(c => [c.id, c]));
+      
+      const mappedStudents = students.map((s: any) => {
+        const pref = s.preferences || {};
+        const studentClass = pref.classId ? classMap.get(pref.classId) : null;
+        return {
+          ...s,
+          rollNo: pref.rollNo,
+          classId: pref.classId,
+          section: studentClass ? studentClass.section : pref.section,
+          class: studentClass ? { grade: studentClass.grade, section: studentClass.section } : undefined
+        };
+      });
+      res.json({ success: true, data: mappedStudents });
     } catch (err: any) {
       logger.error(`[Admin:getStudents] ${err}`);
       res.status(500).json({ success: false, error: err.message });
@@ -1535,15 +1515,15 @@ export class AdminController {
 
   static async createStudent(req: Request, res: Response) {
     try {
-      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
-      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const orgId = getAdminOrgId(req);
       const { firstName, lastName, email } = req.body;
       if (!firstName || !lastName || !email) {
         res.status(400).json({ success: false, error: 'firstName, lastName, and email are required' }); return;
       }
       const pwdHash = await argon2.hash('Student@123');
+      const preferences = { rollNo: req.body.rollNo, classId: req.body.classId, section: req.body.section };
       const user = await prisma.user.create({
-        data: { firstName, lastName, email, passwordHash: pwdHash, role: 'STUDENT', organizationId: orgId, forcePasswordReset: true },
+        data: { firstName, lastName, email, passwordHash: pwdHash, role: 'STUDENT', organizationId: orgId, forcePasswordReset: true, hasCompletedOnboarding: true, preferences },
       });
       res.status(201).json({ success: true, data: user });
     } catch (err: any) {
@@ -1559,6 +1539,16 @@ export class AdminController {
       if (firstName) data.firstName = firstName;
       if (lastName) data.lastName = lastName;
       if (email) data.email = email;
+      
+      const existingUser = await prisma.user.findUnique({ where: { id: req.params.id } });
+      const preferences = { 
+        ...(existingUser?.preferences as any || {}),
+        ...(req.body.rollNo !== undefined && { rollNo: req.body.rollNo }),
+        ...(req.body.classId !== undefined && { classId: req.body.classId }),
+        ...(req.body.section !== undefined && { section: req.body.section })
+      };
+      data.preferences = preferences;
+
       const user = await prisma.user.update({ where: { id: req.params.id }, data });
       res.json({ success: true, data: user });
     } catch (err: any) {
@@ -1584,8 +1574,7 @@ export class AdminController {
   static async importStudentsCsv(req: Request, res: Response) {
     try {
       if (!req.file) { res.status(400).json({ success: false, error: 'No CSV file uploaded' }); return; }
-      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
-      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      const orgId = getAdminOrgId(req);
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const fs = require('fs');
       const content = fs.readFileSync(req.file.path, 'utf-8');

@@ -6,6 +6,7 @@ export interface AvailableOrganization {
   name: string;
   code: string;
   role: string;
+  email?: string;
 }
 
 interface AdminAuthStore {

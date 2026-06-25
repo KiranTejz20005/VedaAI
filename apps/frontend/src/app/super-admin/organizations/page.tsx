@@ -14,6 +14,7 @@ import { Input } from '@/design-system/Input';
 import { Select } from '@/design-system/Select';
 import { EmptyState } from '@/design-system/EmptyState';
 import { LoadingState } from '@/design-system/LoadingState';
+import { useAdminAuthStore } from '@/store/admin-auth.store';
 
 interface Organization {
   id: string;
@@ -33,6 +34,7 @@ export default function SuperAdminOrganizations() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const { fetchAvailableOrganizations } = useAdminAuthStore();
 
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState<'create' | 'edit'>('create');
@@ -75,10 +77,10 @@ export default function SuperAdminOrganizations() {
     try {
       if (modalType === 'create') {
         const res = await api.post('/super-admin/organizations', payload);
-        if (res.data?.success) { toast.success('Organization created!'); setShowModal(false); load(); }
+        if (res.data?.success) { toast.success('Organization created!'); setShowModal(false); load(); fetchAvailableOrganizations(); }
       } else {
         const res = await api.put(`/super-admin/organizations/${selectedId}`, payload);
-        if (res.data?.success) { toast.success('Organization updated!'); setShowModal(false); load(); }
+        if (res.data?.success) { toast.success('Organization updated!'); setShowModal(false); load(); fetchAvailableOrganizations(); }
       }
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Operation failed'); }
   };
@@ -87,7 +89,7 @@ export default function SuperAdminOrganizations() {
     if (!confirm('Permanently delete this organization? This cannot be undone.')) return;
     try {
       const res = await api.delete(`/super-admin/organizations/${id}`);
-      if (res.data?.success) { toast.success('Organization deleted.'); load(); }
+      if (res.data?.success) { toast.success('Organization deleted.'); load(); fetchAvailableOrganizations(); }
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Delete failed'); }
   };
 
@@ -95,8 +97,8 @@ export default function SuperAdminOrganizations() {
     const isSuspended = org.status === 'SUSPENDED';
     if (!confirm(`Are you sure you want to ${isSuspended ? 'activate' : 'suspend'} ${org.name}?`)) return;
     try {
-      const res = await api.post(`/super-admin/organizations/${org.id}/suspend`);
-      if (res.data?.success) { toast.success(`Organization ${isSuspended ? 'activated' : 'suspended'}.`); load(); }
+      const res = await api.post(`/super-admin/organizations/${org.id}/suspend`, { action: isSuspended ? 'activate' : 'suspend' });
+      if (res.data?.success) { toast.success(`Organization ${isSuspended ? 'activated' : 'suspended'}.`); load(); fetchAvailableOrganizations(); }
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Failed to update status'); }
   };
 

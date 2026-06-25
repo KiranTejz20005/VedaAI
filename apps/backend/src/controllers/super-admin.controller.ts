@@ -144,14 +144,17 @@ export const deleteOrganization = async (req: Request, res: Response): Promise<v
 // ── SUSPEND ORGANIZATION ──
 export const suspendOrganization = async (req: Request, res: Response): Promise<void> => {
   try {
+    const { action } = req.body;
+    const newStatus = action === 'activate' ? 'ACTIVE' : 'SUSPENDED';
+
     const organization = await prisma.organization.update({
       where: { id: req.params.id },
-      data: { status: 'SUSPENDED' }
+      data: { status: newStatus }
     });
 
     await prisma.auditLog.create({
       data: {
-        action: 'ORGANIZATION_SUSPENDED',
+        action: newStatus === 'ACTIVE' ? 'ORGANIZATION_ACTIVATED' : 'ORGANIZATION_SUSPENDED',
         entity: 'Organization',
         entityId: organization.id,
         userId: req.user?.id,
@@ -160,7 +163,7 @@ export const suspendOrganization = async (req: Request, res: Response): Promise<
       }
     });
 
-    res.json({ success: true, message: 'Organization suspended successfully.', data: organization });
+    res.json({ success: true, message: `Organization ${newStatus.toLowerCase()} successfully.`, data: organization });
   } catch (error) {
     logger.error(`[SuperAdmin - suspendOrganization] Error: ${error}`);
     res.status(500).json({ success: false, error: 'Failed to suspend organization.' });

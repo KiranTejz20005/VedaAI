@@ -16,7 +16,7 @@ router.get('/dashboard/stats', asyncHandler(async (req, res) => {
     return;
   }
 
-  const orgId = req.user?.organizationId;
+  const orgId = req.user?.organizationId || undefined;
 
   const [totalTeachers, totalStudents, activeClasses, ongoingExams] = await Promise.all([
     prisma.user.count({

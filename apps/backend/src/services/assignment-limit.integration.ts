@@ -3,10 +3,10 @@
  * This file shows what needs to be added to the existing service
  */
 
-import { redis } from '../config/redis';
+import { getRedisClient } from '../config/redis';
 import { DailyLimitService } from './daily-limit.service';
 
-const dailyLimitService = new DailyLimitService(redis);
+const dailyLimitService = new DailyLimitService(getRedisClient());
 
 /**
  * After successful assignment creation, track usage
