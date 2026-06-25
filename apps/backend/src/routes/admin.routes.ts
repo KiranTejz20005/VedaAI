@@ -15,6 +15,7 @@ router.use(requirePermission('MANAGE_USERS'));
 router.get('/organizations', asyncHandler(AdminController.getOrganizations));
 router.post('/organizations', asyncHandler(AdminController.createOrganization));
 router.put('/organizations/:id', asyncHandler(AdminController.updateOrganization));
+router.post('/organizations/:id/update', asyncHandler(AdminController.updateOrganization));
 router.delete('/organizations/:id', asyncHandler(AdminController.deleteOrganization));
 router.put('/organizations/:id/suspend', asyncHandler(AdminController.suspendOrganization));
 router.get('/organizations/:id/analytics', asyncHandler(AdminController.getOrganizationAnalytics));

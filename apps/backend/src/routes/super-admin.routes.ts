@@ -43,6 +43,7 @@ router.post('/organizations', SuperAdminController.createOrganization);
 router.get('/organizations', SuperAdminController.getOrganizations);
 router.get('/organizations/:id', SuperAdminController.getOrganizationById);
 router.put('/organizations/:id', SuperAdminController.updateOrganization);
+router.post('/organizations/:id/update', SuperAdminController.updateOrganization);
 router.delete('/organizations/:id', SuperAdminController.deleteOrganization);
 router.post('/organizations/:id/suspend', SuperAdminController.suspendOrganization);
 

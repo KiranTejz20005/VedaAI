@@ -2,11 +2,12 @@ import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { logger } from '../utils/logger';
 import { hashPassword } from '../services/auth.service';
+import { OrganizationService } from '../services/admin/organization.service';
 
 // ── CREATE ORGANIZATION ──
 export const createOrganization = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, code, email, phone, address } = req.body;
+    const { name, code, email, phone, address, adminEmail } = req.body;
 
     const existing = await prisma.organization.findUnique({ where: { code } });
     if (existing) {
@@ -14,15 +15,13 @@ export const createOrganization = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    const organization = await prisma.organization.create({
-      data: {
-        name,
-        code,
-        email,
-        phone,
-        address,
-        status: 'ACTIVE',
-      },
+    const organization = await OrganizationService.createOrganization({
+      name,
+      code,
+      email,
+      phone,
+      address,
+      adminEmail,
     });
 
     // Audit Log
@@ -49,6 +48,11 @@ export const getOrganizations = async (_req: Request, res: Response): Promise<vo
   try {
     const organizations = await prisma.organization.findMany({
       include: {
+        users: {
+          where: { role: 'ADMIN' },
+          select: { email: true },
+          take: 1,
+        },
         _count: {
           select: { users: true, classrooms: true, assignments: true },
         },
@@ -91,12 +95,7 @@ export const getOrganizationById = async (req: Request, res: Response): Promise<
 // ── UPDATE ORGANIZATION ──
 export const updateOrganization = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, email, phone, address, status } = req.body;
-
-    const organization = await prisma.organization.update({
-      where: { id: req.params.id },
-      data: { name, email, phone, address, status }
-    });
+    const organization = await OrganizationService.updateOrganization(req.params.id, req.body);
 
     await prisma.auditLog.create({
       data: {
