@@ -325,9 +325,9 @@ export default function StudentManagement() {
                 <select required value={classId} onChange={(e) => setClassId(e.target.value)}
                   className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
                   <option value="">Select Class</option>
-                  {[...Array(10)].map((_, i) => (
-                    <option key={i + 1} value={`Class ${i + 1}`}>
-                      Class {i + 1}
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      Class {c.grade} - Section {c.section}
                     </option>
                   ))}
                 </select>

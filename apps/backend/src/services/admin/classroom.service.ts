@@ -1,86 +1,54 @@
 import prisma from '../../config/prisma';
 
 export class ClassroomService {
-  static async createClassroom(data: { name: string; organizationId: string }) {
-    return prisma.classroom.create({
+  static async createClassroom(data: { grade: string; section: string; academicYear?: string; organizationId: string; facultyId?: string }) {
+    return prisma.class.create({
       data: {
-        name: data.name,
+        grade: data.grade,
+        section: data.section || 'A',
+        academicYear: data.academicYear || new Date().getFullYear().toString(),
         organizationId: data.organizationId,
+        facultyId: data.facultyId || null,
       },
-      include: {
-        _count: { select: { sections: true } }
-      }
     });
   }
 
   static async getClassrooms(organizationId?: string) {
-    return prisma.classroom.findMany({
+    return prisma.class.findMany({
       where: organizationId ? { organizationId } : {},
-      orderBy: { createdAt: 'desc' },
+      orderBy: [
+        { grade: 'asc' },
+        { section: 'asc' }
+      ],
       include: {
-        sections: {
-          include: {
-            teacher: { select: { firstName: true, lastName: true } },
-            _count: { select: { enrollments: true } }
-          }
-        },
-        _count: { select: { sections: true } },
+        faculty: { select: { firstName: true, lastName: true } },
+        _count: { select: { students: true } },
       },
     });
   }
 
   static async getClassroomById(id: string) {
-    return prisma.classroom.findUnique({
+    return prisma.class.findUnique({
       where: { id },
       include: {
-        sections: {
-          include: {
-            teacher: { select: { id: true, firstName: true, lastName: true } },
-            enrollments: {
-              include: {
-                student: { select: { id: true, firstName: true, lastName: true, email: true } }
-              }
-            }
-          }
+        faculty: { select: { id: true, firstName: true, lastName: true } },
+        students: {
+          select: { id: true, name: true, email: true, rollNo: true }
         }
       },
     });
   }
 
-  static async updateClassroom(id: string, data: { name?: string }) {
-    return prisma.classroom.update({
+  static async updateClassroom(id: string, data: { grade?: string; section?: string; academicYear?: string; facultyId?: string }) {
+    return prisma.class.update({
       where: { id },
       data,
     });
   }
 
   static async deleteClassroom(id: string) {
-    return prisma.classroom.delete({
+    return prisma.class.delete({
       where: { id },
-    });
-  }
-
-  static async createSection(data: { name: string; classroomId: string; teacherId: string }) {
-    return prisma.section.create({
-      data: {
-        name: data.name,
-        classroomId: data.classroomId,
-        teacherId: data.teacherId,
-      }
-    });
-  }
-
-  static async enrollStudents(sectionId: string, studentIds: string[]) {
-    // Clear previous roster or just add new? Usually you want to add new enrollments.
-    // We'll insert ignoring duplicates using createMany skipDuplicates if needed, or clear.
-    await prisma.enrollment.deleteMany({ where: { sectionId } });
-
-    return prisma.enrollment.createMany({
-      data: studentIds.map(studentId => ({
-        sectionId,
-        studentId,
-      })),
-      skipDuplicates: true,
     });
   }
 }
