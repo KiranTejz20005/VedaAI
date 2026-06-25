@@ -20,10 +20,10 @@ import { useSystemStore } from '@/store/system.store';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/admin/users', label: 'Faculty and Students', icon: Users },
-  { href: '/admin/classes', label: 'Classes', icon: BookOpen },
-  { href: '/admin/approvals', label: 'Approvals', icon: ClipboardCheck },
-  { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/dashboard/admin/users', label: 'Faculty and Students', icon: Users },
+  { href: '/dashboard/admin/classes', label: 'Classes', icon: BookOpen },
+  { href: '/dashboard/admin/approvals', label: 'Approvals', icon: ClipboardCheck },
+  { href: '/dashboard/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/dashboard/admin/settings', label: 'Settings', icon: Settings },
 ];
 

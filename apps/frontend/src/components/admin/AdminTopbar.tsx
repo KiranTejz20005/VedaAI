@@ -67,18 +67,16 @@ export function AdminTopbar() {
 
           {/* Breadcrumbs */}
           <nav style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#6B7280', fontWeight: 500 }}>
-            <Link href="/admin" style={{ color: '#6B7280' }} className="hover:text-blue-600 transition-colors">
-              Admin
+            <Link href="/dashboard" style={{ color: '#6B7280' }} className="hover:text-blue-600 transition-colors">
+              Dashboard
             </Link>
-            {breadcrumbs.slice(1).map((b) => (
+            {breadcrumbs.filter(b => b.href !== '/dashboard' && b.href !== '/admin' && b.href !== '/dashboard/admin').map((b) => (
               <div key={b.href} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <ChevronRight size={12} color="#9CA3AF" />
                 {b.isLast ? (
                   <span style={{ color: '#111827', fontWeight: 600 }}>{b.label}</span>
                 ) : (
-                  <Link href={b.href} style={{ color: '#6B7280' }} className="hover:text-blue-600 transition-colors">
-                    {b.label}
-                  </Link>
+                  <span style={{ color: '#6B7280' }}>{b.label}</span>
                 )}
               </div>
             ))}

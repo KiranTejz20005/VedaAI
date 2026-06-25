@@ -16,8 +16,12 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useSystemStore } from '@/store/system.store';
+import { useAuthStore } from '@/store/auth.store';
 
 export default function SettingsPage() {
+  const { user } = useAuthStore();
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -33,45 +37,127 @@ export default function SettingsPage() {
   const [notifyApiSpikes, setNotifyApiSpikes] = useState(true);
   const [forceMfa, setForceMfa] = useState(false);
 
+  const [initialState, setInitialState] = useState<any>(null);
+
   const { updateLocalSettings } = useSystemStore();
 
   const load = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/admin/organization/settings');
-      if (res.data?.success) {
-        const s = res.data.data;
-        if (s.platformName) setPlatformName(s.platformName);
-        if (s.brandColor) setBrandColor(s.brandColor);
-        if (s.logoUrl) console.log("Loaded logoUrl", s.logoUrl);
+      if (isSuperAdmin) {
+        // Load Global Settings
+        const res = await api.get('/super-admin/settings');
+        if (res.data?.success) {
+          const s = res.data.data;
+          const loadedState = {
+            platformName: s.platformName || 'Vidya AI Education',
+            brandColor: s.brandColor || '#2563EB',
+            maintenanceMode: s.maintenanceMode ?? false,
+            timezone: s.defaultTimezone || 'UTC-5:00 Eastern Time (US & Canada)',
+            retentionPolicy: s.dataRetentionDays !== undefined ? `${s.dataRetentionDays} Days` : '90 Days',
+            enableAiAnalytics: s.enableAiAnalytics ?? true,
+            notifyApiSpikes: s.notifyApiSpikes ?? true,
+            forceMfa: s.forceMfa ?? false
+          };
+          setPlatformName(loadedState.platformName);
+          setBrandColor(loadedState.brandColor);
+          setMaintenanceMode(loadedState.maintenanceMode);
+          setTimezone(loadedState.timezone);
+          setRetentionPolicy(loadedState.retentionPolicy);
+          setEnableAiAnalytics(loadedState.enableAiAnalytics);
+          setNotifyApiSpikes(loadedState.notifyApiSpikes);
+          setForceMfa(loadedState.forceMfa);
+          setInitialState(loadedState);
+        }
+      } else {
+        // Load Org Settings
+        const res = await api.get('/admin/organization/settings');
+        if (res.data?.success) {
+          const s = res.data.data;
+          const loadedState = {
+            platformName: s.platformName || 'Vidya AI Education',
+            brandColor: s.brandColor || '#2563EB',
+          };
+          setPlatformName(loadedState.platformName);
+          setBrandColor(loadedState.brandColor);
+          if (s.logoUrl) console.log("Loaded logoUrl", s.logoUrl);
+          setInitialState(loadedState);
+        }
       }
     } catch {
       toast.error('Failed to load settings');
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [isSuperAdmin]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setSaving(true);
-      const payload = {
-        platformName,
-        brandColor,
-      };
       
-      const res = await api.put('/admin/organization/settings', payload);
-      
-      if (res.data?.success) {
-        toast.success('Organization settings saved successfully!');
-        updateLocalSettings(payload);
+      if (isSuperAdmin) {
+        const payload = {
+          platformName,
+          brandColor,
+          maintenanceMode,
+          defaultTimezone: timezone,
+          dataRetentionDays: parseInt(retentionPolicy.split(' ')[0]) || 90,
+          enableAiAnalytics,
+          notifyApiSpikes,
+          forceMfa
+        };
+        const res = await api.put('/super-admin/settings', payload);
+        if (res.data?.success) {
+          toast.success('Global settings saved successfully!');
+          updateLocalSettings(payload);
+        }
+      } else {
+        const payload = {
+          platformName,
+          brandColor,
+        };
+        const res = await api.put('/admin/organization/settings', payload);
+        if (res.data?.success) {
+          toast.success('Organization settings saved successfully!');
+          updateLocalSettings(payload);
+          setInitialState({ ...initialState, ...payload });
+        }
       }
     } catch (err) { 
       toast.error('Failed to save settings'); 
     }
     finally { setSaving(false); }
   };
+
+  const handleDiscard = () => {
+    if (!initialState) return;
+    setPlatformName(initialState.platformName);
+    setBrandColor(initialState.brandColor);
+    if (isSuperAdmin) {
+       setMaintenanceMode(initialState.maintenanceMode);
+       setTimezone(initialState.timezone);
+       setRetentionPolicy(initialState.retentionPolicy);
+       setEnableAiAnalytics(initialState.enableAiAnalytics);
+       setNotifyApiSpikes(initialState.notifyApiSpikes);
+       setForceMfa(initialState.forceMfa);
+    }
+  };
+
+  let unsavedCount = 0;
+  if (initialState) {
+    if (platformName !== initialState.platformName) unsavedCount++;
+    if (brandColor !== initialState.brandColor) unsavedCount++;
+    if (isSuperAdmin) {
+       if (maintenanceMode !== initialState.maintenanceMode) unsavedCount++;
+       if (timezone !== initialState.timezone) unsavedCount++;
+       if (retentionPolicy !== initialState.retentionPolicy) unsavedCount++;
+       if (enableAiAnalytics !== initialState.enableAiAnalytics) unsavedCount++;
+       if (notifyApiSpikes !== initialState.notifyApiSpikes) unsavedCount++;
+       if (forceMfa !== initialState.forceMfa) unsavedCount++;
+    }
+  }
+  const hasChanges = unsavedCount > 0;
 
   if (loading) {
     return (
@@ -99,7 +185,7 @@ export default function SettingsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* Left Column (Branding & API) */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className={`${isSuperAdmin ? 'lg:col-span-2' : 'lg:col-span-3'} space-y-6`}>
             
             {/* Branding & Identity */}
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
@@ -219,7 +305,8 @@ export default function SettingsPage() {
           </div>
 
           {/* Right Column (Critical Actions & Preferences) */}
-          <div className="space-y-6">
+          {isSuperAdmin && (
+            <div className="space-y-6">
             
             {/* Critical Actions */}
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
@@ -309,32 +396,34 @@ export default function SettingsPage() {
                   </label>
                 </div>
               </div>
+              </div>
             </div>
-
-          </div>
+          )}
         </div>
 
         {/* Footer Actions */}
-        <div className="fixed bottom-0 left-0 right-0 md:left-64 bg-white border-t border-gray-200 px-6 py-4 flex items-center justify-between shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 cursor-pointer opacity-50">
-               <input type="checkbox" checked readOnly className="w-3.5 h-3.5 border-gray-300 rounded text-blue-600 focus:ring-0" />
-               <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">1 unsaved configuration</span>
-            </label>
-            <button type="button" className="text-gray-500 hover:text-gray-900 font-semibold text-xs transition-colors hidden sm:block">
-              Discard Changes
-            </button>
+        {hasChanges && (
+          <div className="fixed bottom-0 left-0 right-0 md:left-64 bg-white border-t border-gray-200 px-6 py-4 flex items-center justify-between shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20 animate-in slide-in-from-bottom-full duration-300">
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer opacity-50">
+                 <input type="checkbox" checked readOnly className="w-3.5 h-3.5 border-gray-300 rounded text-blue-600 focus:ring-0" />
+                 <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">{unsavedCount} unsaved configuration{unsavedCount !== 1 && 's'}</span>
+              </label>
+              <button type="button" onClick={handleDiscard} className="text-gray-500 hover:text-gray-900 font-semibold text-xs transition-colors hidden sm:block">
+                Discard Changes
+              </button>
+            </div>
+            <div className="flex items-center gap-3">
+              <button type="button" className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2 px-5 rounded-xl text-xs transition-colors hidden sm:block">
+                Preview Brand Changes
+              </button>
+              <button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-2 px-5 rounded-xl text-xs transition-all shadow-sm flex items-center gap-2">
+                {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                {isSuperAdmin ? 'Save Global Settings' : 'Save Settings'}
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button type="button" className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2 px-5 rounded-xl text-xs transition-colors hidden sm:block">
-              Preview Brand Changes
-            </button>
-            <button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-2 px-5 rounded-xl text-xs transition-all shadow-sm flex items-center gap-2">
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-              Save Global Settings
-            </button>
-          </div>
-        </div>
+        )}
       </form>
     </div>
   );

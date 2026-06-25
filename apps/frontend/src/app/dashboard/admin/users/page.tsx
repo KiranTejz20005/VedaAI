@@ -66,6 +66,15 @@ export default function DirectoryOverview() {
   const [activeTab, setActiveTab] = useState<'All' | 'Faculty' | 'Students'>('All');
   const [search, setSearch] = useState('');
   
+  // Table Dropdown state
+  const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleGlobalClick = () => setActiveDropdownId(null);
+    document.addEventListener('click', handleGlobalClick);
+    return () => document.removeEventListener('click', handleGlobalClick);
+  }, []);
+  
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -454,18 +463,22 @@ export default function DirectoryOverview() {
                     <td className="px-6 py-4 text-gray-500">
                       {u.lastActivity}
                     </td>
-                    <td className="px-6 py-4 text-right relative group">
+                    <td className="px-6 py-4 text-right relative">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => handleAction('manage', u)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors" title="Manage Access">
+                        <button onClick={() => handleAction('reset', u)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors" title="Reset Password">
                           <Key size={16} />
                         </button>
-                        <div className="relative">
-                          <button className="p-1.5 text-gray-400 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors">
+                        <div className="relative" onClick={(e) => e.stopPropagation()}>
+                          <button 
+                            title="More options"
+                            onClick={() => setActiveDropdownId(activeDropdownId === u.id ? null : u.id)}
+                            className="p-1.5 text-gray-400 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
+                          >
                             <MoreVertical size={16} />
                           </button>
-                          <div className="absolute right-0 mt-1 w-32 bg-white border border-gray-100 rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 flex flex-col overflow-hidden">
-                            <button onClick={() => handleAction('reset', u)} className="px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 font-medium">Reset Password</button>
-                            <button onClick={() => handleAction('delete', u)} className="px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 font-medium">Remove User</button>
+                          <div className={`absolute right-0 top-full mt-1 w-32 bg-white border border-gray-100 rounded-xl shadow-lg transition-all z-50 flex flex-col overflow-hidden ${activeDropdownId === u.id ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible -translate-y-2'}`}>
+                            <button onClick={() => { handleAction('manage', u); setActiveDropdownId(null); }} className="px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 font-medium">Manage Access</button>
+                            <button onClick={() => { handleAction('delete', u); setActiveDropdownId(null); }} className="px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 font-medium">Remove User</button>
                           </div>
                         </div>
                       </div>

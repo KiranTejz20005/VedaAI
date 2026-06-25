@@ -62,7 +62,7 @@ export default function AdminDashboard() {
     setError(null);
     (async () => {
       try {
-        const res = await api.get('/admin/analytics');
+        const res = await api.get('/admin/analytics/dashboard');
         if (res.data?.success) {
           setData(res.data.data);
         } else {
@@ -113,9 +113,18 @@ export default function AdminDashboard() {
     );
   }
 
-  const stats = data?.stats || { totalFaculty: 0, totalStudents: 0, totalClasses: 0, pendingApprovals: 0 };
+  const stats = { 
+    totalFaculty: data?.totalFaculty || 0, 
+    totalStudents: data?.totalStudents || 0, 
+    totalClasses: data?.totalClasses || 0, 
+    pendingApprovals: data?.assessmentsByStatus?.['PENDING'] || 0 
+  };
   const activity = data?.recentActivity || [];
-  const summary = data?.summary || { publishedAssessments: 0, activeLessons: 0, submissionRate: 0 };
+  const summary = { 
+    publishedAssessments: data?.totalAssessments || 0, 
+    activeLessons: data?.totalLessons || 0, 
+    submissionRate: data?.totalSubmissions ? Math.min(100, Math.round((data.totalSubmissions / (data.totalStudents || 1)) * 100)) : 0 
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>

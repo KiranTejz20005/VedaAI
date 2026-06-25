@@ -29,7 +29,7 @@ function MyGroupsIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 const ADMIN_NAV_ITEMS = [
-  { href: '/dashboard/admin', label: 'Dashboard', icon: LayoutGrid, exact: true },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true },
   { href: '/dashboard/admin/users', label: 'Users', icon: Users },
   { href: '/dashboard/admin/students', label: 'Students', icon: GraduationCap },
   { href: '/dashboard/admin/faculty', label: 'Faculty', icon: Building2 },

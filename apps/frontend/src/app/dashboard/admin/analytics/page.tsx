@@ -25,7 +25,17 @@ export default function AnalyticsPage() {
         setError(null);
         const res = await api.get('/admin/analytics');
         if (res.data?.success) {
-          setData(res.data.data);
+          const apiData = res.data.data.totals || res.data.data;
+          setData({
+            totalUsers: apiData.users || apiData.totalUsers || 0,
+            totalStudents: apiData.students || apiData.totalStudents || 0,
+            totalTeachers: apiData.teachers || apiData.totalTeachers || 0,
+            totalFaculty: apiData.teachers || apiData.totalFaculty || 0, 
+            activeExams: apiData.assignmentsCreated || apiData.activeExams || 0,
+            attendance: apiData.users && apiData.activeUsers 
+                ? Math.round((apiData.activeUsers / apiData.users) * 100) 
+                : (apiData.attendance || 0),
+          });
         } else {
           setError('Failed to load analytics');
         }

@@ -36,7 +36,13 @@ export default function LoginPage() {
           const user = useAuthStore.getState().user;
           const isOnboarded = user?.hasCompletedOnboarding === true || (user?.organizationId && user?.departmentId);
           const rolePath = user?.role ? user.role.toLowerCase().replace('_', '-') : 'student';
-          router.replace(isOnboarded ? `/dashboard/${rolePath}` : '/onboarding');
+          
+          let dashboardPath = `/dashboard/${rolePath}`;
+          if (user?.role === 'ADMIN' || user?.role === 'ORG_ADMIN') {
+            dashboardPath = '/dashboard';
+          }
+          
+          router.replace(isOnboarded ? dashboardPath : '/onboarding');
         } else {
           toast.error(result.error || 'SSO authentication failed.');
         }
@@ -367,7 +373,13 @@ export default function LoginPage() {
       const user = useAuthStore.getState().user;
       const isOnboarded = user?.hasCompletedOnboarding === true || (user?.organizationId && user?.departmentId);
       const rolePath = user?.role ? user.role.toLowerCase().replace('_', '-') : 'student';
-      router.replace(isOnboarded ? `/dashboard/${rolePath}` : '/onboarding');
+      
+      let dashboardPath = `/dashboard/${rolePath}`;
+      if (user?.role === 'ADMIN' || user?.role === 'ORG_ADMIN') {
+        dashboardPath = '/dashboard';
+      }
+      
+      router.replace(isOnboarded ? dashboardPath : '/onboarding');
     } else {
       toast.error(result.error || 'Authentication failed.');
     }
