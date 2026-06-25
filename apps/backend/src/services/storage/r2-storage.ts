@@ -11,7 +11,7 @@ export class R2StorageAdapter {
     const accountId = process.env.R2_ACCOUNT_ID || '';
     const accessKeyId = process.env.R2_ACCESS_KEY_ID || env.S3_ACCESS_KEY_ID || '';
     const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY || env.S3_SECRET_ACCESS_KEY || '';
-    this.bucket = process.env.R2_BUCKET_NAME || env.S3_BUCKET || 'vedaai-uploads';
+    this.bucket = process.env.R2_BUCKET_NAME || env.S3_BUCKET || 'vidyaai-uploads';
 
     // R2 endpoint format: https://<account_id>.r2.cloudflarestorage.com
     const endpoint = accountId 

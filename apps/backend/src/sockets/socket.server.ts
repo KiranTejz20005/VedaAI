@@ -23,7 +23,7 @@ function parseOrigins(raw: string): string[] {
 }
 
 function isAllowedVercelPreview(hostname: string): boolean {
-  return /^vedaai[\w-]*\.vercel\.app$/i.test(hostname);
+  return /^vidyaai[\w-]*\.vercel\.app$/i.test(hostname);
 }
 
 function isAllowedSocketOrigin(origin: string, allowedOrigins: string[]): boolean {
@@ -69,7 +69,7 @@ export function initializeSocketServer(
     allowUpgrades: true,
     // Cookie settings for sticky sessions
     cookie: {
-      name: 'vedaai-socket',
+      name: 'vidyaai-socket',
       httpOnly: true,
       sameSite: 'lax',
       secure: env.NODE_ENV === 'production',

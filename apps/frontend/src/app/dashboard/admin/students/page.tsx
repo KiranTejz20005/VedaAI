@@ -52,7 +52,7 @@ export default function StudentManagement() {
   const { user } = useAuthStore();
   const { activeOrganizationId, availableOrganizations } = useAdminAuthStore();
 
-  let domain = 'vedaai.com';
+  let domain = 'vidyaai.com';
   if (user?.role === 'SUPER_ADMIN') {
     const activeOrg = availableOrganizations.find(o => o.id === activeOrganizationId);
     if (activeOrg?.email) domain = activeOrg.email.split('@')[1];

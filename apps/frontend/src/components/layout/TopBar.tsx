@@ -414,7 +414,7 @@ export function Topbar() {
               <path d="M4 4H8.5L12 15L15.5 4H20L14.5 20H9.5L4 4Z" fill="white" stroke="white" strokeWidth="0.5" strokeLinejoin="round"/>
             </svg>
           </div>
-          <span style={{ fontSize: 18, fontWeight: 800, color: '#111827', letterSpacing: '-0.5px' }}>VedaAI</span>
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#111827', letterSpacing: '-0.5px' }}>VidyaAI</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

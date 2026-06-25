@@ -1,6 +1,6 @@
 module.exports = {
   apps: [{
-    name: 'vedaai-backend',
+    name: 'vidyaai-backend',
     script: 'dist/app.js',
     instances: 1,
     exec_mode: 'fork',

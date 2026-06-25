@@ -51,7 +51,7 @@ export default function FacultyManagement() {
   const { activeOrganizationId } = useAdminAuthStore();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const selectedOrg = organizations.find(o => o.id === activeOrganizationId);
-  const domain = selectedOrg?.email ? selectedOrg.email.split('@')[1] : 'vedaai.com';
+  const domain = selectedOrg?.email ? selectedOrg.email.split('@')[1] : 'vidyaai.com';
 
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);

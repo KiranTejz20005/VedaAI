@@ -1,7 +1,7 @@
 {
-  "name": "vedaai-backend",
+  "name": "vidyaai-backend",
   "version": "1.0.0",
-  "description": "VedaAI Backend API Server",
+  "description": "VidyaAI Backend API Server",
   "prisma": {
     "seed": "ts-node --transpile-only prisma/seed.ts"
   },

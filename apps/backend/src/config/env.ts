@@ -127,7 +127,7 @@ export type Env = typeof env;
 
 // ── Production-specific checks ──
 if (parsed.data.NODE_ENV === 'production') {
-  if (parsed.data.JWT_SECRET === 'veda-ai-dev-secret-change-in-production') {
+  if (parsed.data.JWT_SECRET === 'vidya-ai-dev-secret-change-in-production') {
     process.stderr.write('CRITICAL: JWT_SECRET is still set to the development default. Set a strong random secret.\n');
     process.exit(1);
   }

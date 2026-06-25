@@ -13,7 +13,7 @@ export const sendInvitationEmail = async (email: string, role: string, token: st
   
   await sendEmail({
     to: email,
-    subject: `You have been invited to join VedaAI as a ${role}`,
-    body: `Hello,\n\nYou have been invited to join VedaAI. Please click the link below to accept your invitation and set up your password.\n\n${acceptLink}\n\nThis link expires in 7 days.`
+    subject: `You have been invited to join VidyaAI as a ${role}`,
+    body: `Hello,\n\nYou have been invited to join VidyaAI. Please click the link below to accept your invitation and set up your password.\n\n${acceptLink}\n\nThis link expires in 7 days.`
   });
 };

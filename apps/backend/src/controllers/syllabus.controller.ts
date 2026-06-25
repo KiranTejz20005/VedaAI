@@ -15,7 +15,7 @@ async function ensureDemoUser(userId: string): Promise<void> {
     if (!exists) {
       const inst = await prisma.organization.upsert({
         where: { id: DEFAULT_INST_ID },
-        create: { id: DEFAULT_INST_ID, name: 'VedaAI Demo School', code: 'VEDA_DEMO' },
+        create: { id: DEFAULT_INST_ID, name: 'VidyaAI Demo School', code: 'VEDA_DEMO' },
         update: {},
       });
       await prisma.user.create({

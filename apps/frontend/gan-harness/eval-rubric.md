@@ -1,4 +1,4 @@
-# GAN Design Eval Rubric — VedaAI
+# GAN Design Eval Rubric — VidyaAI
 
 ### Design Quality (weight: 0.35)
 - Does it match the reference screenshots pixel-perfectly?

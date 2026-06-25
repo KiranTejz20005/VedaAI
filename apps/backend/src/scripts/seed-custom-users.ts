@@ -23,7 +23,7 @@ async function main() {
 
   const usersToCreate = [
     {
-      email: 'superadmin@vedaai.com',
+      email: 'superadmin@vidyaai.com',
       password: 'SuperAdmin@123',
       firstName: 'Super',
       lastName: 'Admin',
@@ -31,7 +31,7 @@ async function main() {
       systemRole: 'SUPER_ADMIN'
     },
     {
-      email: 'admin@vedaai.com',
+      email: 'admin@vidyaai.com',
       password: 'OrgAdmin@123',
       firstName: 'Org',
       lastName: 'Admin',
@@ -39,7 +39,7 @@ async function main() {
       systemRole: 'ADMIN'
     },
     {
-      email: 'faculty@vedaai.com',
+      email: 'faculty@vidyaai.com',
       password: 'Faculty@123',
       firstName: 'Faculty',
       lastName: 'Member',
@@ -47,7 +47,7 @@ async function main() {
       systemRole: 'TEACHER'
     },
     {
-      email: 'student@vedaai.com',
+      email: 'student@vidyaai.com',
       password: 'Student@123',
       firstName: 'Student',
       lastName: 'Learner',

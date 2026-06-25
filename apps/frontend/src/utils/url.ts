@@ -38,7 +38,7 @@ export function resolveApiOrigin(): string {
 
   if (process.env.NODE_ENV === 'development') {
     const localFallback = `http://localhost:3001/api/v1`;
-    console.info('[VedaAI] No API origin configured — using local fallback:', localFallback);
+    console.info('[VidyaAI] No API origin configured — using local fallback:', localFallback);
     return localFallback;
   }
 

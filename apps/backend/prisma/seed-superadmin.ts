@@ -10,22 +10,22 @@ const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const existing = await prisma.user.findUnique({ where: { email: 'superadmin@vedaai.com' } });
+  const existing = await prisma.user.findUnique({ where: { email: 'superadmin@vidyaai.com' } });
   if (existing) {
     console.log('Super admin already exists:');
-    console.log('  Email:    superadmin@vedaai.com');
+    console.log('  Email:    superadmin@vidyaai.com');
     console.log('  Password: SuperAdmin@123');
     console.log('  ID:       ' + existing.id);
     return;
   }
 
-  let org = await prisma.organization.findFirst({ where: { code: 'VEDA' } });
+  let org = await prisma.organization.findFirst({ where: { code: 'VIDYA' } });
   if (!org) {
     org = await prisma.organization.create({
       data: {
-        name: 'VedaAI Platform',
-        code: 'VEDA',
-        email: 'admin@vedaai.com',
+        name: 'VidyaAI Platform',
+        code: 'VIDYA',
+        email: 'admin@vidyaai.com',
         status: 'ACTIVE',
       },
     });
@@ -35,7 +35,7 @@ async function main() {
   const pwdHash = await argon2.hash('SuperAdmin@123');
   const user = await prisma.user.create({
     data: {
-      email: 'superadmin@vedaai.com',
+      email: 'superadmin@vidyaai.com',
       passwordHash: pwdHash,
       firstName: 'Super',
       lastName: 'Admin',
@@ -48,7 +48,7 @@ async function main() {
 
   console.log('SUPER_ADMIN created successfully!');
   console.log('');
-  console.log('  Email:    superadmin@vedaai.com');
+  console.log('  Email:    superadmin@vidyaai.com');
   console.log('  Password: SuperAdmin@123');
   console.log('  ID:       ' + user.id);
   console.log('  Role:     SUPER_ADMIN');

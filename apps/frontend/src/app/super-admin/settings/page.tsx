@@ -11,7 +11,7 @@ export default function SuperAdminSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [platformName, setPlatformName] = useState('VedaAI');
+  const [platformName, setPlatformName] = useState('VidyaAI');
   const [defaultPlan, setDefaultPlan] = useState('FREE');
   const [aiProvider, setAiProvider] = useState('openai');
   const [aiApiKey, setAiApiKey] = useState('');
@@ -27,7 +27,7 @@ export default function SuperAdminSettings() {
       const res = await api.get('/super-admin/settings');
       if (res.data?.success) {
         const s = res.data.data;
-        setPlatformName(s.platformName || 'VedaAI');
+        setPlatformName(s.platformName || 'VidyaAI');
         setDefaultPlan(s.defaultSubscriptionPlan || 'FREE');
         setAiProvider(s.aiProvider?.provider || 'openai');
         setAiApiKey(s.aiProvider?.apiKey || '');

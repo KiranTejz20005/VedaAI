@@ -9,7 +9,7 @@ export class S3StorageAdapter implements StorageAdapter {
   private bucket: string;
 
   constructor() {
-    this.bucket = env.S3_BUCKET || 'vedaai-uploads';
+    this.bucket = env.S3_BUCKET || 'vidyaai-uploads';
     const accountId = process.env.R2_ACCOUNT_ID || '';
     const accessKeyId = env.S3_ACCESS_KEY_ID || '';
     const secretAccessKey = env.S3_SECRET_ACCESS_KEY || '';

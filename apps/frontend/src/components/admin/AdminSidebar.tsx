@@ -112,7 +112,7 @@ export function AdminSidebar() {
           >
             <ShieldCheck size={16} color="white" />
           </div>
-          <span style={{ fontWeight: 800, fontSize: '14px', color: '#111827', flex: 1 }}>VedaAI Admin</span>
+          <span style={{ fontWeight: 800, fontSize: '14px', color: '#111827', flex: 1 }}>VidyaAI Admin</span>
           <button
             onClick={close}
             aria-label="Close navigation"

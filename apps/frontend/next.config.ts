@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 import path from "path";
 
-const DEFAULT_BACKEND = "https://vedaai-test.onrender.com";
+const DEFAULT_BACKEND = "https://vidyaai-test.onrender.com";
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.resolve(__dirname, "../.."),

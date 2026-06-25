@@ -47,23 +47,23 @@ async function upsertUser({ email, password, firstName, lastName, role, organiza
 }
 
 async function main() {
-  console.log('\n🌱  Seeding test users for VedaAI Platform...\n');
+  console.log('\n🌱  Seeding test users for VidyaAI Platform...\n');
 
-  // 1. Ensure the VedaAI Platform organisation exists
-  let org = await prisma.organization.findFirst({ where: { code: 'VEDA' } });
+  // 1. Ensure the VidyaAI Platform organisation exists
+  let org = await prisma.organization.findFirst({ where: { code: 'VIDYA' } });
   if (!org) {
     org = await prisma.organization.create({
       data: {
-        name: 'VedaAI Platform',
-        code: 'VEDA',
-        email: 'platform@vedaai.com',
+        name: 'VidyaAI Platform',
+        code: 'VIDYA',
+        email: 'platform@vidyaai.com',
         status: 'ACTIVE',
         subscriptionPlan: 'PRO',
       },
     });
-    console.log('  ✓ Organization created: VedaAI Platform (VEDA)');
+    console.log('  ✓ Organization created: VidyaAI Platform (VIDYA)');
   } else {
-    console.log('  ✓ Organization found:   VedaAI Platform (VEDA)  id=' + org.id);
+    console.log('  ✓ Organization found:   VidyaAI Platform (VIDYA)  id=' + org.id);
   }
 
   // 2. Ensure a demo department inside the org
@@ -82,7 +82,7 @@ async function main() {
   // 3. Super Admin
   console.log('\n[SUPER ADMIN]');
   await upsertUser({
-    email: 'superadmin@vedaai.com',
+    email: 'superadmin@vidyaai.com',
     password: 'SuperAdmin@123',
     firstName: 'Super',
     lastName: 'Admin',
@@ -93,7 +93,7 @@ async function main() {
   // 4. Org Admin (ADMIN role)
   console.log('\n[ORG ADMIN]');
   await upsertUser({
-    email: 'admin@vedaai.com',
+    email: 'admin@vidyaai.com',
     password: 'OrgAdmin@123',
     firstName: 'Org',
     lastName: 'Admin',
@@ -104,7 +104,7 @@ async function main() {
   // 5. Faculty / Teacher
   console.log('\n[FACULTY / TEACHER]');
   await upsertUser({
-    email: 'faculty@vedaai.com',
+    email: 'faculty@vidyaai.com',
     password: 'Faculty@123',
     firstName: 'Priya',
     lastName: 'Sharma',
@@ -116,7 +116,7 @@ async function main() {
   // 6. Student
   console.log('\n[STUDENT]');
   await upsertUser({
-    email: 'student@vedaai.com',
+    email: 'student@vidyaai.com',
     password: 'Student@123',
     firstName: 'Rahul',
     lastName: 'Verma',
@@ -131,10 +131,10 @@ async function main() {
   console.log('  ✅  Test users ready!\n');
   console.log('  ROLE          EMAIL                     PASSWORD');
   console.log('  ' + '─'.repeat(53));
-  console.log('  Super Admin   superadmin@vedaai.com     SuperAdmin@123');
-  console.log('  Org Admin     admin@vedaai.com          OrgAdmin@123');
-  console.log('  Faculty       faculty@vedaai.com        Faculty@123');
-  console.log('  Student       student@vedaai.com        Student@123');
+  console.log('  Super Admin   superadmin@vidyaai.com     SuperAdmin@123');
+  console.log('  Org Admin     admin@vidyaai.com          OrgAdmin@123');
+  console.log('  Faculty       faculty@vidyaai.com        Faculty@123');
+  console.log('  Student       student@vidyaai.com        Student@123');
   console.log(line);
   console.log('\n  Login at: http://localhost:3000/login\n');
 }

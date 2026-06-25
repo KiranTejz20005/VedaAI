@@ -26,8 +26,8 @@ async function main() {
   // ── Institution ──────────────────────────────────────────────────────────
   const institution = await prisma.institution.upsert({
     where: { id: INST_ID },
-    create: { id: INST_ID, name: 'VedaAI Demo School', domain: 'vedaai.demo' },
-    update: { name: 'VedaAI Demo School' },
+    create: { id: INST_ID, name: 'VidyaAI Demo School', domain: 'vidyaai.demo' },
+    update: { name: 'VidyaAI Demo School' },
   });
   console.log('✅ Institution:', institution.name);
 

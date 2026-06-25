@@ -18,7 +18,7 @@ export interface ChatMessage {
 }
 
 export const getTutorResponse = async (history: ChatMessage[]) => {
-  const systemPrompt = `You are VedaAI Tutor, an encouraging, friendly, and expert AI tutor. 
+  const systemPrompt = `You are VidyaAI Tutor, an encouraging, friendly, and expert AI tutor. 
 Your goal is to guide students to understand academic concepts clearly.
 Follow these guidelines:
 - Keep explanations clear, engaging, and age-appropriate.

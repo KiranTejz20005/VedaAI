@@ -15,6 +15,7 @@ import { getPdfQueue } from '../queues/pdf.queue';
 import { createInvitation } from '../services/invitation.service';
 import { processCsvImport } from '../services/csv-import.service';
 import * as argon2 from 'argon2';
+import * as fs from 'fs';
 
 // ── In-Memory System Settings Store (Simulating Admin System Settings) ──
 let systemSettings = {
@@ -35,11 +36,11 @@ let systemSettings = {
   emailSettings: {
     smtpHost: 'smtp.sendgrid.net',
     smtpPort: 587,
-    fromEmail: 'noreply@vedaai.com',
+    fromEmail: 'noreply@vidyaai.com',
   },
   storageSettings: {
     provider: 'S3',
-    bucketName: 'vedaai-assets-prod',
+    bucketName: 'vidyaai-assets-prod',
   },
   aiLimits: {
     maxTokensPerRequest: 16384,
@@ -781,7 +782,7 @@ export class AdminController {
 
   static async regeneratePaper(req: Request, res: Response) {
     try {
-      // In VedaAI, paper generation is queued via BullMQ.
+      // In VidyaAI, paper generation is queued via BullMQ.
       // We simulate triggering regeneration by finding the associated assignment and running a queue retry or creating a new job.
       const paper = await prisma.generatedPaper.findUnique({ where: { id: req.params.id } });
       if (!paper) {
@@ -1446,7 +1447,6 @@ export class AdminController {
       if (!req.file) { res.status(400).json({ success: false, error: 'No CSV file uploaded' }); return; }
       const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
       if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
-      const fs = require('fs');
       const content = fs.readFileSync(req.file.path, 'utf-8');
       const lines = content.split('\n').filter((l: string) => l.trim());
       if (lines.length < 2) { res.status(400).json({ success: false, error: 'CSV has no data rows' }); return; }

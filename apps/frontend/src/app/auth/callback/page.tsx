@@ -36,7 +36,7 @@ function CallbackHandler() {
           const code = searchParams.get('code');
           if (code) {
             token = code;
-            email = 'x-user@vedaai.com';
+            email = 'x-user@vidyaai.com';
             firstName = 'X';
             lastName = 'User';
           }

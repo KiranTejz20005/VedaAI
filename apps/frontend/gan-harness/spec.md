@@ -1,9 +1,9 @@
-# VedaAI UI Redesign Spec
+# VidyaAI UI Redesign Spec
 
 ## Reference Design Analysis (from screenshots)
 
 ### Brand & Color System
-- **Brand color**: Warm orange `#E8531D` / `#F97316` (VedaAI logo orange)
+- **Brand color**: Warm orange `#E8531D` / `#F97316` (VidyaAI logo orange)
 - **Background**: Light/warm white `#F8F7F4` — NOT dark mode
 - **Sidebar bg**: Pure white `#FFFFFF` with subtle shadow
 - **Card bg**: White `#FFFFFF` with `1px solid #E5E7EB` borders
@@ -18,7 +18,7 @@
 ```
 
 **Sidebar structure:**
-- VedaAI logo (orange flame/book icon + "VedaAI" text) at top
+- VidyaAI logo (orange flame/book icon + "VidyaAI" text) at top
 - "+ Create Assignment" orange pill button
 - Nav items: Home, My Groups, Assignments (active), AI Teacher's Toolkit, My Library
 - Settings at bottom

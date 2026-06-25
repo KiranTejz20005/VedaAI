@@ -23,7 +23,7 @@ export default function LoginPage() {
       if (event.data && event.data.type === 'SSO_SUCCESS') {
         setIsSubmitting(true);
         const result = await ssoLogin({
-          email: event.data.email || 'faculty@vedaai.com',
+          email: event.data.email || 'faculty@vidyaai.com',
           firstName: event.data.firstName || 'Faculty',
           lastName: event.data.lastName || 'Member',
           provider: event.data.provider || 'SSO',
@@ -249,27 +249,27 @@ export default function LoginPage() {
             <div id="content">
               <!-- Account List -->
               <div id="account-list">
-                <div class="profile-card" onclick="selectAccount('faculty@vedaai.com', 'Faculty Member')">
+                <div class="profile-card" onclick="selectAccount('faculty@vidyaai.com', 'Faculty Member')">
                   <div class="avatar" style="background:#E0F2FE;color:#0369A1;">F</div>
                   <div class="profile-info">
                     <div class="name">Faculty Member</div>
-                    <div class="email">faculty@vedaai.com</div>
+                    <div class="email">faculty@vidyaai.com</div>
                   </div>
                 </div>
 
-                <div class="profile-card" onclick="selectAccount('student@vedaai.com', 'Student Member')">
+                <div class="profile-card" onclick="selectAccount('student@vidyaai.com', 'Student Member')">
                   <div class="avatar" style="background:#DCFCE7;color:#15803D;">S</div>
                   <div class="profile-info">
                     <div class="name">Student Member</div>
-                    <div class="email">student@vedaai.com</div>
+                    <div class="email">student@vidyaai.com</div>
                   </div>
                 </div>
 
-                <div class="profile-card" onclick="selectAccount('admin@vedaai.com', 'Org Administrator')">
+                <div class="profile-card" onclick="selectAccount('admin@vidyaai.com', 'Org Administrator')">
                   <div class="avatar" style="background:#FEE2E2;color:#B91C1C;">A</div>
                   <div class="profile-info">
                     <div class="name">Org Administrator</div>
-                    <div class="email">admin@vedaai.com</div>
+                    <div class="email">admin@vidyaai.com</div>
                   </div>
                 </div>
                 

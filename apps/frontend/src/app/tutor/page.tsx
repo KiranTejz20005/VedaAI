@@ -214,7 +214,7 @@ export default function TutorPage() {
               <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand), #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20, boxShadow: '0 8px 24px rgba(99,102,241,0.2)' }}>
                 <Sparkles size={30} color="#fff" />
               </div>
-              <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8 }}>Hello, I'm VedaAI!</h2>
+              <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8 }}>Hello, I'm VidyaAI!</h2>
               <p style={{ fontSize: 15, color: 'var(--text-secondary)', maxWidth: 460, lineHeight: 1.5 }}>
                 I can help you understand complex concepts, solve doubts, or test your knowledge with interactive practice questions.
               </p>

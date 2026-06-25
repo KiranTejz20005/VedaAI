@@ -220,7 +220,7 @@ function createApp() {
       if (!allowed) {
         try {
           const hostname = new URL(normalizedOrigin).hostname;
-          allowed = /^vedaai[\w-]*\.vercel\.app$/i.test(hostname);
+          allowed = /^vidyaai[\w-]*\.vercel\.app$/i.test(hostname);
         } catch {
           allowed = false;
         }
@@ -318,7 +318,7 @@ async function bootstrap() {
   app.get('/', (_req, res) => {
     res.json({
       success: true,
-      service: 'vedaai-api',
+      service: 'vidyaai-api',
       status: bootstrapPhase === 'ready' ? 'ok' : 'starting',
       endpoints: {
         health: '/health',

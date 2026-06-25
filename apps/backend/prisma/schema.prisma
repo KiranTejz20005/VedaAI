@@ -94,35 +94,35 @@ model Organization {
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 
-  users            User[]
-  invitations      Invitation[]
-  classrooms       Classroom[]
-  departments      Department[]
-  classes          Class[]
-  groups           Group[]
-  subscription     Subscription?
-  assignments      Assignment[]
-  generatedPapers  GeneratedPaper[]
-  quizSessions     QuizSession[]
-  questionBanks    QuestionBank[]
-  auditLogs        AuditLog[]
+  users              User[]
+  invitations        Invitation[]
+  classrooms         Classroom[]
+  departments        Department[]
+  classes            Class[]
+  groups             Group[]
+  subscription       Subscription?
+  assignments        Assignment[]
+  generatedPapers    GeneratedPaper[]
+  quizSessions       QuizSession[]
+  questionBanks      QuestionBank[]
+  auditLogs          AuditLog[]
   studentSubmissions StudentSubmission[]
-  notifications    Notification[]
-  questions        Question[]         @relation("OrganizationQuestions")
-  assessments      Assessment[]       @relation("OrganizationAssessments")
-  syllabuses       Syllabus[]
-  lessonPlans      LessonPlan[]
-  worksheets       Worksheet[]
-  generatedNotes   GeneratedNotes[]
-  promptExecutions PromptExecution[]
-  aiRecommendations AIRecommendation[]
-  rubrics          Rubric[]
-  promptTemplates  PromptTemplate[]
-  classGroups      ClassGroup[]
-  communityPosts   CommunityPost[]
-  communityGroups  CommunityGroup[]
-  voiceRooms       VoiceRoom[]
-  meetings         Meeting[]
+  notifications      Notification[]
+  questions          Question[]          @relation("OrganizationQuestions")
+  assessments        Assessment[]        @relation("OrganizationAssessments")
+  syllabuses         Syllabus[]
+  lessonPlans        LessonPlan[]
+  worksheets         Worksheet[]
+  generatedNotes     GeneratedNotes[]
+  promptExecutions   PromptExecution[]
+  aiRecommendations  AIRecommendation[]
+  rubrics            Rubric[]
+  promptTemplates    PromptTemplate[]
+  classGroups        ClassGroup[]
+  communityPosts     CommunityPost[]
+  communityGroups    CommunityGroup[]
+  voiceRooms         VoiceRoom[]
+  meetings           Meeting[]
 }
 
 model Department {
@@ -141,62 +141,66 @@ model Department {
 }
 
 model User {
-  id                     String       @id @default(uuid())
-  email                  String       @unique
+  id                     String        @id @default(uuid())
+  email                  String        @unique
   passwordHash           String
   firstName              String
   lastName               String
-  role                   SystemRole   @default(TEACHER)
+  role                   SystemRole    @default(TEACHER)
   phone                  String?
-  status                 String       @default("ACTIVE")
-  hasCompletedOnboarding Boolean      @default(false)
+  status                 String        @default("ACTIVE")
+  hasCompletedOnboarding Boolean       @default(false)
   onboardingCompletedAt  DateTime?
-  forcePasswordReset     Boolean      @default(false)
+  forcePasswordReset     Boolean       @default(false)
   activeOrganizationId   String?
   organizationId         String?
   organization           Organization? @relation(fields: [organizationId], references: [id])
   departmentId           String?
-  department             Department?  @relation(fields: [departmentId], references: [id])
+  department             Department?   @relation(fields: [departmentId], references: [id])
   preferences            Json?
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
 
-  questions      Question[]           @relation("QuestionAuthor")
-  reviews        QuestionReview[]
-  assessments    Assessment[]
-  sessions       Session[]
-  refreshTokens  RefreshToken[]
-  loginHistories LoginHistory[]
-  passwordResets PasswordResetToken[]
-  userRoles      UserRole[]
-  classes        Class[]              @relation("ClassFaculty")
-  groups         Group[]              @relation("GroupFaculty")
-  notifications  Notification[]
-  createdInvitations Invitation[]     @relation("CreatedInvitations")
-  taughtSections     Section[]        @relation("TeacherSections")
-  enrollments        Enrollment[]     @relation("StudentEnrollments")
-  createdAssignments Assignment[]     @relation("AssignmentCreator")
-  communityPosts     CommunityPost[]  @relation("CommunityPosts")
-  ownedGroups        CommunityGroup[] @relation("OwnedGroups")
-  groupMemberships   GroupMember[]    @relation("GroupMemberships")
-  sentMessages       Message[]        @relation("SentMessages")
-  createdVoiceRooms  VoiceRoom[]      @relation("CreatedVoiceRooms")
+  questions           Question[]             @relation("QuestionAuthor")
+  reviews             QuestionReview[]
+  assessments         Assessment[]
+  sessions            Session[]
+  refreshTokens       RefreshToken[]
+  loginHistories      LoginHistory[]
+  passwordResets      PasswordResetToken[]
+  userRoles           UserRole[]
+  classes             Class[]                @relation("ClassFaculty")
+  groups              Group[]                @relation("GroupFaculty")
+  notifications       Notification[]
+  createdInvitations  Invitation[]           @relation("CreatedInvitations")
+  taughtSections      Section[]              @relation("TeacherSections")
+  enrollments         Enrollment[]           @relation("StudentEnrollments")
+  createdAssignments  Assignment[]           @relation("AssignmentCreator")
+  communityPosts      CommunityPost[]        @relation("CommunityPosts")
+  ownedGroups         CommunityGroup[]       @relation("OwnedGroups")
+  groupMemberships    GroupMember[]          @relation("GroupMemberships")
+  sentMessages        Message[]              @relation("SentMessages")
+  createdVoiceRooms   VoiceRoom[]            @relation("CreatedVoiceRooms")
   voiceParticipations VoiceRoomParticipant[] @relation("VoiceParticipations")
-  hostedMeetings     Meeting[]        @relation("HostedMeetings")
+  hostedMeetings      Meeting[]              @relation("HostedMeetings")
   questionCollections QuestionCollection[]
+
+  @@index([organizationId])
+  @@index([departmentId])
+  @@index([email])
 }
 
 // ── ClassGroup (legacy) ──
 
 model ClassGroup {
-  id             String       @id @default(uuid())
+  id             String        @id @default(uuid())
   name           String
-  subject        String       @default("General")
-  userId         String       @default("demo-faculty-id")
+  subject        String        @default("General")
+  userId         String        @default("demo-faculty-id")
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
   students       Student[]
 
   @@index([userId])
@@ -230,17 +234,18 @@ model Classroom {
 }
 
 model Section {
-  id          String      @id @default(uuid())
+  id          String       @id @default(uuid())
   name        String
   classroomId String
-  classroom   Classroom   @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  classroom   Classroom    @relation(fields: [classroomId], references: [id], onDelete: Cascade)
   teacherId   String
-  teacher     User        @relation("TeacherSections", fields: [teacherId], references: [id])
+  teacher     User         @relation("TeacherSections", fields: [teacherId], references: [id])
   enrollments Enrollment[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   @@index([classroomId])
+  @@index([teacherId])
 }
 
 model Enrollment {
@@ -253,6 +258,8 @@ model Enrollment {
   updatedAt DateTime @updatedAt
 
   @@unique([sectionId, studentId])
+  @@index([sectionId])
+  @@index([studentId])
 }
 
 // ── Invitations ──
@@ -273,21 +280,22 @@ model Invitation {
   updatedAt      DateTime         @updatedAt
 
   @@index([organizationId])
+  @@index([createdById])
 }
 
 // ── Syllabus ──
 
 model Syllabus {
-  id             String        @id @default(uuid())
+  id             String          @id @default(uuid())
   title          String
   subject        String
   grade          String
-  status         String        @default("active")
-  userId         String        @default("demo-faculty-id")
+  status         String          @default("active")
+  userId         String          @default("demo-faculty-id")
   organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  organization   Organization?   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   topics         SyllabusTopic[]
 
   @@index([userId])
@@ -295,17 +303,17 @@ model Syllabus {
 }
 
 model SyllabusTopic {
-  id          String              @id @default(uuid())
+  id          String             @id @default(uuid())
   syllabusId  String
-  syllabus    Syllabus            @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
+  syllabus    Syllabus           @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
   title       String
   description String?
-  duration    Int                 @default(60)
-  completed   Boolean             @default(false)
-  topicOrder  Int                 @default(0)
+  duration    Int                @default(60)
+  completed   Boolean            @default(false)
+  topicOrder  Int                @default(0)
   subtopics   SyllabusSubtopic[]
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
 
   @@index([syllabusId])
 }
@@ -325,18 +333,18 @@ model SyllabusSubtopic {
 // ── Questions & Assessment ──
 
 model Question {
-  id             String        @id @default(uuid())
-  content        String
-  options        Json?
-  answer         String?
-  hint           String?
-  subjectId      String?
-  unitId         String?
-  difficulty     Difficulty
-  bloomLevel     BloomLevel
+  id         String     @id @default(uuid())
+  content    String
+  options    Json?
+  answer     String?
+  hint       String?
+  subjectId  String?
+  unitId     String?
+  difficulty Difficulty
+  bloomLevel BloomLevel
 
-  authorId String
-  author   User      @relation("QuestionAuthor", fields: [authorId], references: [id])
+  authorId       String
+  author         User          @relation("QuestionAuthor", fields: [authorId], references: [id])
   organizationId String?
   organization   Organization? @relation("OrganizationQuestions", fields: [organizationId], references: [id])
 
@@ -352,19 +360,20 @@ model Question {
   @@index([isPublished])
   @@index([subjectId])
   @@index([organizationId])
+  @@index([authorId])
 }
 
 model QuestionReview {
-  id               String   @id @default(uuid())
-  questionId       String
-  question         Question @relation(fields: [questionId], references: [id])
-  reviewerId       String
-  reviewer         User     @relation(fields: [reviewerId], references: [id])
-  status           String
-  comments         String?
-  reason           String?
-  requiredChanges  String?
-  createdAt        DateTime @default(now())
+  id              String   @id @default(uuid())
+  questionId      String
+  question        Question @relation(fields: [questionId], references: [id])
+  reviewerId      String
+  reviewer        User     @relation(fields: [reviewerId], references: [id])
+  status          String
+  comments        String?
+  reason          String?
+  requiredChanges String?
+  createdAt       DateTime @default(now())
 
   @@index([questionId])
   @@index([reviewerId])
@@ -377,8 +386,8 @@ model Assessment {
   totalMarks Int     @default(100)
   status     String  @default("DRAFT")
 
-  authorId String
-  author   User   @relation(fields: [authorId], references: [id])
+  authorId       String
+  author         User          @relation(fields: [authorId], references: [id])
   organizationId String?
   organization   Organization? @relation("OrganizationAssessments", fields: [organizationId], references: [id])
 
@@ -388,6 +397,7 @@ model Assessment {
   questions AssessmentQuestion[]
 
   @@index([organizationId])
+  @@index([authorId])
 }
 
 model AssessmentQuestion {
@@ -400,6 +410,7 @@ model AssessmentQuestion {
   order        Int        @default(0)
 
   @@index([assessmentId])
+  @@index([questionId])
 }
 
 // ── Assignment & Papers ──
@@ -448,21 +459,21 @@ model Assignment {
 }
 
 model GeneratedPaper {
-  id                String     @id @default(uuid())
+  id                String       @id @default(uuid())
   assignmentId      String
-  assignment        Assignment @relation(fields: [assignmentId], references: [id])
+  assignment        Assignment   @relation(fields: [assignmentId], references: [id])
   organizationId    String
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   title             String
   totalMarks        Int
-  duration          Int        @default(45)
+  duration          Int          @default(45)
   sections          Json
   canonicalMetadata Json?
   pdfPath           String?
   pdfUrl            String?
-  generatedAt       DateTime   @default(now())
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  generatedAt       DateTime     @default(now())
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
   @@index([assignmentId, generatedAt])
   @@index([organizationId])
@@ -492,7 +503,7 @@ model GenerationJob {
 // ── Quiz Sessions ──
 
 model QuizSession {
-  id               String   @id @default(uuid())
+  id               String        @id @default(uuid())
   topic            String
   subject          String
   organizationId   String?
@@ -504,9 +515,9 @@ model QuizSession {
   totalQuestions   Int
   score            Int
   attempts         Json
-  userId           String   @default("demo-faculty-id")
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  userId           String        @default("demo-faculty-id")
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   questions QuizSessionQuestion[]
 
@@ -593,11 +604,11 @@ model PasswordResetToken {
 // ── Prompt Templates & Execution ──
 
 model PromptTemplate {
-  id             String        @id @default(uuid())
-  name           String        @unique
+  id             String          @id @default(uuid())
+  name           String          @unique
   description    String?
   organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization?   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   versions       PromptVersion[]
 
   @@index([organizationId])
@@ -635,6 +646,8 @@ model PromptExecution {
   createdAt        DateTime      @default(now())
 
   @@index([organizationId])
+  @@index([userId])
+  @@index([promptVersionId])
 }
 
 // ── Question Bank ──
@@ -692,21 +705,22 @@ model AuditLog {
 
   @@index([organizationId])
   @@index([createdAt])
+  @@index([userId])
 }
 
 // ── Subscription ──
 
 model Subscription {
-  id              String           @id @default(uuid())
-  organizationId   String          @unique
-  organization     Organization    @relation(fields: [organizationId], references: [id])
+  id               String           @id @default(uuid())
+  organizationId   String           @unique
+  organization     Organization     @relation(fields: [organizationId], references: [id])
   plan             SubscriptionTier @default(FREE)
-  status           String          @default("ACTIVE")
+  status           String           @default("ACTIVE")
   stripeCustomerId String?
   stripeSubId      String?
   expiresAt        DateTime
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
   invoices         Invoice[]
 
   @@index([organizationId])
@@ -733,7 +747,7 @@ model Rubric {
   title          String
   description    String?
   organizationId String?
-  organization   Organization?            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization?             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   authorId       String
   criteria       RubricCriterion[]
   configs        AssignmentGradingConfig[]
@@ -741,6 +755,7 @@ model Rubric {
   updatedAt      DateTime                  @updatedAt
 
   @@index([organizationId])
+  @@index([authorId])
 }
 
 model RubricCriterion {
@@ -924,18 +939,18 @@ model UserRole {
 // ── Classes & Groups ──
 
 model Class {
-  id             String       @id @default(uuid())
+  id             String         @id @default(uuid())
   grade          String
   section        String
   academicYear   String
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   facultyId      String?
-  faculty        User?        @relation("ClassFaculty", fields: [facultyId], references: [id], onDelete: SetNull)
+  faculty        User?          @relation("ClassFaculty", fields: [facultyId], references: [id], onDelete: SetNull)
   students       ClassStudent[]
   assignments    Assignment[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   @@index([organizationId])
   @@index([facultyId])
@@ -955,16 +970,16 @@ model ClassStudent {
 }
 
 model Group {
-  id             String       @id @default(uuid())
+  id             String         @id @default(uuid())
   name           String
-  subject        String       @default("General")
+  subject        String         @default("General")
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   facultyId      String?
-  faculty        User?        @relation("GroupFaculty", fields: [facultyId], references: [id], onDelete: SetNull)
+  faculty        User?          @relation("GroupFaculty", fields: [facultyId], references: [id], onDelete: SetNull)
   students       GroupStudent[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   @@index([organizationId])
   @@index([facultyId])
@@ -1005,22 +1020,22 @@ model Notification {
 // ── Community Hub ──
 
 model CommunityPost {
-  id             String   @id @default(uuid())
+  id             String        @id @default(uuid())
   authorId       String
-  author         User     @relation("CommunityPosts", fields: [authorId], references: [id], onDelete: Cascade)
+  author         User          @relation("CommunityPosts", fields: [authorId], references: [id], onDelete: Cascade)
   title          String?
   content        String
-  type           String   @default("DISCUSSION") // DISCUSSION, QUESTION, PROJECT, ANNOUNCEMENT
-  attachments    Json?    @default("[]")
-  tags           Json?    @default("[]")
+  type           String        @default("DISCUSSION") // DISCUSSION, QUESTION, PROJECT, ANNOUNCEMENT
+  attachments    Json?         @default("[]")
+  tags           Json?         @default("[]")
   imageUrl       String?
-  likesCount     Int      @default(0)
-  commentsCount  Int      @default(0)
-  visibility     String   @default("PUBLIC") // PUBLIC, PRIVATE, ORG_ONLY
+  likesCount     Int           @default(0)
+  commentsCount  Int           @default(0)
+  visibility     String        @default("PUBLIC") // PUBLIC, PRIVATE, ORG_ONLY
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([authorId])
   @@index([organizationId])
@@ -1040,20 +1055,20 @@ model CommunityGroup {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  members        GroupMember[]
+  members GroupMember[]
 
   @@index([ownerId])
   @@index([organizationId])
 }
 
 model GroupMember {
-  id        String         @id @default(uuid())
-  groupId   String
-  group     CommunityGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User           @relation("GroupMemberships", fields: [userId], references: [id], onDelete: Cascade)
-  role      String         @default("MEMBER") // OWNER, ADMIN, MEMBER
-  joinedAt  DateTime       @default(now())
+  id       String         @id @default(uuid())
+  groupId  String
+  group    CommunityGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User           @relation("GroupMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  role     String         @default("MEMBER") // OWNER, ADMIN, MEMBER
+  joinedAt DateTime       @default(now())
 
   @@unique([groupId, userId])
   @@index([userId])
@@ -1061,7 +1076,7 @@ model GroupMember {
 
 model Message {
   id             String   @id @default(uuid())
-  conversationId String   // Group ID or DM Room ID
+  conversationId String // Group ID or DM Room ID
   senderId       String
   sender         User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
   message        String
@@ -1073,15 +1088,15 @@ model Message {
 }
 
 model VoiceRoom {
-  id             String   @id @default(uuid())
+  id             String                 @id @default(uuid())
   name           String
   createdById    String
-  createdBy      User     @relation("CreatedVoiceRooms", fields: [createdById], references: [id], onDelete: Cascade)
-  type           String   @default("CASUAL") // STUDY, PROJECT, CASUAL, INTERVIEW
-  isActive       Boolean  @default(true)
+  createdBy      User                   @relation("CreatedVoiceRooms", fields: [createdById], references: [id], onDelete: Cascade)
+  type           String                 @default("CASUAL") // STUDY, PROJECT, CASUAL, INTERVIEW
+  isActive       Boolean                @default(true)
   organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt      DateTime @default(now())
+  organization   Organization?          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime               @default(now())
   participants   VoiceRoomParticipant[]
 
   @@index([createdById])
@@ -1089,13 +1104,13 @@ model VoiceRoom {
 }
 
 model VoiceRoomParticipant {
-  id         String    @id @default(uuid())
-  roomId     String
-  room       VoiceRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  userId     String
-  user       User      @relation("VoiceParticipations", fields: [userId], references: [id], onDelete: Cascade)
-  joinedAt   DateTime  @default(now())
-  leftAt     DateTime?
+  id       String    @id @default(uuid())
+  roomId   String
+  room     VoiceRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User      @relation("VoiceParticipations", fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
 
   @@unique([roomId, userId])
   @@index([roomId])
@@ -1103,15 +1118,15 @@ model VoiceRoomParticipant {
 }
 
 model Meeting {
-  id             String   @id @default(uuid())
+  id             String        @id @default(uuid())
   title          String
   hostId         String
-  host           User     @relation("HostedMeetings", fields: [hostId], references: [id], onDelete: Cascade)
+  host           User          @relation("HostedMeetings", fields: [hostId], references: [id], onDelete: Cascade)
   scheduledAt    DateTime
   meetingLink    String?
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt      DateTime @default(now())
+  createdAt      DateTime      @default(now())
 
   @@index([hostId])
   @@index([organizationId])

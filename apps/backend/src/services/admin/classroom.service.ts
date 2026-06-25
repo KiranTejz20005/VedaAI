@@ -14,16 +14,19 @@ export class ClassroomService {
   }
 
   static async getClassrooms(organizationId?: string) {
-    return prisma.class.findMany({
+    const classes = await prisma.class.findMany({
       where: organizationId ? { organizationId } : {},
-      orderBy: [
-        { grade: 'asc' },
-        { section: 'asc' }
-      ],
       include: {
         faculty: { select: { firstName: true, lastName: true } },
         _count: { select: { students: true } },
       },
+    });
+
+    // Natural sort: 1, 2, 9, 10, 11
+    return classes.sort((a, b) => {
+      const cmp = a.grade.localeCompare(b.grade, undefined, { numeric: true, sensitivity: 'base' });
+      if (cmp === 0) return a.section.localeCompare(b.section);
+      return cmp;
     });
   }
 

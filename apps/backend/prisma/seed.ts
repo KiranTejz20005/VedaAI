@@ -67,7 +67,7 @@ async function main() {
   }
 
   // 3. Seed Default SUPER_ADMIN user
-  const adminEmail = 'admin@vedaai.com';
+  const adminEmail = 'admin@vidyaai.com';
   let adminUser = await prisma.user.findUnique({ where: { email: adminEmail } });
   
   if (!adminUser) {
@@ -109,8 +109,8 @@ async function main() {
     inst = await prisma.institution.create({
       data: {
         id: 'demo-inst-id',
-        name: 'VedaAI Demo School',
-        email: 'info@vedaai.demo',
+        name: 'VidyaAI Demo School',
+        email: 'info@vidyaai.demo',
         code: 'VEDAAI_DEMO',
         address: '123 AI Boulevard, Silicon Valley',
         phone: '+1-555-0199',
