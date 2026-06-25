@@ -15,6 +15,12 @@ interface AuditEntry {
   id: string;
   userId: string | null;
   userEmail?: string;
+  user?: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: string;
+  };
   action: string;
   entity: string;
   entityId: string;
@@ -140,14 +146,17 @@ export default function SuperAdminAudit() {
                     </tr>
                   </thead>
                   <tbody>
-                    {logs.map(log => (
+                    {logs.map(log => {
+                      const userName = log.user ? `${log.user.firstName} ${log.user.lastName}`.trim() : (log.userEmail || log.userId || 'System');
+                      
+                      return (
                       <tr key={log.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.1s' }}
                         onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
                         <td style={{ padding: '10px 14px', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap', fontSize: 'var(--text-xs)' }}>
                           {new Date(log.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </td>
-                        <td style={{ padding: '10px 14px', color: 'var(--text-primary)', fontWeight: 600 }}>{log.userEmail || log.userId || 'System'}</td>
+                        <td style={{ padding: '10px 14px', color: 'var(--text-primary)', fontWeight: 600 }}>{userName}</td>
                         <td style={{ padding: '10px 14px' }}>
                           <Badge variant={getActionVariant(log.action)}>
                             {log.action.replace(/_/g, ' ')}
@@ -155,14 +164,16 @@ export default function SuperAdminAudit() {
                         </td>
                         <td style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>
                           <div>{log.entity || '-'}</div>
-                          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{log.entityId ? log.entityId.substring(0, 12) + '...' : '-'}</div>
+                          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                            {log.metadata?.name ? String(log.metadata.name) : (log.entityId ? log.entityId.substring(0, 12) + '...' : '-')}
+                          </div>
                         </td>
                         <td style={{ padding: '10px 14px', color: 'var(--text-secondary)', fontFamily: 'monospace', fontSize: 'var(--text-xs)' }}>{formatIpAddress(log.ipAddress)}</td>
                         <td style={{ padding: '10px 14px', textAlign: 'right' }}>
                           <Button variant="ghost" size="sm" onClick={() => setSelectedLog(log)}>View</Button>
                         </td>
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                 </table>
               </div>
@@ -201,9 +212,9 @@ export default function SuperAdminAudit() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 'var(--text-sm)' }}>
                 {[
                   { label: 'Timestamp', value: new Date(selectedLog.createdAt).toLocaleString() },
-                  { label: 'User', value: selectedLog.userEmail || selectedLog.userId || 'System' },
+                  { label: 'User', value: selectedLog.user ? `${selectedLog.user.firstName} ${selectedLog.user.lastName}`.trim() : (selectedLog.userEmail || selectedLog.userId || 'System') },
                   { label: 'Entity', value: selectedLog.entity || '-' },
-                  { label: 'Entity ID', value: selectedLog.entityId || '-' },
+                  { label: 'Entity ID', value: selectedLog.metadata?.name ? String(selectedLog.metadata.name) : (selectedLog.entityId || '-') },
                   { label: 'IP Address', value: formatIpAddress(selectedLog.ipAddress) },
                 ].map(({ label, value }) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between' }}>

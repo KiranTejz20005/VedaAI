@@ -146,6 +146,7 @@ model User {
   passwordHash           String
   firstName              String
   lastName               String
+  avatar                 String?       @db.Text
   role                   SystemRole    @default(TEACHER)
   phone                  String?
   status                 String        @default("ACTIVE")
@@ -184,6 +185,7 @@ model User {
   voiceParticipations VoiceRoomParticipant[] @relation("VoiceParticipations")
   hostedMeetings      Meeting[]              @relation("HostedMeetings")
   questionCollections QuestionCollection[]
+  auditLogs           AuditLog[]
 
   @@index([organizationId])
   @@index([departmentId])
@@ -693,6 +695,7 @@ model QuestionVersion {
 model AuditLog {
   id             String        @id @default(uuid())
   userId         String?
+  user           User?         @relation(fields: [userId], references: [id])
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   action         String

@@ -20,6 +20,7 @@ import { emitToAssignment } from './sockets/socket.server';
 import apiRouter from './routes';
 import { errorMiddleware } from './middlewares/error.middleware';
 import { logger } from './utils/logger';
+import { AuditService } from './services/audit.service';
 
 // ── Bootstrap phase tracking ──
 let isBootstrapping = false;
@@ -192,6 +193,13 @@ async function startBackgroundWorkers() {
       `[STALL] redis=${diag.status} connects=${diag.connectCount} reconnects=${diag.reconnectCount} errors=${diag.errorCount} stalled=${getStalledAiJobCount()} active=${getActiveAiJobCount()}`
     );
   }, STALL_MONITOR_INTERVAL_MS);
+
+  // Audit log pruning (Run once every 12 hours)
+  setInterval(() => {
+    AuditService.pruneOldLogs(15).catch((e) => logger.error('[WATCHDOG] Audit log pruning failed:', e));
+  }, 12 * 60 * 60 * 1000);
+  // Run once immediately on startup
+  AuditService.pruneOldLogs(15).catch((e) => logger.error('[WATCHDOG] Initial audit log pruning failed:', e));
 
   logBoot('workers', 'Background workers ready');
 }

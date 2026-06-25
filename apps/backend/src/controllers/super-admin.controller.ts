@@ -322,11 +322,14 @@ export const getPlatformAnalytics = async (_req: Request, res: Response): Promis
     res.json({
       success: true,
       data: {
-        totalOrganizations,
-        activeOrganizations,
-        totalUsers,
-        totalAssignments,
-        totalGeneratedPapers
+        totals: {
+          organizations: totalOrganizations,
+          users: totalUsers,
+          assessments: totalAssignments,
+          papers: totalGeneratedPapers
+        },
+        usageTrends: [],
+        topOrganizations: []
       }
     });
   } catch (error) {

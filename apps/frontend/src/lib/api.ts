@@ -152,13 +152,16 @@ api.interceptors.response.use(
             } else {
               throw new Error('No access token returned from refresh');
             }
-          } catch (refreshError) {
+            } catch (refreshError) {
             processQueue(refreshError, null);
             try {
               const { useAuthStore } = await import('@/store/auth.store');
               useAuthStore.getState().clearAuth();
             } catch {
               // ignore
+            }
+            if (typeof window !== 'undefined') {
+              window.location.href = '/login';
             }
             return Promise.reject(new Error('Session expired. Please log in again.'));
           } finally {
@@ -183,6 +186,9 @@ api.interceptors.response.use(
           useAuthStore.getState().clearAuth();
         } catch {
           // ignore
+        }
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
         }
       }
 

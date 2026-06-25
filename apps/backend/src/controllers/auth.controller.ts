@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { logger } from '../utils/logger';
+import { AuditService } from '../services/audit.service';
 import {
   hashPassword,
   verifyPassword,
@@ -102,6 +103,16 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       },
     });
 
+    await AuditService.logAuditEvent({
+      action: 'SIGNUP_SUCCESS',
+      userId: user.id,
+      organizationId: user.organizationId || undefined,
+      entity: 'User',
+      entityId: user.id,
+      ipAddress,
+      userAgent
+    });
+
     const sessionExpiry = new Date();
     sessionExpiry.setDate(sessionExpiry.getDate() + 30);
     await prisma.session.create({
@@ -169,15 +180,14 @@ export const acceptInvite = async (req: Request, res: Response): Promise<void> =
       data: { status: 'ACCEPTED', acceptedAt: new Date() }
     });
 
-    await prisma.auditLog.create({
-      data: {
-        action: 'INVITATION_ACCEPTED',
-        entity: 'User',
-        entityId: user.id,
-        userId: user.id,
-        ipAddress: req.ip || '0.0.0.0',
-        userAgent: req.headers['user-agent'] || 'unknown',
-      }
+    await AuditService.logAuditEvent({
+      action: 'INVITATION_ACCEPTED',
+      entity: 'User',
+      entityId: user.id,
+      userId: user.id,
+      organizationId: user.organizationId || undefined,
+      ipAddress: req.ip || '0.0.0.0',
+      userAgent: req.headers['user-agent'] || 'unknown',
     });
 
     res.status(201).json({
@@ -221,6 +231,16 @@ export const login = async (req: Request, res: Response): Promise<void> => {
           status: 'FAILED_PASSWORD',
         },
       });
+
+      await AuditService.logAuditEvent({
+        action: 'LOGIN_FAILED',
+        userId: user.id,
+        organizationId: user.organizationId || undefined,
+        ipAddress,
+        userAgent,
+        metadata: { reason: 'FAILED_PASSWORD' }
+      });
+
       res.status(401).json({ success: false, error: 'Invalid email or password' });
       return;
     }
@@ -245,6 +265,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         userAgent,
         status: 'SUCCESS',
       },
+    });
+
+    await AuditService.logAuditEvent({
+      action: 'LOGIN_SUCCESS',
+      userId: user.id,
+      organizationId: user.organizationId || undefined,
+      ipAddress,
+      userAgent
     });
 
     // Create session record
@@ -349,6 +377,7 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
         departmentName: user.department?.name || null,
         preferences: user.preferences || {},
         hasCompletedOnboarding: user.hasCompletedOnboarding,
+        avatar: user.avatar,
       },
     });
   } catch (error) {
@@ -387,7 +416,7 @@ export const completeOnboarding = async (req: Request, res: Response): Promise<v
 export const updateProfile = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = getUserId(req);
-    const { firstName, lastName, email } = req.body;
+    const { firstName, lastName, email, avatar } = req.body;
 
     const user = await prisma.user.update({
       where: { id: userId },
@@ -395,6 +424,7 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         ...(firstName && { firstName }),
         ...(lastName && { lastName }),
         ...(email && { email }),
+        ...(avatar !== undefined && { avatar }),
       },
       include: { organization: true },
     });
@@ -407,6 +437,7 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         role: user.role,
         firstName: user.firstName,
         lastName: user.lastName,
+        avatar: user.avatar,
         organizationName: user.organization?.name || '',
       },
       message: 'Profile updated successfully',
@@ -522,35 +553,160 @@ export const switchOrganization = async (req: Request, res: Response): Promise<v
       res.status(404).json({ success: false, error: 'User not found' });
       return;
     }
+    // Check if user belongs to this org
+    const userOrg = await prisma.user.findFirst({
+      where: {
+        id: userId,
+        organizationId: organizationId,
+      },
+    });
 
-    if (user.role !== 'SUPER_ADMIN') {
-      // Regular users can only switch to organizations they belong to
-      const org = await prisma.organization.findFirst({
-        where: {
-          id: organizationId,
-          users: { some: { id: userId } }
-        }
-      });
-      if (!org) {
-        res.status(403).json({ success: false, error: 'Access denied to this organization' });
-        return;
-      }
+    if (!userOrg && (req as any).user?.role !== 'SUPER_ADMIN') {
+      res.status(403).json({ success: false, error: 'Access denied to this organization' });
+      return;
     }
 
-    // Update active organization
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { activeOrganizationId: organizationId }
+      data: { activeOrganizationId: organizationId },
+      include: { organization: true },
+    });
+
+    // Re-issue tokens for new active org
+    const accessToken = generateAccessToken({
+      userId: updatedUser.id,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      organizationId: updatedUser.organizationId,
+      activeOrganizationId: updatedUser.activeOrganizationId,
+      departmentId: updatedUser.departmentId,
     });
 
     res.json({
       success: true,
-      message: 'Organization switched successfully',
-      data: { activeOrganizationId: organizationId }
+      message: 'Switched organization successfully',
+      data: {
+        accessToken,
+        organizationName: updatedUser.organization?.name,
+      },
     });
   } catch (error) {
     logger.error(`[switchOrganization] ${error}`);
     res.status(500).json({ success: false, error: 'Failed to switch organization' });
+  }
+};
+
+// ── GET /auth/me/sessions ──
+export const getSessions = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = getUserId(req);
+    const sessions = await prisma.session.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ success: true, data: sessions });
+  } catch (error) {
+    logger.error(`[getSessions] ${error}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch sessions' });
+  }
+};
+
+// ── DELETE /auth/me/sessions/:id ──
+export const revokeSessionById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = getUserId(req);
+    const sessionId = req.params.id;
+
+    await prisma.session.deleteMany({
+      where: {
+        id: sessionId,
+        userId: userId
+      }
+    });
+
+    res.json({ success: true, message: 'Session revoked successfully' });
+  } catch (error) {
+    logger.error(`[revokeSessionById] ${error}`);
+    res.status(500).json({ success: false, error: 'Failed to revoke session' });
+  }
+};
+
+// ── PUT /auth/me/password ──
+export const changePassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = getUserId(req);
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ success: false, error: 'Current password and new password are required' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      res.status(404).json({ success: false, error: 'User not found' });
+      return;
+    }
+
+    const isMatch = await verifyPassword(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      res.status(400).json({ success: false, error: 'Incorrect current password' });
+      return;
+    }
+
+    const newPasswordHash = await hashPassword(newPassword);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: newPasswordHash },
+    });
+
+    res.json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    logger.error(`[changePassword] ${error}`);
+    res.status(500).json({ success: false, error: 'Failed to change password' });
+  }
+};
+
+// ── GET /auth/me/storage ──
+export const getStorageUsage = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = getUserId(req);
+    const user = await prisma.user.findUnique({ where: { id: userId }, include: { organization: true } });
+    
+    if (!user?.organizationId) {
+      res.json({ success: true, data: { used: 0, limit: 104857600 } }); // 100MB in bytes
+      return;
+    }
+
+    const orgId = user.organizationId;
+    
+    // Calculate approximate storage used based on records (dummy calculation for realistic data)
+    // In a real scenario with Supabase storage, we'd query the bucket size.
+    // For DB rows, we'll estimate:
+    const usersCount = await prisma.user.count({ where: { organizationId: orgId } });
+    const studentsCount = await prisma.student.count({ where: { group: { organizationId: orgId } } });
+    const filesCount = await prisma.generatedPaper.count({ where: { organizationId: orgId } });
+    const logsCount = await prisma.auditLog.count({ where: { organizationId: orgId } });
+
+    // Assuming ~5KB per user, ~2KB per student, ~500KB per generated paper, ~1KB per log
+    const estimatedBytes = (usersCount * 5000) + (studentsCount * 2000) + (filesCount * 500000) + (logsCount * 1000);
+    const usedBytes = Math.max(1024 * 1024, estimatedBytes); // Floor at 1MB if there's any data
+    const limitBytes = 100 * 1024 * 1024; // 100MB
+
+    res.json({ 
+      success: true, 
+      data: { 
+        used: usedBytes,
+        limit: limitBytes,
+        formattedUsed: (usedBytes / (1024 * 1024)).toFixed(1) + ' MB',
+        formattedLimit: '100 MB',
+        percentage: Math.min(100, Math.round((usedBytes / limitBytes) * 100))
+      } 
+    });
+  } catch (error) {
+    logger.error(`[getStorageUsage] ${error}`);
+    res.status(500).json({ success: false, error: 'Failed to calculate storage' });
   }
 };
 

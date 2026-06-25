@@ -568,6 +568,17 @@ export class AdminController {
       const classroom = await ClassroomService.createClassroom({ 
         grade, section, academicYear, facultyId, organizationId: orgId 
       });
+      
+      await AuditService.logAuditEvent({
+        action: 'CLASSROOM_CREATED',
+        userId: req.user?.id,
+        organizationId: orgId,
+        entity: 'Class',
+        entityId: classroom.id,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+
       res.status(201).json({ success: true, data: classroom });
     } catch (err: any) {
       logger.error(`[Admin:createClassroom] ${err}`);
@@ -584,6 +595,17 @@ export class AdminController {
         return;
       }
       const classroom = await ClassroomService.updateClassroom(req.params.id, req.body);
+      
+      await AuditService.logAuditEvent({
+        action: 'CLASSROOM_UPDATED',
+        userId: req.user?.id,
+        organizationId: orgId,
+        entity: 'Class',
+        entityId: classroom.id,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+
       res.json({ success: true, data: classroom });
     } catch (err: any) {
       logger.error(`[Admin:updateClassroom] ${err}`);
@@ -600,6 +622,17 @@ export class AdminController {
         return;
       }
       await ClassroomService.deleteClassroom(req.params.id);
+      
+      await AuditService.logAuditEvent({
+        action: 'CLASSROOM_DELETED',
+        userId: req.user?.id,
+        organizationId: orgId,
+        entity: 'Class',
+        entityId: req.params.id,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+
       res.json({ success: true, message: 'Class deleted' });
     } catch (err: any) {
       logger.error(`[Admin:deleteClassroom] ${err}`);
@@ -1024,10 +1057,48 @@ export class AdminController {
   static async getAuditLogs(req: Request, res: Response) {
     try {
       const orgId = getAdminOrgIdOptional(req);
+      const { action, search, dateFrom, dateTo } = req.query;
+      
+      const where: any = {};
+      if (orgId) where.organizationId = orgId;
+      if (action) where.action = String(action);
+      // Trigger restart 2
+      
+      if (search) {
+        const searchTerm = String(search).trim();
+        where.OR = [
+          { ipAddress: { contains: searchTerm, mode: 'insensitive' } },
+          { action: { contains: searchTerm, mode: 'insensitive' } },
+          { user: { firstName: { contains: searchTerm, mode: 'insensitive' } } },
+          { user: { lastName: { contains: searchTerm, mode: 'insensitive' } } },
+          { user: { email: { contains: searchTerm, mode: 'insensitive' } } }
+        ];
+      }
+      
+      if (dateFrom || dateTo) {
+        where.createdAt = {};
+        if (dateFrom) where.createdAt.gte = new Date(String(dateFrom));
+        if (dateTo) {
+          const end = new Date(String(dateTo));
+          end.setHours(23, 59, 59, 999);
+          where.createdAt.lte = end;
+        }
+      }
+
       const logs = await prisma.auditLog.findMany({
-        where: orgId ? { organizationId: orgId } : undefined,
+        where,
         orderBy: { createdAt: 'desc' },
-        take: 100,
+        take: 500, // Fetch more logs
+        include: {
+          user: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true,
+              role: true
+            }
+          }
+        }
       });
       res.json({ success: true, data: logs });
     } catch (err: any) {
@@ -1516,15 +1587,49 @@ export class AdminController {
   static async createStudent(req: Request, res: Response) {
     try {
       const orgId = getAdminOrgId(req);
-      const { firstName, lastName, email } = req.body;
+      const { firstName, lastName, email, phone } = req.body;
       if (!firstName || !lastName || !email) {
         res.status(400).json({ success: false, error: 'firstName, lastName, and email are required' }); return;
       }
       const pwdHash = await argon2.hash('Student@123');
       const preferences = { rollNo: req.body.rollNo, classId: req.body.classId, section: req.body.section };
       const user = await prisma.user.create({
-        data: { firstName, lastName, email, passwordHash: pwdHash, role: 'STUDENT', organizationId: orgId, forcePasswordReset: true, hasCompletedOnboarding: true, preferences },
+        data: { 
+          firstName, 
+          lastName, 
+          email, 
+          phone: phone || null,
+          passwordHash: pwdHash, 
+          role: 'STUDENT', 
+          organizationId: orgId, 
+          forcePasswordReset: true, 
+          hasCompletedOnboarding: true, 
+          preferences
+        },
       });
+      
+      // Sync to ClassStudent
+      if (req.body.classId) {
+        await prisma.classStudent.create({
+          data: {
+            classId: req.body.classId,
+            name: `${firstName} ${lastName}`,
+            rollNo: req.body.rollNo || '',
+            email: email
+          }
+        });
+      }
+
+      await AuditService.logAuditEvent({
+        action: 'STUDENT_CREATED',
+        userId: req.user?.id,
+        organizationId: orgId,
+        entity: 'User',
+        entityId: user.id,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+
       res.status(201).json({ success: true, data: user });
     } catch (err: any) {
       logger.error(`[Admin:createStudent] ${err}`);
@@ -1534,11 +1639,12 @@ export class AdminController {
 
   static async updateStudent(req: Request, res: Response) {
     try {
-      const { firstName, lastName, email } = req.body;
+      const { firstName, lastName, email, phone } = req.body;
       const data: any = {};
       if (firstName) data.firstName = firstName;
       if (lastName) data.lastName = lastName;
       if (email) data.email = email;
+      if (phone !== undefined) data.phone = phone || null;
       
       const existingUser = await prisma.user.findUnique({ where: { id: req.params.id } });
       const preferences = { 
@@ -1550,7 +1656,53 @@ export class AdminController {
       data.preferences = preferences;
 
       const user = await prisma.user.update({ where: { id: req.params.id }, data });
-      res.json({ success: true, data: user });
+
+      // Sync to ClassStudent
+      if (existingUser?.email) {
+        // Find existing ClassStudent by email
+        const existingClassStudent = await prisma.classStudent.findFirst({
+          where: { email: existingUser.email }
+        });
+        
+        if (existingClassStudent) {
+          if (req.body.classId) {
+            await prisma.classStudent.update({
+              where: { id: existingClassStudent.id },
+              data: {
+                classId: req.body.classId,
+                name: `${user.firstName} ${user.lastName}`,
+                rollNo: preferences.rollNo || '',
+                email: user.email
+              }
+            });
+          } else {
+            // Unassigned from class
+            await prisma.classStudent.delete({ where: { id: existingClassStudent.id } });
+          }
+        } else if (req.body.classId) {
+          // Assigned to class for the first time
+          await prisma.classStudent.create({
+            data: {
+              classId: req.body.classId,
+              name: `${user.firstName} ${user.lastName}`,
+              rollNo: preferences.rollNo || '',
+              email: user.email
+            }
+          });
+        }
+      }
+
+      await AuditService.logAuditEvent({
+        action: 'STUDENT_UPDATED',
+        userId: req.user?.id,
+        organizationId: getAdminOrgIdOptional(req),
+        entity: 'User',
+        entityId: user.id,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+
+      res.status(200).json({ success: true, data: user });
     } catch (err: any) {
       logger.error(`[Admin:updateStudent] ${err}`);
       res.status(500).json({ success: false, error: err.message });

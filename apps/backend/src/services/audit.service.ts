@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 
 export interface AuditLogPayload {
   userId?: string;
+  organizationId?: string;
   action: string;
   entity?: string;
   entityId?: string;
@@ -17,6 +18,7 @@ export class AuditService {
       await prisma.auditLog.create({
         data: {
           userId: payload.userId || null,
+          organizationId: payload.organizationId || null,
           action: payload.action,
           entity: payload.entity || null,
           entityId: payload.entityId || null,
@@ -27,6 +29,25 @@ export class AuditService {
       });
     } catch (error) {
       logger.error(`[AuditService] Failed to log event: ${error}`);
+    }
+  }
+
+  static async pruneOldLogs(daysRetained: number = 15): Promise<void> {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysRetained);
+      const result = await prisma.auditLog.deleteMany({
+        where: {
+          createdAt: {
+            lt: cutoffDate
+          }
+        }
+      });
+      if (result.count > 0) {
+        logger.info(`[AuditService] Pruned ${result.count} audit logs older than ${daysRetained} days.`);
+      }
+    } catch (error) {
+      logger.error(`[AuditService] Failed to prune logs: ${error}`);
     }
   }
 

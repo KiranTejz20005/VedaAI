@@ -31,6 +31,12 @@ export default function ClassesManagement() {
   const [section, setSection] = useState('A');
   const [academicYear, setAcademicYear] = useState(new Date().getFullYear().toString());
 
+  const [showStudentsModal, setShowStudentsModal] = useState(false);
+  const [viewingClass, setViewingClass] = useState<ClassRecord | null>(null);
+  const [classStudents, setClassStudents] = useState<any[]>([]);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [studentSearch, setStudentSearch] = useState('');
+
   const loadData = async (isInitial = false) => {
     try {
       setLoading(true);
@@ -144,6 +150,24 @@ export default function ClassesManagement() {
     }
   };
 
+  const handleViewStudents = async (c: ClassRecord) => {
+    setViewingClass(c);
+    setShowStudentsModal(true);
+    setStudentsLoading(true);
+    try {
+      const res = await api.get('/admin/students');
+      if (res.data?.success) {
+        const filtered = res.data.data.filter((s: any) => s.classId === c.id);
+        setClassStudents(filtered);
+        setStudentSearch('');
+      }
+    } catch (err) {
+      toast.error('Failed to load students');
+    } finally {
+      setStudentsLoading(false);
+    }
+  };
+
   const filteredList = list.filter(c =>
     (c.grade || '').toLowerCase().includes(search.toLowerCase()) ||
     (c.section || '').toLowerCase().includes(search.toLowerCase())
@@ -158,6 +182,12 @@ export default function ClassesManagement() {
     }
     return (a.grade || '').localeCompare(b.grade || '');
   });
+
+  const filteredClassStudents = classStudents.filter(s => 
+    `${s.firstName} ${s.lastName}`.toLowerCase().includes(studentSearch.toLowerCase()) ||
+    (s.rollNo || '').toLowerCase().includes(studentSearch.toLowerCase()) ||
+    s.email.toLowerCase().includes(studentSearch.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
@@ -204,18 +234,18 @@ export default function ClassesManagement() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {sortedList.map((c) => (
-              <div key={c.id} className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 hover:shadow-md transition-all">
+              <div key={c.id} onClick={() => handleViewStudents(c)} className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer">
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <h3 className="font-bold text-lg text-gray-900">Class {c.grade}</h3>
                     <p className="text-sm text-gray-600">Section {c.section}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => handleOpenEdit(c)} className="p-1 hover:bg-white rounded text-gray-600" title="Edit"><Edit3 size={16} /></button>
                     <button onClick={() => handleDelete(c.id)} className="p-1 hover:bg-white rounded text-red-600" title="Delete"><Trash2 size={16} /></button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600 bg-white bg-opacity-50 px-3 py-2 rounded">
+                <div className="flex items-center gap-2 text-sm text-gray-600 bg-white bg-opacity-50 px-3 py-2 rounded w-max">
                   <Users size={16} />
                   <span>{c._count?.students || 0} Students</span>
                 </div>
@@ -289,6 +319,66 @@ export default function ClassesManagement() {
                 <Layers size={18} /> Generate Classes
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showStudentsModal && viewingClass && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="max-w-2xl w-full bg-white rounded-lg shadow-xl border border-gray-200 p-6 relative max-h-[80vh] flex flex-col">
+            <button onClick={() => setShowStudentsModal(false)} className="absolute right-4 top-4 text-gray-400 hover:text-gray-600">
+              <X size={20} />
+            </button>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">
+              Students in Class {viewingClass.grade} - Section {viewingClass.section}
+            </h3>
+            
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
+              <input
+                type="text"
+                placeholder="Search students by name, email, or roll no..."
+                value={studentSearch}
+                onChange={(e) => setStudentSearch(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-300 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            
+            <div className="flex-1 overflow-y-auto min-h-[200px] pr-2">
+              {studentsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 size={24} className="animate-spin text-blue-600" />
+                </div>
+              ) : classStudents.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  No students found in this class.
+                </div>
+              ) : filteredClassStudents.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  No students match your search.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredClassStudents.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                      <div>
+                        <div className="font-semibold text-gray-900 flex items-center gap-2">
+                          <Users size={16} className="text-blue-600" />
+                          {s.firstName} {s.lastName}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">{s.email}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-mono text-gray-700 font-semibold">{s.rollNo || 'N/A'}</div>
+                        <div className={`text-xs px-2 py-1 rounded-full mt-1 inline-block font-semibold ${s.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                          {s.status}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

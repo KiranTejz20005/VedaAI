@@ -65,7 +65,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, isLoading, user, pathname, router]);
 
   const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/register' || pathname === '/forgot-password';
-  if (isLoading && !isPublicPage) {
+  const isRedirectingToLogin = !isLoading && !isAuthenticated && !isPublicPage && pathname !== '/onboarding';
+
+  if ((isLoading || isRedirectingToLogin) && !isPublicPage) {
     return (
       <div suppressHydrationWarning style={{
         minHeight: '100vh',

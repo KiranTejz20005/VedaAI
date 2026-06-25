@@ -59,6 +59,6 @@ router.get('/organizations/:id/subscription', SuperAdminController.getOrganizati
 router.put('/organizations/:id/subscription', SuperAdminController.updateOrganizationSubscription);
 
 // Platform Analytics
-router.get('/platform/analytics', SuperAdminController.getPlatformAnalytics);
+router.get('/analytics', SuperAdminController.getPlatformAnalytics);
 
 export default router;

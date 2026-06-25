@@ -1,7 +1,7 @@
 'use client';
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Bell, Shield, Palette, Database, ChevronRight, Building2,
@@ -16,6 +16,7 @@ interface UserProfile {
   role: string;
   firstName: string;
   lastName: string;
+  avatar?: string;
   organizationName: string;
   departmentName?: string;
   preferences?: Record<string, boolean>;
@@ -63,7 +64,20 @@ function AccountPanel({ onClose, profile, onProfileUpdate }: { onClose: () => vo
   const fullName = profile ? `${profile.firstName} ${profile.lastName}` : '';
   const [name, setName] = useState(fullName);
   const [email, setEmail] = useState(profile?.email || '');
+  const [avatar, setAvatar] = useState(profile?.avatar || '');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setAvatar(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -71,8 +85,15 @@ function AccountPanel({ onClose, profile, onProfileUpdate }: { onClose: () => vo
     const firstName = parts[0] || 'User';
     const lastName = parts.slice(1).join(' ') || 'Name';
     try {
-      await apiClient.put('/auth/me', { firstName, lastName, email: email.trim() });
-      toast.success('Profile updated');
+      await apiClient.put('/auth/me', { firstName, lastName, email: email.trim(), avatar });
+      
+      if (currentPassword && newPassword) {
+        await apiClient.put('/auth/me/password', { currentPassword, newPassword });
+        toast.success('Profile and password updated');
+      } else {
+        toast.success('Profile updated');
+      }
+      
       onProfileUpdate();
       onClose();
     } catch (e) {
@@ -85,6 +106,19 @@ function AccountPanel({ onClose, profile, onProfileUpdate }: { onClose: () => vo
   return (
     <div style={{ padding: 20 }}>
       <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Profile Information</h3>
+      
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+        <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg, #E8531D, #F97316)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: 'white', flexShrink: 0, overflow: 'hidden' }}>
+          {avatar ? <img src={avatar} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (profile ? `${profile.firstName[0]}${profile.lastName[0]}` : 'JD')}
+        </div>
+        <div>
+          <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer' }}>
+            Upload Avatar
+            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
+          </label>
+        </div>
+      </div>
+
       <div className="input-group" style={{ marginBottom: 14 }}>
         <label className="label">Full Name</label>
         <input type="text" className="input" value={name} onChange={(e) => setName(e.target.value)} />
@@ -93,10 +127,17 @@ function AccountPanel({ onClose, profile, onProfileUpdate }: { onClose: () => vo
         <label className="label">Email</label>
         <input type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
       </div>
-      <div className="input-group" style={{ marginBottom: 20 }}>
-        <label className="label">Change Password</label>
-        <input type="password" className="input" placeholder="New password (leave blank to keep current)" />
+
+      <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 16 }}>Change Password</h3>
+      <div className="input-group" style={{ marginBottom: 14 }}>
+        <label className="label">Current Password</label>
+        <input type="password" className="input" placeholder="Required to change password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
       </div>
+      <div className="input-group" style={{ marginBottom: 20 }}>
+        <label className="label">New Password</label>
+        <input type="password" className="input" placeholder="Leave blank to keep current" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+      </div>
+
       <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
         <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
         <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ gap: 6 }}>
@@ -212,16 +253,28 @@ function NotificationsPanel({ onClose, profile, onProfileUpdate }: { onClose: ()
 function AppearancePanel({ onClose, profile, onProfileUpdate }: { onClose: () => void; profile: UserProfile | null; onProfileUpdate: () => void }) {
   const prefs = profile?.preferences || {};
   const [theme, setTheme] = useState(prefs.darkMode ? 'dark' : 'light');
-  const [fontSize, setFontSize] = useState('medium');
+  const [fontSize, setFontSize] = useState(prefs.fontSize || 'medium');
   const [lang, setLang] = useState('english');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
     try {
+      const darkMode = theme === 'dark';
       await apiClient.put('/auth/me/preferences', {
-        preferences: { ...prefs, darkMode: theme === 'dark' },
+        preferences: { ...prefs, darkMode, fontSize },
       });
+      
+      if (darkMode) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+
+      if (fontSize === 'small') document.documentElement.style.fontSize = '14px';
+      else if (fontSize === 'large') document.documentElement.style.fontSize = '18px';
+      else document.documentElement.style.fontSize = '16px';
+
       toast.success('Appearance settings saved');
       onProfileUpdate();
       onClose();
@@ -281,11 +334,50 @@ function AppearancePanel({ onClose, profile, onProfileUpdate }: { onClose: () =>
 
 function PrivacyPanel({ onClose }: { onClose: () => void }) {
   const [twoFA, setTwoFA] = useState(false);
-  const [sessions] = useState([
-    { device: 'Chrome on Windows', active: true, lastActive: 'Now' },
-    { device: 'Safari on iPhone', active: false, lastActive: '2 hours ago' },
-    { device: 'Firefox on Linux', active: false, lastActive: '3 days ago' },
-  ]);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(true);
+
+  const fetchSessions = useCallback(async () => {
+    try {
+      const res = await apiClient.get<{ success: boolean; data: any[] }>('/auth/me/sessions');
+      setSessions(res.data.data);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingSessions(false);
+    }
+  }, []);
+
+  useEffect(() => { void fetchSessions(); }, [fetchSessions]);
+
+  const handleRevoke = async (id: string) => {
+    try {
+      await apiClient.delete(`/auth/me/sessions/${id}`);
+      toast.success('Session revoked');
+      setSessions(prev => prev.filter(s => s.id !== id));
+    } catch {
+      toast.error('Failed to revoke session');
+    }
+  };
+
+  const parseDevice = (userAgent: string) => {
+    if (!userAgent) return 'Unknown Device';
+    const isMobile = /Mobile|Android|iP(hone|od|ad)/.test(userAgent);
+    const browser = /Chrome/.test(userAgent) ? 'Chrome' : /Safari/.test(userAgent) ? 'Safari' : /Firefox/.test(userAgent) ? 'Firefox' : 'Browser';
+    const os = /Windows/.test(userAgent) ? 'Windows' : /Mac OS/.test(userAgent) ? 'Mac' : /Linux/.test(userAgent) ? 'Linux' : /Android/.test(userAgent) ? 'Android' : /iOS/.test(userAgent) ? 'iOS' : 'Unknown OS';
+    return `${browser} on ${os}`;
+  };
+
+  const deduplicatedSessions = useMemo(() => {
+    const map = new Map<string, any>();
+    sessions.forEach(s => {
+      const device = parseDevice(s.userAgent);
+      if (!map.has(device)) {
+        map.set(device, s);
+      }
+    });
+    return Array.from(map.values());
+  }, [sessions]);
 
   return (
     <div style={{ padding: 20 }}>
@@ -301,14 +393,14 @@ function PrivacyPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10 }}>Active Sessions</h4>
-      {sessions.map((s, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: i < sessions.length - 1 ? '1px solid var(--border)' : 'none' }}>
+      {loadingSessions ? <div style={{ padding: 12, fontSize: 13, color: 'var(--text-muted)' }}>Loading sessions...</div> : deduplicatedSessions.map((s, i) => (
+        <div key={s.id || i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: i < deduplicatedSessions.length - 1 ? '1px solid var(--border)' : 'none' }}>
           <Smartphone size={16} color="var(--text-muted)" />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>{s.device}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{s.lastActive}</div>
+            <div style={{ fontSize: 13, fontWeight: 500 }}>{parseDevice(s.userAgent)}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{new Date(s.lastActive || s.createdAt).toLocaleString()}</div>
           </div>
-          {s.active ? <span style={{ fontSize: 11, fontWeight: 600, color: '#10B981' }}>Active</span> : <button className="btn btn-secondary btn-sm" style={{ fontSize: 11 }} onClick={() => toast.success('Session revoked')}>Revoke</button>}
+          <button className="btn btn-secondary btn-sm" style={{ fontSize: 11 }} onClick={() => handleRevoke(s.id)}>Revoke</button>
         </div>
       ))}
       <div style={{ marginTop: 12, display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
@@ -319,9 +411,22 @@ function PrivacyPanel({ onClose }: { onClose: () => void }) {
 }
 
 function DataPanel({ onClose }: { onClose: () => void }) {
-  const storageUsed = '245 MB';
-  const totalStorage = '1 GB';
-  const pct = 24;
+  const [storageData, setStorageData] = useState<{ formattedUsed: string; formattedLimit: string; percentage: number } | null>(null);
+
+  const fetchStorage = useCallback(async () => {
+    try {
+      const res = await apiClient.get('/auth/me/storage');
+      setStorageData(res.data.data);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => { void fetchStorage(); }, [fetchStorage]);
+
+  const storageUsed = storageData?.formattedUsed || '0 MB';
+  const totalStorage = storageData?.formattedLimit || '100 MB';
+  const pct = storageData?.percentage || 0;
 
   return (
     <div style={{ padding: 20 }}>
@@ -432,8 +537,8 @@ export default function SettingsPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: 16, marginBottom: 24 }}>
         <motion.div className="card" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', alignItems: 'center', gap: 16, gridColumn: 'span 2' }}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg, #E8531D, #F97316)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: 'white', flexShrink: 0 }}>
-            {initials}
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg, #E8531D, #F97316)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: 'white', flexShrink: 0, overflow: 'hidden' }}>
+            {profile?.avatar ? <img src={profile.avatar} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 17, fontWeight: 700 }}>{profile?.firstName} {profile?.lastName}</div>

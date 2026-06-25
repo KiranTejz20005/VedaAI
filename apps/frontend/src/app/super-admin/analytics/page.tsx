@@ -72,7 +72,7 @@ export default function SuperAdminAnalytics() {
           <div className="flex items-center justify-between">
             <div>
               <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Organizations</span>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">{d.totals.organizations}</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">{d?.totals?.organizations || 0}</h3>
             </div>
             <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><Building2 size={22} /></div>
           </div>
@@ -81,7 +81,7 @@ export default function SuperAdminAnalytics() {
           <div className="flex items-center justify-between">
             <div>
               <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Users</span>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">{d.totals.users}</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">{d?.totals?.users || 0}</h3>
             </div>
             <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center"><Users size={22} /></div>
           </div>
@@ -90,7 +90,7 @@ export default function SuperAdminAnalytics() {
           <div className="flex items-center justify-between">
             <div>
               <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Assessments</span>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">{d.totals.assessments}</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">{d?.totals?.assessments || 0}</h3>
             </div>
             <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center"><FileText size={22} /></div>
           </div>
@@ -99,7 +99,7 @@ export default function SuperAdminAnalytics() {
           <div className="flex items-center justify-between">
             <div>
               <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Papers Generated</span>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">{d.totals.papers}</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">{d?.totals?.papers || 0}</h3>
             </div>
             <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center"><FileText size={22} /></div>
           </div>
@@ -109,7 +109,7 @@ export default function SuperAdminAnalytics() {
       {/* Usage Trends Chart */}
       <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
         <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Usage Trends</h3>
-        {d.usageTrends.length === 0 ? (
+        {(!d?.usageTrends || d.usageTrends.length === 0) ? (
           <div className="text-center py-8 text-gray-400 text-xs">No trend data available yet.</div>
         ) : (
           <div className="overflow-x-auto">
@@ -123,7 +123,7 @@ export default function SuperAdminAnalytics() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {d.usageTrends.map(t => (
+                {(d?.usageTrends || []).map(t => (
                   <tr key={t.month} className="hover:bg-gray-50/50">
                     <td className="py-3 font-semibold text-gray-800">{t.month}</td>
                     <td className="py-3 text-center font-bold text-blue-600">{t.papers}</td>
@@ -140,7 +140,7 @@ export default function SuperAdminAnalytics() {
       {/* Top Organizations */}
       <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
         <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Top Organizations by Usage</h3>
-        {d.topOrganizations.length === 0 ? (
+        {(!d?.topOrganizations || d.topOrganizations.length === 0) ? (
           <div className="text-center py-8 text-gray-400 text-xs">No organization data available.</div>
         ) : (
           <div className="overflow-x-auto">
@@ -154,7 +154,7 @@ export default function SuperAdminAnalytics() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {d.topOrganizations.map(o => (
+                {(d?.topOrganizations || []).map(o => (
                   <tr key={o.id} className="hover:bg-gray-50/50">
                     <td className="py-3 font-semibold text-gray-800 flex items-center gap-2">
                       <School size={14} className="text-blue-600" /> {o.name}

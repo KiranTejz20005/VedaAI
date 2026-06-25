@@ -25,6 +25,7 @@ interface StudentRecord {
   rollNo: string;
   class?: { id: string; grade: string; section: string } | null;
   classId?: string | null;
+  phone?: string | null;
   section?: string;
   status: string;
 }
@@ -62,7 +63,7 @@ export default function StudentManagement() {
   
   const [rollNo, setRollNo] = useState('');
   const [classId, setClassId] = useState('');
-  const [section, setSection] = useState('');
+  const [phone, setPhone] = useState('');
 
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -106,7 +107,7 @@ export default function StudentManagement() {
 
   const handleOpenCreate = () => {
     setModalType('create'); setSelectedStudent(null);
-    setFirstName(''); setLastName(''); setEmailPrefix(''); setClassId(''); setSection('');
+    setFirstName(''); setLastName(''); setEmailPrefix(''); setClassId(''); setPhone('');
 
     let nextRollNo = 101;
     if (list.length > 0) {
@@ -128,7 +129,7 @@ export default function StudentManagement() {
     setModalType('edit'); setSelectedStudent(s);
     setFirstName(s.firstName); setLastName(s.lastName); 
     setEmailPrefix(s.email.split('@')[0]);
-    setRollNo(s.rollNo || ''); setClassId(s.classId || ''); setSection(s.section || '');
+    setRollNo(s.rollNo || ''); setClassId(s.classId || ''); setPhone(s.phone || '');
     setShowModal(true);
   };
 
@@ -139,12 +140,16 @@ export default function StudentManagement() {
       return;
     }
     const fullEmail = `${emailPrefix}@${domain}`;
+    const selectedClassObj = classes.find(c => c.id === classId);
+    const classSection = selectedClassObj ? selectedClassObj.section : undefined;
+    
     const payload: Record<string, unknown> = {
       firstName, lastName, email: fullEmail,
       role: 'STUDENT',
       rollNo: rollNo || undefined,
       classId: classId || undefined,
-      section: section || undefined,
+      section: classSection || undefined,
+      phone: phone || undefined,
     };
     if (user?.role === 'SUPER_ADMIN' && activeOrganizationId) {
       payload.organizationId = activeOrganizationId;
@@ -257,7 +262,7 @@ export default function StudentManagement() {
                       <span className="flex items-center gap-1"><Mail size={14} /> {s.email}</span>
                     </td>
                     <td className="px-4 py-3 text-gray-700 font-mono text-xs">{s.rollNo || '—'}</td>
-                    <td className="px-4 py-3 text-gray-700">{s.class ? `${s.class.grade} - ${s.class.section}` : '—'}</td>
+                    <td className="px-4 py-3 text-gray-700">{s.class ? s.class.grade : '—'}</td>
                     <td className="px-4 py-3 text-gray-700">{s.section || '—'}</td>
                     <td className="px-4 py-3">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${s.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
@@ -315,9 +320,9 @@ export default function StudentManagement() {
                     className="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none cursor-not-allowed" placeholder="R-101" />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Section *</label>
-                  <input type="text" required value={section} onChange={(e) => setSection(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="A" />
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Phone Number (Optional)</label>
+                  <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="+1 234 567 8900" />
                 </div>
               </div>
               <div>

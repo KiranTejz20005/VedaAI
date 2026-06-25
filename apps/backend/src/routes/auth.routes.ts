@@ -8,6 +8,10 @@ import {
   getAvailableOrganizations,
   getPublicOrganizations,
   switchOrganization,
+  getSessions,
+  revokeSessionById,
+  changePassword,
+  getStorageUsage,
   signup,
   login,
   refresh,
@@ -40,5 +44,10 @@ router.put('/me/preferences', asyncHandler(updatePreferences));
 router.get('/me/organizations', asyncHandler(getAvailableOrganizations));
 router.post('/me/switch-organization', asyncHandler(switchOrganization));
 router.put('/me/organization', asyncHandler(updateOrganization));
+
+router.get('/me/sessions', asyncHandler(getSessions));
+router.delete('/me/sessions/:id', asyncHandler(revokeSessionById));
+router.put('/me/password', asyncHandler(changePassword));
+router.get('/me/storage', asyncHandler(getStorageUsage));
 
 export default router;
