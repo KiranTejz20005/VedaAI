@@ -330,6 +330,22 @@ export async function submitAssignmentForApproval(req: Request, res: Response): 
     data: { status: 'PENDING_APPROVAL' }
   });
 
+  const orgAdmins = await prisma.user.findMany({
+    where: { organizationId: assignment.organizationId, role: 'ADMIN' }
+  });
+
+  if (orgAdmins.length > 0) {
+    await prisma.notification.createMany({
+      data: orgAdmins.map(admin => ({
+        userId: admin.id,
+        organizationId: assignment.organizationId,
+        title: 'Pending Approval',
+        message: `An assignment "${assignment.title}" has been submitted for your approval.`,
+        type: 'INFO'
+      }))
+    });
+  }
+
   await AuditService.logAuditEvent({ action: 'ASSIGNMENT_SUBMITTED', entity: 'Assignment', entityId: assignment.id, userId: req.user?.id, ipAddress: req.ip });
   sendSuccess(res, null, 200, 'Assignment submitted for approval');
   } catch (err) {

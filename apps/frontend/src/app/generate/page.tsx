@@ -1,5 +1,5 @@
 'use client';
-/* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
+/* eslint-disable react-hooks/purity */
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';

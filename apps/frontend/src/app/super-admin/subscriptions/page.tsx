@@ -34,7 +34,7 @@ export default function SuperAdminSubscriptions() {
     finally { setLoading(false); }
   };
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+   
   useEffect(() => { load(); }, []);
 
   const handleChangePlan = async (orgId: string, orgName: string, newPlan: string) => {

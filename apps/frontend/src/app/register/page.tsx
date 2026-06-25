@@ -375,7 +375,8 @@ export default function RegisterPage() {
       firstName,
       lastName,
       role,
-    });
+      organizationId: ''
+    } as any);
 
     setIsSubmitting(false);
 

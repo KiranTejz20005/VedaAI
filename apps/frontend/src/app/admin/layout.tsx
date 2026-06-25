@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/auth.store';
 import { useRouter } from 'next/navigation';
-import { AdminSidebar } from '@/components/admin/AdminSidebar';
-import { AdminTopbar } from '@/components/admin/AdminTopbar';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { ShieldAlert, KeyRound, Eye, EyeOff } from 'lucide-react';
@@ -73,14 +71,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#F8F7F4', fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}>
-      <AdminSidebar />
-      <div style={{ marginLeft: '240px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', minWidth: 0 }}>
-        <AdminTopbar />
-        <main style={{ flex: 1, padding: '24px 32px', overflowY: 'auto', width: '100%' }}>
-          {children}
-        </main>
-      </div>
+    <>
+      {children}
 
       {showResetModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
@@ -128,6 +120,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

@@ -12,6 +12,7 @@ import { FacultySidebar } from './FacultySidebar';
 import { StudentSidebar } from './StudentSidebar';
 import { TeacherSidebar } from './TeacherSidebar';
 import { Topbar } from './TopBar';
+import { AdminTopbar } from '@/components/admin/AdminTopbar';
 import { MobileBottomNav } from './MobileBottomNav';
 import { canAccessRoute } from '@/config/route-permissions';
 import { useSystemStore } from '@/store/system.store';
@@ -111,8 +112,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname === '/' ||
     pathname === '/login' ||
     pathname === '/register' ||
-    pathname === '/onboarding' ||
-    pathname.startsWith('/admin');
+    pathname === '/onboarding';
 
   if (isChromeExcluded) {
     return (
@@ -142,10 +142,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const role = user?.role?.toUpperCase() || '';
 
   let SidebarComponent = <FacultySidebar />;
+  let TopbarComponent = <Topbar />;
+  
   if (role === 'SUPER_ADMIN') {
     SidebarComponent = <AdminSidebar />;
+    TopbarComponent = <AdminTopbar />;
   } else if (role === 'ADMIN' || role === 'ORG_ADMIN') {
     SidebarComponent = <OrgAdminSidebar />;
+    TopbarComponent = <AdminTopbar />;
   } else if (role === 'TEACHER') {
     SidebarComponent = <TeacherSidebar />;
   } else if (role === 'FACULTY') {
@@ -172,7 +176,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div suppressHydrationWarning style={{ display: 'flex', minHeight: '100vh', width: '100%', background: '#F8F7F4' }}>
       {SidebarComponent}
       <div suppressHydrationWarning style={{ marginLeft: '260px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', width: 'calc(100% - 260px)' }}>
-        <Topbar />
+        {TopbarComponent}
         <main suppressHydrationWarning style={{ flex: 1, padding: '24px', maxWidth: '1600px', margin: '0 auto', width: '100%', overflowX: 'hidden' }}>
           <ClientOnly fallback={<div className="page-content-placeholder" aria-hidden="true" />}>
             {children}

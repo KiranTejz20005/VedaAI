@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutGrid,
   Users,
-  GraduationCap,
   BookOpen,
   FileText,
   ClipboardCheck,
@@ -21,11 +20,8 @@ import { useSystemStore } from '@/store/system.store';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/admin/faculty', label: 'Faculty', icon: Users },
-  { href: '/admin/students', label: 'Students', icon: GraduationCap },
+  { href: '/admin/users', label: 'Faculty and Students', icon: Users },
   { href: '/admin/classes', label: 'Classes', icon: BookOpen },
-  { href: '/admin/subjects', label: 'Subjects', icon: BookMarked },
-  { href: '/lessons', label: 'Lessons', icon: FileText },
   { href: '/admin/approvals', label: 'Approvals', icon: ClipboardCheck },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/dashboard/admin/settings', label: 'Settings', icon: Settings },

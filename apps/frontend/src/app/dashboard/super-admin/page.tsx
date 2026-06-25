@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import { PageHeader } from '@/design-system/PageHeader';
 import { MetricCard } from '@/design-system/MetricCard';
 import { Card } from '@/design-system/Card';
-import { Users, Building, Activity, Shield, Server, Link as LinkIcon, Loader2 } from 'lucide-react';
+import { Users, Building, Activity, Server, Loader2 } from 'lucide-react';
 
 interface SuperAdminStats {
   totalOrganizations: number;

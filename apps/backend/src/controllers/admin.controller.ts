@@ -1774,6 +1774,7 @@ export class AdminController {
         orderBy: { createdAt: 'desc' },
         include: {
           _count: { select: { generatedPapers: true } },
+          createdBy: { select: { firstName: true, lastName: true, email: true } }
         },
       });
       res.json({ success: true, data: pending });
@@ -1789,6 +1790,17 @@ export class AdminController {
         where: { id: req.params.id },
         data: { status: 'APPROVED', approvedBy: req.user?.id, approvedAt: new Date() },
       });
+      if (updated.createdById) {
+        await prisma.notification.create({
+          data: {
+            userId: updated.createdById,
+            organizationId: updated.organizationId,
+            title: 'Assignment Approved',
+            message: `Your assignment "${updated.title}" has been approved.`,
+            type: 'SUCCESS'
+          }
+        });
+      }
       res.json({ success: true, data: updated });
     } catch (err: any) {
       logger.error(`[Admin:approveAssessment] ${err}`);
@@ -1803,6 +1815,17 @@ export class AdminController {
         where: { id: req.params.id },
         data: { status: 'REJECTED', rejectedBy: req.user?.id, rejectedAt: new Date(), reviewComments: reviewComments || null },
       });
+      if (updated.createdById) {
+        await prisma.notification.create({
+          data: {
+            userId: updated.createdById,
+            organizationId: updated.organizationId,
+            title: 'Assignment Rejected',
+            message: `Your assignment "${updated.title}" has been rejected.`,
+            type: 'ERROR'
+          }
+        });
+      }
       res.json({ success: true, data: updated });
     } catch (err: any) {
       logger.error(`[Admin:rejectAssessment] ${err}`);

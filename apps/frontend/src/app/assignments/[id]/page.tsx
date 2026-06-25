@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useCallback, useEffect, useRef, useState } from 'react';
+import { api } from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -127,6 +128,21 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
       setWarning('Your uploaded content contained image references which were removed for text-only processing.');
     }
   }, [message, setWarning]);
+
+  const [isSubmittingForApproval, setIsSubmittingForApproval] = useState(false);
+
+  const handleSendForApproval = async () => {
+    setIsSubmittingForApproval(true);
+    try {
+      await api.post(`/assignments/${id}/submit`);
+      toast.success('Submitted for approval');
+      setAssignment((prev) => (prev ? { ...prev, status: 'PENDING_APPROVAL' as any } : prev));
+    } catch (err) {
+      toast.error('Failed to submit for approval');
+    } finally {
+      setIsSubmittingForApproval(false);
+    }
+  };
 
   const handleGenerate = useCallback(async () => {
     if (retryCooldownRef.current) return;
@@ -376,6 +392,11 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                       }} className="btn btn-secondary btn-sm" style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }} disabled={downloading}>
                         <Download size={14} /> {downloading ? 'Downloading...' : 'Download PDF'}
                       </button>
+                      {isFaculty && (
+                        <button onClick={handleSendForApproval} className="btn btn-dark btn-sm" disabled={isSubmittingForApproval} style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
+                          <CheckCircle2 size={14} /> {isSubmittingForApproval ? 'Sending...' : 'Send for Approval'}
+                        </button>
+                      )}
                     </>
                   )}
                 </div>

@@ -323,6 +323,7 @@ export const getPlatformAnalytics = async (_req: Request, res: Response): Promis
       data: {
         totals: {
           organizations: totalOrganizations,
+          activeOrganizations,
           users: totalUsers,
           assessments: totalAssignments,
           papers: totalGeneratedPapers

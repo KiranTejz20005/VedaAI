@@ -86,7 +86,7 @@ export default function OrganizationDetail() {
     finally { setLoading(false); }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
+   
   useEffect(() => { if (id) loadOrg(); }, [id]);
 
   const handleEdit = async (e: React.FormEvent) => {

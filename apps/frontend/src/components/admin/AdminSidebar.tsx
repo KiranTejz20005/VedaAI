@@ -41,7 +41,7 @@ const ADMIN_NAV: NavSection[] = [
     section: 'Tenant Management',
     items: [
       { href: '/admin/institutions', label: 'Organizations', icon: School },
-      { href: '/admin/users', label: 'User Directory', icon: Users },
+      { href: '/admin/users', label: 'Faculty and Students', icon: Users },
     ],
   },
   {
