@@ -4,7 +4,6 @@ import { authenticate, authorize } from '../middlewares/auth.middleware';
 import { requirePermission } from '../security/access-control';
 import * as SuperAdminController from '../controllers/super-admin.controller';
 import prisma from '../config/prisma';
-import { logger } from '../utils/logger';
 
 const router = Router();
 

@@ -92,9 +92,35 @@ export default function StudentManagement() {
     loadData(); 
   }, [user?.role, activeOrganizationId]);
 
+  useEffect(() => {
+    if (modalType === 'create') {
+      const fName = firstName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      const lName = lastName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (fName || lName) {
+        setEmailPrefix(`${fName}${lName}`);
+      } else {
+        setEmailPrefix('');
+      }
+    }
+  }, [firstName, lastName, modalType]);
+
   const handleOpenCreate = () => {
     setModalType('create'); setSelectedStudent(null);
-    setFirstName(''); setLastName(''); setEmailPrefix(''); setRollNo(''); setClassId(''); setSection('');
+    setFirstName(''); setLastName(''); setEmailPrefix(''); setClassId(''); setSection('');
+
+    let nextRollNo = 101;
+    if (list.length > 0) {
+      const highestRoll = list.reduce((max, s) => {
+        if (s.rollNo && s.rollNo.startsWith('R-')) {
+          const num = parseInt(s.rollNo.split('-')[1], 10);
+          if (!isNaN(num) && num > max) return num;
+        }
+        return max;
+      }, 100);
+      nextRollNo = highestRoll + 1;
+    }
+    setRollNo(`R-${nextRollNo}`);
+
     setShowModal(true);
   };
 
@@ -275,8 +301,8 @@ export default function StudentManagement() {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Email *</label>
                 <div className="flex">
-                  <input type="text" required value={emailPrefix} onChange={(e) => setEmailPrefix(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-300 rounded-l-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="john.doe" />
+                  <input type="text" required readOnly value={emailPrefix} onChange={(e) => setEmailPrefix(e.target.value)}
+                    className="w-full bg-gray-100 border border-gray-300 rounded-l-lg px-3 py-2 text-sm focus:outline-none cursor-not-allowed" placeholder="johndoe" />
                   <span className="inline-flex items-center px-3 rounded-r-lg border border-l-0 border-gray-300 bg-gray-100 text-gray-500 text-sm">
                     @{domain}
                   </span>
@@ -284,19 +310,19 @@ export default function StudentManagement() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Roll Number</label>
-                  <input type="text" value={rollNo} onChange={(e) => setRollNo(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="R-101" />
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Roll Number *</label>
+                  <input type="text" required readOnly value={rollNo} onChange={(e) => setRollNo(e.target.value)}
+                    className="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none cursor-not-allowed" placeholder="R-101" />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Section</label>
-                  <input type="text" value={section} onChange={(e) => setSection(e.target.value)}
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Section *</label>
+                  <input type="text" required value={section} onChange={(e) => setSection(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="A" />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Class</label>
-                <select value={classId} onChange={(e) => setClassId(e.target.value)}
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Class *</label>
+                <select required value={classId} onChange={(e) => setClassId(e.target.value)}
                   className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
                   <option value="">Select Class</option>
                   {[...Array(10)].map((_, i) => (

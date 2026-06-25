@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { asyncHandler } from '../utils/async-handler';
 import { authenticate, authorize } from '../middlewares/auth.middleware';
 import prisma from '../config/prisma';
-import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -47,7 +46,6 @@ router.get('/dashboard/stats', asyncHandler(async (req, res) => {
 
   const absent = Math.max(0, totalStudents - presentToday);
   const averageClassScore = 76; // Placeholder - can be calculated from submissions
-  const ongoingExams = 0; // Placeholder
 
   res.json({
     success: true,

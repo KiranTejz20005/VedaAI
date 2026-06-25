@@ -1,22 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import { redis } from '../config/redis';
+import { getRedisClient } from '../config/redis';
 import { DailyLimitService } from '../services/daily-limit.service';
-import { logger } from '../config/logger';
+import { logger } from '../utils/logger';
 
-// Extend Express Request to include user info
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        id: string;
-        role: string;
-        organizationId: string;
-      };
-    }
-  }
-}
-
-const dailyLimitService = new DailyLimitService(redis);
+const dailyLimitService = new DailyLimitService(getRedisClient());
 
 /**
  * Middleware to check daily limits for quiz generation
@@ -24,7 +11,8 @@ const dailyLimitService = new DailyLimitService(redis);
 export const checkQuizDailyLimit = async (req: Request, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { allowed, remaining, used, limit } = await dailyLimitService.checkLimit(
@@ -37,14 +25,14 @@ export const checkQuizDailyLimit = async (req: Request, res: Response, next: Nex
     (req as any).dailyLimitStatus = { allowed, remaining, used, limit };
 
     if (!allowed) {
-      logger.warn('[DailyLimit] Quiz limit exceeded', {
+      logger.warn({
         userId: req.user.id,
         role: req.user.role,
         used,
         limit,
-      });
+      }, '[DailyLimit] Quiz limit exceeded');
 
-      return res.status(429).json({
+      res.status(429).json({
         error: 'Daily quiz limit exceeded',
         message: `You can create ${limit} mock quizzes per day. You have used ${used} today.`,
         limit,
@@ -52,11 +40,12 @@ export const checkQuizDailyLimit = async (req: Request, res: Response, next: Nex
         remaining: 0,
         resetAt: new Date(Date.now() + 86400000),
       });
+      return;
     }
 
     next();
   } catch (error) {
-    logger.error('[DailyLimit] Error checking quiz limit', error);
+    logger.error(error, '[DailyLimit] Error checking quiz limit');
     next(error);
   }
 };
@@ -67,7 +56,8 @@ export const checkQuizDailyLimit = async (req: Request, res: Response, next: Nex
 export const checkPaperDailyLimit = async (req: Request, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { allowed, remaining, used, limit } = await dailyLimitService.checkLimit(
@@ -80,14 +70,14 @@ export const checkPaperDailyLimit = async (req: Request, res: Response, next: Ne
     (req as any).dailyLimitStatus = { allowed, remaining, used, limit };
 
     if (!allowed) {
-      logger.warn('[DailyLimit] Paper generation limit exceeded', {
+      logger.warn({
         userId: req.user.id,
         role: req.user.role,
         used,
         limit,
-      });
+      }, '[DailyLimit] Paper generation limit exceeded');
 
-      return res.status(429).json({
+      res.status(429).json({
         error: 'Daily paper generation limit exceeded',
         message: `You can generate ${limit} question papers per day. You have used ${used} today.`,
         limit,
@@ -95,11 +85,12 @@ export const checkPaperDailyLimit = async (req: Request, res: Response, next: Ne
         remaining: 0,
         resetAt: new Date(Date.now() + 86400000),
       });
+      return;
     }
 
     next();
   } catch (error) {
-    logger.error('[DailyLimit] Error checking paper limit', error);
+    logger.error(error, '[DailyLimit] Error checking paper limit');
     next(error);
   }
 };
@@ -110,7 +101,8 @@ export const checkPaperDailyLimit = async (req: Request, res: Response, next: Ne
 export const checkAssignmentDailyLimit = async (req: Request, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { allowed, remaining, used, limit } = await dailyLimitService.checkLimit(
@@ -123,14 +115,14 @@ export const checkAssignmentDailyLimit = async (req: Request, res: Response, nex
     (req as any).dailyLimitStatus = { allowed, remaining, used, limit };
 
     if (!allowed) {
-      logger.warn('[DailyLimit] Assignment creation limit exceeded', {
+      logger.warn({
         userId: req.user.id,
         role: req.user.role,
         used,
         limit,
-      });
+      }, '[DailyLimit] Assignment creation limit exceeded');
 
-      return res.status(429).json({
+      res.status(429).json({
         error: 'Daily assignment creation limit exceeded',
         message: `You can create ${limit} assignments per day. You have created ${used} today.`,
         limit,
@@ -138,11 +130,12 @@ export const checkAssignmentDailyLimit = async (req: Request, res: Response, nex
         remaining: 0,
         resetAt: new Date(Date.now() + 86400000),
       });
+      return;
     }
 
     next();
   } catch (error) {
-    logger.error('[DailyLimit] Error checking assignment limit', error);
+    logger.error(error, '[DailyLimit] Error checking assignment limit');
     next(error);
   }
 };

@@ -107,19 +107,24 @@ api.interceptors.response.use(
       const message = backendMessage ?? error.message ?? 'An unexpected error occurred';
 
       if (isApiDebugEnabled) {
-        console.warn('[API ERROR]', {
-          status,
-          method: error.config?.method?.toUpperCase(),
-          baseURL: error.config?.baseURL,
-          endpoint: error.config?.url,
-          finalURL:
-            error.config?.baseURL && error.config?.url
-              ? joinUrl(error.config.baseURL, error.config.url)
-              : error.config?.url,
-          code: error.code,
-          message: error.message,
-          response: error.response?.data,
-        });
+        // Suppress expected 401 errors for auth/refresh (when user is simply not logged in)
+        const isExpectedAuthCheckError = status === 401 && error.config?.url?.includes('/auth/refresh');
+        
+        if (!isExpectedAuthCheckError) {
+          console.warn('[API ERROR]', {
+            status,
+            method: error.config?.method?.toUpperCase(),
+            baseURL: error.config?.baseURL,
+            endpoint: error.config?.url,
+            finalURL:
+              error.config?.baseURL && error.config?.url
+                ? joinUrl(error.config.baseURL, error.config.url)
+                : error.config?.url,
+            code: error.code,
+            message: error.message,
+            response: error.response?.data,
+          });
+        }
       }
 
       const originalRequest = error.config;
