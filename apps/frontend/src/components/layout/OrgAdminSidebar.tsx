@@ -6,12 +6,10 @@ import {
   LayoutGrid,
   Users,
   BookOpen,
-  FileText,
   ClipboardCheck,
   BarChart3,
   Settings,
   X,
-  BookMarked,
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';

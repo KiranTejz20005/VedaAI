@@ -165,7 +165,7 @@ export const acceptInvite = async (req: Request, res: Response): Promise<void> =
     const pwdHash = await hashPassword(password);
     const user = await prisma.user.create({
       data: {
-        email: invitation.email,
+        email: String(invitation.email).trim().toLowerCase(),
         passwordHash: pwdHash,
         firstName,
         lastName,
@@ -214,7 +214,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (!user) {
       res.status(401).json({ success: false, error: 'Invalid email or password' });
       return;
@@ -791,8 +792,10 @@ export const ssoLogin = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    const normalizedEmail = String(email).trim().toLowerCase();
+
     // Attempt to find user
-    let user = await prisma.user.findUnique({ where: { email } });
+    let user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     
     // If user does not exist, create a new one (SSO auto-onboarding)
     if (!user) {

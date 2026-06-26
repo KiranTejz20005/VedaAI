@@ -1,9 +1,10 @@
 'use client';
 /* eslint-disable react-hooks/purity */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Sparkles, Loader2, CheckCircle, AlertCircle, ImageOff, Check, X, Eye, History, Trash2, RotateCcw, Clock, Award, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { Paperclip, Sparkles, Loader2, AlertCircle, ImageOff, Check, X, Eye, History, Trash2, RotateCcw, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/services/api.client';
 
@@ -73,7 +74,11 @@ interface ApiQuizSession {
   }>;
 }
 
-export default function GeneratePage() {
+function GeneratePageContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const sharedId = searchParams.get('sharedId');
+
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     topic: '',
@@ -86,11 +91,66 @@ export default function GeneratePage() {
 
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
-  
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setIsUploading(true);
+    const fd = new FormData();
+    fd.append('file', f);
+    try {
+      const res = await apiClient.post<{success:boolean, data:{content:string}}>('/generate/parse', fd);
+      setFormData(prev => ({ ...prev, context: res.data.data.content }));
+      toast.success('Document parsed!');
+    } catch {
+      toast.error('Failed to parse document');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleShareQuiz = async () => {
+    if (!activeQuiz) return;
+    try {
+      const res = await apiClient.post<{success:boolean, data:{sharedId:string}}>('/generate/share', { 
+        topic: activeQuiz.topic, 
+        subject: activeQuiz.subject, 
+        questions: activeQuiz.questions 
+      });
+      const url = `${window.location.origin}/dashboard/student/practice?sharedId=${res.data.data.sharedId}`;
+      await navigator.clipboard.writeText(url);
+      toast.success('Share link copied to clipboard!');
+    } catch {
+      toast.error('Failed to share quiz');
+    }
+  };
+
+  const handleRetakeQuiz = async () => {
+    if(!activeQuiz) return;
+    try {
+      const newQuiz = {
+        topic: activeQuiz.topic,
+        subject: activeQuiz.subject,
+        difficulty: formData.difficulty,
+        bloomLevel: formData.bloom_level,
+        timeLimitSeconds: activeQuiz.timeLimitSeconds,
+        timeTakenSeconds: 0,
+        score: 0,
+        attempts: {},
+        questions: activeQuiz.questions
+      };
+      const saveRes = await apiClient.post<{ success: boolean; data: { id: string } }>('/generate/session', newQuiz);
+      router.push(`/dashboard/student/practice/attempt?sessionId=${saveRes.data.data.id}`);
+    } catch {
+      toast.error('Failed to retake quiz');
+    }
+  };
   // History State
   const [history, setHistory] = useState<HistoryQuiz[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'generate' | 'history'>('generate');
+  const [showHistory, setShowHistory] = useState(false);
+  const activeTab = 'generate'; // mock for unchanged code if any
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [revealedAnswers, setRevealedAnswers] = useState<Record<string, boolean>>({});
 
@@ -130,6 +190,38 @@ export default function GeneratePage() {
       setHistoryLoading(false);
     }
   }, []);
+
+  // Load shared quiz
+  useEffect(() => {
+    if (sharedId) {
+      setLoading(true);
+      apiClient.get<{success: boolean, data: ApiQuizSession}>('/generate/shared/' + sharedId).then(async (res) => {
+        const sharedData = res.data.data;
+        const newQuiz = {
+          topic: sharedData.topic,
+          subject: sharedData.subject,
+          difficulty: sharedData.difficulty,
+          bloomLevel: sharedData.bloomLevel,
+          timeLimitSeconds: sharedData.timeLimitSeconds,
+          timeTakenSeconds: 0,
+          score: 0,
+          attempts: {},
+          questions: sharedData.questions.map(q => ({
+            id: q.id,
+            question_text: q.questionText || '',
+            options: q.options,
+            answer: q.answer,
+            difficulty: q.difficulty,
+            bloomLevel: q.bloomLevel,
+            ai_confidence_score: q.aiConfidenceScore,
+            hint: q.hint
+          }))
+        };
+        const saveRes = await apiClient.post<{ success: boolean; data: { id: string } }>('/generate/session', newQuiz);
+        router.push(`/dashboard/student/practice/attempt?sessionId=${saveRes.data.data.id}`);
+      }).catch(() => toast.error('Shared quiz not found')).finally(() => setLoading(false));
+    }
+  }, [sharedId, router]);
 
   // Load history on mount
   useEffect(() => { void loadHistory(); }, [loadHistory]);
@@ -182,14 +274,8 @@ export default function GeneratePage() {
     };
 
     // Optimistic UI update, then persist to DB
-    setHistory(prev => [historyQuiz, ...prev.filter(h => h.id !== quiz.id)]);
-    
-    // Update the existing session via PUT
-    apiClient.put(`/generate/session/${quiz.id}`, {
-      score,
-      timeTakenSeconds: timeTaken,
-      attempts: quiz.attempts
-    }).then(() => void loadHistory()).catch(() => toast.error('Failed to update score'));
+    setHistory(prev => [historyQuiz, ...prev]);
+    void persistSession(quiz, score, timeTaken).then(() => { void loadHistory(); });
 
     setActiveQuiz(prev => prev ? { ...prev, isSubmitted: true, score, timeTakenSeconds: timeTaken } : null);
     toast.success(`Quiz Completed! You scored ${score}/${quiz.questions.length}`);
@@ -257,20 +343,7 @@ export default function GeneratePage() {
       const questions = res.data.data;
 
       const timeLimit = count * 60; // 1 minute per question
-      const newQuiz: Quiz = {
-        id: `quiz-${Date.now()}`,
-        topic: formData.topic,
-        subject: formData.subject,
-        questions,
-        timeLimitSeconds: timeLimit,
-        timeRemainingSeconds: timeLimit,
-        attempts: {},
-        isSubmitted: false,
-        timestamp: Date.now()
-      };
-
-      // Instantly save to database
-      const saveRes = await apiClient.post<{ success: boolean; data: { id: string } }>('/generate/session', {
+      const newQuiz = {
         topic: formData.topic,
         subject: formData.subject,
         difficulty: formData.difficulty,
@@ -280,12 +353,13 @@ export default function GeneratePage() {
         score: 0,
         attempts: {},
         questions
-      });
-      newQuiz.id = saveRes.data.data.id;
+      };
 
-      setActiveQuiz(newQuiz);
-      toast.success(`${count} questions generated and saved to history!`);
-      void loadHistory();
+      // Instantly save to database
+      const saveRes = await apiClient.post<{ success: boolean; data: { id: string } }>('/generate/session', newQuiz);
+      
+      toast.success(`${count} questions generated successfully! Start attempting.`);
+      router.push(`/dashboard/student/practice/attempt?sessionId=${saveRes.data.data.id}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Generation failed';
       setGenerationError(message);
@@ -369,8 +443,8 @@ export default function GeneratePage() {
 
   return (
     <div className="dashboard-view">
-      <div className="desktop-page-header dashboard-header-v3" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-        <div>
+      <div className="desktop-page-header dashboard-header-v3" style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+        <div style={{ flex: 1, textAlign: 'left' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Sparkles size={24} color="#0f172a" />
             <h1 className="page-title">Generate Quiz</h1>
@@ -378,49 +452,27 @@ export default function GeneratePage() {
           <p className="page-subtitle">Instantly generate syllabus-aligned multiple choice quizzes to test student concepts.</p>
         </div>
 
-        {/* Tab switcher */}
-        <div style={{ display: 'flex', background: '#F3F4F6', padding: 4, borderRadius: 10, border: '1px solid var(--border)' }}>
-          <button 
-            type="button" 
-            onClick={() => setActiveTab('generate')} 
-            style={{ 
-              padding: '6px 14px', 
-              borderRadius: 8, 
-              fontSize: 13, 
-              fontWeight: 600, 
-              background: activeTab === 'generate' ? '#ffffff' : 'transparent',
-              color: activeTab === 'generate' ? 'var(--text-primary)' : 'var(--text-muted)',
-              boxShadow: activeTab === 'generate' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6
-            }}
-          >
-            <Sparkles size={14} /> Quiz Room
-          </button>
-          <button 
-            type="button" 
-            onClick={() => setActiveTab('history')} 
-            style={{ 
-              padding: '6px 14px', 
-              borderRadius: 8, 
-              fontSize: 13, 
-              fontWeight: 600, 
-              background: activeTab === 'history' ? '#ffffff' : 'transparent',
-              color: activeTab === 'history' ? 'var(--text-primary)' : 'var(--text-muted)',
-              boxShadow: activeTab === 'history' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6
-            }}
-          >
-            <History size={14} /> History ({history.length})
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setShowHistory(!showHistory)}
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            width: 40,
+            height: 40,
+            borderRadius: '50%',
+            background: showHistory ? '#F3F4F6' : '#FFFFFF',
+            border: `1px solid ${showHistory ? '#D1D5DB' : 'var(--border)'}`,
+            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+            cursor: 'pointer',
+            flexShrink: 0,
+            color: 'var(--text-primary)'
+          }}
+          title={`History (${history.length})`}
+        >
+          <History size={18} />
+        </button>
       </div>
 
       <div className="mobile-page-header">
@@ -431,8 +483,8 @@ export default function GeneratePage() {
         <div style={{ width: 32 }} />
       </div>
 
-      {activeTab === 'generate' ? (
-        <>
+      <div style={{ position: 'relative', width: '100%', display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           {/* Generator Form (Only show when not in active quiz or after submitting) */}
           {(!activeQuiz || activeQuiz.isSubmitted) && (
             <form onSubmit={handleSubmit}>
@@ -480,7 +532,39 @@ export default function GeneratePage() {
 
                 <div className="input-group" style={{ marginTop: 14 }}>
                   <label className="label">Reference Context (Optional)</label>
-                  <textarea rows={4} className="input" placeholder="Paste syllabus or reference material here... Avoid pasting images or file paths." value={formData.context} onChange={e => setFormData({...formData, context: e.target.value})} style={{ resize: 'none' }} />
+                  <div style={{ position: 'relative' }}>
+                    <textarea 
+                      rows={4} 
+                      className="input" 
+                      placeholder="Paste syllabus or reference material here... Avoid pasting images or file paths." 
+                      value={formData.context} 
+                      onChange={e => setFormData({...formData, context: e.target.value})} 
+                      style={{ resize: 'none', paddingBottom: 44 }} 
+                    />
+                    <label style={{
+                      position: 'absolute',
+                      bottom: 8,
+                      right: 8,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '6px 12px',
+                      background: '#F9FAFB',
+                      border: '1px solid #E5E7EB',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: isUploading ? 'default' : 'pointer',
+                      color: 'var(--text-secondary)',
+                      opacity: isUploading ? 0.7 : 1,
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                    }}>
+                      {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Paperclip size={14} />}
+                      {isUploading ? 'Parsing...' : 'Attach File'}
+                      <input type="file" accept=".pdf,.txt" style={{display:'none'}} onChange={handleFileUpload} disabled={isUploading} />
+                    </label>
+                  </div>
                 </div>
 
                 <button type="submit" disabled={loading} className="btn btn-dark" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, marginTop: 16, width: '100%' }}>
@@ -505,243 +589,11 @@ export default function GeneratePage() {
             </motion.div>
           )}
 
-          {activeQuiz && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              {/* Header Quiz Banner */}
-              <div className="card" style={{
-                background: activeQuiz.isSubmitted ? '#ECFDF5' : '#EFF6FF',
-                borderColor: activeQuiz.isSubmitted ? '#10B981' : '#3B82F6',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: 16,
-                padding: '16px 20px'
-              }}>
-                <div>
-                  <h2 style={{ fontSize: 16, fontWeight: 800, color: '#1E3A8A' }}>
-                    {activeQuiz.topic} Quiz
-                  </h2>
-                  <p style={{ fontSize: 12, color: '#3B82F6', marginTop: 2, fontWeight: 500 }}>
-                    Subject: {activeQuiz.subject} &middot; {activeQuiz.questions.length} Questions
-                  </p>
-                </div>
+        </div>
 
-                {!activeQuiz.isSubmitted ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 700, color: activeQuiz.timeRemainingSeconds < 30 ? '#EF4444' : '#1E3A8A', background: '#FFFFFF', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)' }}>
-                      <Clock size={16} className={activeQuiz.timeRemainingSeconds < 30 ? 'animate-pulse' : ''} />
-                      <span>{formatTime(activeQuiz.timeRemainingSeconds)}</span>
-                    </div>
-                    <button 
-                      type="button" 
-                      onClick={handleSubmitQuiz} 
-                      className="btn btn-dark btn-pill" 
-                      style={{ padding: '8px 20px', fontSize: 13, fontWeight: 700 }}
-                    >
-                      Submit Quiz
-                    </button>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 800, color: '#065F46', background: '#D1FAE5', padding: '6px 14px', borderRadius: 8 }}>
-                      <Award size={18} />
-                      <span>Score: {activeQuiz.score} / {activeQuiz.questions.length} ({Math.round((activeQuiz.score || 0) / activeQuiz.questions.length * 100)}%)</span>
-                    </div>
-                    <div style={{ fontSize: 12, color: '#065F46', fontWeight: 600 }}>
-                      Time Taken: {formatTime(activeQuiz.timeTakenSeconds || 0)}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Questions Stack */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                {activeQuiz.questions.map((q, qIdx) => {
-                  const userAttempt = activeQuiz.attempts[qIdx];
-                  const isAttempted = !!userAttempt;
-                  const isCorrect = userAttempt === q.answer;
-                  const isRevealed = revealedAnswers[`active-${qIdx}`] || activeQuiz.isSubmitted;
-
-                  return (
-                    <motion.div key={q.id || qIdx} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card">
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <CheckCircle size={20} color={isAttempted || isRevealed ? '#10B981' : '#9ca3af'} />
-                          <h3 style={{ fontSize: 15, fontWeight: 700 }}>Question {qIdx + 1}</h3>
-                        </div>
-                        {activeQuiz.isSubmitted && (
-                          <span style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4,
-                            fontSize: 12,
-                            fontWeight: 700,
-                            padding: '4px 10px',
-                            borderRadius: 12,
-                            background: isCorrect ? '#DCFCE7' : '#FEE2E2',
-                            color: isCorrect ? '#15803D' : '#B91C1C'
-                          }}>
-                            {isCorrect ? <Check size={14} /> : <X size={14} />}
-                            {isCorrect ? 'Correct' : 'Incorrect'}
-                          </span>
-                        )}
-                      </div>
-
-                      <p style={{ fontSize: 15, color: 'var(--text-primary)', lineHeight: 1.6, marginBottom: 20, fontWeight: 500, whiteSpace: 'pre-wrap' }}>
-                        {q.question_text}
-                      </p>
-
-                      {q.hint && (
-                        <div style={{ marginBottom: 16 }}>
-                          <button
-                            type="button"
-                            onClick={() => toggleRevealAnswer(`hint-active-${qIdx}`)}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 6,
-                              padding: '4px 10px',
-                              background: '#FEF3C7',
-                              border: '1px solid #FCD34D',
-                              borderRadius: 6,
-                              fontSize: 12,
-                              fontWeight: 700,
-                              color: '#D97706',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            💡 {revealedAnswers[`hint-active-${qIdx}`] ? 'Hide Hint' : 'Show Hint'}
-                          </button>
-                          {revealedAnswers[`hint-active-${qIdx}`] && (
-                            <p style={{ marginTop: 8, fontSize: 13, color: '#B45309', background: '#FFFDF5', padding: 8, borderRadius: 6, borderLeft: '3px solid #F59E0B' }}>
-                              {q.hint}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {q.options && q.options.length > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-                          {q.options.map((opt, i) => {
-                            const letter = getOptionLetter(opt, i);
-                            const isThisSelected = userAttempt === letter;
-                            const isThisCorrect = q.answer === letter;
-                            
-                            let optionBg = '#F9FAFB';
-                            let optionBorder = 'var(--border)';
-                            let optionColor = 'var(--text-primary)';
-                            let iconToShow = null;
-
-                            if (activeQuiz.isSubmitted) {
-                              if (isThisCorrect) {
-                                optionBg = '#DCFCE7';
-                                optionBorder = '#22C55E';
-                                optionColor = '#15803D';
-                                iconToShow = <Check size={16} style={{ color: '#22C55E', flexShrink: 0 }} />;
-                              } else if (isThisSelected) {
-                                optionBg = '#FEE2E2';
-                                optionBorder = '#EF4444';
-                                optionColor = '#B91C1C';
-                                iconToShow = <X size={16} style={{ color: '#EF4444', flexShrink: 0 }} />;
-                              } else {
-                                optionBg = '#F9FAFB';
-                                optionBorder = 'var(--border)';
-                                optionColor = 'var(--text-muted)';
-                              }
-                            } else {
-                              if (isThisSelected) {
-                                optionBg = '#EFF6FF';
-                                optionBorder = '#3B82F6';
-                                optionColor = '#1E40AF';
-                              }
-                            }
-
-                            return (
-                              <button
-                                key={i}
-                                disabled={activeQuiz.isSubmitted}
-                                onClick={() => handleSelectOption(qIdx, letter)}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  width: '100%',
-                                  textAlign: 'left',
-                                  padding: '12px 16px',
-                                  background: optionBg,
-                                  border: `1px solid ${optionBorder}`,
-                                  borderRadius: 'var(--radius-md)',
-                                  fontSize: 13,
-                                  color: optionColor,
-                                  cursor: activeQuiz.isSubmitted ? 'default' : 'pointer',
-                                  transition: 'all 0.2s ease',
-                                  fontWeight: isThisSelected || (activeQuiz.isSubmitted && isThisCorrect) ? 600 : 400,
-                                }}
-                                className={!activeQuiz.isSubmitted ? 'generate-option-btn' : ''}
-                                type="button"
-                              >
-                                <span>{cleanOptionText(opt)}</span>
-                                {iconToShow}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                          {q.answer && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Answer:</span>
-                              <div 
-                                onClick={() => toggleRevealAnswer(`active-${qIdx}`)}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 6,
-                                  padding: '4px 10px',
-                                  background: isRevealed ? '#D1FAE5' : '#F3F4F6',
-                                  border: `1px solid ${isRevealed ? '#10B981' : '#E5E7EB'}`,
-                                  borderRadius: 6,
-                                  fontSize: 13,
-                                  fontWeight: 700,
-                                  color: isRevealed ? '#065F46' : '#4b5563',
-                                  cursor: 'pointer',
-                                  userSelect: 'none',
-                                  transition: 'all 0.2s ease',
-                                }}
-                                title={isRevealed ? '' : 'Click to reveal answer'}
-                              >
-                                <span style={{ filter: isRevealed ? 'none' : 'blur(4px)' }}>
-                                  {q.answer}
-                                </span>
-                                {!isRevealed && (
-                                  <Eye size={12} style={{ opacity: 0.6 }} />
-                                )}
-                              </div>
-                              {!isRevealed && (
-                                <span style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                                  (Click to reveal)
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          <div style={{ display: 'flex', gap: 12, fontSize: 12, color: 'var(--text-muted)' }}>
-                            <span>{q.difficulty} &middot; {q.bloomLevel}</span>
-                            <span>Confidence: {(q.ai_confidence_score * 100).toFixed(0)}%</span>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {/* History Drawer */}
+        {showHistory && (
+          <div className="card" style={{ width: 400, flexShrink: 0, height: 'calc(100vh - 120px)', overflowY: 'auto', position: 'sticky', top: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
               <History size={18} /> Quiz History ({history.length})
@@ -1011,6 +863,7 @@ export default function GeneratePage() {
           )}
         </div>
       )}
+      </div>
       
       {/* Styles for option hover transitions */}
       <style jsx global>{`
@@ -1024,5 +877,13 @@ export default function GeneratePage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function GeneratePage() {
+  return (
+    <Suspense fallback={<div className="dashboard-view"><Loader2 className="animate-spin" /></div>}>
+      <GeneratePageContent />
+    </Suspense>
   );
 }

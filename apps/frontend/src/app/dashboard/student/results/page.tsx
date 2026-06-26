@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import {
-  BarChart3, CheckCircle2, XCircle, RefreshCw, ArrowLeft, FileText, Eye
+  BarChart3, CheckCircle2, XCircle, RefreshCw, ArrowLeft, FileText, Eye, Brain
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
@@ -31,6 +31,17 @@ interface AssessmentResult {
   questions?: QuestionResult[];
 }
 
+interface PracticeSession {
+  id: string;
+  topic: string;
+  subject: string;
+  score: number;
+  totalQuestions: number;
+  difficulty: string;
+  createdAt: string;
+  questions?: any[];
+}
+
 function ResultRowSkeleton() {
   return (
     <tr style={{ borderBottom: '1px solid var(--border)' }}>
@@ -44,24 +55,33 @@ function ResultRowSkeleton() {
 }
 
 export default function StudentResultsPage() {
+  const [tab, setTab] = useState<'assessments' | 'practice'>('assessments');
   const [results, setResults] = useState<AssessmentResult[]>([]);
+  const [practiceSessions, setPracticeSessions] = useState<PracticeSession[]>([]);
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
   const [selectedResult, setSelectedResult] = useState<AssessmentResult | null>(null);
 
   const fetchResults = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get<{ success: boolean; data: AssessmentResult[] }>('/student/results');
-      setResults(res.data.data ?? []);
+      if (tab === 'assessments') {
+        const res = await api.get<{ success: boolean; data: AssessmentResult[] }>('/student/results');
+        setResults(res.data.data ?? []);
+      } else {
+        const res = await api.get<{ success: boolean; data: PracticeSession[] }>('/generate/history');
+        setPracticeSessions(res.data.data ?? []);
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load results');
       toast.error('Failed to load results');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tab]);
 
   useEffect(() => { fetchResults(); }, [fetchResults]);
 
@@ -150,12 +170,31 @@ export default function StudentResultsPage() {
 
   return (
     <div style={{ padding: 'var(--page-pad)', maxWidth: 'var(--page-max-w)', margin: '0 auto', width: '100%' }}>
-      <div className="desktop-page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <BarChart3 size={24} color="var(--brand)" />
-          <h1 className="page-title">My Results</h1>
+      <div className="desktop-page-header" style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <BarChart3 size={24} color="var(--brand)" />
+            <h1 className="page-title">My Results</h1>
+          </div>
+          <p className="page-subtitle">View your graded assessment results and practice quiz history.</p>
         </div>
-        <p className="page-subtitle">View your graded assessment results and question-level breakdown.</p>
+        
+        <div style={{ display: 'flex', background: 'var(--bg-secondary)', padding: 4, borderRadius: 100 }}>
+          <button 
+            className={`btn btn-sm ${tab === 'assessments' ? 'btn-primary' : 'btn-ghost'}`} 
+            style={{ borderRadius: 100 }}
+            onClick={() => setTab('assessments')}
+          >
+            <FileText size={14} /> Assessments
+          </button>
+          <button 
+            className={`btn btn-sm ${tab === 'practice' ? 'btn-primary' : 'btn-ghost'}`} 
+            style={{ borderRadius: 100 }}
+            onClick={() => setTab('practice')}
+          >
+            <Brain size={14} /> Practice Quizzes
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -164,7 +203,7 @@ export default function StudentResultsPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: 13 }}>
-                  {['Title', 'Subject', 'Score', 'Total', 'Percentage', 'Grade', 'Submitted'].map(h => (
+                  {['Title/Topic', 'Subject', 'Score', 'Percentage', 'Date', ''].map(h => (
                     <th key={h} style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'left' }}>{h}</th>
                   ))}
                 </tr>
@@ -183,13 +222,19 @@ export default function StudentResultsPage() {
             <button onClick={fetchResults} className="btn btn-dark btn-pill"><RefreshCw size={14} /> Retry</button>
           </div>
         </div>
-      ) : results.length === 0 ? (
+      ) : (tab === 'assessments' && results.length === 0) || (tab === 'practice' && practiceSessions.length === 0) ? (
         <div className="empty-state">
           <BarChart3 size={40} color="#9CA3AF" />
           <h2 className="empty-title">No results yet</h2>
-          <p className="empty-desc">Complete your assessments to see your results here.</p>
+          <p className="empty-desc">
+            {tab === 'assessments' 
+              ? 'Complete your assignments to see your results here.'
+              : 'Generate and complete a practice quiz to see your history.'}
+          </p>
           <div className="empty-state-actions">
-            <Link href="/student/assessments" className="btn btn-dark btn-pill">View Assessments</Link>
+            <Link href={tab === 'assessments' ? "/dashboard/student/assessments" : "/dashboard/student/practice"} className="btn btn-dark btn-pill">
+              {tab === 'assessments' ? 'View Tests' : 'Start Practice'}
+            </Link>
           </div>
         </div>
       ) : (
@@ -198,18 +243,16 @@ export default function StudentResultsPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: 13 }}>
-                  <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'left' }}>Title</th>
+                  <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'left' }}>{tab === 'assessments' ? 'Title' : 'Topic'}</th>
                   <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'left' }}>Subject</th>
                   <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'center' }}>Score</th>
-                  <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'center' }}>Total</th>
                   <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'center' }}>Percentage</th>
-                  <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'center' }}>Grade</th>
-                  <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'left' }}>Submitted</th>
-                  <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'right' }}>Action</th>
+                  <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'left' }}>Date</th>
+                  {tab === 'assessments' && <th style={{ padding: '14px 12px', fontWeight: 600, textAlign: 'right' }}>Action</th>}
                 </tr>
               </thead>
               <tbody>
-                {results.map((r) => {
+                {tab === 'assessments' && results.map((r) => {
                   const passed = r.percentage >= 40;
                   const isPending = r.status === 'SUBMITTED';
                   return (
@@ -226,8 +269,7 @@ export default function StudentResultsPage() {
                         </div>
                       </td>
                       <td style={{ padding: '14px 12px', color: 'var(--text-secondary)' }}>{r.subject}</td>
-                      <td style={{ padding: '14px 12px', textAlign: 'center', fontWeight: 700, color: isPending ? 'var(--text-muted)' : (passed ? '#10B981' : '#EF4444') }}>{isPending ? '-' : r.score}</td>
-                      <td style={{ padding: '14px 12px', textAlign: 'center', color: 'var(--text-secondary)' }}>{r.totalMarks}</td>
+                      <td style={{ padding: '14px 12px', textAlign: 'center', fontWeight: 700, color: isPending ? 'var(--text-muted)' : (passed ? '#10B981' : '#EF4444') }}>{isPending ? '-' : `${r.score}/${r.totalMarks}`}</td>
                       <td style={{ padding: '14px 12px', textAlign: 'center' }}>
                         <span style={{
                           display: 'inline-block', padding: '2px 10px', borderRadius: 100, fontSize: 12, fontWeight: 700,
@@ -237,15 +279,6 @@ export default function StudentResultsPage() {
                           {isPending ? 'Pending' : `${r.percentage}%`}
                         </span>
                       </td>
-                      <td style={{ padding: '14px 12px', textAlign: 'center' }}>
-                        <span style={{
-                          display: 'inline-block', padding: '2px 8px', borderRadius: 100, fontSize: 12, fontWeight: 700,
-                          background: isPending ? '#F3F4F6' : (passed ? '#DBEAFE' : '#FEF3C7'),
-                          color: isPending ? '#6B7280' : (passed ? '#1E40AF' : '#92400E'),
-                        }}>
-                          {isPending ? 'Pending' : (r.grade || (passed ? 'PASS' : 'FAIL'))}
-                        </span>
-                      </td>
                       <td style={{ padding: '14px 12px', color: 'var(--text-muted)', fontSize: 13 }}>
                         {new Date(r.submittedAt).toLocaleDateString()}
                       </td>
@@ -253,6 +286,45 @@ export default function StudentResultsPage() {
                         <button className="btn btn-secondary btn-sm" style={{ gap: 4 }} onClick={() => viewDetail(r.id)}>
                           <Eye size={13} /> View
                         </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                
+                {tab === 'practice' && practiceSessions.map((p) => {
+                  const percentage = Math.round((p.score / p.totalQuestions) * 100) || 0;
+                  const passed = percentage >= 50;
+                  return (
+                    <tr
+                      key={p.id}
+                      style={{ borderBottom: '1px solid #F3F4F6', fontSize: 14, transition: 'background 0.1s' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = '#FAFAFA'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <td style={{ padding: '14px 12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <Brain size={14} color="var(--brand)" />
+                          {p.topic}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, marginLeft: 22 }}>
+                          {p.difficulty}
+                        </div>
+                      </td>
+                      <td style={{ padding: '14px 12px', color: 'var(--text-secondary)' }}>{p.subject}</td>
+                      <td style={{ padding: '14px 12px', textAlign: 'center', fontWeight: 700, color: passed ? '#10B981' : '#F59E0B' }}>
+                        {p.score}/{p.totalQuestions}
+                      </td>
+                      <td style={{ padding: '14px 12px', textAlign: 'center' }}>
+                        <span style={{
+                          display: 'inline-block', padding: '2px 10px', borderRadius: 100, fontSize: 12, fontWeight: 700,
+                          background: passed ? '#D1FAE5' : '#FEF3C7',
+                          color: passed ? '#065F46' : '#92400E',
+                        }}>
+                          {percentage}%
+                        </span>
+                      </td>
+                      <td style={{ padding: '14px 12px', color: 'var(--text-muted)', fontSize: 13 }}>
+                        {new Date(p.createdAt).toLocaleDateString()}
                       </td>
                     </tr>
                   );

@@ -1419,11 +1419,19 @@ export class AdminController {
       if (!firstName || !lastName || !email) {
         res.status(400).json({ success: false, error: 'firstName, lastName, and email are required' }); return;
       }
+      
+      const normalizedEmail = String(email).trim().toLowerCase();
+      const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+      if (existingUser) {
+        res.status(409).json({ success: false, error: 'User with this email already exists.' });
+        return;
+      }
+
       const pwd = password || 'TempPass@123';
       const pwdHash = await argon2.hash(pwd);
       const user = await prisma.user.create({
         data: {
-          firstName, lastName, email,
+          firstName, lastName, email: normalizedEmail,
           passwordHash: pwdHash,
           role: 'TEACHER',
           organizationId: orgId,
@@ -1534,9 +1542,11 @@ export class AdminController {
         const cols = lines[i].split(',').map((c: string) => c.trim());
         const firstName = cols[firstNameIdx];
         const lastName = cols[lastNameIdx];
-        const email = cols[emailIdx];
+        const email = String(cols[emailIdx]).trim().toLowerCase();
         if (!firstName || !lastName || !email) { errors.push({ row: i, error: 'Missing required fields' }); continue; }
         try {
+          const existing = await prisma.user.findUnique({ where: { email } });
+          if (existing) { errors.push({ row: i, email, error: 'Already exists' }); continue; }
           const pwdHash = await argon2.hash('TempPass@123');
           const user = await prisma.user.create({
             data: { firstName, lastName, email, passwordHash: pwdHash, role: 'TEACHER', organizationId: orgId, forcePasswordReset: true },
@@ -1591,13 +1601,21 @@ export class AdminController {
       if (!firstName || !lastName || !email) {
         res.status(400).json({ success: false, error: 'firstName, lastName, and email are required' }); return;
       }
+      
+      const normalizedEmail = String(email).trim().toLowerCase();
+      const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+      if (existingUser) {
+        res.status(409).json({ success: false, error: 'User with this email already exists.' });
+        return;
+      }
+
       const pwdHash = await argon2.hash('Student@123');
       const preferences = { rollNo: req.body.rollNo, classId: req.body.classId, section: req.body.section };
       const user = await prisma.user.create({
         data: { 
           firstName, 
           lastName, 
-          email, 
+          email: normalizedEmail, 
           phone: phone || null,
           passwordHash: pwdHash, 
           role: 'STUDENT', 
@@ -1615,7 +1633,7 @@ export class AdminController {
             classId: req.body.classId,
             name: `${firstName} ${lastName}`,
             rollNo: req.body.rollNo || '',
-            email: email
+            email: normalizedEmail
           }
         });
       }
@@ -1727,7 +1745,6 @@ export class AdminController {
     try {
       if (!req.file) { res.status(400).json({ success: false, error: 'No CSV file uploaded' }); return; }
       const orgId = getAdminOrgId(req);
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const fs = require('fs');
       const content = fs.readFileSync(req.file.path, 'utf-8');
       const lines = content.split('\n').filter((l: string) => l.trim());
@@ -1736,6 +1753,7 @@ export class AdminController {
       const firstNameIdx = headers.indexOf('firstname');
       const lastNameIdx = headers.indexOf('lastname');
       const emailIdx = headers.indexOf('email');
+      const phoneIdx = headers.indexOf('phone');
       if (firstNameIdx === -1 || lastNameIdx === -1 || emailIdx === -1) {
         res.status(400).json({ success: false, error: 'CSV must include firstName, lastName, email columns' }); return;
       }
@@ -1745,12 +1763,15 @@ export class AdminController {
         const cols = lines[i].split(',').map((c: string) => c.trim());
         const firstName = cols[firstNameIdx];
         const lastName = cols[lastNameIdx];
-        const email = cols[emailIdx];
+        const email = String(cols[emailIdx]).trim().toLowerCase();
+        const phone = phoneIdx !== -1 ? cols[phoneIdx] : null;
         if (!firstName || !lastName || !email) { errors.push({ row: i, error: 'Missing required fields' }); continue; }
         try {
+          const existing = await prisma.user.findUnique({ where: { email } });
+          if (existing) { errors.push({ row: i, email, error: 'Already exists' }); continue; }
           const pwdHash = await argon2.hash('Student@123');
           const user = await prisma.user.create({
-            data: { firstName, lastName, email, passwordHash: pwdHash, role: 'STUDENT', organizationId: orgId, forcePasswordReset: true },
+            data: { firstName, lastName, email, phone, passwordHash: pwdHash, role: 'STUDENT', organizationId: orgId, forcePasswordReset: true },
           });
           created.push(user);
         } catch (e: any) {

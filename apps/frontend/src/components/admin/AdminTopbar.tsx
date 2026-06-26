@@ -1,6 +1,7 @@
 'use client';
 
-import { Menu, ShieldAlert, ArrowLeft, UserCircle, ChevronRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Menu, ShieldAlert, ArrowLeft, UserCircle, ChevronRight, LogOut } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
@@ -9,10 +10,18 @@ import Link from 'next/link';
 
 export function AdminTopbar() {
   const { toggle } = useSidebarStore();
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const { isImpersonating, exitImpersonation } = useAdminAuthStore();
   const pathname = usePathname();
   const router = useRouter();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isDropdownOpen) return;
+    const handleClose = () => setIsDropdownOpen(false);
+    window.addEventListener('click', handleClose);
+    return () => window.removeEventListener('click', handleClose);
+  }, [isDropdownOpen]);
 
   // Create human-readable breadcrumbs from the pathname
   const paths = pathname.split('/').filter(Boolean);
@@ -83,7 +92,7 @@ export function AdminTopbar() {
           </nav>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>
               {user ? `${user.firstName} ${user.lastName}` : 'Administrator'}
@@ -91,9 +100,66 @@ export function AdminTopbar() {
             <div style={{ fontSize: '10px', color: '#6B7280' }}>{user?.email}</div>
           </div>
 
-          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB' }}>
+          <div 
+            role="button"
+            tabIndex={0}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsDropdownOpen(!isDropdownOpen);
+            }}
+            style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB', cursor: 'pointer' }}
+          >
             <UserCircle size={22} />
           </div>
+
+          {isDropdownOpen && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: 'absolute',
+                right: 0,
+                top: '100%',
+                marginTop: '8px',
+                width: '160px',
+                background: '#FFFFFF',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                padding: '4px',
+                zIndex: 50,
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <button
+                onClick={async () => {
+                  setIsDropdownOpen(false);
+                  await logout();
+                  router.push('/login');
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  width: '100%',
+                  padding: '8px 12px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: '#EF4444',
+                  background: 'transparent',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#FEE2E2'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              >
+                <LogOut size={16} />
+                Logout
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

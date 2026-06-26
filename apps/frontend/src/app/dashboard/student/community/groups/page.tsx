@@ -130,7 +130,7 @@ export default function GroupsPage() {
             <button style={{ display: 'flex', alignItems: 'center', gap: 7, height: 40, borderRadius: 10, border: '1.5px solid #e2e8f0', background: '#fff', color: '#0f172a', fontSize: 13, fontWeight: 700, cursor: 'pointer', padding: '0 16px' }}>
               <Filter size={14} style={{ color: '#64748b' }} /> Filter
             </button>
-            <button onClick={() => setModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 8, height: 40, borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', padding: '0 20px', boxShadow: '0 2px 8px rgba(37,99,235,0.3)' }}>
+            <button onClick={() => setModalOpen(true)} className="btn btn-dark" style={{ display: 'flex', alignItems: 'center', gap: 8, height: 40, padding: '0 20px' }}>
               <Plus size={15} /> Create Group
             </button>
           </div>
@@ -138,7 +138,7 @@ export default function GroupsPage() {
 
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '64px 0' }}>
-            <Loader2 size={32} style={{ color: '#2563eb' }} />
+            <Loader2 size={32} style={{ color: '#0f172a' }} className="animate-spin" />
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ border: '2px dashed #e2e8f0', borderRadius: 20, padding: 64, textAlign: 'center', background: '#fff' }}>
@@ -153,8 +153,8 @@ export default function GroupsPage() {
               return (
                 <article key={group.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 20, padding: 24, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 260, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                    <div style={{ width: 48, height: 48, borderRadius: 14, background: '#eff6ff', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <Icon size={22} style={{ color: '#2563eb' }} />
+                    <div style={{ width: 48, height: 48, borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Icon size={22} style={{ color: '#0f172a' }} />
                     </div>
                     <span style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 100, padding: '3px 10px', fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: '0.06em', textTransform: 'uppercase' as const, whiteSpace: 'nowrap' as const }}>{cat}</span>
                   </div>
@@ -168,7 +168,7 @@ export default function GroupsPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#64748b' }}>
                       <Users size={14} style={{ color: '#94a3b8' }} /><span>{memberLabel(group.memberCount)}</span>
                     </div>
-                    <button onClick={() => !group.isMember && joinGroup(group.id)} disabled={group.isMember || joiningId === group.id} style={{ height: 36, borderRadius: 10, border: 'none', background: group.isMember ? '#f1f5f9' : '#2563eb', color: group.isMember ? '#94a3b8' : '#fff', fontSize: 12, fontWeight: 700, cursor: group.isMember ? 'default' : 'pointer', padding: '0 18px', transition: 'all .15s', opacity: joiningId === group.id ? 0.6 : 1 }}>
+                    <button onClick={() => !group.isMember && joinGroup(group.id)} disabled={group.isMember || joiningId === group.id} style={{ height: 36, borderRadius: 10, border: 'none', background: group.isMember ? '#f1f5f9' : '#0f172a', color: group.isMember ? '#94a3b8' : '#fff', fontSize: 12, fontWeight: 700, cursor: group.isMember ? 'default' : 'pointer', padding: '0 18px', transition: 'all .15s', opacity: joiningId === group.id ? 0.6 : 1 }}>
                       {group.isMember ? 'Joined' : joiningId === group.id ? 'Joining…' : 'Join'}
                     </button>
                   </div>
@@ -178,14 +178,14 @@ export default function GroupsPage() {
           </div>
         )}
 
-        <div style={{ marginTop: 48, background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #1e40af 100%)', borderRadius: 24, padding: '40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' as const, gap: 24, boxShadow: '0 8px 32px rgba(37,99,235,0.25)', overflow: 'hidden', position: 'relative' }}>
+        <div style={{ marginTop: 48, background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)', borderRadius: 24, padding: '40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' as const, gap: 24, boxShadow: '0 8px 32px rgba(0,0,0,0.25)', overflow: 'hidden', position: 'relative' }}>
           <div style={{ position: 'absolute', top: -40, left: -40, width: 120, height: 120, background: 'rgba(255,255,255,0.08)', borderRadius: '50%' }} />
           <div style={{ position: 'absolute', bottom: -50, right: -30, width: 160, height: 160, background: 'rgba(255,255,255,0.06)', borderRadius: '50%' }} />
           <div style={{ position: 'relative', zIndex: 1 }}>
             <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#fff' }}>Can't find what you're looking for?</h2>
             <p style={{ margin: '8px 0 0', fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: 500, maxWidth: 480 }}>Starting a new group is easy. Gather classmates, set your mission, and grow your community.</p>
           </div>
-          <button onClick={() => setModalOpen(true)} style={{ position: 'relative', zIndex: 1, height: 44, borderRadius: 12, border: 'none', background: '#fff', color: '#2563eb', fontSize: 13, fontWeight: 700, cursor: 'pointer', padding: '0 24px', whiteSpace: 'nowrap' as const }}>Launch a New Group</button>
+          <button onClick={() => setModalOpen(true)} style={{ position: 'relative', zIndex: 1, height: 44, borderRadius: 12, border: 'none', background: '#fff', color: '#0f172a', fontSize: 13, fontWeight: 700, cursor: 'pointer', padding: '0 24px', whiteSpace: 'nowrap' as const }}>Launch a New Group</button>
         </div>
       </div>
 

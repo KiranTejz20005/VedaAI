@@ -23,23 +23,19 @@ import { useAdminAuthStore } from '@/store/admin-auth.store';
 import { useAuthStore } from '@/store/auth.store';
 
 interface DashboardData {
-  stats: {
-    totalFaculty: number;
-    totalStudents: number;
-    totalClasses: number;
-    pendingApprovals: number;
-  };
+  totalFaculty: number;
+  totalStudents: number;
+  totalClasses: number;
+  assessmentsByStatus: Record<string, number>;
+  totalAssessments: number;
+  totalLessons: number;
+  totalSubmissions: number;
   recentActivity: Array<{
     id: string;
     description: string;
     timestamp: string;
     type: string;
   }>;
-  summary: {
-    publishedAssessments: number;
-    activeLessons: number;
-    submissionRate: number;
-  };
 }
 
 export default function AdminDashboard() {

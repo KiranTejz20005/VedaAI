@@ -175,7 +175,8 @@ export const assignOrganizationAdmin = async (req: Request, res: Response): Prom
     const { firstName, lastName, email, password } = req.body;
     const organizationId = req.params.id;
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {
       res.status(400).json({ success: false, error: 'User with this email already exists.' });
       return;
@@ -185,7 +186,7 @@ export const assignOrganizationAdmin = async (req: Request, res: Response): Prom
 
     const admin = await prisma.user.create({
       data: {
-        email,
+        email: normalizedEmail,
         firstName,
         lastName,
         passwordHash: pwdHash,

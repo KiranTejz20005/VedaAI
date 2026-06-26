@@ -225,9 +225,12 @@ export const quizGenerationRateLimiter = async (
     return;
   }
 
-  // 3. User Daily Limit (100/day)
+  // 3. User Daily Limit
+  const role = req.user?.role || 'FACULTY';
+  const dailyLimit = role === 'STUDENT' ? 2 : 100;
+  
   const userDayKey = `limit:quiz:user:${userId}:day`;
-  const userDayCheck = await checkLimit(userDayKey, 100, 86400);
+  const userDayCheck = await checkLimit(userDayKey, dailyLimit, 86400);
   if (!userDayCheck.allowed) {
     logger.warn({
       action: 'Rate Limit Triggered',
@@ -238,7 +241,7 @@ export const quizGenerationRateLimiter = async (
       limitType: 'USER_DAILY_QUIZ',
       timestamp,
     });
-    res.status(429).json({ success: false, error: 'User rate limit exceeded: 100 quizzes per day.' });
+    res.status(429).json({ success: false, error: `User rate limit exceeded: ${dailyLimit} quizzes per day.` });
     return;
   }
 
