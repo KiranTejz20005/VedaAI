@@ -25,8 +25,8 @@ export default function TeacherAttendancePage() {
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        // Fallback to fetching all students in org (if accessible to teacher)
-        const res = await api.get<{ success: boolean; data: Student[] }>('/admin/users?role=STUDENT&limit=50');
+        // Fetch students directly from teacher endpoint to avoid 403 Forbidden errors
+        const res = await api.get<{ success: boolean; data: Student[] }>('/teacher/students');
         const studentList = res.data.data || [];
         setStudents(studentList);
         

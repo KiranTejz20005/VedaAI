@@ -195,6 +195,45 @@ export default function QuestionBankPage() {
             <p className="page-subtitle">Store, search, version, and group all your assessment questions.</p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
+            <button 
+              className="btn btn-brand btn-pill" 
+              onClick={() => {
+                const el = document.getElementById('qb-upload');
+                if (el) el.click();
+              }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              <Plus size={16} />
+              Upload Material
+            </button>
+            <input 
+              type="file" 
+              id="qb-upload" 
+              accept=".pdf,.csv,.docx" 
+              style={{ display: 'none' }} 
+              onChange={async (e) => {
+                if (e.target.files?.length) {
+                  const file = e.target.files[0];
+                  const loadingToast = toast.loading(`Selected ${file.name}, uploading and parsing...`);
+                  
+                  const formData = new FormData();
+                  formData.append('file', file);
+                  
+                  try {
+                    const res = await apiClient.post<{ success: boolean; message: string }>('/question-bank/upload', formData, {
+                      headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    toast.success(res.data.message || 'Material parsed successfully!', { id: loadingToast });
+                    fetchQuestions(); // Refresh list to show newly extracted questions
+                  } catch (err: any) {
+                    toast.error(err.message || 'Failed to upload and parse material', { id: loadingToast });
+                  }
+                  
+                  // Reset input
+                  e.target.value = '';
+                }
+              }}
+            />
             {selectedQuestions.length > 0 && (
               <button 
                 className="btn btn-dark btn-pill" 

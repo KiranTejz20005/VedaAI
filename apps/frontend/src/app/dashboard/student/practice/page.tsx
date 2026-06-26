@@ -149,8 +149,8 @@ function GeneratePageContent() {
   // History State
   const [history, setHistory] = useState<HistoryQuiz[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const activeTab = 'generate'; // mock for unchanged code if any
+  const [showGeneratorForm, setShowGeneratorForm] = useState(false);
+  const [activeTab, setActiveTab] = useState<'generate' | 'history'>('generate');
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [revealedAnswers, setRevealedAnswers] = useState<Record<string, boolean>>({});
 
@@ -356,10 +356,11 @@ function GeneratePageContent() {
       };
 
       // Instantly save to database
-      const saveRes = await apiClient.post<{ success: boolean; data: { id: string } }>('/generate/session', newQuiz);
+      await apiClient.post<{ success: boolean; data: { id: string } }>('/generate/session', newQuiz);
       
-      toast.success(`${count} questions generated successfully! Start attempting.`);
-      router.push(`/dashboard/student/practice/attempt?sessionId=${saveRes.data.data.id}`);
+      toast.success(`${count} questions generated successfully!`);
+      setShowGeneratorForm(false);
+      void loadHistory();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Generation failed';
       setGenerationError(message);
@@ -412,22 +413,8 @@ function GeneratePageContent() {
   };
 
   const handleReattemptHistoryQuiz = (hQuiz: HistoryQuiz) => {
-    const timeLimit = hQuiz.questions.length * 60;
-    const newQuiz: Quiz = {
-      id: `quiz-${Date.now()}`,
-      topic: hQuiz.topic,
-      subject: hQuiz.subject,
-      questions: hQuiz.questions,
-      timeLimitSeconds: timeLimit,
-      timeRemainingSeconds: timeLimit,
-      attempts: {},
-      isSubmitted: false,
-      timestamp: Date.now()
-    };
-    setActiveQuiz(newQuiz);
-    setActiveTab('generate');
-    setRevealedAnswers({});
-    toast.success('Retrying past quiz! Timer started.');
+    toast.success('Retrying past quiz! Navigating to quiz room...');
+    router.push(`/dashboard/student/practice/attempt?sessionId=${hQuiz.id}&retake=true`);
   };
 
   const handleClearHistory = async () => {
@@ -452,27 +439,6 @@ function GeneratePageContent() {
           <p className="page-subtitle">Instantly generate syllabus-aligned multiple choice quizzes to test student concepts.</p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowHistory(!showHistory)}
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            width: 40,
-            height: 40,
-            borderRadius: '50%',
-            background: showHistory ? '#F3F4F6' : '#FFFFFF',
-            border: `1px solid ${showHistory ? '#D1D5DB' : 'var(--border)'}`,
-            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-            cursor: 'pointer',
-            flexShrink: 0,
-            color: 'var(--text-primary)'
-          }}
-          title={`History (${history.length})`}
-        >
-          <History size={18} />
-        </button>
       </div>
 
       <div className="mobile-page-header">
@@ -487,9 +453,34 @@ function GeneratePageContent() {
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Generator Form (Only show when not in active quiz or after submitting) */}
           {(!activeQuiz || activeQuiz.isSubmitted) && (
-            <form onSubmit={handleSubmit}>
-              <div className="card" style={{ marginBottom: 20 }}>
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            <>
+              {!showGeneratorForm ? (
+                <div 
+                  className="card" 
+                  style={{ marginBottom: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px', border: '2px dashed var(--border)', background: '#FFFFFF', transition: 'all 0.2s ease' }}
+                  onClick={() => setShowGeneratorForm(true)}
+                >
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ width: 48, height: 48, background: '#F3F4F6', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                      <Sparkles size={24} color="var(--brand)" />
+                    </div>
+                    <h3 style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-primary)' }}>Generate Quiz</h3>
+                    <p style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>Click here to create a new AI-generated practice quiz</p>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit}>
+                  <div className="card" style={{ marginBottom: 20, position: 'relative' }}>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowGeneratorForm(false)}
+                      style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, background: '#F3F4F6', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      title="Cancel"
+                    >
+                      <X size={16} />
+                    </button>
+                    <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 16 }}>Configure Quiz</h3>
+                    <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                   <div className="input-group" style={{ flex: 1, minWidth: 200 }}>
                     <label className="label">Topic</label>
                     <input required type="text" className="input" placeholder="e.g. Machine Learning Basics" value={formData.topic} onChange={e => setFormData({...formData, topic: e.target.value})} />
@@ -543,12 +534,12 @@ function GeneratePageContent() {
                     />
                     <label style={{
                       position: 'absolute',
-                      bottom: 8,
-                      right: 8,
+                      bottom: 12,
+                      right: 12,
                       display: 'flex',
                       alignItems: 'center',
                       gap: 6,
-                      padding: '6px 12px',
+                      padding: '12px',
                       background: '#F9FAFB',
                       border: '1px solid #E5E7EB',
                       borderRadius: 6,
@@ -573,6 +564,8 @@ function GeneratePageContent() {
                 </button>
               </div>
             </form>
+              )}
+            </>
           )}
 
           {generationError && (
@@ -589,64 +582,64 @@ function GeneratePageContent() {
             </motion.div>
           )}
 
-        </div>
+          {(!activeQuiz || activeQuiz.isSubmitted) && (
+            <div style={{ marginTop: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <History size={20} /> Your Quizzes
+                  <button
+                    type="button"
+                    onClick={() => void loadHistory()}
+                    disabled={historyLoading}
+                    title="Refresh history"
+                    style={{ background: 'none', border: 'none', cursor: historyLoading ? 'default' : 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                  >
+                    <RefreshCw size={14} style={{ opacity: 0.5, animation: historyLoading ? 'spin 1s linear infinite' : 'none' }} />
+                  </button>
+                </h2>
+                {history.length > 0 && (
+                  <button 
+                    type="button" 
+                    onClick={handleClearHistory} 
+                    style={{ 
+                      background: '#FEE2E2', 
+                      border: '1px solid #FECACA', 
+                      color: '#B91C1C', 
+                      padding: '6px 12px', 
+                      borderRadius: 8, 
+                      fontSize: 12, 
+                      fontWeight: 600, 
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6
+                    }}
+                  >
+                    <Trash2 size={14} /> Clear History
+                  </button>
+                )}
+              </div>
 
-        {/* History Drawer */}
-        {showHistory && (
-          <div className="card" style={{ width: 400, flexShrink: 0, height: 'calc(100vh - 120px)', overflowY: 'auto', position: 'sticky', top: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <History size={18} /> Quiz History ({history.length})
-              <button
-                type="button"
-                onClick={() => void loadHistory()}
-                disabled={historyLoading}
-                title="Refresh history from database"
-                style={{ background: 'none', border: 'none', cursor: historyLoading ? 'default' : 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
-              >
-                <RefreshCw size={14} style={{ opacity: 0.5, animation: historyLoading ? 'spin 1s linear infinite' : 'none' }} />
-              </button>
-            </h2>
-            {history.length > 0 && (
-              <button 
-                type="button" 
-                onClick={handleClearHistory} 
-                style={{ 
-                  background: '#FEE2E2', 
-                  border: '1px solid #FECACA', 
-                  color: '#B91C1C', 
-                  padding: '6px 12px', 
-                  borderRadius: 8, 
-                  fontSize: 12, 
-                  fontWeight: 600, 
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6
-                }}
-              >
-                <Trash2 size={14} /> Clear History
-              </button>
-            )}
-          </div>
-
-          {history.length === 0 ? (
-            <div className="card" style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--text-muted)' }}>
-              <History size={48} style={{ margin: '0 auto 16px', opacity: 0.3 }} />
-              <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>No history yet</h3>
-              <p style={{ fontSize: 14 }}>Generated quizzes will show up here as single test sessions, allowing you to review scores or re-attempt them.</p>
-            </div>
-          ) : (
+              {historyLoading ? (
+                <div style={{ padding: 40, textAlign: 'center' }}><Loader2 className="animate-spin" style={{ margin: '0 auto' }} /></div>
+              ) : history.length === 0 ? (
+                <div className="card" style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--text-muted)' }}>
+                  <History size={48} style={{ margin: '0 auto 16px', opacity: 0.3 }} />
+                  <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>No generated quiz available</h3>
+                  <p style={{ fontSize: 14 }}>Create your first AI-generated quiz using the button above.</p>
+                </div>
+              ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {history.map((hQuiz, idx) => {
                 const isExpanded = expandedHistoryId === hQuiz.id;
                 const percentScore = Math.round((hQuiz.score / hQuiz.questions.length) * 100);
+                const isUntaken = Object.keys(hQuiz.attempts).length === 0 && hQuiz.timeTakenSeconds === 0;
 
                 return (
                   <div key={hQuiz.id || idx} className="card" style={{ padding: 0, overflow: 'hidden' }}>
                     {/* Header Summary Row */}
                     <div 
-                      onClick={() => setExpandedHistoryId(isExpanded ? null : hQuiz.id)}
+                      onClick={() => !isUntaken && setExpandedHistoryId(isExpanded ? null : hQuiz.id)}
                       style={{ 
                         padding: '16px 20px', 
                         display: 'flex', 
@@ -674,41 +667,83 @@ function GeneratePageContent() {
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                        <div style={{ 
-                          fontSize: 13, 
-                          fontWeight: 800, 
-                          color: percentScore >= 70 ? '#047857' : percentScore >= 40 ? '#B45309' : '#B91C1C',
-                          background: percentScore >= 70 ? '#D1FAE5' : percentScore >= 40 ? '#FEF3C7' : '#FEE2E2',
-                          padding: '4px 10px',
-                          borderRadius: 8
-                        }}>
-                          Score: {hQuiz.score} / {hQuiz.questions.length} ({percentScore}%)
-                        </div>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>
-                          Duration: {formatTime(hQuiz.timeTakenSeconds)}
-                        </div>
-                        <button 
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleReattemptHistoryQuiz(hQuiz);
-                          }}
-                          style={{
-                            background: '#FFFFFF',
-                            border: '1px solid var(--border)',
-                            borderRadius: 6,
+                        {isUntaken ? (
+                          <div style={{ 
+                            fontSize: 13, 
+                            fontWeight: 700, 
+                            color: '#4B5563',
+                            background: '#F3F4F6',
                             padding: '4px 10px',
-                            fontSize: 11,
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4
-                          }}
-                        >
-                          <RotateCcw size={12} /> Retry
-                        </button>
-                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            borderRadius: 8
+                          }}>
+                            Not attempted
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ 
+                              fontSize: 13, 
+                              fontWeight: 800, 
+                              color: percentScore >= 70 ? '#047857' : percentScore >= 40 ? '#B45309' : '#B91C1C',
+                              background: percentScore >= 70 ? '#D1FAE5' : percentScore >= 40 ? '#FEF3C7' : '#FEE2E2',
+                              padding: '4px 10px',
+                              borderRadius: 8
+                            }}>
+                              Score: {hQuiz.score} / {hQuiz.questions.length} ({percentScore}%)
+                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>
+                              Duration: {formatTime(hQuiz.timeTakenSeconds)}
+                            </div>
+                          </>
+                        )}
+
+                        {isUntaken ? (
+                          <button 
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/dashboard/student/practice/attempt?sessionId=${hQuiz.id}`);
+                            }}
+                            style={{
+                              background: 'var(--brand)',
+                              border: 'none',
+                              color: '#FFF',
+                              borderRadius: 6,
+                              padding: '6px 14px',
+                              fontSize: 12,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                            }}
+                          >
+                            <Sparkles size={14} /> Take Quiz
+                          </button>
+                        ) : (
+                          <button 
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleReattemptHistoryQuiz(hQuiz);
+                            }}
+                            style={{
+                              background: '#FFFFFF',
+                              border: '1px solid var(--border)',
+                              borderRadius: 6,
+                              padding: '4px 10px',
+                              fontSize: 11,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4
+                            }}
+                          >
+                            <RotateCcw size={12} /> Retry
+                          </button>
+                        )}
+                        {!isUntaken && (isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
                       </div>
                     </div>
 
@@ -861,8 +896,9 @@ function GeneratePageContent() {
               })}
             </div>
           )}
+            </div>
+          )}
         </div>
-      )}
       </div>
       
       {/* Styles for option hover transitions */}

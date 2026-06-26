@@ -208,42 +208,6 @@ export const quizGenerationRateLimiter = async (
     return;
   }
 
-  // 2. User Hourly Limit (20/hour)
-  const userHourKey = `limit:quiz:user:${userId}:hour`;
-  const userHourCheck = await checkLimit(userHourKey, 20, 3600);
-  if (!userHourCheck.allowed) {
-    logger.warn({
-      action: 'Rate Limit Triggered',
-      userId,
-      organizationId,
-      requestId,
-      ip,
-      limitType: 'USER_HOURLY_QUIZ',
-      timestamp,
-    });
-    res.status(429).json({ success: false, error: 'User rate limit exceeded: 20 quizzes per hour.' });
-    return;
-  }
-
-  // 3. User Daily Limit
-  const role = req.user?.role || 'FACULTY';
-  const dailyLimit = role === 'STUDENT' ? 2 : 100;
-  
-  const userDayKey = `limit:quiz:user:${userId}:day`;
-  const userDayCheck = await checkLimit(userDayKey, dailyLimit, 86400);
-  if (!userDayCheck.allowed) {
-    logger.warn({
-      action: 'Rate Limit Triggered',
-      userId,
-      organizationId,
-      requestId,
-      ip,
-      limitType: 'USER_DAILY_QUIZ',
-      timestamp,
-    });
-    res.status(429).json({ success: false, error: `User rate limit exceeded: ${dailyLimit} quizzes per day.` });
-    return;
-  }
 
   // 4. Organization Daily Limit (500/day)
   if (organizationId && organizationId !== 'no-organization') {

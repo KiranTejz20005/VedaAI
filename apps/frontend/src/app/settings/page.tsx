@@ -106,7 +106,7 @@ function AccountPanel({ onClose, profile, onProfileUpdate }: { onClose: () => vo
   const [email, setEmail] = useState(profile?.email || '');
   const [avatar, setAvatar] = useState(profile?.avatar || '');
   const [currentPassword, setCurrentPassword] = useState('');
-  const [reEnterPassword, setReEnterPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -130,13 +130,13 @@ function AccountPanel({ onClose, profile, onProfileUpdate }: { onClose: () => vo
       await apiClient.put('/auth/me', { firstName, lastName, email: email.trim(), avatar });
       
       if (showPasswordChange) {
-        if (!currentPassword || !reEnterPassword || !newPassword) {
+        if (!currentPassword || !confirmPassword || !newPassword) {
           toast.error('Please fill all password fields');
           setSaving(false);
           return;
         }
-        if (currentPassword !== reEnterPassword) {
-          toast.error('Current passwords do not match');
+        if (newPassword !== confirmPassword) {
+          toast.error('New passwords do not match');
           setSaving(false);
           return;
         }
@@ -144,7 +144,7 @@ function AccountPanel({ onClose, profile, onProfileUpdate }: { onClose: () => vo
         toast.success('Profile and password updated');
         setShowPasswordChange(false);
         setCurrentPassword('');
-        setReEnterPassword('');
+        setConfirmPassword('');
         setNewPassword('');
       } else {
         toast.success('Profile updated');
@@ -187,7 +187,7 @@ function AccountPanel({ onClose, profile, onProfileUpdate }: { onClose: () => vo
       <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
         {!showPasswordChange ? (
           <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
-            <button className="btn btn-ghost" style={{ color: 'var(--brand)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14, padding: 0, fontWeight: 600 }} onClick={() => setShowPasswordChange(true)}>Forgot Password?</button>
+            <button className="btn btn-ghost" style={{ color: 'var(--brand)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14, padding: 0, fontWeight: 600 }} onClick={() => setShowPasswordChange(true)}>Change Password</button>
           </div>
         ) : (
           <>
@@ -203,17 +203,17 @@ function AccountPanel({ onClose, profile, onProfileUpdate }: { onClose: () => vo
               style={{ marginBottom: 14 }}
             />
             <PasswordInput
-              label="Re-enter Current Password"
-              placeholder="Re-enter current password"
-              value={reEnterPassword}
-              onChange={(e) => setReEnterPassword(e.target.value)}
-              style={{ marginBottom: 14 }}
-            />
-            <PasswordInput
               label="New Password"
               placeholder="Enter new password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
+              style={{ marginBottom: 14 }}
+            />
+            <PasswordInput
+              label="Confirm New Password"
+              placeholder="Re-enter new password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               style={{ marginBottom: 20 }}
             />
           </>

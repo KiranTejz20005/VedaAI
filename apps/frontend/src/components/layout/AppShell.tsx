@@ -73,39 +73,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isRedirectingToLogin = !isLoading && !isAuthenticated && !isPublicPage && pathname !== '/onboarding';
 
   if ((isLoading || isRedirectingToLogin) && !isPublicPage) {
-    return (
-      <div suppressHydrationWarning style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#F8F7F4',
-        color: '#111827',
-        fontFamily: 'Inter, sans-serif'
-      }}>
-        <div suppressHydrationWarning style={{
-          position: 'relative',
-          width: 50,
-          height: 50,
-          marginBottom: 16
-        }}>
-          <div suppressHydrationWarning style={{
-            position: 'absolute',
-            width: '100%',
-            height: '100%',
-            border: '3px solid rgba(232, 83, 29, 0.1)',
-            borderTopColor: '#E8531D',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
-          }} />
-        </div>
-        <div suppressHydrationWarning style={{ fontSize: '14px', color: '#6B7280', fontWeight: 500 }}>
-          Securing workspace...
-        </div>
-        <style dangerouslySetInnerHTML={{ __html: `@keyframes spin { to { transform: rotate(360deg); } }` }} />
-      </div>
-    );
+    // Return null or a subtle loader to prevent unmounting the layout
+    // But since the user wants the sidebar and navigation bar to stay in place,
+    // we should NOT return early here. We will handle the loading state inside the main content area.
+    // So we just let the code fall through.
   }
 
   const isChromeExcluded =
@@ -179,7 +150,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {TopbarComponent}
         <main suppressHydrationWarning style={{ flex: 1, padding: '24px', maxWidth: '1600px', margin: '0 auto', width: '100%', overflowX: 'hidden' }}>
           <ClientOnly fallback={<div className="page-content-placeholder" aria-hidden="true" />}>
-            {children}
+            {(isLoading || isRedirectingToLogin) && !isPublicPage ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '50vh' }}>
+                <div style={{ width: 40, height: 40, border: '3px solid rgba(232, 83, 29, 0.1)', borderTopColor: '#E8531D', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+              </div>
+            ) : children}
           </ClientOnly>
         </main>
       </div>

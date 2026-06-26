@@ -24,8 +24,9 @@ export default function StudentAssignmentsPage() {
     setLoading(true);
     setError(null);
     try {
-      // Students fetch assignments via the dedicated student route to avoid 403 Forbidden
-      const res = await api.get<{ success: boolean; data: any[] }>('/student/assessments');
+      const isTeacher = user?.role === 'TEACHER' || user?.role === 'FACULTY' || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+      const endpoint = isTeacher ? '/assignments' : '/student/assessments';
+      const res = await api.get<{ success: boolean; data: any[] }>(endpoint);
       
       const mappedAssignments = res.data.data?.map(a => ({
         ...a,

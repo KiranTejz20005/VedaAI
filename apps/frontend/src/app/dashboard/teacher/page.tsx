@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import toast from 'react-hot-toast';
 import { PageHeader } from '@/design-system/PageHeader';
 import { MetricCard } from '@/design-system/MetricCard';
 import { Card } from '@/design-system/Card';
@@ -15,12 +17,16 @@ interface TeacherStats {
   assignmentsCreated: number;
   averageClassScore: number;
   pendingEvaluations: number;
+  recentTests?: any[];
+  topStudents?: any[];
 }
 
 export default function TeacherDashboard() {
+  const router = useRouter();
   const [stats, setStats] = useState<TeacherStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -94,19 +100,129 @@ export default function TeacherDashboard() {
       }}>
         <Card padding="clamp(16px, 2vw, 20px)">
           <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 16 }}>Recent Test Statistics</h3>
-          <p style={{ color: 'var(--text-secondary)' }}>View your test performance metrics...</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {data.recentTests && data.recentTests.length > 0 ? (
+              data.recentTests.map((test: any) => (
+                <div key={test.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12, background: 'var(--bg-muted)', borderRadius: 8 }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{test.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{test.date}</div>
+                  </div>
+                  <div style={{ fontWeight: 700, color: 'var(--brand)' }}>{test.score}% Avg</div>
+                </div>
+              ))
+            ) : (
+              <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>No recent tests found.</p>
+            )}
+          </div>
         </Card>
         
         <Card padding="clamp(16px, 2vw, 20px)">
           <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 16 }}>Student Performance Table</h3>
-          <p style={{ color: 'var(--text-secondary)' }}>Student leaderboard and performance details...</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {data.topStudents && data.topStudents.length > 0 ? (
+              data.topStudents.map((student: any) => (
+                <div key={student.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--brand)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: 12 }}>
+                      {student.name.charAt(0)}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{student.name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Roll: {student.rollNo}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontWeight: 700 }}>{student.average}%</div>
+                </div>
+              ))
+            ) : (
+              <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>No student data available.</p>
+            )}
+          </div>
         </Card>
         
         <Card padding="clamp(16px, 2vw, 20px)">
           <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 16 }}>Quick Actions</h3>
-          <p style={{ color: 'var(--text-secondary)' }}>Create Test | Create Assignment | Upload Material</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <button
+              onClick={() => router.push('/generate')}
+              style={{ padding: '12px 16px', background: 'var(--brand)', color: 'white', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, border: 'none', cursor: 'pointer', transition: 'opacity 0.2s' }}
+              onMouseOver={e => e.currentTarget.style.opacity = '0.9'}
+              onMouseOut={e => e.currentTarget.style.opacity = '1'}
+            >
+              <FileText size={18} /> Create Test
+            </button>
+            <button
+              onClick={() => router.push('/assignments/create')}
+              style={{ padding: '12px 16px', background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 0.2s' }}
+              onMouseOver={e => e.currentTarget.style.background = 'var(--bg-muted)'}
+              onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
+            >
+              <ClipboardList size={18} /> Create Assignment
+            </button>
+            <button
+              onClick={() => setShowUploadModal(true)}
+              style={{ padding: '12px 16px', background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 0.2s' }}
+              onMouseOver={e => e.currentTarget.style.background = 'var(--bg-muted)'}
+              onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
+            >
+              <UploadCloud size={18} /> Upload Material
+            </button>
+          </div>
         </Card>
       </div>
+
+      {/* Material Upload Modal */}
+      {showUploadModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--surface)', padding: 24, borderRadius: 16, width: '90%', maxWidth: 500 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16 }}>Upload Material</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: 24, fontSize: 14 }}>Upload Word (.docx) or PDF files for your class.</p>
+            
+            <div style={{ border: '2px dashed var(--border)', borderRadius: 12, padding: 32, textAlign: 'center', marginBottom: 24 }}>
+              <UploadCloud size={40} color="var(--text-muted)" style={{ margin: '0 auto 12px' }} />
+              <p style={{ fontWeight: 600, marginBottom: 4 }}>Drag & drop files here</p>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>or click to browse</p>
+              <input 
+                type="file" 
+                accept=".pdf,.doc,.docx" 
+                style={{ display: 'none' }} 
+                id="material-upload" 
+                onChange={async (e) => {
+                  if (e.target.files?.length) {
+                    const file = e.target.files[0];
+                    toast.success(`Selected ${file.name}, uploading...`);
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    try {
+                      await api.post('/teacher/upload-material', formData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                      });
+                      toast.success('Material uploaded successfully!');
+                    } catch (err: any) {
+                      toast.error('Failed to upload material');
+                    } finally {
+                      setTimeout(() => setShowUploadModal(false), 500);
+                    }
+                  }
+                }}
+              />
+              <label htmlFor="material-upload" style={{ display: 'inline-block', padding: '8px 16px', background: 'var(--bg-muted)', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                Browse Files
+              </label>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <button 
+                onClick={() => setShowUploadModal(false)}
+                style={{ padding: '8px 16px', background: 'transparent', border: 'none', fontWeight: 600, cursor: 'pointer', color: 'var(--text-secondary)' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
