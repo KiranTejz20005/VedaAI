@@ -2,19 +2,36 @@ import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { AnalyticsService } from '../services/analytics.service';
 
-export const getDashboardStats = async (_req: Request, res: Response) => {
+export const getDashboardStats = async (req: Request, res: Response) => {
   try {
-    const totalQuestions = await prisma.question.count();
-    const totalAssessments = await prisma.assignment.count();
-    const pendingReviews = await prisma.questionReview.count({ where: { status: 'PENDING' } });
+    const orgId = req.user?.organizationId;
+    if (!orgId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
 
-    const bloomDistribution = await prisma.question.groupBy({
+    const totalQuestions = await prisma.questionBank.count({
+      where: { organizationId: orgId }
+    });
+    
+    const totalAssessments = await prisma.assignment.count({
+      where: { organizationId: orgId }
+    });
+    
+    // Instead of pendingReviews, we can count pending student submissions
+    const pendingReviews = await prisma.studentSubmission.count({ 
+      where: { status: { not: 'GRADED' } } 
+    });
+
+    const bloomDistribution = await prisma.questionBank.groupBy({
       by: ['bloomLevel'],
+      where: { organizationId: orgId },
       _count: { bloomLevel: true }
     });
 
-    const difficultyDistribution = await prisma.question.groupBy({
+    const difficultyDistribution = await prisma.questionBank.groupBy({
       by: ['difficulty'],
+      where: { organizationId: orgId },
       _count: { difficulty: true }
     });
 
@@ -40,8 +57,8 @@ export const getDashboardStats = async (_req: Request, res: Response) => {
         difficultyDistribution: difficultyData
       }
     });
-  } catch (error) {
-    res.status(500).json({ success: false, error: 'Failed to fetch analytics' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to fetch analytics' });
   }
 };
 

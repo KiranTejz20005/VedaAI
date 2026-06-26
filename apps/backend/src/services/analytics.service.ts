@@ -100,11 +100,17 @@ export class AnalyticsService {
   }
 
   static async getGroupPerformance(groupId: string) {
-    const students = await prisma.student.findMany({
-      where: { groupId },
+    const students = await prisma.classStudent.findMany({
+      where: { classId: groupId }
     });
 
-    const studentIds = students.map(s => s.id);
+    // In a real system, you'd match ClassStudent email to User email or ID.
+    // For now, since submissions are linked to user ID, we'll try to find users matching emails.
+    const studentEmails = students.map(s => s.email);
+    const users = await prisma.user.findMany({
+      where: { email: { in: studentEmails } }
+    });
+    const studentIds = users.map(u => u.id);
 
     // Find all submissions for these students
     const submissions = await prisma.studentSubmission.findMany({
@@ -133,8 +139,8 @@ export class AnalyticsService {
 
     // Calculate top performers
     const studentScores: Record<string, { totalPct: number; count: number; name: string }> = {};
-    students.forEach(st => {
-      studentScores[st.id] = { totalPct: 0, count: 0, name: st.name };
+    users.forEach(u => {
+      studentScores[u.id] = { totalPct: 0, count: 0, name: `${u.firstName} ${u.lastName}` };
     });
 
     submissions.forEach(sub => {

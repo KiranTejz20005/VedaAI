@@ -7,32 +7,32 @@ export const ROUTE_PERMISSIONS = {
     '/dashboard/teacher',
     '/dashboard/student',
     // Fallback/Legacy routes to avoid breaking changes immediately
-    '/dashboard', '/reviews', '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/analytics', '/admin', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/papers', '/profile', '/student',
+    '/dashboard', '/reviews', '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/analytics', '/admin', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/my-classes', '/papers', '/profile', '/student',
   ],
   ADMIN: [
     '/dashboard/admin',
     '/dashboard/faculty',
     '/dashboard/teacher',
     '/dashboard/student',
-    '/dashboard', '/reviews', '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/analytics', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/papers', '/profile', '/admin',
+    '/dashboard', '/reviews', '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/analytics', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/my-classes', '/papers', '/profile', '/admin',
   ],
   ORG_ADMIN: [
     '/dashboard/admin',
     '/dashboard/faculty',
     '/dashboard/teacher',
     '/dashboard/student',
-    '/dashboard', '/reviews', '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/analytics', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/papers', '/profile', '/admin',
+    '/dashboard', '/reviews', '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/analytics', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/my-classes', '/papers', '/profile', '/admin',
   ],
   FACULTY: [
     '/dashboard/faculty',
     '/dashboard/teacher',
     '/dashboard/student',
-    '/dashboard', '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/papers', '/profile',
+    '/dashboard', '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/my-classes', '/papers', '/profile', '/analytics',
   ],
   TEACHER: [
     '/dashboard/teacher',
     '/dashboard/student',
-    '/dashboard', '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/papers', '/profile',
+    '/dashboard', '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/my-classes', '/papers', '/profile', '/analytics',
   ],
   STUDENT: [
     '/dashboard/student',

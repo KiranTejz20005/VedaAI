@@ -30,10 +30,10 @@ function QuestionBankIcon(props: React.SVGProps<SVGSVGElement>) {
 const NAV_ITEMS = [
   { href: '/dashboard/faculty', label: 'Dashboard', icon: LayoutGrid, exact: true },
   { href: '/dashboard/teacher', label: 'Teachers', icon: Users },
-  { href: '/dashboard/student', label: 'Students', icon: GraduationCap },
+  { href: '/classes', label: 'Students', icon: GraduationCap },
   { href: '/analytics', label: 'Reports', icon: FileText },
   { href: '/analytics', label: 'Analytics', icon: BrainCircuit },
-  { href: '/classes', label: 'Classes', icon: BookOpen },
+  { href: '/my-classes', label: 'My Classes', icon: BookOpen },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 

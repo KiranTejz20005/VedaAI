@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Award, Check, CheckCircle, Clock, Loader2, X, ChevronLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { apiClient } from '@/lib/api';
+import { apiClient } from '@/services/api.client';
 
 // Interface matching the Quiz in practice/page.tsx
 interface Quiz {
@@ -67,35 +67,41 @@ function AttemptPageContent() {
     const fetchSession = async () => {
       try {
         const res = await apiClient.get<{success: boolean, data: any}>(`/generate/session/${sessionId}`);
-        const data = res.data.data;
+        const data = res?.data?.data;
+        if (!data) {
+          throw new Error('No data returned from API');
+        }
         
+        const isRetake = searchParams.get('retake') === 'true';
+
         // Ensure remaining time matches if they left and came back (or we just use timeLimit - timeTaken)
-        const timeRemaining = data.timeLimitSeconds - (data.timeTakenSeconds || 0);
+        const timeRemaining = isRetake ? (data.timeLimitSeconds || 0) : ((data.timeLimitSeconds || 0) - (data.timeTakenSeconds || 0));
 
         setActiveQuiz({
           id: data.id,
           topic: data.topic,
           subject: data.subject,
-          questions: data.questions.map((q: any) => ({
+          questions: Array.isArray(data.questions) ? data.questions.map((q: any) => ({
             id: q.id,
-            question_text: q.questionText,
-            options: q.options,
-            answer: q.answer,
-            difficulty: q.difficulty,
-            bloomLevel: q.bloomLevel,
-            ai_confidence_score: q.aiConfidenceScore,
-            hint: q.hint
-          })),
-          timeLimitSeconds: data.timeLimitSeconds,
+            question_text: q.questionText || q.question_text || '',
+            options: q.options || [],
+            answer: q.answer || '',
+            difficulty: q.difficulty || '',
+            bloomLevel: q.bloomLevel || '',
+            ai_confidence_score: q.aiConfidenceScore || q.ai_confidence_score || 0.85,
+            hint: q.hint || ''
+          })) : [],
+          timeLimitSeconds: data.timeLimitSeconds || 0,
           timeRemainingSeconds: timeRemaining,
-          attempts: data.attempts || {},
-          isSubmitted: !!data.score || (data.timeTakenSeconds > 0 && Object.keys(data.attempts || {}).length > 0),
-          score: data.score,
-          timeTakenSeconds: data.timeTakenSeconds,
+          attempts: isRetake ? {} : (data.attempts || {}),
+          isSubmitted: isRetake ? false : (!!data.score || ((data.timeTakenSeconds || 0) > 0 && Object.keys(data.attempts || {}).length > 0)),
+          score: isRetake ? 0 : (data.score || 0),
+          timeTakenSeconds: isRetake ? 0 : (data.timeTakenSeconds || 0),
           timestamp: Date.now()
         });
-      } catch (err) {
-        toast.error('Failed to load quiz state');
+      } catch (err: any) {
+        console.error('Fetch Session Error:', err);
+        toast.error(`Failed to load quiz state: ${err.message || 'Unknown error'}`);
         router.replace('/dashboard/student/practice');
       } finally {
         setLoading(false);

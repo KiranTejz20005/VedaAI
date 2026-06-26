@@ -11,6 +11,7 @@ import {
   X,
   PieChart,
   ClipboardCheck,
+  BookOpen,
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
@@ -28,12 +29,13 @@ function QuestionBankIcon(props: React.SVGProps<SVGSVGElement>) {
 
 const NAV_ITEMS = [
   { href: '/dashboard/teacher', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/dashboard/teacher/students', label: 'Students', icon: Users },
-  { href: '/dashboard/teacher/tests', label: 'Tests', icon: ClipboardCheck },
-  { href: '/dashboard/teacher/assignments', label: 'Assignments', icon: ClipboardList },
+  { href: '/classes', label: 'Students', icon: Users },
+  { href: '/my-classes', label: 'My Classes', icon: BookOpen },
+  { href: '/assessments', label: 'Tests', icon: ClipboardCheck },
+  { href: '/assignments', label: 'Assignments', icon: ClipboardList },
   { href: '/dashboard/teacher/attendance', label: 'Attendance', icon: GraduationCap },
-  { href: '/dashboard/teacher/question-bank', label: 'Question Bank', icon: QuestionBankIcon },
-  { href: '/dashboard/teacher/analytics', label: 'Analytics', icon: PieChart },
+  { href: '/question-bank', label: 'Question Bank', icon: QuestionBankIcon },
+  { href: '/analytics', label: 'Analytics', icon: PieChart },
 ];
 
 export function TeacherSidebar() {

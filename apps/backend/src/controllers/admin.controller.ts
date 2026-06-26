@@ -1427,7 +1427,7 @@ export class AdminController {
         return;
       }
 
-      const pwd = password || 'TempPass@123';
+      const pwd = password || 'Faculty@123';
       const pwdHash = await argon2.hash(pwd);
       const user = await prisma.user.create({
         data: {
@@ -1547,7 +1547,7 @@ export class AdminController {
         try {
           const existing = await prisma.user.findUnique({ where: { email } });
           if (existing) { errors.push({ row: i, email, error: 'Already exists' }); continue; }
-          const pwdHash = await argon2.hash('TempPass@123');
+          const pwdHash = await argon2.hash('Faculty@123');
           const user = await prisma.user.create({
             data: { firstName, lastName, email, passwordHash: pwdHash, role: 'TEACHER', organizationId: orgId, forcePasswordReset: true },
           });

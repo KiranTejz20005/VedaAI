@@ -58,12 +58,14 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
 
     // Token exists, verify it
     const decodedPayload = verifyAccessToken(token);
+    const headerOrgId = req.headers['x-organization-id'] as string | undefined;
+
     req.user = {
       id: decodedPayload.userId,
       email: decodedPayload.email,
       role: decodedPayload.role,
       organizationId: decodedPayload.organizationId,
-      activeOrganizationId: decodedPayload.activeOrganizationId,
+      activeOrganizationId: headerOrgId || decodedPayload.activeOrganizationId,
       departmentId: decodedPayload.departmentId,
     };
     return next();

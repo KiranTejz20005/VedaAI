@@ -40,6 +40,8 @@ interface PracticeSession {
   difficulty: string;
   createdAt: string;
   questions?: any[];
+  attempts?: any;
+  timeTakenSeconds?: number;
 }
 
 function ResultRowSkeleton() {
@@ -73,7 +75,12 @@ export default function StudentResultsPage() {
         setResults(res.data.data ?? []);
       } else {
         const res = await api.get<{ success: boolean; data: PracticeSession[] }>('/generate/history');
-        setPracticeSessions(res.data.data ?? []);
+        const sessions = res.data.data ?? [];
+        const attemptedSessions = sessions.filter(s => {
+          const isUntaken = (!s.attempts || Object.keys(s.attempts).length === 0) && (s.timeTakenSeconds === 0 || !s.timeTakenSeconds);
+          return !isUntaken;
+        });
+        setPracticeSessions(attemptedSessions);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load results');

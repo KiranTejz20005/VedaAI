@@ -18,7 +18,12 @@ export function getRequestUserId(req: Request): string {
 
 export function getRequestOrgId(req: Request): string | undefined {
   if (req.user?.role === 'SUPER_ADMIN') {
-    return (req.body?._requireOrganizationScope as string | undefined) ?? undefined;
+    return (
+      (req.body?._requireOrganizationScope as string | undefined) ||
+      req.user?.activeOrganizationId ||
+      req.user?.organizationId ||
+      undefined
+    );
   }
   return (
     (req.body?._requireOrganizationScope as string | undefined) ||

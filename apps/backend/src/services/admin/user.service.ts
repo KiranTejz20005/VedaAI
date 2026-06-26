@@ -13,7 +13,16 @@ export class UserService {
     organizationId?: string;
     departmentId?: string;
   }) {
-    const password = data.password || 'Temporary@123';
+    let password = data.password;
+    if (!password) {
+      if (data.role === 'TEACHER' || data.role === 'FACULTY') {
+        password = 'Faculty@123';
+      } else if (data.role === 'STUDENT') {
+        password = 'Student@123';
+      } else {
+        password = 'Temporary@123';
+      }
+    }
     const passwordHash = await argon2.hash(password);
 
     // Create user
