@@ -36,7 +36,7 @@ export const ROUTE_PERMISSIONS = {
   ],
   STUDENT: [
     '/dashboard/student',
-    '/dashboard', '/tutor', '/notes', '/settings', '/student', '/profile',
+    '/dashboard', '/tutor', '/notes', '/settings', '/student', '/profile', '/assignments',
   ],
 };
 

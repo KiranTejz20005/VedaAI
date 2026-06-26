@@ -26,10 +26,11 @@ import { useAdminAuthStore } from '@/store/admin-auth.store';
 
 const NAV_ITEMS = [
   { href: '/dashboard/student', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/student/assessments', label: 'Tests', icon: ClipboardCheck },
+  { href: '/dashboard/student/assessments', label: 'Tests', icon: ClipboardCheck },
   { href: '/assignments', label: 'Assignments', icon: BookOpen },
-  { href: '/dashboard/student', label: 'Attendance', icon: User },
-  { href: '/student/results', label: 'Results', icon: TrendingUp },
+  { href: '/dashboard/student/attendance', label: 'Attendance', icon: User },
+  { href: '/dashboard/student/results', label: 'Results', icon: TrendingUp },
+  { href: '/dashboard/student/practice', label: 'Practice Quiz', icon: BookOpen },
   { href: '/dashboard/student/community', label: 'Community', icon: Users },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
