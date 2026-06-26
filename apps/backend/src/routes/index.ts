@@ -30,6 +30,7 @@ import chatRoutes from './chat.routes';
 import voiceRoutes from './voice.routes';
 import moderationRoutes from './moderation.routes';
 import meetingRoutes from './meeting.routes';
+import attendanceRoutes from './attendance.routes';
 
 const apiRouter = Router();
 
@@ -95,6 +96,7 @@ apiRouter.use('/v1/teacher', teacherRoutes);
 apiRouter.use('/v1/faculty', facultyRoutes);
 apiRouter.use('/v1/notifications', notificationRoutes);
 apiRouter.use('/v1/student', studentRoutes);
+apiRouter.use('/v1/attendance', attendanceRoutes);
 
 // Backward compatible legacy aliases
 apiRouter.use('/assignments', assignmentRoutes);

@@ -124,6 +124,7 @@ model Organization {
   communityGroups    CommunityGroup[]
   voiceRooms         VoiceRoom[]
   meetings           Meeting[]
+  attendanceRecords  AttendanceRecord[]
 }
 
 model Department {
@@ -187,6 +188,8 @@ model User {
   hostedMeetings      Meeting[]              @relation("HostedMeetings")
   questionCollections QuestionCollection[]
   auditLogs           AuditLog[]
+  studentAttendance   AttendanceRecord[]     @relation("StudentAttendance")
+  recordedAttendance  AttendanceRecord[]     @relation("TeacherAttendance")
 
   @@index([organizationId])
   @@index([departmentId])
@@ -943,18 +946,19 @@ model UserRole {
 // ── Classes & Groups ──
 
 model Class {
-  id             String         @id @default(uuid())
-  grade          String
-  section        String
-  academicYear   String
-  organizationId String
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  facultyId      String?
-  faculty        User?          @relation("ClassFaculty", fields: [facultyId], references: [id], onDelete: SetNull)
-  students       ClassStudent[]
-  assignments    Assignment[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id                String             @id @default(uuid())
+  grade             String
+  section           String
+  academicYear      String
+  organizationId    String
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  facultyId         String?
+  faculty           User?              @relation("ClassFaculty", fields: [facultyId], references: [id], onDelete: SetNull)
+  students          ClassStudent[]
+  assignments       Assignment[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  attendanceRecords AttendanceRecord[]
 
   @@index([organizationId])
   @@index([facultyId])
@@ -1149,4 +1153,27 @@ model SystemSetting {
   notifyApiSpikes   Boolean  @default(true)
   forceMfa          Boolean  @default(false)
   updatedAt         DateTime @updatedAt
+}
+
+// ── Attendance ──
+model AttendanceRecord {
+  id             String       @id @default(uuid())
+  studentId      String
+  student        User         @relation("StudentAttendance", fields: [studentId], references: [id], onDelete: Cascade)
+  classId        String
+  class          Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  date           DateTime
+  status         String       @default("PRESENT") // PRESENT, ABSENT
+  topics         Json?        @default("[]")
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  recordedById   String
+  recordedBy     User         @relation("TeacherAttendance", fields: [recordedById], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([studentId, classId, date])
+  @@index([studentId])
+  @@index([classId, date])
+  @@index([organizationId])
 }
