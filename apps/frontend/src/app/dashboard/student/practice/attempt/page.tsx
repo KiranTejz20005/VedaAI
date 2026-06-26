@@ -194,7 +194,7 @@ function AttemptPageContent() {
   if (!activeQuiz) return null;
 
   return (
-    <div className="dashboard-view" style={{ padding: '0 0 80px 0', background: 'var(--background)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%', background: '#F9FAFB', overflowY: 'auto', position: 'absolute', inset: 0, zIndex: 10 }}>
       {/* Fixed Header */}
       <div style={{
         position: 'sticky',
@@ -237,8 +237,9 @@ function AttemptPageContent() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 720, margin: '32px auto 0', padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {activeQuiz.isSubmitted && (
+      <div style={{ flex: 1, padding: '32px 0 80px' }}>
+        <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {activeQuiz.isSubmitted && (
           <div className="card" style={{ textAlign: 'center', padding: '48px 24px', background: '#ECFDF5', borderColor: '#10B981' }}>
             <Award size={48} color="#10B981" style={{ margin: '0 auto 16px' }} />
             <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Quiz Completed!</h2>
@@ -391,13 +392,14 @@ function AttemptPageContent() {
             <button 
               type="button" 
               onClick={handleSubmitQuiz} 
-              className="btn btn-dark btn-pill" 
-              style={{ padding: '12px 32px', fontSize: 15, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8 }}
+              className="btn btn-dark" 
+              style={{ padding: '8px 16px', fontSize: 13, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 6 }}
             >
-              <CheckCircle size={18} /> Submit Quiz
+              <CheckCircle size={16} /> Submit
             </button>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

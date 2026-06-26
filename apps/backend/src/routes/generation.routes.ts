@@ -5,6 +5,7 @@ import { authenticate } from '../middlewares/auth.middleware';
 import { requirePermission } from '../security/access-control';
 import { PERMISSIONS } from '../security/permissions';
 import { quizGenerationRateLimiter } from '../middlewares/rate-limit.middleware';
+import { checkQuizDailyLimit } from '../middlewares/daily-limit.middleware';
 import { uploadMiddleware } from '../middlewares/upload.middleware';
 
 const router = Router();
@@ -16,8 +17,8 @@ router.post('/parse', uploadMiddleware.single('file'), asyncHandler(parseDocumen
 router.post('/share', asyncHandler(shareQuiz));
 router.get('/shared/:id', asyncHandler(getSharedQuiz));
 
-router.post('/question', quizGenerationRateLimiter, asyncHandler(generateQuestion));
-router.post('/questions', quizGenerationRateLimiter, asyncHandler(generateQuestions));
+router.post('/question', quizGenerationRateLimiter, checkQuizDailyLimit, asyncHandler(generateQuestion));
+router.post('/questions', quizGenerationRateLimiter, checkQuizDailyLimit, asyncHandler(generateQuestions));
 router.post('/session', asyncHandler(saveQuizSession));
 router.get('/session/:id', asyncHandler(getQuizSessionById));
 router.put('/session/:id', asyncHandler(updateQuizSession));

@@ -126,6 +126,21 @@ function GeneratePageContent() {
     }
   };
 
+  const handleShareHistoryQuiz = async (hQuiz: HistoryQuiz) => {
+    try {
+      const res = await apiClient.post<{success:boolean, data:{sharedId:string}}>('/generate/share', { 
+        topic: hQuiz.topic, 
+        subject: hQuiz.subject, 
+        questions: hQuiz.questions 
+      });
+      const url = `${window.location.origin}/dashboard/student/practice?sharedId=${res.data.data.sharedId}`;
+      await navigator.clipboard.writeText(url);
+      toast.success('Share link copied to clipboard!');
+    } catch {
+      toast.error('Failed to share quiz');
+    }
+  };
+
   const handleRetakeQuiz = async () => {
     if(!activeQuiz) return;
     try {
@@ -146,6 +161,28 @@ function GeneratePageContent() {
       toast.error('Failed to retake quiz');
     }
   };
+
+  const handleRetakeQuizGroup = async (hQuiz: HistoryQuiz) => {
+    toast.success('Starting a new attempt...');
+    try {
+      const newQuiz = {
+        topic: hQuiz.topic,
+        subject: hQuiz.subject,
+        difficulty: hQuiz.difficulty,
+        bloomLevel: hQuiz.bloomLevel,
+        timeLimitSeconds: hQuiz.timeLimitSeconds,
+        timeTakenSeconds: 0,
+        score: 0,
+        attempts: {},
+        questions: hQuiz.questions
+      };
+      const saveRes = await apiClient.post<{ success: boolean; data: { id: string } }>('/generate/session', newQuiz);
+      router.push(`/dashboard/student/practice/attempt?sessionId=${saveRes.data.data.id}`);
+    } catch {
+      toast.error('Failed to start retry session');
+    }
+  };
+
   // History State
   const [history, setHistory] = useState<HistoryQuiz[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -190,6 +227,20 @@ function GeneratePageContent() {
       setHistoryLoading(false);
     }
   }, []);
+
+  // Group history by subject + topic
+  const groupedHistoryMap = new Map<string, HistoryQuiz[]>();
+  history.forEach(hq => {
+    const key = `${hq.subject}:::${hq.topic}`;
+    if (!groupedHistoryMap.has(key)) groupedHistoryMap.set(key, []);
+    groupedHistoryMap.get(key)!.push(hq);
+  });
+  const groupedHistory = Array.from(groupedHistoryMap.entries()).map(([key, quizzes]) => ({
+    key,
+    subject: quizzes[0].subject,
+    topic: quizzes[0].topic,
+    quizzes
+  }));
 
   // Load shared quiz
   useEffect(() => {
@@ -630,16 +681,18 @@ function GeneratePageContent() {
                 </div>
               ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {history.map((hQuiz, idx) => {
-                const isExpanded = expandedHistoryId === hQuiz.id;
-                const percentScore = Math.round((hQuiz.score / hQuiz.questions.length) * 100);
-                const isUntaken = Object.keys(hQuiz.attempts).length === 0 && hQuiz.timeTakenSeconds === 0;
+              {groupedHistory.map((group, groupIdx) => {
+                const isExpanded = expandedHistoryId === group.key;
+                const quizzes = group.quizzes;
+                const bestQuiz = quizzes.reduce((prev, curr) => (curr.score > prev.score ? curr : prev), quizzes[0]);
+                const percentScore = Math.round((bestQuiz.score / bestQuiz.questions.length) * 100);
+                const hasUntaken = quizzes.some(q => Object.keys(q.attempts).length === 0 && q.timeTakenSeconds === 0);
+                const latestUntaken = quizzes.find(q => Object.keys(q.attempts).length === 0 && q.timeTakenSeconds === 0);
 
                 return (
-                  <div key={hQuiz.id || idx} className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                    {/* Header Summary Row */}
+                  <div key={group.key} className="card" style={{ padding: 0, overflow: 'hidden' }}>
                     <div 
-                      onClick={() => !isUntaken && setExpandedHistoryId(isExpanded ? null : hQuiz.id)}
+                      onClick={() => setExpandedHistoryId(isExpanded ? null : group.key)}
                       style={{ 
                         padding: '16px 20px', 
                         display: 'flex', 
@@ -654,20 +707,20 @@ function GeneratePageContent() {
                       <div style={{ flex: 1, minWidth: 200 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--brand)', textTransform: 'uppercase' }}>
-                            {hQuiz.subject}
+                            {group.subject}
                           </span>
                           <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>&middot;</span>
                           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
-                            {hQuiz.topic}
+                            {group.topic}
                           </span>
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                          {new Date(hQuiz.timestamp).toLocaleString()} &middot; {hQuiz.questions.length} Qs
+                          {quizzes.length} Attempt{quizzes.length > 1 ? 's' : ''} &middot; {quizzes[0].questions.length} Qs
                         </div>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                        {isUntaken ? (
+                        {hasUntaken && quizzes.length === 1 ? (
                           <div style={{ 
                             fontSize: 13, 
                             fontWeight: 700, 
@@ -679,29 +732,24 @@ function GeneratePageContent() {
                             Not attempted
                           </div>
                         ) : (
-                          <>
-                            <div style={{ 
-                              fontSize: 13, 
-                              fontWeight: 800, 
-                              color: percentScore >= 70 ? '#047857' : percentScore >= 40 ? '#B45309' : '#B91C1C',
-                              background: percentScore >= 70 ? '#D1FAE5' : percentScore >= 40 ? '#FEF3C7' : '#FEE2E2',
-                              padding: '4px 10px',
-                              borderRadius: 8
-                            }}>
-                              Score: {hQuiz.score} / {hQuiz.questions.length} ({percentScore}%)
-                            </div>
-                            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>
-                              Duration: {formatTime(hQuiz.timeTakenSeconds)}
-                            </div>
-                          </>
+                          <div style={{ 
+                            fontSize: 13, 
+                            fontWeight: 800, 
+                            color: percentScore >= 70 ? '#047857' : percentScore >= 40 ? '#B45309' : '#B91C1C',
+                            background: percentScore >= 70 ? '#D1FAE5' : percentScore >= 40 ? '#FEF3C7' : '#FEE2E2',
+                            padding: '4px 10px',
+                            borderRadius: 8
+                          }}>
+                            Best: {bestQuiz.score} / {bestQuiz.questions.length} ({percentScore}%)
+                          </div>
                         )}
 
-                        {isUntaken ? (
+                        {hasUntaken ? (
                           <button 
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              router.push(`/dashboard/student/practice/attempt?sessionId=${hQuiz.id}`);
+                              router.push(`/dashboard/student/practice/attempt?sessionId=${latestUntaken!.id}`);
                             }}
                             style={{
                               background: 'var(--brand)',
@@ -718,173 +766,92 @@ function GeneratePageContent() {
                               boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                             }}
                           >
-                            <Sparkles size={14} /> Take Quiz
+                            <Sparkles size={14} /> Resume
                           </button>
                         ) : (
                           <button 
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleReattemptHistoryQuiz(hQuiz);
+                              handleRetakeQuizGroup(quizzes[0]);
                             }}
                             style={{
                               background: '#FFFFFF',
                               border: '1px solid var(--border)',
                               borderRadius: 6,
-                              padding: '4px 10px',
-                              fontSize: 11,
+                              padding: '6px 14px',
+                              fontSize: 12,
                               fontWeight: 700,
                               cursor: 'pointer',
                               display: 'flex',
                               alignItems: 'center',
-                              gap: 4
+                              gap: 6
                             }}
                           >
-                            <RotateCcw size={12} /> Retry
+                            <RotateCcw size={14} /> Retake
                           </button>
                         )}
-                        {!isUntaken && (isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
+                        
+                        <button 
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShareHistoryQuiz(quizzes[0]);
+                          }}
+                          style={{
+                            background: '#FFFFFF',
+                            border: '1px solid var(--border)',
+                            borderRadius: 6,
+                            padding: '6px 14px',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6
+                          }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                          Share
+                        </button>
+
+                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                       </div>
                     </div>
 
-                    {/* Expandable Review Details */}
                     {isExpanded && (
-                      <div style={{ padding: '20px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 20, background: '#FFFFFF' }}>
-                        {hQuiz.questions.map((q, qIdx) => {
-                          const userAttempt = hQuiz.attempts[qIdx];
-                          const isCorrect = userAttempt === q.answer;
-                          const isRevealed = revealedAnswers[`history-${hQuiz.id}-${qIdx}`];
-
+                      <div style={{ padding: '20px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12, background: '#FFFFFF' }}>
+                        <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase' }}>Attempt History</h4>
+                        {quizzes.map((q, i) => {
+                          const attemptScore = Math.round((q.score / q.questions.length) * 100);
+                          const isAttemptUntaken = Object.keys(q.attempts).length === 0 && q.timeTakenSeconds === 0;
                           return (
-                            <div key={q.id || qIdx} style={{ paddingBottom: 16, borderBottom: qIdx < hQuiz.questions.length - 1 ? '1px dashed var(--border)' : 'none' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-                                  Question {qIdx + 1}
-                                </span>
-                                <span style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 4,
-                                  fontSize: 11,
-                                  fontWeight: 700,
-                                  padding: '2px 8px',
-                                  borderRadius: 8,
-                                  background: isCorrect ? '#DCFCE7' : '#FEE2E2',
-                                  color: isCorrect ? '#15803D' : '#B91C1C'
-                                }}>
-                                  {isCorrect ? <Check size={12} /> : <X size={12} />}
-                                  {isCorrect ? 'Correct' : 'Incorrect'}
-                                </span>
+                            <div key={q.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#F9FAFB', borderRadius: 8, border: '1px solid var(--border)' }}>
+                              <div>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                                  Attempt {quizzes.length - i}
+                                </div>
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                  {new Date(q.timestamp).toLocaleString()}
+                                </div>
                               </div>
-
-                              <p style={{ fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.5, marginBottom: 12, fontWeight: 500, whiteSpace: 'pre-wrap' }}>
-                                {q.question_text}
-                              </p>
-
-                              {q.hint && (
-                                <div style={{ marginBottom: 12 }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleRevealAnswer(`hint-history-${hQuiz.id}-${qIdx}`)}
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: 4,
-                                      padding: '2px 8px',
-                                      background: '#FEF3C7',
-                                      border: '1px solid #FCD34D',
-                                      borderRadius: 4,
-                                      fontSize: 11,
-                                      fontWeight: 700,
-                                      color: '#D97706',
-                                      cursor: 'pointer',
-                                    }}
-                                  >
-                                    💡 {revealedAnswers[`hint-history-${hQuiz.id}-${qIdx}`] ? 'Hide Hint' : 'Show Hint'}
-                                  </button>
-                                  {revealedAnswers[`hint-history-${hQuiz.id}-${qIdx}`] && (
-                                    <p style={{ marginTop: 6, fontSize: 12, color: '#B45309', background: '#FFFDF5', padding: 6, borderRadius: 4, borderLeft: '3px solid #F59E0B' }}>
-                                      {q.hint}
-                                    </p>
-                                  )}
-                                </div>
-                              )}
-
-                              {q.options && q.options.length > 0 && (
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8, marginBottom: 12 }}>
-                                  {q.options.map((opt, i) => {
-                                    const letter = getOptionLetter(opt, i);
-                                    const isThisSelected = userAttempt === letter;
-                                    const isThisCorrect = q.answer === letter;
-                                    
-                                    let optionBg = '#F9FAFB';
-                                    let optionBorder = 'var(--border)';
-                                    let optionColor = 'var(--text-primary)';
-                                    let icon = null;
-
-                                    if (isThisCorrect) {
-                                      optionBg = '#DCFCE7';
-                                      optionBorder = '#22C55E';
-                                      optionColor = '#15803D';
-                                      icon = <Check size={14} style={{ color: '#22C55E', flexShrink: 0 }} />;
-                                    } else if (isThisSelected) {
-                                      optionBg = '#FEE2E2';
-                                      optionBorder = '#EF4444';
-                                      optionColor = '#B91C1C';
-                                      icon = <X size={14} style={{ color: '#EF4444', flexShrink: 0 }} />;
-                                    }
-
-                                    return (
-                                      <div 
-                                        key={i}
-                                        style={{
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'space-between',
-                                          padding: '8px 12px',
-                                          background: optionBg,
-                                          border: `1px solid ${optionBorder}`,
-                                          borderRadius: 6,
-                                          fontSize: 12,
-                                          color: optionColor,
-                                          fontWeight: isThisSelected || isThisCorrect ? 600 : 400
-                                        }}
-                                      >
-                                        <span>{cleanOptionText(opt)}</span>
-                                        {icon}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>Answer:</span>
-                                <div 
-                                  onClick={() => toggleRevealAnswer(`history-${hQuiz.id}-${qIdx}`)}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 4,
-                                    padding: '2px 8px',
-                                    background: isRevealed ? '#D1FAE5' : '#F3F4F6',
-                                    border: `1px solid ${isRevealed ? '#10B981' : '#E5E7EB'}`,
-                                    borderRadius: 4,
-                                    fontSize: 12,
-                                    fontWeight: 700,
-                                    color: isRevealed ? '#065F46' : '#4b5563',
-                                    cursor: 'pointer',
-                                    userSelect: 'none',
-                                    transition: 'all 0.2s ease',
-                                  }}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                {isAttemptUntaken ? (
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: '#4B5563', padding: '4px 8px', background: '#E5E7EB', borderRadius: 6 }}>Not Attempted</span>
+                                ) : (
+                                  <>
+                                    <span style={{ fontSize: 12, fontWeight: 700, color: attemptScore >= 70 ? '#047857' : attemptScore >= 40 ? '#B45309' : '#B91C1C' }}>
+                                      Score: {q.score}/{q.questions.length} ({attemptScore}%)
+                                    </span>
+                                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatTime(q.timeTakenSeconds)}</span>
+                                  </>
+                                )}
+                                <button 
+                                  onClick={() => router.push(`/dashboard/student/practice/attempt?sessionId=${q.id}&retake=true`)}
+                                  style={{ background: '#FFFFFF', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', color: 'var(--text-primary)' }}
                                 >
-                                  <span style={{ filter: isRevealed ? 'none' : 'blur(4px)' }}>
-                                    {q.answer}
-                                  </span>
-                                  {!isRevealed && (
-                                    <Eye size={10} style={{ opacity: 0.6 }} />
-                                  )}
-                                </div>
+                                  {isAttemptUntaken ? 'Resume' : 'Review'}
+                                </button>
                               </div>
                             </div>
                           );

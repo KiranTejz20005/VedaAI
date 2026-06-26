@@ -5,6 +5,7 @@ import { logger } from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import pdfParse from 'pdf-parse';
+import { initializeDailyLimitService } from '../middlewares/daily-limit.middleware';
 
 export const generateQuestion = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -55,6 +56,12 @@ export const generateQuestion = async (req: Request, res: Response): Promise<voi
     } catch (dbErr) {
       // Non-fatal: log but still return the question
       logger.warn(`[generateQuestion] Failed to persist question to DB: ${dbErr instanceof Error ? dbErr.message : dbErr}`);
+    }
+
+    const userRole = (req as any).user?.role;
+    if (userRole === 'STUDENT') {
+      const dailyLimitService = initializeDailyLimitService();
+      await dailyLimitService.incrementUsage((req as any).user.id, 'quiz');
     }
 
     res.status(201).json({ success: true, data: question });
@@ -124,6 +131,12 @@ export const generateQuestions = async (req: Request, res: Response): Promise<vo
         }
       })
     );
+
+    const userRole = (req as any).user?.role;
+    if (userRole === 'STUDENT') {
+      const dailyLimitService = initializeDailyLimitService();
+      await dailyLimitService.incrementUsage((req as any).user.id, 'quiz');
+    }
 
     res.status(201).json({ success: true, data: questions });
   } catch (error) {

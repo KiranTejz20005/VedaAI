@@ -177,30 +177,63 @@ export default function StudentResultsPage() {
 
   return (
     <div style={{ padding: 'var(--page-pad)', maxWidth: 'var(--page-max-w)', margin: '0 auto', width: '100%' }}>
-      <div className="desktop-page-header" style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <BarChart3 size={24} color="var(--brand)" />
-            <h1 className="page-title">My Results</h1>
-          </div>
-          <p className="page-subtitle">View your graded assessment results and practice quiz history.</p>
-        </div>
+      {/* Premium Header */}
+      <div style={{
+        position: 'relative',
+        background: 'linear-gradient(135deg, #F97316 0%, #E8531D 50%, #C2410C 100%)',
+        padding: '16px 24px',
+        marginBottom: 20,
+        boxShadow: '0 4px 12px rgba(249, 115, 22, 0.2)',
+        borderRadius: 16
+      }}>
+        {/* Abstract background blobs */}
+        <div style={{
+          position: 'absolute', top: '-20%', right: '-5%', width: '40%', height: '150%',
+          background: 'radial-gradient(ellipse at center, rgba(255, 255, 255, 0.15) 0%, rgba(255,255,255,0) 70%)',
+          pointerEvents: 'none'
+        }} />
+        <div style={{
+          position: 'absolute', bottom: '-20%', left: '10%', width: '30%', height: '100%',
+          background: 'radial-gradient(ellipse at center, rgba(255, 255, 255, 0.1) 0%, rgba(255,255,255,0) 70%)',
+          pointerEvents: 'none'
+        }} />
         
-        <div style={{ display: 'flex', background: 'var(--bg-secondary)', padding: 4, borderRadius: 100 }}>
-          <button 
-            className={`btn btn-sm ${tab === 'assessments' ? 'btn-primary' : 'btn-ghost'}`} 
-            style={{ borderRadius: 100 }}
-            onClick={() => setTab('assessments')}
-          >
-            <FileText size={14} /> Assessments
-          </button>
-          <button 
-            className={`btn btn-sm ${tab === 'practice' ? 'btn-primary' : 'btn-ghost'}`} 
-            style={{ borderRadius: 100 }}
-            onClick={() => setTab('practice')}
-          >
-            <Brain size={14} /> Practice Quizzes
-          </button>
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexWrap: 'wrap', gap: 24, justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: 'rgba(255, 255, 255, 0.15)', borderRadius: 8, color: 'rgba(255,255,255,0.95)', fontSize: 12, fontWeight: 700 }}>
+              <BarChart3 size={12} /> My Results
+            </div>
+            <h1 style={{ fontSize: 18, fontWeight: 700, color: '#ffffff', margin: 0, letterSpacing: '-0.01em' }}>
+              Academic Performance
+            </h1>
+          </div>
+          
+          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.2)', padding: 4, borderRadius: 100, backdropFilter: 'blur(10px)' }}>
+            <button 
+              className={`btn btn-sm ${tab === 'assessments' ? 'btn-primary' : 'btn-ghost'}`} 
+              style={{ 
+                borderRadius: 100, 
+                border: 'none',
+                background: tab === 'assessments' ? '#ffffff' : 'transparent',
+                color: tab === 'assessments' ? '#C2410C' : '#ffffff'
+              }}
+              onClick={() => setTab('assessments')}
+            >
+              <FileText size={14} /> Assessments
+            </button>
+            <button 
+              className={`btn btn-sm ${tab === 'practice' ? 'btn-primary' : 'btn-ghost'}`} 
+              style={{ 
+                borderRadius: 100, 
+                border: 'none',
+                background: tab === 'practice' ? '#ffffff' : 'transparent',
+                color: tab === 'practice' ? '#C2410C' : '#ffffff'
+              }}
+              onClick={() => setTab('practice')}
+            >
+              <Brain size={14} /> Practice Quizzes
+            </button>
+          </div>
         </div>
       </div>
 
