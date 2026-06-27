@@ -245,10 +245,10 @@ export default function LoginPage() {
           <div class="card" id="card">
             <div class="logo-container">
               ${providerLogo}
-              <span style="font-weight:700;font-size:18px;color:#111;">shiksha ai</span>
+              Vidya AI
             </div>
             <h1 id="title">Sign in with ${providerName}</h1>
-            <p id="desc">Choose an account to continue to <strong>shiksha ai</strong></p>
+            <p id="desc">Choose an account to continue to <strong>Vidya AI</strong></p>
             
             <div id="loader" class="loader"></div>
             
@@ -320,7 +320,7 @@ export default function LoginPage() {
               document.getElementById('account-list').style.display = 'block';
               document.getElementById('custom-input-form').style.display = 'none';
               document.getElementById('title').innerText = 'Sign in with ${providerName}';
-              document.getElementById('desc').innerText = 'Choose an account to continue to shiksha ai';
+              document.getElementById('desc').innerText = 'Choose an account to continue to Vidya AI';
             }
 
             function submitCustomAccount() {
@@ -337,7 +337,7 @@ export default function LoginPage() {
             function proceed() {
               document.getElementById('content').style.display = 'none';
               document.getElementById('title').innerText = 'Authorizing...';
-              document.getElementById('desc').innerText = 'Connecting securely to shiksha ai.';
+              document.getElementById('desc').innerText = 'Connecting securely to Vidya AI.';
               document.getElementById('loader').style.display = 'block';
               
               setTimeout(() => {
@@ -649,7 +649,7 @@ export default function LoginPage() {
         {/* Left Form Column */}
         <div className="form-panel">
           <div className="header-row">
-            <Link href="/" className="logo-text">shiksha ai</Link>
+            <Link href="/" className="logo-text">Vidya AI</Link>
             <Link href="/register" className="top-action-btn">Sign up</Link>
           </div>
 
@@ -729,12 +729,12 @@ export default function LoginPage() {
             </form>
             
             <div className="signup-link-container" style={{ marginTop: '20px', fontSize: '13px', textAlign: 'center' }}>
-              New to shiksha ai? <Link href="/register" style={{ fontWeight: '700', textDecoration: 'underline' }}>Create an account</Link>
+              New to Vidya AI? <Link href="/register" style={{ fontWeight: '700', textDecoration: 'underline' }}>Create an account</Link>
             </div>
           </div>
 
           <div className="footer-row-meta">
-            <span>© 2026 shiksha ai</span>
+            <span>© 2026 Vidya AI</span>
             <div>
               <a href="#">Privacy</a>
               <a href="#">Terms</a>

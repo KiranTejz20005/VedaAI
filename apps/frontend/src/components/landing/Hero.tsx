@@ -30,6 +30,7 @@ export default function Hero({ onBookMeeting }: HeroProps) {
             Intelligence System
             {/* Fine brush underline aesthetic vector */}
             <svg 
+              aria-hidden="true"
               className="absolute left-0 right-0 -bottom-2 w-full h-2 text-[#e05934]/30 pointer-events-none" 
               viewBox="0 0 100 10" 
               preserveAspectRatio="none"
@@ -58,7 +59,7 @@ export default function Hero({ onBookMeeting }: HeroProps) {
         >
           <button
             onClick={onBookMeeting}
-            className="w-full sm:w-auto px-7 py-3 rounded-full bg-black text-white hover:bg-stone-850 font-semibold text-xs sm:text-sm tracking-wide shadow-md hover:shadow-xl hover:-translate-y-0.5 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2"
+            className="w-full sm:w-auto px-7 py-3 rounded-full bg-[#e05934] text-white hover:bg-[#c94a2a] font-semibold text-xs sm:text-sm tracking-wide shadow-md hover:shadow-xl hover:-translate-y-0.5 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2"
           >
             <Calendar className="w-4 h-4" />
             Book a meeting

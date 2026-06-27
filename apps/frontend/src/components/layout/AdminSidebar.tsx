@@ -78,7 +78,7 @@ export function AdminSidebar() {
               </svg>
             </div>
           )}
-          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>{settings?.platformName || 'Shiksha Admin'}</span>
+          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>{settings?.platformName || 'Vidya AI Admin'}</span>
           <button className="sidebar-close-btn" onClick={close} aria-label="Close navigation"><X size={18} /></button>
         </div>
 

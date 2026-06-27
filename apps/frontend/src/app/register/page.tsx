@@ -244,10 +244,10 @@ export default function RegisterPage() {
           <div class="card" id="card">
             <div class="logo-container">
               ${providerLogo}
-              <span style="font-weight:700;font-size:18px;color:#111;">shiksha ai</span>
+              Vidya AI
             </div>
             <h1 id="title">Sign in with ${providerName}</h1>
-            <p id="desc">Choose an account to continue to <strong>shiksha ai</strong></p>
+            <p id="desc">Choose an account to continue to <strong>Vidya AI</strong></p>
             
             <div id="loader" class="loader"></div>
             
@@ -319,7 +319,7 @@ export default function RegisterPage() {
               document.getElementById('account-list').style.display = 'block';
               document.getElementById('custom-input-form').style.display = 'none';
               document.getElementById('title').innerText = 'Sign in with ${providerName}';
-              document.getElementById('desc').innerText = 'Choose an account to continue to shiksha ai';
+              document.getElementById('desc').innerText = 'Choose an account to continue to Vidya AI';
             }
 
             function submitCustomAccount() {
@@ -336,7 +336,7 @@ export default function RegisterPage() {
             function proceed() {
               document.getElementById('content').style.display = 'none';
               document.getElementById('title').innerText = 'Authorizing...';
-              document.getElementById('desc').innerText = 'Connecting securely to shiksha ai.';
+              document.getElementById('desc').innerText = 'Connecting securely to Vidya AI.';
               document.getElementById('loader').style.display = 'block';
               
               setTimeout(() => {
@@ -783,7 +783,7 @@ export default function RegisterPage() {
         {/* Left Form Column */}
         <div className="form-panel">
           <div className="header-row">
-            <Link href="/" className="logo-text">shiksha ai</Link>
+            <Link href="/" className="logo-text">Vidya AI</Link>
             <Link href="/login" className="top-action-btn">Sign in</Link>
           </div>
 
@@ -881,7 +881,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="footer-row-meta">
-            <span>© 2026 shiksha ai</span>
+            <span>© 2026 Vidya AI</span>
             <div>
               <a href="#">Privacy</a>
               <a href="#">Terms</a>

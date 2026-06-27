@@ -19,7 +19,7 @@ export default function Header({ onContactClick, onNavigate, currentView }: Head
     { name: "Teachers", href: "#teachers" },
     { name: "About Us", href: "#about" },
     { name: "Careers", href: "#careers" },
-    { name: "Blogs", href: "#blogs" },
+    { name: "FAQs", href: "#faqs" },
   ];
 
   const handleLogoClick = (e: React.MouseEvent) => {

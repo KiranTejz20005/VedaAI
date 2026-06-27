@@ -32,7 +32,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 500) {
+      if (window.scrollY > 1200) {
         setShowScrollTop(true);
       } else {
         setShowScrollTop(false);
@@ -59,7 +59,7 @@ export default function LandingPage() {
       {/* Scroll indicator bar */}
       <motion.div
         style={{ scaleX }}
-        className="fixed top-0 left-0 right-0 h-[3px] bg-[#e05934] origin-[0%] z-[9999]"
+        className="fixed top-0 left-0 right-0 h-[3px] bg-[#e05934] origin-[0%] z-40"
       />
 
       {/* 1. Global Header Navigation */}

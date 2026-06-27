@@ -13,7 +13,7 @@ export default function Footer({ onContactClick, onNavigate }: FooterProps) {
     { name: "Solutions", href: "#solutions" },
     { name: "About Us", href: "#about" },
     { name: "Careers", href: "#careers" },
-    { name: "Blogs", href: "#blogs" },
+    { name: "FAQs", href: "#faqs" },
     { name: "For Teachers", href: "#teachers" },
     { name: "Be a Partner", href: "#" },
   ];
@@ -67,7 +67,7 @@ export default function Footer({ onContactClick, onNavigate }: FooterProps) {
             <div className="mt-8">
               <button
                 onClick={onContactClick}
-                className="px-8 py-3.5 bg-black text-white rounded-full hover:bg-gray-850 transition-all font-semibold text-xs sm:text-sm tracking-wide shadow-md hover:shadow-lg active:scale-95 duration-200"
+                className="px-8 py-3.5 bg-[#e05934] text-white rounded-full hover:bg-[#c94a2a] transition-all font-semibold text-xs sm:text-sm tracking-wide shadow-md hover:shadow-lg active:scale-95 duration-200"
               >
                 Contact Us Today
               </button>
@@ -155,7 +155,7 @@ export default function Footer({ onContactClick, onNavigate }: FooterProps) {
 
         {/* Massive VidyaAI letter backdrop */}
         <div className="relative w-full overflow-hidden h-24 sm:h-36 md:h-44 select-none flex items-end justify-center cursor-default">
-          <div className="absolute inset-x-0 bottom-0 text-center font-display font-extrabold text-[80px] sm:text-[140px] md:text-[190px] xl:text-[230px] leading-none text-[#1e1e1a]/[0.04] tracking-wider flex justify-center items-end select-none">
+          <div className="absolute inset-x-0 bottom-0 text-center font-display font-extrabold text-[80px] sm:text-[140px] md:text-[190px] xl:text-[230px] leading-none text-[#1e1e1a]/[0.04] tracking-wider flex justify-center items-end select-none" aria-hidden="true">
             {"VidyaAI".split("").map((char, index) => (
               <motion.span
                 key={index}

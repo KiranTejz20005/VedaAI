@@ -254,7 +254,7 @@ export default function ForgotPasswordPage() {
         {/* Left Form Column */}
         <div className="form-panel">
           <div className="header-row">
-            <Link href="/" className="logo-text">shiksha ai</Link>
+            <Link href="/" className="logo-text">Vidya AI</Link>
             <Link href="/login" className="top-action-btn">Log in</Link>
           </div>
 
@@ -296,7 +296,7 @@ export default function ForgotPasswordPage() {
 
             <p className="trouble-text">
               If you have any trouble resetting your password,<br/>
-              contact us at <a href="mailto:support@shiksha.ai">support@shiksha.ai</a>.
+              contact us at <a href="mailto:support@vidyaai.com">support@vidyaai.com</a>.
             </p>
 
             <div className="login-link-container">
@@ -305,7 +305,7 @@ export default function ForgotPasswordPage() {
           </div>
 
           <div className="footer-row-meta">
-            <span>© 2026 shiksha ai</span>
+            <span>© 2026 Vidya AI</span>
             <div>
               <a href="#">Privacy</a>
               <a href="#">Terms</a>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, CalendarDays, Send, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -19,6 +19,13 @@ export default function ContactModal({ isOpen, onClose, initialType = "contact" 
 
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen && nameInputRef.current) {
+      nameInputRef.current.focus();
+    }
+  }, [isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +41,7 @@ export default function ContactModal({ isOpen, onClose, initialType = "contact" 
   const handleReset = () => {
     setFormData({ name: "", email: "", school: "", role: "Teacher", message: "" });
     setSubmitted(false);
+    onClose();
   };
 
   return (
@@ -86,6 +94,7 @@ export default function ContactModal({ isOpen, onClose, initialType = "contact" 
                   <div>
                     <label className="text-[10px] font-mono font-bold uppercase tracking-wide text-gray-500 block mb-1">Your Name</label>
                     <input
+                      ref={nameInputRef}
                       type="text"
                       required
                       placeholder="e.g. Dr. Ramesh Kumar"

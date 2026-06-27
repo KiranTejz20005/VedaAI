@@ -136,7 +136,7 @@ export default function PhoneMockupSection() {
           </div>
 
           {/* RIGHT: Live Showcase Screen Simulator (Col-Span-7) */}
-          <div className="lg:col-span-7 bg-[#fcfbf9] border border-[#f3ede4] rounded-2xl p-6 flex flex-col justify-between min-h-[460px] relative overflow-hidden shadow-xs">
+          <div className="lg:col-span-7 bg-[#fcfbf9] border border-[#f3ede4] rounded-2xl p-6 flex flex-col justify-between min-h-[auto] lg:min-h-[460px] relative overflow-hidden shadow-xs">
             
             {/* Top Device Header Mimic */}
             <div className="border-b border-gray-100 pb-4 mb-4 flex items-center justify-between font-mono text-[11px] text-gray-400 select-none">
