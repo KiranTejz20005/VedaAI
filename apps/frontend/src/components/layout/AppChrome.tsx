@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ClientOnly } from '@/components/ui/ClientOnly';
 import { useAuthStore } from '@/store/auth.store';
 import { AdminSidebar } from './AdminSidebar';
-import { FacultySidebar } from './FacultySidebar';
+import { TeacherSidebar } from './TeacherSidebar';
 import { StudentSidebar } from './StudentSidebar';
 import { Topbar } from './TopBar';
 import { MobileBottomNav } from './MobileBottomNav';
@@ -39,8 +39,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       const isSuperAdminOrAdmin = userRole === 'SUPER_ADMIN' || userRole === 'ADMIN';
       const isOnboarded = isSuperAdminOrAdmin || user?.hasCompletedOnboarding === true || (user?.organizationId && user?.departmentId);
       
-      let rolePath = userRole ? userRole.toLowerCase().replace('_', '-') : 'student';
-      if (rolePath === 'teacher') rolePath = 'faculty';
+      const rolePath = userRole ? userRole.toLowerCase().replace('_', '-') : 'student';
 
       if (isOnboarded) {
         if (isAuthPage || isOnboardingPage) {
@@ -141,7 +140,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   } else if (userRole === 'STUDENT') {
     DynamicSidebar = <StudentSidebar />;
   } else if (userRole === 'FACULTY' || userRole === 'TEACHER') {
-    DynamicSidebar = <FacultySidebar />;
+    DynamicSidebar = <TeacherSidebar />;
   }
 
   return (

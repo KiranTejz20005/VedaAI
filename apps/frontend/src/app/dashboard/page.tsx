@@ -181,8 +181,8 @@ export default function AdminDashboard() {
             />
             <ActionCard
               icon={<UserPlus size={16} />}
-              label="Add Student"
-              href="/admin/students"
+              label="Manage Users"
+              href="/dashboard/admin/users"
               variant="primary"
             />
             <ActionCard
