@@ -27,16 +27,16 @@ export const ROUTE_PERMISSIONS = {
     '/dashboard/faculty',
     '/dashboard/teacher',
     '/dashboard/student',
-    '/dashboard', '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/my-classes', '/papers', '/profile', '/analytics',
+    '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/my-classes', '/papers', '/profile', '/analytics',
   ],
   TEACHER: [
     '/dashboard/teacher',
     '/dashboard/student',
-    '/dashboard', '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/my-classes', '/papers', '/profile', '/analytics',
+    '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/my-classes', '/papers', '/profile', '/analytics',
   ],
   STUDENT: [
     '/dashboard/student',
-    '/dashboard', '/tutor', '/notes', '/settings', '/student', '/profile', '/assignments',
+    '/tutor', '/notes', '/settings', '/student', '/profile', '/assignments',
   ],
 };
 
