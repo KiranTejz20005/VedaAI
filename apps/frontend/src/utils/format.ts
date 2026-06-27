@@ -20,7 +20,11 @@ export function getStatusColor(status: AssignmentStatus): string {
     generating: 'badge-generating',
     completed: 'badge-completed',
     failed: 'badge-failed',
-    partially_generated: 'badge-warning',
+    partially_generated: 'badge-partial',
+    PENDING_APPROVAL: 'badge-queued',
+    APPROVED: 'badge-completed',
+    REJECTED: 'badge-failed',
+    PUBLISHED: 'badge-completed'
   };
   return map[status];
 }

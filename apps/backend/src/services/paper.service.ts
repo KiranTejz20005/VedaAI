@@ -34,6 +34,15 @@ export async function savePaper(
     },
   });
 
+  await prisma.assignment.update({
+    where: { id: assignmentId },
+    data: {
+      status: 'PENDING_APPROVAL',
+      generationMeta: canonicalMetadata ? (canonicalMetadata as any) : undefined,
+      finalizedAt: new Date(),
+    },
+  });
+
   // Auto-save generated questions to the central Question Bank
   const subject = canonicalMetadata?.subject || 'General';
   const topic = canonicalMetadata?.className || 'General Topic';

@@ -98,7 +98,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   useEffect(() => {
     if (!assignment) return;
     const loadPaperAndQuestions = async () => {
-      if (assignment.status === 'completed' || assignment.status === 'partially_generated') {
+      if (['completed', 'partially_generated', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED'].includes(assignment.status)) {
         try {
           const p = await fetchPaper(id, selectedPaperId);
           setPaper(p);
@@ -171,8 +171,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   }, [assignment, id, handleGenerate]);
 
   useEffect(() => {
-    const isTerminal = ['completed', 'failed', 'partially_generated'].includes(assignment?.status ?? '');
-    // Start polling if generation is queued/generating OR if we haven't finished fetching OR if socket stage exists
+    const isTerminal = ['completed', 'failed', 'partially_generated', 'PENDING_APPROVAL'].includes(assignment?.status ?? '');
     if (!['queued', 'generating'].includes(assignment?.status ?? '') && !stage && isTerminal) return;
 
     const poll = async () => {
@@ -187,6 +186,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
           if (jobStatus.status === 'completed' && jobStatus.paperId) {
             useGenerationStore.getState().setCompleted(jobRecordId, genSeq, version, ts, jobStatus.paperId);
             if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+            router.push(`/assignments/${id}/paper`);
           } else if (jobStatus.status === 'failed') {
             useGenerationStore.getState().setFailed(jobRecordId, genSeq, version, ts, jobStatus.error ?? 'Generation failed');
             if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
@@ -196,7 +196,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
         }
         const updated = await fetchAssignment(id);
         setAssignment(updated);
-        if (['completed', 'failed', 'partially_generated'].includes(updated.status)) {
+        if (['completed', 'failed', 'partially_generated', 'PENDING_APPROVAL'].includes(updated.status)) {
           fetchAssignmentHistory(id).then(setPaperHistory).catch(console.error);
           if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
         }
@@ -233,7 +233,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     isLoading: loading,
     error: fetchError,
     isProcessing: isGenActive || showGeneration,
-    isComplete: !isGenActive && !showGeneration && (assignment?.status === 'completed' || assignment?.status === 'partially_generated'),
+    isComplete: !isGenActive && !showGeneration && (assignment?.status === 'completed' || assignment?.status === 'partially_generated' || assignment?.status === 'PENDING_APPROVAL'),
   });
 
   if (loading) {
@@ -346,7 +346,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
               </div>
             </motion.div>
 
-            {(assignment.status === 'draft' || assignment.status === 'completed' || assignment.status === 'partially_generated') && (
+            {(assignment.status === 'draft' || ['completed', 'partially_generated', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED'].includes(assignment.status)) && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }} className="card" style={{ marginBottom: 16 }}>
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>Actions</h3>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -355,7 +355,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                       <Edit3 size={14} /> Edit
                     </button>
                   )}
-                  {(assignment.status === 'completed' || assignment.status === 'partially_generated') && (
+                  {['completed', 'partially_generated', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED'].includes(assignment.status) && (
                     <>
                       <button onClick={handleViewPaper} className="btn btn-primary btn-sm" style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
                         <Eye size={14} /> Preview Paper
@@ -383,9 +383,14 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                       }} className="btn btn-secondary btn-sm" style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }} disabled={downloading}>
                         <Download size={14} /> {downloading ? 'Downloading...' : 'Download PDF'}
                       </button>
-                      {isFaculty && (
+                      {isFaculty && ['completed', 'partially_generated'].includes(assignment.status) && (
                         <button onClick={handleSendForApproval} className="btn btn-dark btn-sm" disabled={isSubmittingForApproval} style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
                           <CheckCircle2 size={14} /> {isSubmittingForApproval ? 'Sending...' : 'Send for Approval'}
+                        </button>
+                      )}
+                      {['PENDING_APPROVAL'].includes(assignment.status) && (
+                        <button className="btn btn-dark btn-sm" disabled style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
+                          <CheckCircle2 size={14} /> Approval Pending
                         </button>
                       )}
                     </>
@@ -422,17 +427,17 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>Generation History</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {paperHistory.map((historyItem, idx) => (
-                    <div key={historyItem.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: selectedPaperId === historyItem.id ? 'var(--bg-accent)' : 'var(--bg-page)', border: selectedPaperId === historyItem.id ? '1px solid var(--brand)' : '1px solid var(--border)', borderRadius: 8, cursor: 'pointer' }} onClick={() => setSelectedPaperId(historyItem.id)}>
+                    <div key={historyItem.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer' }} onClick={() => router.push(`/assignments/${id}/paper?paperId=${historyItem.id}`)}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-                          Generation #{paperHistory.length - idx} {idx === 0 && !selectedPaperId && <span style={{ marginLeft: 6, fontSize: 10, background: 'var(--brand)', color: 'white', padding: '2px 6px', borderRadius: 10 }}>LATEST</span>}
+                          Generation #{paperHistory.length - idx} {idx === 0 && <span style={{ marginLeft: 6, fontSize: 10, background: 'var(--brand)', color: 'white', padding: '2px 6px', borderRadius: 10 }}>LATEST</span>}
                         </span>
                         <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                           {new Date(historyItem.generatedAt).toLocaleString()} • {historyItem.totalMarks} Marks
                         </span>
                       </div>
-                      <button className="btn btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); setSelectedPaperId(historyItem.id); }} disabled={selectedPaperId === historyItem.id || (!selectedPaperId && idx === 0)}>
-                        {selectedPaperId === historyItem.id || (!selectedPaperId && idx === 0) ? 'Viewing' : 'View'}
+                      <button className="btn btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); router.push(`/assignments/${id}/paper?paperId=${historyItem.id}`); }}>
+                        View Full Paper
                       </button>
                     </div>
                   ))}

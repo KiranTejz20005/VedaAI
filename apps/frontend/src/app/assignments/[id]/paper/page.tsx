@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Download, Loader2, Edit, Save, ArrowUp, ArrowDown, Sparkles, BookOpen 
 } from 'lucide-react';
@@ -44,9 +44,12 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
   const [duration, setDuration] = useState(45);
   const [totalMarks, setTotalMarks] = useState(100);
 
+  const searchParams = useSearchParams();
+  const paperId = searchParams.get('paperId') || undefined;
+
   const loadPaper = async () => {
     try {
-      const p = await fetchPaper(id);
+      const p = await fetchPaper(id, paperId);
       setPaper(p);
       if (p.canonicalMetadata) {
         setSchoolName(p.canonicalMetadata.schoolName || 'Delhi Public School');

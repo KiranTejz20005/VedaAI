@@ -1809,7 +1809,7 @@ export class AdminController {
     try {
       const updated = await prisma.assignment.update({
         where: { id: req.params.id },
-        data: { status: 'APPROVED', approvedBy: req.user?.id, approvedAt: new Date() },
+        data: { status: 'PUBLISHED', approvedBy: req.user?.id, approvedAt: new Date(), publishedAt: new Date() },
       });
       if (updated.createdById) {
         await prisma.notification.create({

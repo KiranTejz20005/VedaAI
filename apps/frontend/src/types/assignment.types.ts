@@ -13,7 +13,11 @@ export type AssignmentStatus =
   | 'generating'
   | 'completed'
   | 'failed'
-  | 'partially_generated';
+  | 'partially_generated'
+  | 'PENDING_APPROVAL'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'PUBLISHED';
 
 export interface DifficultyDistribution {
   easy: number;
