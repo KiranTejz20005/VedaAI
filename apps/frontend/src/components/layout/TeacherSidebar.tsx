@@ -5,13 +5,13 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutGrid,
   Users,
-  BookOpen,
+  ClipboardList,
+  GraduationCap,
   Settings,
   X,
-  GraduationCap,
-  FileText,
-  Sparkles,
-  BrainCircuit,
+  PieChart,
+  ClipboardCheck,
+  BookOpen,
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
@@ -28,16 +28,17 @@ function QuestionBankIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 const NAV_ITEMS = [
-  { href: '/dashboard/faculty', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/dashboard/teacher', label: 'Teachers', icon: Users },
-  { href: '/classes', label: 'Students', icon: GraduationCap },
-  { href: '/analytics', label: 'Reports', icon: FileText },
-  { href: '/analytics', label: 'Analytics', icon: BrainCircuit },
+  { href: '/dashboard/teacher', label: 'Dashboard', icon: LayoutGrid, exact: true },
+  { href: '/classes', label: 'Students', icon: Users },
   { href: '/my-classes', label: 'My Classes', icon: BookOpen },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/assessments', label: 'Tests', icon: ClipboardCheck },
+  { href: '/assignments', label: 'Assignments', icon: ClipboardList },
+  { href: '/dashboard/teacher/attendance', label: 'Attendance', icon: GraduationCap },
+  { href: '/question-bank', label: 'Question Bank', icon: QuestionBankIcon },
+  { href: '/analytics', label: 'Analytics', icon: PieChart },
 ];
 
-export function FacultySidebar() {
+export function TeacherSidebar() {
   const pathname = usePathname();
   const { isOpen, close } = useSidebarStore();
   const { user } = useAuthStore();
@@ -64,21 +65,16 @@ export function FacultySidebar() {
               <text x="50%" y="55%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="16" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif">V</text>
             </svg>
           </div>
-          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>Faculty</span>
+          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>Teacher</span>
           <button className="sidebar-close-btn" onClick={close} aria-label="Close navigation"><X size={18} /></button>
         </div>
 
-        <Link href="/generate" className="sidebar-create-btn" onClick={close}>
-          <Sparkles size={14} fill="white" stroke="white" />
-          Generate
-        </Link>
-
-        <nav className="sidebar-nav" aria-label="Pages">
+        <nav className="sidebar-nav" aria-label="Pages" style={{ marginTop: 24 }}>
           <div className="sidebar-nav-section-label">Academics</div>
           {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
             const active = isActive(href, exact);
             return (
-              <Link key={label} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>
+              <Link key={href} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>
                 <Icon size={18} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
                 <span>{label}</span>
               </Link>
@@ -87,16 +83,21 @@ export function FacultySidebar() {
         </nav>
 
         <div className="sidebar-bottom">
+          <Link href="/settings" className="sidebar-settings" onClick={close}>
+            <Settings size={18} aria-hidden="true" />
+            <span>Settings</span>
+          </Link>
+
           <div className="sidebar-profile" role="button" tabIndex={0} aria-label="Account settings">
             <div className="sidebar-profile-avatar" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #E8531D, #F97316)', color: 'white', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'F'}
+              {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'T'}
             </div>
             <div className="sidebar-profile-info">
               <div className="sidebar-profile-name">
-                {user ? `${user.firstName} ${user.lastName}` : 'Faculty'}
+                {user ? `${user.firstName} ${user.lastName}` : 'Teacher'}
               </div>
               <div className="sidebar-profile-sub">
-                {availableOrganizations.find(org => org.id === activeOrganizationId)?.name || user?.organizationName || user?.departmentName || 'Faculty'}
+                {availableOrganizations.find(org => org.id === activeOrganizationId)?.name || user?.organizationName || user?.departmentName || 'Teacher'}
               </div>
             </div>
           </div>

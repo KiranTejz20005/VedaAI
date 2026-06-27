@@ -10,7 +10,7 @@ import { AdminSidebar } from './AdminSidebar';
 import { OrgAdminSidebar } from './OrgAdminSidebar';
 import { FacultySidebar } from './FacultySidebar';
 import { StudentSidebar } from './StudentSidebar';
-
+import { TeacherSidebar } from './TeacherSidebar';
 import { Topbar } from './TopBar';
 import { AdminTopbar } from '@/components/admin/AdminTopbar';
 import { MobileBottomNav } from './MobileBottomNav';
@@ -148,8 +148,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       const isSuperAdminOrAdmin = userRole === 'SUPER_ADMIN' || userRole === 'ADMIN';
       const isOnboarded = isSuperAdminOrAdmin || user?.hasCompletedOnboarding === true || (user?.organizationId && user?.departmentId);
       
-      let rolePath = userRole ? userRole.toLowerCase().replace('_', '-') : 'student';
-      if (rolePath === 'teacher') rolePath = 'faculty';
+      const rolePath = userRole ? userRole.toLowerCase().replace('_', '-') : 'student';
       
       if (isOnboarded) {
         if (isAuthPage) {
@@ -221,7 +220,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   } else if (role === 'ADMIN' || role === 'ORG_ADMIN') {
     SidebarComponent = <OrgAdminSidebar />;
     TopbarComponent = <AdminTopbar />;
-  } else if (role === 'TEACHER' || role === 'FACULTY') {
+  } else if (role === 'TEACHER') {
+    SidebarComponent = <TeacherSidebar />;
+  } else if (role === 'FACULTY') {
     SidebarComponent = <FacultySidebar />;
   } else if (role === 'STUDENT') {
     SidebarComponent = <StudentSidebar />;
