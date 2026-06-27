@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
-import { ChevronUp, ChevronDown, MessageCircle, Share2, Bookmark, Plus, X } from 'lucide-react';
+import { ChevronUp, ChevronDown, MessageCircle, Share2, Bookmark, Plus, X, MoreVertical, Trash, Edit, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/store/auth.store';
 
 type Post = {
   id: string;
@@ -49,13 +50,25 @@ const actionBtn: React.CSSProperties = {
   borderRadius: 8, transition: 'background .15s',
 };
 
-function PostCard({ post }: { post: Post }) {
+function PostCard({ post, onUpdate }: { post: Post, onUpdate: () => void }) {
+  const { user } = useAuthStore();
   const [votes, setVotes] = useState(post.likesCount ?? 0);
   const [voted, setVoted] = useState<'up' | 'down' | null>(null);
   const [saved, setSaved] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(post.title || '');
+  const [editContent, setEditContent] = useState(post.content);
+  const [submittingEdit, setSubmittingEdit] = useState(false);
+
   const authorName = post.author ? `${post.author.firstName} ${post.author.lastName}` : 'Anonymous Student';
   const badge = BADGE_STYLES[post.type] ?? BADGE_STYLES.DISCUSSION;
   const tags = post.tags?.length ? post.tags : ['General'];
+  const isAuthor = user?.id === post.author?.id;
 
   const castVote = (dir: 'up' | 'down') => {
     if (voted === dir) { setVoted(null); setVotes(v => v + (dir === 'up' ? -1 : 1)); return; }
@@ -65,43 +78,196 @@ function PostCard({ post }: { post: Post }) {
     setVoted(dir);
   };
 
+  const handleShare = () => {
+    navigator.clipboard.writeText(`${window.location.origin}/dashboard/student/community/discussions?post=${post.id}`);
+    toast.success('Link copied!');
+  };
+
+  const handleSave = async () => {
+    try {
+      const res = await api.post(`/community/posts/${post.id}/save`);
+      setSaved(res.data?.data?.saved ?? true);
+      toast.success(res.data?.data?.saved ? 'Post saved' : 'Post unsaved');
+    } catch {
+      toast.error('Failed to save post');
+    }
+  };
+
+  const fetchComments = async () => {
+    try {
+      const res = await api.get(`/community/posts/${post.id}/comments`);
+      if (res.data?.status === 'success') {
+        setComments(res.data.data);
+      }
+    } catch {
+      toast.error('Failed to load comments');
+    }
+  };
+
+  const handleToggleComments = () => {
+    if (!showComments) {
+      fetchComments();
+    }
+    setShowComments(!showComments);
+  };
+
+  const submitComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim()) return;
+    setSubmittingComment(true);
+    try {
+      await api.post(`/community/posts/${post.id}/comments`, { content: newComment });
+      setNewComment('');
+      fetchComments();
+      onUpdate();
+    } catch {
+      toast.error('Failed to add reply');
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this discussion?')) return;
+    try {
+      await api.delete(`/community/posts/${post.id}`);
+      toast.success('Discussion deleted');
+      onUpdate();
+    } catch {
+      toast.error('Failed to delete discussion');
+    }
+  };
+
+  const handleClose = async () => {
+    try {
+      await api.put(`/community/posts/${post.id}`, { status: 'CLOSED' });
+      toast.success('Discussion closed');
+      onUpdate();
+    } catch {
+      toast.error('Failed to close discussion');
+    }
+  };
+
+  const handleEdit = async () => {
+    if (!editContent.trim()) return;
+    setSubmittingEdit(true);
+    try {
+      await api.put(`/community/posts/${post.id}`, { title: editTitle, content: editContent });
+      toast.success('Discussion updated');
+      setIsEditing(false);
+      onUpdate();
+    } catch {
+      toast.error('Failed to update discussion');
+    } finally {
+      setSubmittingEdit(false);
+    }
+  };
+
   return (
-    <article style={{ display: 'flex', background: '#fff', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden', marginBottom: 16 }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', gap: 2, padding: '20px 12px 20px 16px', borderRight: '1px solid #e2e8f0', background: '#f8fafc', minWidth: 56 }}>
-        <button onClick={() => castVote('up')} style={{ background: voted === 'up' ? '#2563eb' : 'transparent', border: `1px solid ${voted === 'up' ? '#2563eb' : '#e2e8f0'}`, borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: voted === 'up' ? '#fff' : '#64748b', transition: 'all .15s' }}>
-          <ChevronUp size={16} />
-        </button>
-        <span style={{ fontWeight: 800, fontSize: 15, color: '#0f172a', lineHeight: 1, padding: '4px 0' }}>{votes}</span>
-        <button onClick={() => castVote('down')} style={{ background: voted === 'down' ? '#64748b' : 'transparent', border: `1px solid ${voted === 'down' ? '#64748b' : '#e2e8f0'}`, borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: voted === 'down' ? '#fff' : '#64748b', transition: 'all .15s' }}>
-          <ChevronDown size={16} />
-        </button>
-      </div>
-      <div style={{ flex: 1, padding: '20px 20px 16px', minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <img src={avatarSrc(post.author?.firstName)} alt={authorName} style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: '#e2e8f0' }} />
-          <span style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>
-            Posted by <strong style={{ color: '#0f172a', fontWeight: 700 }}>{authorName}</strong>&nbsp;·&nbsp;{timeAgo(post.createdAt)}
-          </span>
-          <span style={{ marginLeft: 4, background: badge.bg, color: badge.color, borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' as const }}>{badge.label}</span>
+    <article style={{ display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden', marginBottom: 16 }}>
+      <div style={{ display: 'flex' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', gap: 2, padding: '20px 12px 20px 16px', borderRight: '1px solid #e2e8f0', background: '#f8fafc', minWidth: 56 }}>
+          <button onClick={() => castVote('up')} style={{ background: voted === 'up' ? '#2563eb' : 'transparent', border: `1px solid ${voted === 'up' ? '#2563eb' : '#e2e8f0'}`, borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: voted === 'up' ? '#fff' : '#64748b', transition: 'all .15s' }}>
+            <ChevronUp size={16} />
+          </button>
+          <span style={{ fontWeight: 800, fontSize: 15, color: '#0f172a', lineHeight: 1, padding: '4px 0' }}>{votes}</span>
+          <button onClick={() => castVote('down')} style={{ background: voted === 'down' ? '#64748b' : 'transparent', border: `1px solid ${voted === 'down' ? '#64748b' : '#e2e8f0'}`, borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: voted === 'down' ? '#fff' : '#64748b', transition: 'all .15s' }}>
+            <ChevronDown size={16} />
+          </button>
         </div>
-        {post.title && <h2 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 800, color: '#0f172a', lineHeight: 1.3 }}>{post.title}</h2>}
-        <p style={{ margin: '0 0 12px', fontSize: 13, color: '#475569', fontWeight: 500, lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' }}>{post.content}</p>
-        {post.imageUrl && (
-          <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 12 }}>
-            <img src={post.imageUrl} alt="post" style={{ width: '100%', display: 'block', maxHeight: 280, objectFit: 'cover' }} />
+        <div style={{ flex: 1, padding: '20px 20px 16px', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <img src={avatarSrc(post.author?.firstName)} alt={authorName} style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: '#e2e8f0' }} />
+              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>
+                Posted by <strong style={{ color: '#0f172a', fontWeight: 700 }}>{authorName}</strong>&nbsp;·&nbsp;{timeAgo(post.createdAt)}
+              </span>
+              <span style={{ marginLeft: 4, background: badge.bg, color: badge.color, borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' as const }}>{badge.label}</span>
+            </div>
+            
+            {isAuthor && (
+              <div style={{ position: 'relative' }}>
+                <button onClick={() => setShowOptions(!showOptions)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: 4, borderRadius: 8 }}>
+                  <MoreVertical size={16} />
+                </button>
+                {showOptions && (
+                  <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 4, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 10, minWidth: 140, overflow: 'hidden' }}>
+                    <button onClick={() => { setIsEditing(true); setShowOptions(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 12px', background: 'none', border: 'none', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', fontSize: 13, color: '#0f172a', textAlign: 'left' }}><Edit size={14} /> Edit</button>
+                    <button onClick={() => { handleClose(); setShowOptions(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 12px', background: 'none', border: 'none', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', fontSize: 13, color: '#0f172a', textAlign: 'left' }}><CheckCircle size={14} /> Close</button>
+                    <button onClick={() => { handleDelete(); setShowOptions(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#ef4444', textAlign: 'left' }}><Trash size={14} /> Delete</button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' as const, gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <button style={actionBtn}><MessageCircle size={14} /><span>{post.commentsCount ?? 0} replies</span></button>
-            <button style={actionBtn} onClick={() => toast.success('Link copied!')}><Share2 size={14} /><span>Share</span></button>
-            <button onClick={() => setSaved(s => !s)} style={{ ...actionBtn, color: saved ? '#2563eb' : '#64748b' }}><Bookmark size={14} fill={saved ? '#2563eb' : 'none'} /><span>Save</span></button>
-          </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const }}>
-            {tags.map(tag => <span key={tag} style={{ background: '#eff6ff', color: '#2563eb', borderRadius: 100, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>{tag}</span>)}
+          
+          {isEditing ? (
+            <div style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {post.title !== undefined && <input value={editTitle} onChange={e => setEditTitle(e.target.value)} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 14, fontWeight: 700 }} placeholder="Title" />}
+              <textarea value={editContent} onChange={e => setEditContent(e.target.value)} rows={4} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13, resize: 'vertical' as const, fontFamily: 'inherit' }} placeholder="Content" />
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button onClick={() => setIsEditing(false)} style={{ padding: '6px 12px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#64748b' }}>Cancel</button>
+                <button onClick={handleEdit} disabled={submittingEdit || !editContent.trim()} style={{ padding: '6px 12px', background: '#2563eb', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#fff', opacity: (submittingEdit || !editContent.trim()) ? 0.5 : 1 }}>{submittingEdit ? 'Saving...' : 'Save'}</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {post.title && <h2 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 800, color: '#0f172a', lineHeight: 1.3 }}>{post.title}</h2>}
+              <p style={{ margin: '0 0 12px', fontSize: 13, color: '#475569', fontWeight: 500, lineHeight: 1.6 }}>{post.content}</p>
+            </>
+          )}
+          {post.imageUrl && (
+            <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 12 }}>
+              <img src={post.imageUrl} alt="post" style={{ width: '100%', display: 'block', maxHeight: 280, objectFit: 'cover' }} />
+            </div>
+          )}
+          
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' as const, gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button style={actionBtn} onClick={handleToggleComments}><MessageCircle size={14} /><span>{post.commentsCount ?? 0} replies</span></button>
+              <button style={actionBtn} onClick={handleShare}><Share2 size={14} /><span>Share</span></button>
+              <button onClick={handleSave} style={{ ...actionBtn, color: saved ? '#2563eb' : '#64748b' }}><Bookmark size={14} fill={saved ? '#2563eb' : 'none'} /><span>Save</span></button>
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const }}>
+              {tags.map(tag => <span key={tag} style={{ background: '#eff6ff', color: '#2563eb', borderRadius: 100, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>{tag}</span>)}
+            </div>
           </div>
         </div>
       </div>
+      
+      {showComments && (
+        <div style={{ borderTop: '1px solid #e2e8f0', background: '#f8fafc', padding: '16px 20px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+            {comments.length === 0 ? (
+              <p style={{ fontSize: 13, color: '#64748b', textAlign: 'center', margin: 0 }}>No replies yet. Be the first to reply!</p>
+            ) : (
+              comments.map(c => (
+                <div key={c.id} style={{ display: 'flex', gap: 10 }}>
+                  <img src={avatarSrc(c.author?.firstName)} alt="" style={{ width: 24, height: 24, borderRadius: '50%', background: '#e2e8f0', marginTop: 2 }} />
+                  <div style={{ flex: 1, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{c.author ? `${c.author.firstName} ${c.author.lastName}` : 'Anonymous'}</span>
+                      <span style={{ fontSize: 11, color: '#94a3b8' }}>{timeAgo(c.createdAt)}</span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 13, color: '#475569', lineHeight: 1.5 }}>{c.content}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <form onSubmit={submitComment} style={{ display: 'flex', gap: 8 }}>
+            <input 
+              value={newComment}
+              onChange={e => setNewComment(e.target.value)}
+              placeholder="Write a reply..."
+              style={{ flex: 1, height: 36, borderRadius: 18, border: '1px solid #e2e8f0', padding: '0 16px', fontSize: 13, outline: 'none' }}
+            />
+            <button type="submit" disabled={submittingComment || !newComment.trim()} style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: 18, padding: '0 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: (!newComment.trim() || submittingComment) ? 0.5 : 1 }}>
+              Reply
+            </button>
+          </form>
+        </div>
+      )}
     </article>
   );
 }
@@ -205,7 +371,7 @@ export default function DiscussionsPage() {
           <div style={{ textAlign: 'center', padding: '60px 0', color: '#64748b', fontSize: 14, fontWeight: 500 }}>No discussions yet. Be the first to start one!</div>
         ) : (
           <>
-            {displayed.map(post => <PostCard key={post.id} post={post} />)}
+            {displayed.map(post => <PostCard key={post.id} post={post} onUpdate={fetchFeed} />)}
             {displayed.length < filtered.length && (
               <div style={{ textAlign: 'center', marginTop: 8 }}>
                 <button onClick={() => setPage(p => p + 1)} style={{ background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '10px 28px', fontSize: 13, fontWeight: 700, color: '#0f172a', cursor: 'pointer' }}>Load Older Discussions</button>

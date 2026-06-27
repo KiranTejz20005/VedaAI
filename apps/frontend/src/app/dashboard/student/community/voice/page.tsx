@@ -17,8 +17,8 @@ type VoiceRoom = {
   createdBy?: { id: string; firstName: string; lastName: string };
 };
 
-function initials(name: string) {
-  return name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase()).join('') || 'AC';
+function getAvatar(id: string) {
+  return `https://api.dicebear.com/7.x/notionists/svg?seed=${id}&backgroundColor=e2e8f0`;
 }
 
 function CreateRoomModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
@@ -81,6 +81,22 @@ export default function VoiceRoomsPage() {
   const [deafened, setDeafened] = useState(false);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+
+  const [audioInputs, setAudioInputs] = useState<MediaDeviceInfo[]>([]);
+  const [audioOutputs, setAudioOutputs] = useState<MediaDeviceInfo[]>([]);
+  const [selectedMic, setSelectedMic] = useState<string>('default');
+  const [selectedSpeaker, setSelectedSpeaker] = useState<string>('default');
+
+  useEffect(() => {
+    navigator.mediaDevices?.enumerateDevices().then(devices => {
+      const inputs = devices.filter(d => d.kind === 'audioinput');
+      const outputs = devices.filter(d => d.kind === 'audiooutput');
+      setAudioInputs(inputs);
+      setAudioOutputs(outputs);
+      if (inputs.length && !selectedMic) setSelectedMic(inputs[0].deviceId);
+      if (outputs.length && !selectedSpeaker) setSelectedSpeaker(outputs[0].deviceId);
+    }).catch(console.error);
+  }, []);
 
   const fetchRooms = async (silent = false) => {
     try {
@@ -170,10 +186,10 @@ export default function VoiceRoomsPage() {
     // Fill with placeholder speakers if empty for better UI
     if (speakers.length === 0) {
       speakers.push(
-        { name: 'Liam Chen', room: 'Physics Q&A', status: 'Speaking' },
-        { name: 'Sarah Jenkins', room: 'Late Night Study', status: 'Listening' },
-        { name: 'Marcus Thorne', room: 'Career Chat', status: 'Idle' },
-        { name: 'Yuki Tanaka', room: 'Career Chat', status: 'Speaking' },
+        { id: '1', name: 'Liam Chen', room: 'Physics Q&A', status: 'Speaking' },
+        { id: '2', name: 'Sarah Jenkins', room: 'Late Night Study', status: 'Listening' },
+        { id: '3', name: 'Marcus Thorne', room: 'Career Chat', status: 'Idle' },
+        { id: '4', name: 'Yuki Tanaka', room: 'Career Chat', status: 'Speaking' },
       );
     }
     return speakers.slice(0, 6);
@@ -215,8 +231,8 @@ export default function VoiceRoomsPage() {
                       {/* Mini avatars placeholder */}
                       <div style={{ display: 'flex', alignItems: 'center' }}>
                         {[0,1].map(i => (
-                          <div key={i} style={{ width: 26, height: 26, borderRadius: '50%', background: i === 0 ? '#1e293b' : '#64748b', border: '2px solid #fff', marginLeft: i === 0 ? 0 : -8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#fff' }}>
-                            {String.fromCharCode(65 + i + rooms.indexOf(room))}
+                          <div key={i} style={{ width: 26, height: 26, borderRadius: '50%', background: '#e2e8f0', border: '2px solid #fff', marginLeft: i === 0 ? 0 : -8, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                            <img src={getAvatar(room.id + i)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           </div>
                         ))}
                         <span style={{ marginLeft: 4, fontSize: 11, fontWeight: 700, color: '#64748b' }}>+{count}</span>
@@ -231,7 +247,7 @@ export default function VoiceRoomsPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: '#64748b' }}>
                       <Users size={14} style={{ color: '#94a3b8' }} /> {count} participants
                     </div>
-                    <button onClick={() => joined ? leaveRoom() : joinRoom(room)} style={{ height: 36, borderRadius: 10, border: `1.5px solid ${joined ? '#fca5a5' : '#e2e8f0'}`, background: joined ? '#fff5f5' : '#fff', color: joined ? '#dc2626' : '#0f172a', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '0 18px', transition: 'all .15s' }}>
+                    <button onClick={() => joined ? leaveRoom() : joinRoom(room)} style={{ height: 36, borderRadius: 10, border: 'none', background: joined ? '#22c55e' : '#2563eb', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '0 18px', transition: 'all .15s' }}>
                       {joined ? 'Leave Room' : 'Join Room'}
                     </button>
                   </div>
@@ -266,8 +282,8 @@ export default function VoiceRoomsPage() {
           {activeSpeakers.map((speaker, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ position: 'relative', flexShrink: 0 }}>
-                <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff' }}>
-                  {initials(speaker.name)}
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                  <img src={getAvatar((speaker as any).id || speaker.name)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 </div>
                 {speaker.status === 'Speaking' && (
                   <div style={{ position: 'absolute', bottom: -2, right: -2, width: 18, height: 18, borderRadius: '50%', background: '#2563eb', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -291,14 +307,31 @@ export default function VoiceRoomsPage() {
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: joinedRoom ? '#22c55e' : '#ef4444', flexShrink: 0 }} />
             <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{joinedRoom ? joinedRoom.name : 'Not in a room'}</span>
           </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Microphone</span>
+              <select value={selectedMic} onChange={e => setSelectedMic(e.target.value)} style={{ width: '100%', height: 32, borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 11, padding: '0 8px', outline: 'none', background: '#f8fafc', color: '#0f172a' }}>
+                {audioInputs.length === 0 && <option value="default">Default Microphone</option>}
+                {audioInputs.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${audioInputs.indexOf(d) + 1}`}</option>)}
+              </select>
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Headphones</span>
+              <select value={selectedSpeaker} onChange={e => setSelectedSpeaker(e.target.value)} style={{ width: '100%', height: 32, borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 11, padding: '0 8px', outline: 'none', background: '#f8fafc', color: '#0f172a' }}>
+                {audioOutputs.length === 0 && <option value="default">Default Speakers</option>}
+                {audioOutputs.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Speaker ${audioOutputs.indexOf(d) + 1}`}</option>)}
+              </select>
+            </label>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-            <button onClick={() => setMicMuted(v => !v)} style={{ height: 44, borderRadius: 12, border: '1.5px solid #e2e8f0', background: micMuted ? '#fff5f5' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: micMuted ? '#dc2626' : '#0f172a' }} aria-label="Toggle mic">
+            <button onClick={() => setMicMuted(v => !v)} style={{ height: 44, borderRadius: 12, border: '1.5px solid #e2e8f0', background: micMuted ? '#fff5f5' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: micMuted ? '#dc2626' : '#0f172a' }} aria-label="Toggle mic" title={micMuted ? "Unmute Mic" : "Mute Mic"}>
               {micMuted ? <MicOff size={18} /> : <Mic size={18} />}
             </button>
-            <button onClick={() => setDeafened(v => !v)} style={{ height: 44, borderRadius: 12, border: '1.5px solid #e2e8f0', background: deafened ? '#fff5f5' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: deafened ? '#dc2626' : '#0f172a' }} aria-label="Toggle headphones">
+            <button onClick={() => setDeafened(v => !v)} style={{ height: 44, borderRadius: 12, border: '1.5px solid #e2e8f0', background: deafened ? '#fff5f5' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: deafened ? '#dc2626' : '#0f172a' }} aria-label="Toggle headphones" title={deafened ? "Undeafen" : "Deafen"}>
               {deafened ? <Volume2 size={18} /> : <Headphones size={18} />}
             </button>
-            <button onClick={() => setJoinedRoomId(null)} disabled={!joinedRoom} style={{ height: 44, borderRadius: 12, border: 'none', background: joinedRoom ? '#2563eb' : '#e2e8f0', cursor: joinedRoom ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', opacity: joinedRoom ? 1 : 0.5 }} aria-label="Leave call">
+            <button onClick={() => setJoinedRoomId(null)} disabled={!joinedRoom} style={{ height: 44, borderRadius: 12, border: 'none', background: joinedRoom ? '#22c55e' : '#2563eb', cursor: joinedRoom ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', opacity: joinedRoom ? 1 : 0.5 }} aria-label={joinedRoom ? "Leave call" : "Join a call first"} title={joinedRoom ? "Leave call" : "Join a call first"}>
               <Phone size={18} />
             </button>
           </div>

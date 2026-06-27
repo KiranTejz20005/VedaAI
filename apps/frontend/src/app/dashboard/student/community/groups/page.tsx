@@ -1,9 +1,11 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Brain, Code2, Compass, Filter, Leaf, Loader2, Plus, Sparkles, Users, X } from 'lucide-react';
+import { Brain, Code2, Compass, Filter, Leaf, Loader2, Plus, Sparkles, Users, X, Settings } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
+import { useAuthStore } from '@/store/auth.store';
+import { useRouter } from 'next/navigation';
 
 type CommunityGroup = {
   id: string;
@@ -12,7 +14,7 @@ type CommunityGroup = {
   type: 'PUBLIC' | 'PRIVATE' | 'INVITE_ONLY' | string;
   memberCount: number;
   isMember: boolean;
-  owner?: { firstName: string; lastName: string };
+  owner?: { id: string; firstName: string; lastName: string };
 };
 
 const ICONS = [Code2, Brain, Sparkles, Compass, Leaf, Users];
@@ -79,12 +81,97 @@ function CreateGroupModal({ onClose, onCreated }: { onClose: () => void; onCreat
   );
 }
 
+function ManageGroupModal({ groupId, onClose }: { groupId: string; onClose: () => void }) {
+  const [members, setMembers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [invitee, setInvitee] = useState('');
+  const [inviting, setInviting] = useState(false);
+
+  const fetchMembers = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get(`/community/groups/${groupId}/members`);
+      if (res.data?.status === 'success') setMembers(res.data.data || []);
+    } catch {
+      toast.error('Could not load members');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMembers();
+  }, [groupId]);
+
+  const handleInvite = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!invitee.trim()) return;
+    setInviting(true);
+    try {
+      await api.post(`/community/groups/${groupId}/invite`, { inviteeIdentifier: invitee.trim() });
+      toast.success('User added to group');
+      setInvitee('');
+      fetchMembers();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || 'Could not invite user');
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const inp: React.CSSProperties = { height: 44, borderRadius: 12, border: '1px solid #e2e8f0', padding: '0 14px', fontSize: 13, fontWeight: 500, color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box' as const, background: '#fff', fontFamily: 'inherit' };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(4px)', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 24, width: '100%', maxWidth: 540, boxShadow: '0 24px 48px rgba(0,0,0,0.15)', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '80vh' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid #e2e8f0' }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#0f172a' }}>Manage Group Members</h2>
+          </div>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', borderRadius: 8, padding: 6, color: '#64748b' }}><X size={18} /></button>
+        </div>
+        
+        <div style={{ padding: 24, flex: 1, overflowY: 'auto' }}>
+          <form onSubmit={handleInvite} style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+            <input value={invitee} onChange={e => setInvitee(e.target.value)} style={inp} placeholder="Email address or User ID" required />
+            <button type="submit" disabled={inviting || !invitee.trim()} style={{ height: 44, borderRadius: 12, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', padding: '0 20px', whiteSpace: 'nowrap' as const, opacity: (inviting || !invitee.trim()) ? 0.5 : 1 }}>{inviting ? 'Adding…' : 'Add User'}</button>
+          </form>
+
+          <div>
+            <h3 style={{ margin: '0 0 12px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', color: '#64748b' }}>Current Members</h3>
+            {loading ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}><Loader2 size={24} className="animate-spin" style={{ color: '#94a3b8' }} /></div>
+            ) : members.length === 0 ? (
+              <p style={{ fontSize: 13, color: '#64748b' }}>No members yet.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {members.map(m => (
+                  <div key={m.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{m.user.firstName} {m.user.lastName}</div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{m.user.email}</div>
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 700, padding: '4px 8px', background: m.role === 'OWNER' ? '#eff6ff' : '#f1f5f9', color: m.role === 'OWNER' ? '#2563eb' : '#64748b', borderRadius: 8 }}>{m.role}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function GroupsPage() {
+  const router = useRouter();
+  const { user } = useAuthStore();
   const [groups, setGroups] = useState<CommunityGroup[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [managingGroupId, setManagingGroupId] = useState<string | null>(null);
 
   const fetchGroups = async (silent = false) => {
     try {
@@ -168,9 +255,26 @@ export default function GroupsPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#64748b' }}>
                       <Users size={14} style={{ color: '#94a3b8' }} /><span>{memberLabel(group.memberCount)}</span>
                     </div>
-                    <button onClick={() => !group.isMember && joinGroup(group.id)} disabled={group.isMember || joiningId === group.id} style={{ height: 36, borderRadius: 10, border: 'none', background: group.isMember ? '#f1f5f9' : '#0f172a', color: group.isMember ? '#94a3b8' : '#fff', fontSize: 12, fontWeight: 700, cursor: group.isMember ? 'default' : 'pointer', padding: '0 18px', transition: 'all .15s', opacity: joiningId === group.id ? 0.6 : 1 }}>
-                      {group.isMember ? 'Joined' : joiningId === group.id ? 'Joining…' : 'Join'}
-                    </button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {group.owner?.id === user?.id && (
+                        <button onClick={() => setManagingGroupId(group.id)} style={{ height: 36, borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff', color: '#0f172a', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '0 12px', display: 'flex', alignItems: 'center', gap: 6, transition: 'all .15s' }}>
+                          <Settings size={14} /> Manage
+                        </button>
+                      )}
+                      {(group.type === 'INVITE_ONLY' || group.type === 'PRIVATE') && !group.isMember ? (
+                        <button disabled style={{ height: 36, borderRadius: 10, border: 'none', background: '#f1f5f9', color: '#94a3b8', fontSize: 12, fontWeight: 700, padding: '0 18px' }}>
+                          Invite Only
+                        </button>
+                      ) : group.isMember ? (
+                        <button onClick={() => router.push(`/dashboard/student/community/groups/${group.id}`)} style={{ height: 36, borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '0 18px', transition: 'all .15s' }}>
+                          Open Chat
+                        </button>
+                      ) : (
+                        <button onClick={() => joinGroup(group.id)} disabled={joiningId === group.id} style={{ height: 36, borderRadius: 10, border: 'none', background: '#0f172a', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '0 18px', transition: 'all .15s', opacity: joiningId === group.id ? 0.6 : 1 }}>
+                          {joiningId === group.id ? 'Joining…' : 'Join'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </article>
               );
@@ -190,6 +294,7 @@ export default function GroupsPage() {
       </div>
 
       {modalOpen && <CreateGroupModal onClose={() => setModalOpen(false)} onCreated={() => fetchGroups(true)} />}
+      {managingGroupId && <ManageGroupModal groupId={managingGroupId} onClose={() => { setManagingGroupId(null); fetchGroups(true); }} />}
     </div>
   );
 }
