@@ -29,7 +29,6 @@ function QuestionBankIcon(props: React.SVGProps<SVGSVGElement>) {
 
 const NAV_ITEMS = [
   { href: '/dashboard/faculty', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/dashboard/teacher', label: 'Teachers', icon: Users },
   { href: '/classes', label: 'Students', icon: GraduationCap },
   { href: '/analytics', label: 'Reports', icon: FileText },
   { href: '/analytics', label: 'Analytics', icon: BrainCircuit },
