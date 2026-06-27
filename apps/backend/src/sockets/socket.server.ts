@@ -10,6 +10,13 @@ const SUBSCRIBE_WINDOW_MS = 10_000;
 const MAX_SUBSCRIBES_PER_WINDOW = 30;
 const MAX_ROOMS_PER_SOCKET = 50;
 
+// Track online users globally: userId -> number of active connections
+const onlineUsers = new Map<string, number>();
+
+export function getOnlineUsers(): string[] {
+  return Array.from(onlineUsers.keys());
+}
+
 function isValidAssignmentId(value: unknown): value is string {
   return typeof value === 'string' && ASSIGNMENT_ID_RE.test(value.trim());
 }
@@ -118,7 +125,53 @@ export function initializeSocketServer(
       logger.debug(`Socket ${socket.id} unsubscribed from assignment:${normalized}`);
     });
 
+    // --- Real-time Group Chat & Presence ---
+    
+    socket.on('authenticate', ({ userId }: { userId: string }) => {
+      if (!userId) return;
+      socket.data.userId = userId;
+      const count = onlineUsers.get(userId) || 0;
+      onlineUsers.set(userId, count + 1);
+      
+      // If this is their first connection, broadcast to everyone that they are online
+      if (count === 0) {
+        io?.emit('presence:online', { userId });
+      }
+    });
+
+    socket.on('join:group', ({ groupId }: { groupId: string }) => {
+      if (!groupId) return;
+      socket.join(`group:${groupId}`);
+      
+      // Reply with the list of ALL currently online users (not just in this group, frontend filters)
+      socket.emit('presence:sync', { onlineUserIds: Array.from(onlineUsers.keys()) });
+    });
+
+    socket.on('leave:group', ({ groupId }: { groupId: string }) => {
+      if (!groupId) return;
+      socket.leave(`group:${groupId}`);
+    });
+
+    socket.on('typing', ({ groupId, isTyping }: { groupId: string, isTyping: boolean }) => {
+      if (!groupId || !socket.data.userId) return;
+      // Broadcast to others in the room
+      socket.to(`group:${groupId}`).emit('chat:typing', {
+        userId: socket.data.userId,
+        isTyping,
+      });
+    });
+
     socket.on('disconnect', (reason) => {
+      const userId = socket.data.userId;
+      if (userId) {
+        const count = (onlineUsers.get(userId) || 0) - 1;
+        if (count <= 0) {
+          onlineUsers.delete(userId);
+          io?.emit('presence:offline', { userId });
+        } else {
+          onlineUsers.set(userId, count);
+        }
+      }
       logger.debug(`Socket disconnected: ${socket.id} (${reason})`);
     });
   });
@@ -147,4 +200,9 @@ export function emitToConversation(
 ): void {
   if (!io) return;
   io.to(`conversation:${conversationId}`).emit(event as any, payload);
+}
+
+export function emitToGroup(groupId: string, event: string, payload: any) {
+  if (!io) return;
+  io.to(`group:${groupId}`).emit(event as any, payload);
 }

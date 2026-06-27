@@ -77,7 +77,10 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
 };
 
 export const hasPermission = (role: string, permission: Permission): boolean => {
-  const normalizedRole = role === 'FACULTY' ? 'TEACHER' : role;
+  let normalizedRole = role;
+  if (role === 'FACULTY') normalizedRole = 'TEACHER';
+  if (role === 'ORG_ADMIN') normalizedRole = 'ADMIN';
+  
   if (normalizedRole === 'SUPER_ADMIN') return true;
   const permissions = ROLE_PERMISSIONS[normalizedRole] ?? ROLE_PERMISSIONS[role];
   if (!permissions) return false;

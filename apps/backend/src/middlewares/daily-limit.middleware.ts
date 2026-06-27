@@ -17,8 +17,8 @@ export const checkQuizDailyLimit = async (req: Request, res: Response, next: Nex
     }
 
     const { allowed, remaining, used, limit } = await dailyLimitService.checkLimit(
-      req.user.id,
-      req.user.role,
+      req.user!.id,
+      req.user!.role,
       'quiz'
     );
 
@@ -27,8 +27,8 @@ export const checkQuizDailyLimit = async (req: Request, res: Response, next: Nex
 
     if (!allowed) {
       logger.warn({
-        userId: req.user.id,
-        role: req.user.role,
+        userId: req.user!.id,
+        role: req.user!.role,
         used,
         limit,
       }, '[DailyLimit] Quiz limit exceeded');
@@ -63,8 +63,8 @@ export const checkPaperDailyLimit = async (req: Request, res: Response, next: Ne
     }
 
     const { allowed, remaining, used, limit } = await dailyLimitService.checkLimit(
-      req.user.id,
-      req.user.role,
+      req.user!.id,
+      req.user!.role,
       'paper'
     );
 
@@ -73,8 +73,8 @@ export const checkPaperDailyLimit = async (req: Request, res: Response, next: Ne
 
     if (!allowed) {
       logger.warn({
-        userId: req.user.id,
-        role: req.user.role,
+        userId: req.user!.id,
+        role: req.user!.role,
         used,
         limit,
       }, '[DailyLimit] Paper generation limit exceeded');
@@ -109,8 +109,8 @@ export const checkAssignmentDailyLimit = async (req: Request, res: Response, nex
     }
 
     const { allowed, remaining, used, limit } = await dailyLimitService.checkLimit(
-      req.user.id,
-      req.user.role,
+      req.user!.id,
+      req.user!.role,
       'assignment'
     );
 
@@ -119,8 +119,8 @@ export const checkAssignmentDailyLimit = async (req: Request, res: Response, nex
 
     if (!allowed) {
       logger.warn({
-        userId: req.user.id,
-        role: req.user.role,
+        userId: req.user!.id,
+        role: req.user!.role,
         used,
         limit,
       }, '[DailyLimit] Assignment creation limit exceeded');

@@ -75,9 +75,18 @@ export interface ServerToClientEvents {
   'generation:completed': (payload: GenerationCompletedPayload) => void;
   'generation:failed': (payload: GenerationFailedPayload) => void;
   'generation:pdf_ready': (payload: GenerationPdfReadyPayload) => void;
+  'presence:online': (payload: { userId: string }) => void;
+  'presence:offline': (payload: { userId: string }) => void;
+  'presence:sync': (payload: { onlineUserIds: string[] }) => void;
+  'chat:message': (payload: any) => void;
+  'chat:typing': (payload: { userId: string; isTyping: boolean }) => void;
 }
 
 export interface ClientToServerEvents {
   'subscribe:assignment': (data: { assignmentId: string }) => void;
   'unsubscribe:assignment': (data: { assignmentId: string }) => void;
+  'authenticate': (data: { userId: string }) => void;
+  'join:group': (data: { groupId: string }) => void;
+  'leave:group': (data: { groupId: string }) => void;
+  'typing': (data: { groupId: string; isTyping: boolean }) => void;
 }

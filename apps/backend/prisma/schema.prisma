@@ -190,6 +190,8 @@ model User {
   auditLogs           AuditLog[]
   studentAttendance   AttendanceRecord[]     @relation("StudentAttendance")
   recordedAttendance  AttendanceRecord[]     @relation("TeacherAttendance")
+  communityComments   CommunityComment[]     @relation("CommunityComments")
+  savedPosts          SavedPost[]            @relation("SavedPosts")
 
   @@index([organizationId])
   @@index([departmentId])
@@ -1039,15 +1041,46 @@ model CommunityPost {
   imageUrl       String?
   likesCount     Int           @default(0)
   commentsCount  Int           @default(0)
+  status         String        @default("OPEN") // OPEN, CLOSED, RESOLVED
   visibility     String        @default("PUBLIC") // PUBLIC, PRIVATE, ORG_ONLY
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+  
+  comments       CommunityComment[]
+  savedBy        SavedPost[]
 
   @@index([authorId])
   @@index([organizationId])
   @@index([createdAt])
+}
+
+model CommunityComment {
+  id             String        @id @default(uuid())
+  postId         String
+  post           CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User          @relation("CommunityComments", fields: [authorId], references: [id], onDelete: Cascade)
+  content        String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([postId])
+  @@index([authorId])
+}
+
+model SavedPost {
+  id             String        @id @default(uuid())
+  userId         String
+  user           User          @relation("SavedPosts", fields: [userId], references: [id], onDelete: Cascade)
+  postId         String
+  post           CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+
+  @@unique([userId, postId])
+  @@index([userId])
+  @@index([postId])
 }
 
 model CommunityGroup {
