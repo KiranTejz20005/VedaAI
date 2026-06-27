@@ -418,3 +418,28 @@ export async function publishAssignment(req: Request, res: Response): Promise<vo
   }
 }
 
+export async function getAssignmentHistoryHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const assignment = await loadAssignmentForRequest(req, req.params.id);
+    await assertCanViewAssignment(req, assignment);
+
+    const papers = await prisma.generatedPaper.findMany({
+      where: { assignmentId: req.params.id },
+      orderBy: { generatedAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        totalMarks: true,
+        duration: true,
+        generatedAt: true,
+        canonicalMetadata: true,
+        pdfUrl: true,
+      }
+    });
+
+    sendSuccess(res, { papers });
+  } catch (err) {
+    if (handleAccessError(res, err)) return;
+    throw err;
+  }
+}

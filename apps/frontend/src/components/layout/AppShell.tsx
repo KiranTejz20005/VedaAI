@@ -1,6 +1,6 @@
 'use client';
-
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { usePathname, useRouter } from 'next/navigation';
 import { Toaster } from 'react-hot-toast';
 import { ClientOnly } from '@/components/ui/ClientOnly';
@@ -17,6 +17,105 @@ import { MobileBottomNav } from './MobileBottomNav';
 import { canAccessRoute } from '@/config/route-permissions';
 import { useSystemStore } from '@/store/system.store';
 import { AlertTriangle } from 'lucide-react';
+
+const loaderMessages = [
+  "Securing workspace...",
+  "Loading your account details...",
+  "Preparing your environment...",
+  "Fetching necessary resources..."
+];
+
+function FullScreenLoader({ isLoading }: { isLoading: boolean }) {
+  const [messageIndex, setMessageIndex] = useState(0);
+
+  useEffect(() => {
+    if (!isLoading) return;
+    
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    
+    document.addEventListener('keydown', handleKeyDown, { capture: true });
+
+    const interval = setInterval(() => {
+      setMessageIndex((prev) => (prev + 1) % loaderMessages.length);
+    }, 2500);
+
+    return () => {
+      document.body.style.overflow = 'auto';
+      document.removeEventListener('keydown', handleKeyDown, { capture: true });
+      clearInterval(interval);
+    };
+  }, [isLoading]);
+
+  return (
+    <AnimatePresence>
+      {isLoading && (
+        <motion.div
+          key="global-loader"
+          initial={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.8, ease: 'easeInOut' }}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: '#F8F7F4',
+            zIndex: 99999,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'all',
+          }}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <div 
+            style={{ 
+              width: 50, 
+              height: 50, 
+              border: '4px solid rgba(232, 83, 29, 0.15)', 
+              borderTopColor: '#E8531D', 
+              borderRadius: '50%', 
+              animation: 'spin 1s linear infinite' 
+            }} 
+          />
+          
+          <div style={{ marginTop: 24, height: 24, position: 'relative', width: '100%', textAlign: 'center' }}>
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={messageIndex}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                transition={{ duration: 0.3 }}
+                style={{
+                  margin: 0,
+                  fontSize: '15px',
+                  fontWeight: 500,
+                  color: '#4B5563'
+                }}
+              >
+                {loaderMessages[messageIndex]}
+              </motion.p>
+            </AnimatePresence>
+          </div>
+          
+          <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}} />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -144,39 +243,38 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div suppressHydrationWarning style={{ display: 'flex', minHeight: '100vh', width: '100%', background: '#F8F7F4' }}>
-      {SidebarComponent}
-      <div suppressHydrationWarning style={{ marginLeft: '260px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', width: 'calc(100% - 260px)' }}>
-        {TopbarComponent}
-        <main suppressHydrationWarning style={{ flex: 1, padding: '24px', maxWidth: '1600px', margin: '0 auto', width: '100%', overflowX: 'hidden' }}>
-          <ClientOnly fallback={<div className="page-content-placeholder" aria-hidden="true" />}>
-            {(isLoading || isRedirectingToLogin) && !isPublicPage ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '50vh' }}>
-                <div style={{ width: 40, height: 40, border: '3px solid rgba(232, 83, 29, 0.1)', borderTopColor: '#E8531D', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-              </div>
-            ) : children}
-          </ClientOnly>
-        </main>
+    <>
+      <FullScreenLoader isLoading={(isLoading || isRedirectingToLogin) && !isPublicPage} />
+      <div suppressHydrationWarning style={{ display: 'flex', minHeight: '100vh', width: '100%', background: '#F8F7F4' }}>
+        {SidebarComponent}
+        <div suppressHydrationWarning style={{ marginLeft: '260px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', width: 'calc(100% - 260px)' }}>
+          {TopbarComponent}
+          <main suppressHydrationWarning style={{ flex: 1, padding: '24px', maxWidth: '1600px', margin: '0 auto', width: '100%', overflowX: 'hidden' }}>
+            <ClientOnly fallback={<div className="page-content-placeholder" aria-hidden="true" />}>
+              {children}
+            </ClientOnly>
+          </main>
+        </div>
+        <MobileBottomNav />
+        <ClientOnly>
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              style: {
+                background: '#ffffff',
+                color: '#111827',
+                border: '1px solid #E5E7EB',
+                borderRadius: '12px',
+                fontSize: '14px',
+                fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+              },
+              success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
+              error: { iconTheme: { primary: '#EF4444', secondary: '#fff' } },
+            }}
+          />
+        </ClientOnly>
       </div>
-      <MobileBottomNav />
-      <ClientOnly>
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            style: {
-              background: '#ffffff',
-              color: '#111827',
-              border: '1px solid #E5E7EB',
-              borderRadius: '12px',
-              fontSize: '14px',
-              fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-            },
-            success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
-            error: { iconTheme: { primary: '#EF4444', secondary: '#fff' } },
-          }}
-        />
-      </ClientOnly>
-    </div>
+    </>
   );
 }

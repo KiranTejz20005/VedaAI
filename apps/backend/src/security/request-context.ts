@@ -25,12 +25,7 @@ export function getRequestOrgId(req: Request): string | undefined {
       undefined
     );
   }
-  return (
-    (req.body?._requireOrganizationScope as string | undefined) ||
-    req.user?.activeOrganizationId ||
-    req.user?.organizationId ||
-    undefined
-  );
+  return req.user?.organizationId || undefined;
 }
 
 export function requireRequestOrgId(req: Request): string {

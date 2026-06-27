@@ -110,3 +110,12 @@ export async function fetchJobStatus(id: string): Promise<JobStatusResponse | nu
     return res.data.data;
   });
 }
+
+export async function fetchAssignmentHistory(assignmentId: string): Promise<any[]> {
+  try {
+    const res = await apiClient.get<{ data: { papers: any[] } }>(`/assignments/${assignmentId}/history`);
+    return res.data.data.papers;
+  } catch (err: any) {
+    throw new Error(err.response?.data?.error || 'Failed to fetch assignment history');
+  }
+}

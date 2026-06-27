@@ -387,8 +387,19 @@ function CustomDatePicker({ value, onChange }: { value: string, onChange: (val: 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <button 
               type="button"
-              onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
-              style={{ background: 'var(--bg-input)', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 'var(--radius-sm)' }}
+              onClick={() => {
+                const today = new Date();
+                const nextPrevMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+                if (nextPrevMonth.getFullYear() < today.getFullYear() || (nextPrevMonth.getFullYear() === today.getFullYear() && nextPrevMonth.getMonth() < today.getMonth())) {
+                  return;
+                }
+                setCurrentMonth(nextPrevMonth);
+              }}
+              style={{ 
+                background: 'var(--bg-input)', border: 'none', padding: 4, borderRadius: 'var(--radius-sm)',
+                cursor: (currentMonth.getFullYear() === new Date().getFullYear() && currentMonth.getMonth() === new Date().getMonth()) ? 'not-allowed' : 'pointer',
+                opacity: (currentMonth.getFullYear() === new Date().getFullYear() && currentMonth.getMonth() === new Date().getMonth()) ? 0.5 : 1
+              }}
             >
               <ChevronLeft size={16} />
             </button>
@@ -418,22 +429,27 @@ function CustomDatePicker({ value, onChange }: { value: string, onChange: (val: 
               
               const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
               const isSelected = value === dateStr;
-              const isToday = new Date().toISOString().split('T')[0] === dateStr;
+              const today = new Date();
+              const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+              const isToday = todayStr === dateStr;
+              const isPast = dateStr < todayStr;
 
               return (
                 <button
                   key={i}
                   type="button"
-                  onClick={() => handleSelect(d)}
+                  disabled={isPast}
+                  onClick={() => !isPast && handleSelect(d)}
                   style={{
                     width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
                     background: isSelected ? '#E8531D' : 'transparent',
-                    color: isSelected ? '#000000' : 'var(--text-primary)',
-                    borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: isSelected || isToday ? 700 : 400,
-                    margin: 'auto'
+                    color: isSelected ? '#000000' : (isPast ? 'var(--text-muted)' : 'var(--text-primary)'),
+                    borderRadius: 6, border: 'none', cursor: isPast ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: isSelected || isToday ? 700 : 400,
+                    margin: 'auto',
+                    opacity: isPast ? 0.4 : 1
                   }}
-                  onMouseOver={(e) => { if (!isSelected) e.currentTarget.style.background = 'var(--bg-hover)' }}
-                  onMouseOut={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent' }}
+                  onMouseOver={(e) => { if (!isSelected && !isPast) e.currentTarget.style.background = 'var(--bg-hover)' }}
+                  onMouseOut={(e) => { if (!isSelected && !isPast) e.currentTarget.style.background = 'transparent' }}
                 >
                   {d}
                 </button>
@@ -825,14 +841,7 @@ export default function CreateAssignmentPage() {
                   })}
                 />
 
-                {/* Due Date */}
-                <div className="input-group" style={{ marginBottom: 20 }}>
-                  <label className="label" htmlFor="dueDate">Due Date</label>
-                  <CustomDatePicker
-                    value={formData.dueDate}
-                    onChange={(val) => setFormData((d) => ({ ...d, dueDate: val }))}
-                  />
-                </div>
+
 
                 {/* Question Type section */}
                 <div style={{ marginBottom: 20 }}>
@@ -960,6 +969,15 @@ export default function CreateAssignmentPage() {
                       <option key={s} value={s}>{s}</option>
                     ))}
                   </select>
+                </div>
+
+                {/* Due Date */}
+                <div className="input-group" style={{ marginBottom: 16 }}>
+                  <label className="label" htmlFor="dueDate">Due Date</label>
+                  <CustomDatePicker
+                    value={formData.dueDate}
+                    onChange={(val) => setFormData((d) => ({ ...d, dueDate: val }))}
+                  />
                 </div>
 
                 {/* Review summary inline (step 2 only) */}

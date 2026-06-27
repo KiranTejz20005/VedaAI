@@ -20,18 +20,6 @@ export async function savePaper(
   });
   if (!existingAssignment) throw new Error(`Assignment ${assignmentId} not found`);
 
-  const existing = await prisma.generatedPaper.findFirst({ where: { assignmentId } });
-  if (existing) {
-    logger.debug(`[savePaper] Deleted existing paper: ${existing.id}`);
-    if (existing.pdfPath) {
-      const fs = await import('fs/promises');
-      fs.unlink(existing.pdfPath).catch(() => undefined);
-    }
-    await prisma.generatedPaper.delete({ where: { id: existing.id } });
-  } else {
-    logger.debug(`[savePaper] No existing paper to delete`);
-  }
-
   logger.debug(`[savePaper] Creating new GeneratedPaper...`);
   const saved = await prisma.generatedPaper.create({
     data: {
@@ -80,8 +68,14 @@ export async function savePaper(
 }
 
 
-export async function getPaper(assignmentId: string) {
-  return prisma.generatedPaper.findFirst({ where: { assignmentId } });
+export async function getPaper(assignmentId: string, paperId?: string) {
+  if (paperId) {
+    return prisma.generatedPaper.findUnique({ where: { id: paperId } });
+  }
+  return prisma.generatedPaper.findFirst({
+    where: { assignmentId },
+    orderBy: { generatedAt: 'desc' },
+  });
 }
 
 export async function updatePaperPdf(

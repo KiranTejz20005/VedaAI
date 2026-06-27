@@ -103,12 +103,12 @@ async function main() {
   const demoFacultyId = 'demo-faculty-id';
   let demoFaculty = await prisma.user.findUnique({ where: { id: demoFacultyId } });
 
-  let inst = await prisma.institution.findUnique({ where: { id: 'demo-inst-id' } });
+  let inst = await prisma.organization.findUnique({ where: { id: 'demo-org-id' } });
   if (!inst) {
     console.log('Seeding legacy demo school...');
-    inst = await prisma.institution.create({
+    inst = await prisma.organization.create({
       data: {
-        id: 'demo-inst-id',
+        id: 'demo-org-id',
         name: 'VidyaAI Demo School',
         email: 'info@vidyaai.demo',
         code: 'VEDAAI_DEMO',
@@ -130,7 +130,7 @@ async function main() {
         firstName: 'Demo',
         lastName: 'Faculty',
         role: 'TEACHER',
-        institutionId: inst.id,
+        organizationId: inst.id,
         preferences: {
           emailNotifications: true,
           inAppAlerts: true,

@@ -11,7 +11,7 @@ import {
   Brain, CheckCircle2, XCircle, AlertCircle, Clock, FileText, Zap, RefreshCw, Star,
   Edit3, Eye, Check, Download
 } from 'lucide-react';
-import { fetchAssignment, generateAssignment, fetchJobStatus } from '@/services/assignment.service';
+import { fetchAssignment, generateAssignment, fetchJobStatus, fetchAssignmentHistory } from '@/services/assignment.service';
 import { fetchPaper } from '@/services/paper.service';
 import { useGenerationSocket } from '@/hooks/useSocket';
 import { useGenerationStore } from '@/store/generation.store';
@@ -59,6 +59,8 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [paper, setPaper] = useState<GeneratedPaper | null>(null);
   const [questions, setQuestions] = useState<QuestionPreview[]>([]);
+  const [paperHistory, setPaperHistory] = useState<any[]>([]);
+  const [selectedPaperId, setSelectedPaperId] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -80,6 +82,8 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
       .then(setAssignment)
       .catch((e) => { setFetchError(e instanceof Error ? e.message : 'Failed to load assignment'); })
       .finally(() => setLoading(false));
+      
+    fetchAssignmentHistory(id).then(setPaperHistory).catch(console.error);
   }, [id]);
 
   // Listen for generation completion events and refresh assignment immediately
@@ -87,6 +91,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     const { stage: currentStage, status: currentStatus } = useGenerationStore.getState();
     if (currentStatus === 'completed' || currentStatus === 'partial_success') {
       fetchAssignment(id).then(setAssignment).catch(console.error);
+      fetchAssignmentHistory(id).then(setPaperHistory).catch(console.error);
     }
   }, [id, status]);
 
@@ -95,28 +100,13 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     const loadPaperAndQuestions = async () => {
       if (assignment.status === 'completed' || assignment.status === 'partially_generated') {
         try {
-          const p = await fetchPaper(id);
+          const p = await fetchPaper(id, selectedPaperId);
           setPaper(p);
-          const qs: QuestionPreview[] = [];
-          if (p.sections) {
-            p.sections.forEach((section) => {
-              section.questions.forEach((q, idx) => {
-                qs.push({
-                  id: q.id,
-                  questionNumber: idx + 1,
-                  question: q.question,
-                  type: q.type,
-                  marks: q.marks,
-                });
-              });
-            });
-          }
-          setQuestions(qs);
         } catch { /* ignore */ }
       }
     };
     void loadPaperAndQuestions();
-  }, [assignment, id]);
+  }, [assignment, id, selectedPaperId]);
 
   useEffect(() => { if (fetchError) toast.error(fetchError, { id: 'fetch-error', position: 'bottom-center' }); }, [fetchError]);
   useEffect(() => { if (error) toast.error(error, { id: 'generation-error', position: 'bottom-center' }); }, [error]);
@@ -207,6 +197,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
         const updated = await fetchAssignment(id);
         setAssignment(updated);
         if (['completed', 'failed', 'partially_generated'].includes(updated.status)) {
+          fetchAssignmentHistory(id).then(setPaperHistory).catch(console.error);
           if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
         }
       } catch (err) {
@@ -426,29 +417,92 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
               </motion.div>
             )}
 
-            {questions.length > 0 && !showGeneration && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="card" style={{ marginBottom: 16 }}>
-                <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>
-                  Questions Preview ({questions.length})
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {questions.slice(0, 20).map((q) => (
-                    <div key={q.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13 }}>
-                      <span style={{ fontWeight: 700, color: 'var(--brand)', width: 28, flexShrink: 0, textAlign: 'right' }}>Q{q.questionNumber}.</span>
-                      <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>
-                        {q.question}
-                      </span>
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)', background: '#F3F4F6', padding: '2px 8px', borderRadius: 100, whiteSpace: 'nowrap' }}>
-                        {q.type}
-                      </span>
-                      <span style={{ fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{q.marks} mk</span>
+            {paperHistory.length > 0 && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.09 }} className="card" style={{ marginBottom: 16 }}>
+                <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>Generation History</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {paperHistory.map((historyItem, idx) => (
+                    <div key={historyItem.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: selectedPaperId === historyItem.id ? 'var(--bg-accent)' : 'var(--bg-page)', border: selectedPaperId === historyItem.id ? '1px solid var(--brand)' : '1px solid var(--border)', borderRadius: 8, cursor: 'pointer' }} onClick={() => setSelectedPaperId(historyItem.id)}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                          Generation #{paperHistory.length - idx} {idx === 0 && !selectedPaperId && <span style={{ marginLeft: 6, fontSize: 10, background: 'var(--brand)', color: 'white', padding: '2px 6px', borderRadius: 10 }}>LATEST</span>}
+                        </span>
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                          {new Date(historyItem.generatedAt).toLocaleString()} • {historyItem.totalMarks} Marks
+                        </span>
+                      </div>
+                      <button className="btn btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); setSelectedPaperId(historyItem.id); }} disabled={selectedPaperId === historyItem.id || (!selectedPaperId && idx === 0)}>
+                        {selectedPaperId === historyItem.id || (!selectedPaperId && idx === 0) ? 'Viewing' : 'View'}
+                      </button>
                     </div>
                   ))}
-                  {questions.length > 20 && (
-                    <Link href={`/assignments/${id}/paper`} style={{ fontSize: 13, color: 'var(--brand)', fontWeight: 600, textAlign: 'center', padding: 8 }}>
-                      View all {questions.length} questions &rarr;
-                    </Link>
-                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {paper && paper.sections && paper.sections.length > 0 && !showGeneration && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="card" style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                    Question Paper Preview
+                  </h3>
+                  <button onClick={handleViewPaper} className="btn btn-primary btn-sm" style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
+                    <Eye size={14} /> Full View & Edit
+                  </button>
+                </div>
+                
+                <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: 'clamp(16px, 3vw, 32px)', color: '#1a1a1a', fontFamily: '"Times New Roman", Times, serif' }}>
+                  <div style={{ textAlign: 'center', marginBottom: 24, paddingBottom: 16, borderBottom: '2px solid #1a1a1a' }}>
+                    <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px 0' }}>{paper.canonicalMetadata?.schoolName || 'Delhi Public School'}</h1>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 14, maxWidth: 400, margin: '0 auto 12px auto' }}>
+                      <div><strong>Subject:</strong> {paper.title || paper.canonicalMetadata?.subject || 'Assessment'}</div>
+                      <div><strong>Class:</strong> {paper.canonicalMetadata?.className || '—'}</div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 14 }}>
+                      <div><strong>Time:</strong> {paper.duration || 45} mins</div>
+                      <div><strong>Max Marks:</strong> {paper.totalMarks || 100}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ background: '#f5f5f5', padding: '12px 16px', borderRadius: 6, marginBottom: 24, fontSize: 13 }}>
+                    <p style={{ margin: 0, fontWeight: 500 }}>All questions are compulsory unless stated otherwise.</p>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+                    {(() => {
+                      let globalQNum = 1;
+                      return paper.sections.map((section: any, sIdx: number) => {
+                        const currentGlobalNum = globalQNum;
+                        globalQNum += section.questions.length;
+                        return (
+                          <div key={sIdx}>
+                            <h3 style={{ fontSize: 16, fontWeight: 700, textAlign: 'center', margin: '0 0 8px 0' }}>{section.title}</h3>
+                            {section.instruction && (
+                              <p style={{ fontSize: 13, color: '#4b5563', fontStyle: 'italic', margin: '0 0 12px 0', textAlign: 'center' }}>{section.instruction}</p>
+                            )}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                              {section.questions.map((q: any, qIdx: number) => (
+                                <div key={q.id || qIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                  <span style={{ fontWeight: 700, fontSize: 15, minWidth: 24 }}>{currentGlobalNum + qIdx}.</span>
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 14, whiteSpace: 'pre-wrap', marginBottom: q.options?.length ? 8 : 0 }}>{q.question}</div>
+                                    {q.type === 'mcq' && q.options && q.options.length > 0 && (
+                                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6, fontSize: 13 }}>
+                                        {q.options.map((opt: any) => (
+                                          <div key={opt.key}><strong>{opt.key}.</strong> {opt.text}</div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <span style={{ fontWeight: 700, fontSize: 13, flexShrink: 0 }}>[{q.marks}M]</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
                 </div>
               </motion.div>
             )}

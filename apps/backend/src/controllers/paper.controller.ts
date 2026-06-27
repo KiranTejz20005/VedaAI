@@ -19,8 +19,9 @@ export async function getPaperHandler(req: Request, res: Response): Promise<void
   const { assignmentId } = req.params;
   try {
     await assertCanViewPaper(req, assignmentId);
+    const paperId = req.query.paperId as string | undefined;
     const [paper, assignment] = await Promise.all([
-      getPaper(assignmentId),
+      getPaper(assignmentId, paperId),
       prisma.assignment.findUnique({ where: { id: assignmentId } }),
     ]);
     if (!paper) {
