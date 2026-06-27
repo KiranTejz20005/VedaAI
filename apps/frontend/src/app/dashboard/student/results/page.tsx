@@ -8,6 +8,9 @@ import {
   BarChart3, CheckCircle2, XCircle, RefreshCw, ArrowLeft, FileText, Eye, Brain
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { EmptyState } from '@/design-system/EmptyState';
+import { ErrorState } from '@/design-system/ErrorState';
+import { useRouter } from 'next/navigation';
 
 interface QuestionResult {
   id: string;
@@ -65,6 +68,7 @@ export default function StudentResultsPage() {
   const [error, setError] = useState<string | null>(null);
   
   const [selectedResult, setSelectedResult] = useState<AssessmentResult | null>(null);
+  const router = useRouter();
 
   const fetchResults = useCallback(async () => {
     setLoading(true);

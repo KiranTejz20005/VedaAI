@@ -9,6 +9,8 @@ import {
   CheckCircle2, AlertCircle, BarChart3
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { EmptyState } from '@/design-system/EmptyState';
+import { ErrorState } from '@/design-system/ErrorState';
 
 type StudentAssessmentStatus = 'AVAILABLE' | 'STARTED' | 'IN_PROGRESS' | 'SUBMITTED' | 'GRADED';
 
@@ -118,22 +120,15 @@ export default function StudentAssessmentsPage() {
           </div>
         </div>
       ) : error ? (
-        <div className="empty-state">
-          <h2 className="empty-title">Failed to load assessments</h2>
-          <p className="empty-desc">{error}</p>
-          <div className="empty-state-actions">
-            <button onClick={fetchAssessments} className="btn btn-dark btn-pill"><RefreshCw size={14} /> Retry</button>
-          </div>
-        </div>
+        <ErrorState message={error} onRetry={fetchAssessments} />
       ) : assessments.length === 0 ? (
-        <div className="empty-state">
-          <ClipboardCheck size={40} color="#9CA3AF" />
-          <h2 className="empty-title">No assessments available</h2>
-          <p className="empty-desc">You don&apos;t have any assessments assigned yet.</p>
-          <div className="empty-state-actions">
-            <Link href="/student" className="btn btn-secondary btn-pill">Back to Dashboard</Link>
-          </div>
-        </div>
+        <EmptyState
+          icon={<ClipboardCheck size={48} />}
+          title="No assessments available"
+          description="You don't have any assessments assigned yet."
+          action={() => router.push('/student')}
+          actionLabel="Back to Dashboard"
+        />
       ) : (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>

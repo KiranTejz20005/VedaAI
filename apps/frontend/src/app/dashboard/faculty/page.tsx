@@ -5,7 +5,9 @@ import { api } from '@/lib/api';
 import { PageHeader } from '@/design-system/PageHeader';
 import { MetricCard } from '@/design-system/MetricCard';
 import { Card } from '@/design-system/Card';
-import { Users, GraduationCap, Building2, BarChart2, CheckCircle, Clock, Loader2 } from 'lucide-react';
+import { LoadingState } from '@/design-system/LoadingState';
+import { ErrorState } from '@/design-system/ErrorState';
+import { Users, GraduationCap, Building2, BarChart2, CheckCircle, Clock } from 'lucide-react';
 
 interface FacultyStats {
   totalTeachers: number;
@@ -43,25 +45,8 @@ export default function FacultyDashboard() {
     fetchStats();
   }, []);
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#6b7280' }}>
-          <Loader2 size={20} className="animate-spin" />
-          <span>Loading dashboard...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={{ padding: 20, background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 12, color: '#991b1b' }}>
-        <h3 style={{ fontWeight: 600, marginBottom: 8 }}>Error Loading Dashboard</h3>
-        <p>{error}</p>
-      </div>
-    );
-  }
+  if (loading) return <LoadingState lines={6} />;
+  if (error) return <ErrorState message={error} onRetry={() => { setLoading(true); setError(null); api.get('/faculty/dashboard/stats').then(res => res.data?.success ? setStats(res.data.data) : setError('Failed')).catch(e => setError(e.message)).finally(() => setLoading(false)); }} />;
 
   const data = stats || { totalTeachers: 0, totalStudents: 0, activeClasses: 0, averageAttendance: 0, departmentPerformance: 'N/A', ongoingExams: 0 };
 

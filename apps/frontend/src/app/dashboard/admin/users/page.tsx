@@ -148,7 +148,7 @@ export default function DirectoryOverview() {
         }))
       ];
 
-      setUsers(unified.sort((a, b) => a.firstName.localeCompare(b.firstName)));
+      setUsers(unified.sort((a, b) => (a.firstName || '').localeCompare(b.firstName || '')));
       setActiveSessions(unified.filter(u => u.status === 'ACTIVE').length);
     } catch (err) {
       toast.error('Failed to load directory data');

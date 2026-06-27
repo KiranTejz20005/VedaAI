@@ -14,6 +14,8 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/store/auth.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
 import { format } from 'date-fns';
+import { LoadingState } from '@/design-system/LoadingState';
+import { EmptyState } from '@/design-system/EmptyState';
 
 interface PendingApproval {
   id: string;
@@ -124,9 +126,13 @@ export default function ApprovalsOverview() {
         </div>
         
         {loading ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading queue...</div>
+          <LoadingState lines={5} />
         ) : approvals.length === 0 ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>No pending approvals in the queue.</div>
+          <EmptyState
+            icon={<CheckCircle2 size={40} />}
+            title="All caught up!"
+            description="There are no pending approvals in the queue right now."
+          />
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>

@@ -177,16 +177,16 @@ export default function ClassesManagement() {
     const numA = parseInt(a.grade);
     const numB = parseInt(b.grade);
     if (!isNaN(numA) && !isNaN(numB)) {
-      if (numA === numB) return a.section.localeCompare(b.section);
+      if (numA === numB) return (a.section || '').localeCompare(b.section || '');
       return numA - numB;
     }
     return (a.grade || '').localeCompare(b.grade || '');
   });
 
   const filteredClassStudents = classStudents.filter(s => 
-    `${s.firstName} ${s.lastName}`.toLowerCase().includes(studentSearch.toLowerCase()) ||
+    `${s.firstName || ''} ${s.lastName || ''}`.toLowerCase().includes(studentSearch.toLowerCase()) ||
     (s.rollNo || '').toLowerCase().includes(studentSearch.toLowerCase()) ||
-    s.email.toLowerCase().includes(studentSearch.toLowerCase())
+    (s.email || '').toLowerCase().includes(studentSearch.toLowerCase())
   );
 
   return (
