@@ -22,6 +22,7 @@ router.get('/groups', asyncHandler(CommunityController.getGroups));
 router.post('/groups/:groupId/join', asyncHandler(CommunityController.joinGroup));
 router.post('/groups/:groupId/invite', asyncHandler(CommunityController.inviteMember));
 router.get('/groups/:groupId/members', asyncHandler(CommunityController.getGroupMembers));
+router.post('/groups/:groupId/kick', asyncHandler(CommunityController.kickMember));
 router.get('/groups/:groupId/messages', asyncHandler(CommunityController.getGroupMessages));
 router.post('/groups/:groupId/messages', asyncHandler(CommunityController.sendGroupMessage));
 

@@ -165,7 +165,7 @@ export function QuizHistory({
                 {/* Expandable Review Details */}
                 {isExpanded && (
                   <div style={{ padding: '20px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 20, background: '#FFFFFF' }}>
-                    {hQuiz.questions.map((q, qIdx) => {
+                    {hQuiz.questions.map((q: any, qIdx: number) => {
                       const userAttempt = hQuiz.attempts[qIdx];
                       const isCorrect = userAttempt === q.answer;
                       const isRevealed = revealedAnswers[`history-${hQuiz.id}-${qIdx}`];
@@ -227,7 +227,7 @@ export function QuizHistory({
 
                           {q.options && q.options.length > 0 && (
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8, marginBottom: 12 }}>
-                              {q.options.map((opt, i) => {
+                              {q.options.map((opt: any, i: number) => {
                                 const letter = getOptionLetter(opt, i);
                                 const isThisSelected = userAttempt === letter;
                                 const isThisCorrect = q.answer === letter;

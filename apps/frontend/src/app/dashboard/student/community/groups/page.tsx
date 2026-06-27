@@ -282,15 +282,6 @@ export default function GroupsPage() {
           </div>
         )}
 
-        <div style={{ marginTop: 48, background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)', borderRadius: 24, padding: '40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' as const, gap: 24, boxShadow: '0 8px 32px rgba(0,0,0,0.25)', overflow: 'hidden', position: 'relative' }}>
-          <div style={{ position: 'absolute', top: -40, left: -40, width: 120, height: 120, background: 'rgba(255,255,255,0.08)', borderRadius: '50%' }} />
-          <div style={{ position: 'absolute', bottom: -50, right: -30, width: 160, height: 160, background: 'rgba(255,255,255,0.06)', borderRadius: '50%' }} />
-          <div style={{ position: 'relative', zIndex: 1 }}>
-            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#fff' }}>Can't find what you're looking for?</h2>
-            <p style={{ margin: '8px 0 0', fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: 500, maxWidth: 480 }}>Starting a new group is easy. Gather classmates, set your mission, and grow your community.</p>
-          </div>
-          <button onClick={() => setModalOpen(true)} style={{ position: 'relative', zIndex: 1, height: 44, borderRadius: 12, border: 'none', background: '#fff', color: '#0f172a', fontSize: 13, fontWeight: 700, cursor: 'pointer', padding: '0 24px', whiteSpace: 'nowrap' as const }}>Launch a New Group</button>
-        </div>
       </div>
 
       {modalOpen && <CreateGroupModal onClose={() => setModalOpen(false)} onCreated={() => fetchGroups(true)} />}

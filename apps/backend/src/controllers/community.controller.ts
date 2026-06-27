@@ -140,6 +140,14 @@ export const deletePost = async (req: Request, res: Response) => {
   res.status(200).json({ status: 'success', message: 'Post deleted' });
 };
 
+
+
+export const kickMember = async (req: Request, res: Response) => {
+  const { memberId } = req.body;
+  await CommunityService.kickMember(req.params.groupId, req.user!.id, memberId);
+  res.json({ success: true, message: 'Member removed from the group' });
+};
+
 export const getComments = async (req: Request, res: Response) => {
   const comments = await CommunityService.getComments(req.params.id);
   res.status(200).json({ status: 'success', data: comments });

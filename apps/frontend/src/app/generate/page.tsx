@@ -34,7 +34,7 @@ export interface Quiz {
   timestamp: number;
 }
 
-interface HistoryQuiz {
+export interface HistoryQuiz {
   id: string;
   topic: string;
   subject: string;

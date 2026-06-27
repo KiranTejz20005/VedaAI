@@ -176,7 +176,7 @@ export default function VoiceRoomsPage() {
 
   // Build active speakers from rooms that have creators
   const activeSpeakers = useMemo(() => {
-    const speakers: { name: string; room: string; status: string }[] = [];
+    const speakers: { id?: string; name: string; room: string; status: string }[] = [];
     rooms.forEach(r => {
       if (r.createdBy) {
         const name = `${r.createdBy.firstName} ${r.createdBy.lastName}`;

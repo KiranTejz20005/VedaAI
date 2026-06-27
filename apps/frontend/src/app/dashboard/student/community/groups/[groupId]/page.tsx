@@ -208,10 +208,6 @@ export default function GroupChatPage() {
       return;
     }
     const searchUsers = async () => {
-      if (searchQuery.length < 2) {
-        setSearchResults([]);
-        return;
-      }
       setIsSearching(true);
       try {
         const res = await api.get(`/community/users/search?q=${searchQuery}&excludeGroupId=${groupId}`);
@@ -240,6 +236,17 @@ export default function GroupChatPage() {
       toast.error(err.response?.data?.message || 'Failed to invite member');
     } finally {
       setInvitingUserId(null);
+    }
+  };
+
+  const handleKick = async (userId: string) => {
+    if (!confirm('Are you sure you want to kick this member from the group?')) return;
+    try {
+      await api.post(`/community/groups/${groupId}/kick`, { memberId: userId });
+      toast.success('Member removed successfully');
+      setMembers(prev => prev.filter(m => m.user.id !== userId));
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to remove member');
     }
   };
 
@@ -403,6 +410,15 @@ export default function GroupChatPage() {
                       {m.role === 'OWNER' ? <span className="text-blue-600 font-bold">Owner</span> : 'Student'}
                     </div>
                   </div>
+                  {isOwner && m.user.id !== user?.id && (
+                    <button
+                      onClick={() => handleKick(m.user.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 text-xs text-red-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-all"
+                      title="Kick Member"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -433,6 +449,15 @@ export default function GroupChatPage() {
                       {m.role === 'OWNER' ? <span className="text-blue-500 font-bold">Owner</span> : 'Student'}
                     </div>
                   </div>
+                  {isOwner && m.user.id !== user?.id && (
+                    <button
+                      onClick={() => handleKick(m.user.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 text-xs text-red-400 hover:bg-red-50 hover:text-red-500 rounded-lg transition-all"
+                      title="Kick Member"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -474,10 +499,6 @@ export default function GroupChatPage() {
                 {isSearching ? (
                   <div className="flex items-center justify-center h-20">
                     <Loader2 size={24} className="animate-spin text-blue-500" />
-                  </div>
-                ) : searchQuery.length < 2 ? (
-                  <div className="text-center text-slate-500 text-sm mt-4">
-                    Type at least 2 characters to search...
                   </div>
                 ) : searchResults.length === 0 ? (
                   <div className="text-center text-slate-500 text-sm mt-4">

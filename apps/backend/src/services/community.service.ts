@@ -162,15 +162,18 @@ export class CommunityService {
    * Search for users to invite to a group
    */
   static async searchUsers(query: string, excludeGroupId?: string) {
-    if (!query || query.length < 2) return [];
-    
+    const whereClause: any = {};
+    if (query && query.length >= 2) {
+      whereClause.OR = [
+        { firstName: { contains: query, mode: 'insensitive' } },
+        { lastName: { contains: query, mode: 'insensitive' } },
+        { email: { contains: query, mode: 'insensitive' } }
+      ];
+    }
+
     const users = await prisma.user.findMany({
       where: {
-        OR: [
-          { firstName: { contains: query, mode: 'insensitive' } },
-          { lastName: { contains: query, mode: 'insensitive' } },
-          { email: { contains: query, mode: 'insensitive' } }
-        ],
+        ...whereClause,
         ...(excludeGroupId ? {
           NOT: {
             groupMemberships: {
@@ -234,24 +237,29 @@ export class CommunityService {
   /**
    * Get all members of a group
    */
-  static async getGroupMembers(groupId: string, userId: string) {
-    // Validate if the user has access to see members (owner or member of private groups)
-    const membership = await prisma.groupMember.findUnique({
-      where: { groupId_userId: { groupId, userId } }
-    });
-    const group = await prisma.communityGroup.findUnique({ where: { id: groupId } });
-    
-    if (!group) throw new Error('Group not found');
-    if (group.type === 'PRIVATE' && !membership) {
-      throw new Error('Unauthorized');
-    }
-
+  static async getGroupMembers(groupId: string, _userId?: string) {
     return prisma.groupMember.findMany({
       where: { groupId },
       include: {
-        user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
+        user: { select: { id: true, firstName: true, lastName: true, avatar: true } }
       },
-      orderBy: { joinedAt: 'asc' }
+      orderBy: { role: 'asc' } // OWNER first
+    });
+  }
+
+  static async kickMember(groupId: string, requesterId: string, memberId: string) {
+    const group = await prisma.communityGroup.findUnique({ where: { id: groupId } });
+    if (!group) throw new Error('Group not found');
+    if (group.ownerId !== requesterId) throw new Error('Only the group owner can remove members');
+    if (memberId === requesterId) throw new Error('Owner cannot remove themselves');
+
+    const membership = await prisma.groupMember.findUnique({
+      where: { groupId_userId: { groupId, userId: memberId } }
+    });
+    if (!membership) throw new Error('Member not found in group');
+
+    await prisma.groupMember.delete({
+      where: { groupId_userId: { groupId, userId: memberId } }
     });
   }
 
