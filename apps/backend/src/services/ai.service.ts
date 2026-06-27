@@ -28,7 +28,7 @@ import { buildCompactSyllabusContext } from './ai/syllabus-preprocessor';
 import { validateBatchResponse, type BatchQuestion } from './ai/batch-validator';
 import { assemblePaperFromBatches } from './ai/paper-assembler';
 import type { GenerationStage } from '../types/socket.types';
-const MAX_RETRIES = 2;
+const MAX_RETRIES = 3;
 
 const PROVIDER_TIMEOUTS: Record<ProviderName, number> = {
   Anthropic: 90_000,
@@ -180,25 +180,9 @@ function enabledProviders(): ProviderName[] {
   return candidates;
 }
 
-function chooseAdaptiveBatchSize(providers: ProviderName[]): number {
-  const primary = providers[0] ?? 'NVIDIA';
-  const baseline: Record<ProviderName, number> = {
-    NVIDIA: 3,
-    Groq: 4,
-    Anthropic: 7,
-  };
-  const stats = health.statsSnapshot()[primary];
-  let size = baseline[primary];
-
-  if (stats) {
-    const totalCorruption = stats.validationFailures + stats.parseFailures + stats.timeoutFailures;
-    const totalAttempts = Math.max(1, stats.requests);
-    const corruptionRate = totalCorruption / totalAttempts;
-    if (corruptionRate > 0.25) size = Math.max(2, size - 2);
-    else if (stats.successes >= 5 && corruptionRate < 0.1) size = Math.min(8, size + 1);
-  }
-
-  return size;
+function chooseAdaptiveBatchSize(_providers: ProviderName[]): number {
+  // User requested to batch up to 5 questions at a time to reduce latency
+  return 5;
 }
 
 function isRateLimitMessage(message: string): boolean {

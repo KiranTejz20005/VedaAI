@@ -1,0 +1,8 @@
+{
+  "stack": "PrismaClientKnownRequestError: \nInvalid `prisma.assignment.findUnique()` invocation in\nC:\\Users\\kooth\\Documents\\Projects\\VidyaAI\\apps\\backend\\src\\test-approve.ts:7:46\n\n  4 async function test() {\n  5   try {\n  6     const id = 'b66248e3-3630-4265-b205-6760d8677760';\n→ 7     const existing = await prisma.assignment.findUnique(\n\n    at zr.handleRequestError (C:\\Users\\kooth\\Documents\\Projects\\VidyaAI\\node_modules\\@prisma\\client\\src\\runtime\\RequestHandler.ts:237:13)\n    at zr.handleAndLogRequestError (C:\\Users\\kooth\\Documents\\Projects\\VidyaAI\\node_modules\\@prisma\\client\\src\\runtime\\RequestHandler.ts:183:12)\n    at zr.request (C:\\Users\\kooth\\Documents\\Projects\\VidyaAI\\node_modules\\@prisma\\client\\src\\runtime\\RequestHandler.ts:152:12)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async a (C:\\Users\\kooth\\Documents\\Projects\\VidyaAI\\node_modules\\@prisma\\client\\src\\runtime\\getPrismaClient.ts:963:24)\n    at async test (C:\\Users\\kooth\\Documents\\Projects\\VidyaAI\\apps\\backend\\src\\test-approve.ts:7:22)",
+  "message": "\nInvalid `prisma.assignment.findUnique()` invocation in\nC:\\Users\\kooth\\Documents\\Projects\\VidyaAI\\apps\\backend\\src\\test-approve.ts:7:46\n\n  4 async function test() {\n  5   try {\n  6     const id = 'b66248e3-3630-4265-b205-6760d8677760';\n→ 7     const existing = await prisma.assignment.findUnique(\n",
+  "code": "ETIMEDOUT",
+  "meta": {},
+  "clientVersion": "7.8.0",
+  "name": "PrismaClientKnownRequestError"
+}

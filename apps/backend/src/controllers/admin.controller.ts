@@ -933,11 +933,11 @@ export class AdminController {
   static async getAssignments(req: Request, res: Response) {
     try {
       const orgId = getAdminOrgId(req);
-      const list = await prisma.assignment.findMany({
-        where: { organizationId: orgId },
+      const assignments = await prisma.assignment.findMany({
+        where: { organizationId: orgId, NOT: { status: 'FAILED' } },
         orderBy: { createdAt: 'desc' },
       });
-      res.json({ success: true, data: list });
+      res.json({ success: true, data: assignments });
     } catch (err: any) {
       logger.error(`[Admin:getAssignments] ${err}`);
       res.status(500).json({ success: false, error: err.message });
@@ -1807,10 +1807,18 @@ export class AdminController {
 
   static async approveAssessment(req: Request, res: Response) {
     try {
-      const updated = await prisma.assignment.update({
-        where: { id: req.params.id },
-        data: { status: 'PUBLISHED', approvedBy: req.user?.id, approvedAt: new Date(), publishedAt: new Date() },
-      });
+      await prisma.$executeRaw`
+        UPDATE "Assignment"
+        SET "status" = 'PUBLISHED',
+            "approvedBy" = ${req.user?.id || null},
+            "approvedAt" = NOW(),
+            "publishedAt" = NOW()
+        WHERE "id" = ${req.params.id}
+      `;
+      const updated = await prisma.assignment.findUnique({ where: { id: req.params.id } });
+      if (!updated) {
+        return res.status(404).json({ success: false, error: 'Assignment not found' });
+      }
       if (updated.createdById) {
         await prisma.notification.create({
           data: {
@@ -1832,10 +1840,18 @@ export class AdminController {
   static async rejectAssessment(req: Request, res: Response) {
     try {
       const { reviewComments } = req.body;
-      const updated = await prisma.assignment.update({
-        where: { id: req.params.id },
-        data: { status: 'REJECTED', rejectedBy: req.user?.id, rejectedAt: new Date(), reviewComments: reviewComments || null },
-      });
+      await prisma.$executeRaw`
+        UPDATE "Assignment"
+        SET "status" = 'REJECTED',
+            "rejectedBy" = ${req.user?.id || null},
+            "rejectedAt" = NOW(),
+            "reviewComments" = ${reviewComments || null}
+        WHERE "id" = ${req.params.id}
+      `;
+      const updated = await prisma.assignment.findUnique({ where: { id: req.params.id } });
+      if (!updated) {
+        return res.status(404).json({ success: false, error: 'Assignment not found' });
+      }
       if (updated.createdById) {
         await prisma.notification.create({
           data: {

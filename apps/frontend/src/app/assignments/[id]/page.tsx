@@ -56,6 +56,9 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   const { id } = use(params);
   const router = useRouter();
   const { user } = useAuthStore();
+  const isFaculty = user?.role === 'TEACHER' || user?.role === 'FACULTY';
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'ORG_ADMIN';
+
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [paper, setPaper] = useState<GeneratedPaper | null>(null);
   const [questions, setQuestions] = useState<QuestionPreview[]>([]);
@@ -67,13 +70,12 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   const [showGenScreen, setShowGenScreen] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const hasAutoQueuedRef = useRef(false);
+  const wasGeneratingRef = useRef(false);
   const retryCooldownRef = useRef(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollErrorsRef = useRef(0);
   const { stage, status, message, error, reset, setQueued, setWarning } = useGenerationStore();
 
-  const isAdmin = user?.role?.toUpperCase() === 'ADMIN' || user?.role?.toUpperCase() === 'SUPER_ADMIN';
-  const isFaculty = user?.role?.toUpperCase() === 'TEACHER' || user?.role?.toUpperCase() === 'FACULTY';
 
   useGenerationSocket(id);
 
@@ -134,9 +136,25 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     }
   };
 
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  const handlePublish = async () => {
+    setIsPublishing(true);
+    try {
+      await api.post(`/assignments/${id}/publish`);
+      toast.success('Assignment published to students');
+      setAssignment((prev) => (prev ? { ...prev, status: 'PUBLISHED' as any } : prev));
+    } catch (err) {
+      toast.error('Failed to publish assignment');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   const handleGenerate = useCallback(async () => {
     if (retryCooldownRef.current) return;
     retryCooldownRef.current = true;
+    wasGeneratingRef.current = true;
     setIsRetrying(true);
     setShowGenScreen(true);
     try {
@@ -171,8 +189,8 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   }, [assignment, id, handleGenerate]);
 
   useEffect(() => {
-    const isTerminal = ['completed', 'failed', 'partially_generated', 'PENDING_APPROVAL'].includes(assignment?.status ?? '');
-    if (!['queued', 'generating'].includes(assignment?.status ?? '') && !stage && isTerminal) return;
+  const isTerminal = ['COMPLETED', 'FAILED', 'PARTIALLY_GENERATED', 'PENDING_APPROVAL'].includes(assignment?.status ?? '');
+    if (!['QUEUED', 'GENERATING'].includes(assignment?.status ?? '') && !stage && isTerminal) return;
 
     const poll = async () => {
       try {
@@ -186,17 +204,17 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
           if (jobStatus.status === 'completed' && jobStatus.paperId) {
             useGenerationStore.getState().setCompleted(jobRecordId, genSeq, version, ts, jobStatus.paperId);
             if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
-            router.push(`/assignments/${id}/paper`);
           } else if (jobStatus.status === 'failed') {
             useGenerationStore.getState().setFailed(jobRecordId, genSeq, version, ts, jobStatus.error ?? 'Generation failed');
             if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
           } else if (['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'].includes(jobStatus.status)) {
+            wasGeneratingRef.current = true;
             useGenerationStore.getState().setProgress(jobRecordId, genSeq, version, ts, jobStatus.progress, jobStatus.status as GenerationStage);
           }
         }
         const updated = await fetchAssignment(id);
         setAssignment(updated);
-        if (['completed', 'failed', 'partially_generated', 'PENDING_APPROVAL'].includes(updated.status)) {
+        if (['COMPLETED', 'FAILED', 'PARTIALLY_GENERATED', 'PENDING_APPROVAL'].includes(updated.status)) {
           fetchAssignmentHistory(id).then(setPaperHistory).catch(console.error);
           if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
         }
@@ -216,16 +234,16 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
       if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
       pollErrorsRef.current = 0;
     };
-  }, [id, assignment?.status]);
+  }, [id, assignment?.status, stage]);
 
-  const showGeneration = ['queued', 'generating'].includes(assignment?.status ?? '');
+  const showGeneration = ['QUEUED', 'GENERATING'].includes(assignment?.status ?? '');
   const genMeta = assignment?.generationMeta;
   const canonical = assignment?.generationState?.canonicalMetadata ?? paper?.canonicalMetadata;
   const requestedQuestionCount = canonical?.requestedQuestionCount ?? assignment?.questionConfig?.count ?? 0;
   const generatedQuestionCount = canonical?.generatedQuestionCount ?? genMeta?.generatedQuestionCount ?? null;
   const generatedMarks = canonical?.generatedMarks ?? genMeta?.generatedMarks ?? null;
   const requestedMarks = canonical?.requestedMarks ?? assignment?.totalMarks;
-  const isPartial = assignment?.status === 'partially_generated';
+  const isPartial = assignment?.status === 'PARTIALLY_GENERATED';
   const failureReason = genMeta?.failureReason || error || null;
 
   const isGenActive = showGenScreen && (stage !== null && ['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'].includes(stage as string));
@@ -233,7 +251,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     isLoading: loading,
     error: fetchError,
     isProcessing: isGenActive || showGeneration,
-    isComplete: !isGenActive && !showGeneration && (assignment?.status === 'completed' || assignment?.status === 'partially_generated' || assignment?.status === 'PENDING_APPROVAL'),
+    isComplete: !isGenActive && !showGeneration && (assignment?.status === 'COMPLETED' || assignment?.status === 'PARTIALLY_GENERATED' || assignment?.status === 'PENDING_APPROVAL'),
   });
 
   if (loading) {
@@ -305,7 +323,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                   </h1>
                   <p style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)', marginTop: 2 }}>{assignment.subject}</p>
                 </div>
-                <span className={`badge ${BADGE_MAP[assignment.status] ?? 'badge-draft'}`}>
+                <span className={`badge ${BADGE_MAP[assignment.status.toLowerCase()] ?? 'badge-draft'}`}>
                   {assignment.status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
                 </span>
               </div>
@@ -346,16 +364,21 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
               </div>
             </motion.div>
 
-            {(assignment.status === 'draft' || ['completed', 'partially_generated', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED'].includes(assignment.status)) && (
+            {(assignment.status === 'DRAFT' || ['COMPLETED', 'PARTIALLY_GENERATED', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED', 'REJECTED'].includes(assignment.status)) && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }} className="card" style={{ marginBottom: 16 }}>
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>Actions</h3>
+                {assignment.status === 'REJECTED' && assignment.reviewComments && (
+                  <div style={{ padding: '12px', marginBottom: '16px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', color: '#991B1B', fontSize: '14px' }}>
+                    <strong>Rejection Reason:</strong> {assignment.reviewComments}
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {isFaculty && assignment.status === 'draft' && (
+                  {isFaculty && (assignment.status === 'DRAFT' || assignment.status === 'REJECTED') && (
                     <button className="btn btn-secondary btn-sm" style={{ gap: 4 }} onClick={() => router.push(`/assignments/create?id=${assignment.id}`)}>
                       <Edit3 size={14} /> Edit
                     </button>
                   )}
-                  {['completed', 'partially_generated', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED'].includes(assignment.status) && (
+                  {['COMPLETED', 'PARTIALLY_GENERATED', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED', 'REJECTED'].includes(assignment.status) && (
                     <>
                       <button onClick={handleViewPaper} className="btn btn-primary btn-sm" style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
                         <Eye size={14} /> Preview Paper
@@ -383,14 +406,45 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                       }} className="btn btn-secondary btn-sm" style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }} disabled={downloading}>
                         <Download size={14} /> {downloading ? 'Downloading...' : 'Download PDF'}
                       </button>
-                      {isFaculty && ['completed', 'partially_generated'].includes(assignment.status) && (
+                      {isFaculty && ['COMPLETED', 'PARTIALLY_GENERATED', 'REJECTED'].includes(assignment.status) && (
                         <button onClick={handleSendForApproval} className="btn btn-dark btn-sm" disabled={isSubmittingForApproval} style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
                           <CheckCircle2 size={14} /> {isSubmittingForApproval ? 'Sending...' : 'Send for Approval'}
                         </button>
                       )}
-                      {['PENDING_APPROVAL'].includes(assignment.status) && (
-                        <button className="btn btn-dark btn-sm" disabled style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
-                          <CheckCircle2 size={14} /> Approval Pending
+                      {isFaculty && ['PENDING_APPROVAL'].includes(assignment.status) && (
+                        <button className="btn btn-sm" disabled style={{ gap: 4, display: 'inline-flex', alignItems: 'center', background: '#f59e0b', color: 'white', border: 'none' }}>
+                          <CheckCircle2 size={14} /> Approval Sent
+                        </button>
+                      )}
+                      {isAdmin && ['PENDING_APPROVAL'].includes(assignment.status) && (
+                        <>
+                          <button onClick={handlePublish} className="btn btn-success btn-sm" disabled={isPublishing} style={{ gap: 4, display: 'inline-flex', alignItems: 'center', background: '#10b981', color: 'white', border: 'none' }}>
+                            <CheckCircle2 size={14} /> {isPublishing ? 'Approving...' : 'Approve & Publish'}
+                          </button>
+                          <button onClick={async () => {
+                            try {
+                              await api.post(`/assignments/${id}/reject`, { reviewComments: 'Rejected by admin' });
+                              toast.success('Assignment rejected');
+                              setAssignment((prev) => (prev ? { ...prev, status: 'REJECTED' as any } : prev));
+                            } catch { toast.error('Failed to reject assignment'); }
+                          }} className="btn btn-danger btn-sm" style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
+                            <XCircle size={14} /> Reject
+                          </button>
+                        </>
+                      )}
+                      {isFaculty && assignment.status === 'APPROVED' && (
+                        <button onClick={handlePublish} className="btn btn-primary btn-sm" disabled={isPublishing} style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
+                          <CheckCircle2 size={14} /> {isPublishing ? 'Publishing...' : 'Publish to Students'}
+                        </button>
+                      )}
+                      {assignment.status === 'PUBLISHED' && (
+                        <button className="btn btn-success btn-sm" disabled style={{ gap: 4, display: 'inline-flex', alignItems: 'center', background: '#10b981', color: 'white', border: 'none' }}>
+                          <CheckCircle2 size={14} /> Published
+                        </button>
+                      )}
+                      {assignment.status === 'REJECTED' && (
+                        <button className="btn btn-danger btn-sm" disabled style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
+                          <XCircle size={14} /> Rejected
                         </button>
                       )}
                     </>
@@ -399,7 +453,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
               </motion.div>
             )}
 
-            {!showGeneration && (assignment.status === 'failed' || isPartial) && (
+            {!showGeneration && (assignment.status === 'FAILED' || isPartial) && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{
                 background: isPartial ? '#FFFBEB' : '#FEF2F2',
                 border: isPartial ? '1px solid #FDE68A' : '1px solid #FECACA',

@@ -21,7 +21,7 @@ const ALLOWED_TRANSITIONS: Record<WorkflowStatus, WorkflowStatus[]> = {
   [WorkflowStatus.APPROVED]: [WorkflowStatus.PUBLISHED],
   [WorkflowStatus.PUBLISHED]: [WorkflowStatus.ACTIVE],
   [WorkflowStatus.ACTIVE]: [WorkflowStatus.COMPLETED],
-  [WorkflowStatus.COMPLETED]: [WorkflowStatus.ARCHIVED],
+  [WorkflowStatus.COMPLETED]: [WorkflowStatus.ARCHIVED, WorkflowStatus.PENDING_APPROVAL],
   [WorkflowStatus.ARCHIVED]: [],
 };
 

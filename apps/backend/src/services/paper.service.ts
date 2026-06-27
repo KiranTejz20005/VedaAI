@@ -37,7 +37,7 @@ export async function savePaper(
   await prisma.assignment.update({
     where: { id: assignmentId },
     data: {
-      status: 'PENDING_APPROVAL',
+      status: 'COMPLETED',
       generationMeta: canonicalMetadata ? (canonicalMetadata as any) : undefined,
       finalizedAt: new Date(),
     },

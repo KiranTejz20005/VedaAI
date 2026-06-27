@@ -490,10 +490,14 @@ export function createAiGenerationWorker() {
           };
           const current = await prisma.assignment.findUnique({ where: { id: assignmentId } });
           if (current && current.activeGenerationJobId === jobRecordId && current.status !== 'COMPLETED') {
-            await prisma.assignment.update({
-              where: { id: assignmentId },
-              data: { status: 'FAILED', generationMeta: genMeta as any },
-            });
+            if (generationSeq === 1) {
+              await prisma.assignment.delete({ where: { id: assignmentId } }).catch(() => {});
+            } else {
+              await prisma.assignment.update({
+                where: { id: assignmentId },
+                data: { status: 'FAILED', generationMeta: genMeta as any },
+              });
+            }
           }
           logger.warn(`[STEP 12] Assignment marked failed with partial paper (${generatedQty}/${requestedQty})`);
         }
@@ -646,26 +650,43 @@ export function createAiGenerationWorker() {
 
           const current = await prisma.assignment.findUnique({ where: { id: assignmentId } });
           if (current && current.activeGenerationJobId === jobRecordId && current.status !== 'COMPLETED') {
-            await Promise.allSettled([
-              prisma.assignment.update({
-                where: { id: assignmentId },
-                data: {
-                  status: hasPartial ? 'PARTIALLY_GENERATED' : 'FAILED',
-                  generationMeta: genMeta as any,
-                },
-              }),
-              prisma.generationJob.update({
-                where: { id: jobRecordId, generationSeq },
-                data: {
-                  status: 'FAILED',
-                  error: message,
-                  completedAt: new Date(),
-                  progressVersion: { increment: 1 },
-                  progress: lastProgress,
-                  stageIndex: STAGE_ORDER.failed,
-                },
-              }),
-            ]);
+            if (!hasPartial && generationSeq === 1) {
+              await Promise.allSettled([
+                prisma.assignment.delete({ where: { id: assignmentId } }).catch(() => {}),
+                prisma.generationJob.update({
+                  where: { id: jobRecordId, generationSeq },
+                  data: {
+                    status: 'FAILED',
+                    error: message,
+                    completedAt: new Date(),
+                    progressVersion: { increment: 1 },
+                    progress: lastProgress,
+                    stageIndex: STAGE_ORDER.failed,
+                  },
+                }).catch(() => {}),
+              ]);
+            } else {
+              await Promise.allSettled([
+                prisma.assignment.update({
+                  where: { id: assignmentId },
+                  data: {
+                    status: hasPartial ? 'PARTIALLY_GENERATED' : 'FAILED',
+                    generationMeta: genMeta as any,
+                  },
+                }),
+                prisma.generationJob.update({
+                  where: { id: jobRecordId, generationSeq },
+                  data: {
+                    status: 'FAILED',
+                    error: message,
+                    completedAt: new Date(),
+                    progressVersion: { increment: 1 },
+                    progress: lastProgress,
+                    stageIndex: STAGE_ORDER.failed,
+                  },
+                }),
+              ]);
+            }
           }
           logger.debug(`[WORKER FAIL] DB updates done in ${Date.now() - f0}ms | finalStatus=${hasPartial ? 'partially_generated' : 'failed'}`);
           progressVersion += 1;
@@ -769,10 +790,12 @@ export function createAiGenerationWorker() {
       abortManager.abort(assignmentId, jrId, `BullMQ stalled ${perJobCount} times`);
 
       await Promise.allSettled([
-        prisma.assignment.updateMany({
-          where: { id: assignmentId, activeGenerationJobId: jrId, NOT: { status: 'COMPLETED' } },
-          data: { status: 'FAILED' },
-        }),
+        Number(jobRecord.generationSeq) === 1
+          ? prisma.assignment.delete({ where: { id: assignmentId } }).catch(() => {})
+          : prisma.assignment.updateMany({
+              where: { id: assignmentId, activeGenerationJobId: jrId, NOT: { status: 'COMPLETED' } },
+              data: { status: 'FAILED' },
+            }),
         prisma.generationJob.update({
           where: { id: jobRecord.id, generationSeq: Number(jobRecord.generationSeq ?? 0) },
           data: {

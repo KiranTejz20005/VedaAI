@@ -30,7 +30,7 @@ export default function StudentAssignmentsPage() {
       
       const mappedAssignments = res.data.data?.map(a => ({
         ...a,
-        status: a.attemptStatus || 'AVAILABLE',
+        status: isTeacher ? a.status : (a.attemptStatus || 'AVAILABLE'),
       })) || [];
       
       setAssignments(mappedAssignments as unknown as Assignment[]);
@@ -182,10 +182,27 @@ export default function StudentAssignmentsPage() {
                       }}>
                         {assignment.subject}
                       </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#10B981', fontSize: 13, fontWeight: 700, background: '#D1FAE5', padding: '4px 8px', borderRadius: 8 }}>
-                        <div style={{ width: 6, height: 6, borderRadius: 3, background: '#10B981', animation: 'pulse 2s infinite' }} />
-                        Active
-                      </div>
+                      {(() => {
+                        const s = (assignment.status || 'DRAFT').toUpperCase();
+                        let label = s.replace('_', ' ');
+                        let color = '#6B7280';
+                        let bg = '#F3F4F6';
+                        let pulse = false;
+
+                        if (s === 'PENDING_APPROVAL') { label = 'Under Review'; color = '#F59E0B'; bg = '#FEF3C7'; }
+                        else if (s === 'APPROVED') { label = 'Approved'; color = '#10B981'; bg = '#D1FAE5'; }
+                        else if (s === 'PUBLISHED' || s === 'ACTIVE') { label = 'Active'; color = '#10B981'; bg = '#D1FAE5'; }
+                        else if (s === 'GENERATING') { label = 'Generating'; color = '#6366F1'; bg = '#E0E7FF'; pulse = true; }
+                        else if (s === 'FAILED') { label = 'Failed'; color = '#EF4444'; bg = '#FEE2E2'; }
+                        else if (s === 'COMPLETED' || s === 'GENERATED' || s === 'DRAFT') { label = 'Draft'; color = '#6B7280'; bg = '#F3F4F6'; }
+
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, color, fontSize: 13, fontWeight: 700, background: bg, padding: '4px 8px', borderRadius: 8 }}>
+                            <div style={{ width: 6, height: 6, borderRadius: 3, background: color, animation: pulse ? 'pulse 2s infinite' : 'none' }} />
+                            {label}
+                          </div>
+                        );
+                      })()}
                     </div>
                     
                     <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8, lineHeight: 1.3 }}>

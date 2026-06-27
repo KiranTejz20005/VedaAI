@@ -7,6 +7,7 @@ export function normalizeRole(role: string | undefined | null): string {
   if (!role) return '';
   const upper = role.toUpperCase();
   if (upper === 'FACULTY') return 'TEACHER';
+  if (upper === 'ORG_ADMIN') return 'ADMIN';
   return upper;
 }
 

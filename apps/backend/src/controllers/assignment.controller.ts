@@ -265,7 +265,11 @@ export async function getAssignmentHandler(req: Request, res: Response): Promise
     job: (job as any) ?? null,
     paper: (paper as any) ?? null,
   });
-  sendSuccess(res, { assignment, generationState });
+  const assignmentWithPaper = {
+    ...assignment,
+    generatedPapers: paper ? [paper] : []
+  };
+  sendSuccess(res, { assignment: assignmentWithPaper, generationState });
   } catch (err) {
     if (handleAccessError(res, err)) return;
     throw err;
