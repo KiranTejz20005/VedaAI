@@ -127,7 +127,21 @@ export const listSubmissions = async (req: Request, res: Response): Promise<void
       include: { evaluations: true },
       orderBy: { submittedAt: 'desc' },
     });
-    res.json({ success: true, data: submissions });
+
+    const submissionsWithUsers = await Promise.all(
+      submissions.map(async (sub) => {
+        const user = await prisma.user.findUnique({
+          where: { id: sub.studentId },
+          select: { name: true, email: true }
+        });
+        return {
+          ...sub,
+          studentName: user?.name || user?.email || sub.studentId
+        };
+      })
+    );
+
+    res.json({ success: true, data: submissionsWithUsers });
   } catch (err) {
     if (handleAccessError(res, err)) return;
     res.status(500).json({ success: false, error: 'Failed to list submissions' });

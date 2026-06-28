@@ -8,6 +8,8 @@ import {
 } from '../services/assignment.service';
 import { sendSuccess, sendError } from '../utils/api-response';
 import { emitToAssignment } from '../sockets/socket.server';
+import { AssignmentListResponse, AssignmentStatus } from '../types/assignment.types';
+import { isFacultyRole } from '../security/request-context';
 import type { FileRef } from '../types/assignment.types';
 import prisma from '../config/prisma';
 import { logger } from '../utils/logger';
@@ -250,15 +252,20 @@ export async function getAssignmentHandler(req: Request, res: Response): Promise
   try {
     const assignment = await loadAssignmentForRequest(req, req.params.id);
     await assertCanViewAssignment(req, assignment);
-    if (req.body._requireOwnership) {
+    
+    // Only enforce faculty ownership rules if the user is acting as a faculty member
+    if (req.body._requireOwnership && isFacultyRole(req.user?.role)) {
       assertFacultyOwnsAssignment(req, assignment);
     }
-  const [job, paper] = await Promise.all([
+  const [job, paper, studentSubmission] = await Promise.all([
     prisma.generationJob.findFirst({
       where: { assignmentId: req.params.id },
       orderBy: [{ generationSeq: 'desc' }, { createdAt: 'desc' }],
     }),
     getPaper(req.params.id),
+    req.user?.role === 'STUDENT' ? prisma.studentSubmission.findFirst({
+      where: { assignmentId: req.params.id, studentId: req.user.id }
+    }) : Promise.resolve(null),
   ]);
   const generationState = buildCanonicalGenerationState({
     assignment: assignment as any,
@@ -267,7 +274,8 @@ export async function getAssignmentHandler(req: Request, res: Response): Promise
   });
   const assignmentWithPaper = {
     ...assignment,
-    generatedPapers: paper ? [paper] : []
+    generatedPapers: paper ? [paper] : [],
+    studentSubmission
   };
   sendSuccess(res, { assignment: assignmentWithPaper, generationState });
   } catch (err) {

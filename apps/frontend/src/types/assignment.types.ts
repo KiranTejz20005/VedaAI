@@ -107,6 +107,15 @@ export interface Assignment {
   generationState?: CanonicalGenerationState;
   createdAt: string;
   updatedAt: string;
+  generatedPapers?: any[];
+  studentSubmission?: {
+    id: string;
+    status: string;
+    submittedAt?: string;
+    createdAt: string;
+    fileType?: string;
+    fileUrl?: string;
+  } | null;
 }
 
 export interface CreateAssignmentFormData {

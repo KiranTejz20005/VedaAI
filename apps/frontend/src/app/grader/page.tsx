@@ -28,6 +28,7 @@ interface Submission {
   id: string;
   assignmentId: string;
   studentId: string;
+  studentName?: string;
   fileUrl: string;
   fileType: string;
   status: string;
@@ -290,9 +291,9 @@ export default function GraderDashboard() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                             <User size={18} color="var(--text-muted)" />
                             <div>
-                              <div style={{ fontWeight: 600, fontSize: 14 }}>Student: {sub.studentId.substring(0, 8)}</div>
+                              <div style={{ fontWeight: 600, fontSize: 14 }}>Student: {sub.studentName || sub.studentId.substring(0, 8)}</div>
                               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                                Type: {sub.fileType} &middot; {new Date(sub.submittedAt).toLocaleDateString()}
+                                Type: {sub.fileType} &middot; {new Date(sub.submittedAt).toLocaleTimeString()} {new Date(sub.submittedAt).toLocaleDateString()}
                               </div>
                             </div>
                           </div>
