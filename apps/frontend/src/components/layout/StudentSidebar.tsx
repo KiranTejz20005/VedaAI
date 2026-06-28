@@ -148,21 +148,7 @@ export function StudentSidebar() {
           })}
         </nav>
 
-        <div className="sidebar-bottom">
-          <div className="sidebar-profile" role="button" tabIndex={0} aria-label="Account settings">
-            <div className="sidebar-profile-avatar" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', color: 'white', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'S'}
-            </div>
-            <div className="sidebar-profile-info">
-              <div className="sidebar-profile-name">
-                {user ? `${user.firstName} ${user.lastName}` : 'Student'}
-              </div>
-              <div className="sidebar-profile-sub">
-                {availableOrganizations.find(org => org.id === activeOrganizationId)?.name || user?.organizationName || 'Student'}
-              </div>
-            </div>
-          </div>
-        </div>
+
       </aside>
     </>
   );

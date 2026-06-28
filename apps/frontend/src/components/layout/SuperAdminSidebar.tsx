@@ -156,27 +156,7 @@ export function SuperAdminSidebar() {
             <span>Sign Out</span>
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px' }}>
-            <div
-              aria-hidden="true"
-              style={{
-                width: 32, height: 32, borderRadius: '50%',
-                background: 'linear-gradient(135deg, #6D28D9, #7C3AED)',
-                color: 'white', fontWeight: 700, fontSize: 13,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}
-            >
-              {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'S'}
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {user ? `${user.firstName} ${user.lastName}` : 'Super Admin'}
-              </div>
-              <div style={{ fontSize: 10, background: '#F5F3FF', color: '#6D28D9', borderRadius: 4, padding: '1px 6px', display: 'inline-block', fontWeight: 600, marginTop: 2 }}>
-                SUPER_ADMIN
-              </div>
-            </div>
-          </div>
+
         </div>
       </aside>
 

@@ -1,5 +1,6 @@
 import prisma from '../config/prisma';
 import { logger } from '../utils/logger';
+import { v4 as uuidv4 } from 'uuid';
 // If a Socket.io server was configured we could emit events here
 // import { getIO } from '../sockets/socket.server';
 
@@ -16,6 +17,7 @@ export async function sendNotification(payload: SendNotificationPayload) {
   try {
     const notification = await prisma.notification.create({
       data: {
+        id: uuidv4(),
         userId: payload.userId,
         title: payload.title,
         message: payload.message,

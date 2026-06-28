@@ -8,12 +8,12 @@ export type QuestionType =
 export type DifficultyLevel = 'easy' | 'medium' | 'hard';
 
 export type AssignmentStatus =
-  | 'draft'
-  | 'queued'
-  | 'generating'
-  | 'completed'
-  | 'failed'
-  | 'partially_generated'
+  | 'DRAFT'
+  | 'QUEUED'
+  | 'GENERATING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'PARTIALLY_GENERATED'
   | 'PENDING_APPROVAL'
   | 'APPROVED'
   | 'REJECTED'
@@ -102,6 +102,7 @@ export interface Assignment {
   uploadedFiles: FileRef[];
   additionalInstructions: string;
   status: AssignmentStatus;
+  reviewComments?: string | null;
   generationMeta?: GenerationMeta;
   generationState?: CanonicalGenerationState;
   createdAt: string;

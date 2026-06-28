@@ -65,7 +65,7 @@ function CardMenu({
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
 
-  const showPdf = assignment.status === 'completed' || assignment.status === 'partially_generated';
+  const showPdf = assignment.status === 'COMPLETED' || assignment.status === 'PARTIALLY_GENERATED';
 
   return (
     <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
@@ -127,7 +127,7 @@ function AssignmentCard({
   isDeleting: boolean;
   isDownloading: boolean;
 }) {
-  const isLive = assignment.status === 'generating' || assignment.status === 'queued';
+  const isLive = assignment.status === 'GENERATING' || assignment.status === 'QUEUED';
   const assignedDate = format(new Date(assignment.createdAt), 'dd-MM-yyyy');
   const dueDate = format(new Date(assignment.dueDate), 'dd-MM-yyyy');
 
@@ -448,7 +448,7 @@ export default function PapersPage() {
               </thead>
               <tbody>
                 {filtered.map((p) => {
-                  const showPdf = p.status === 'completed' || p.status === 'partially_generated';
+                  const showPdf = p.status === 'COMPLETED' || p.status === 'PARTIALLY_GENERATED';
                   return (
                     <tr key={p.id} style={{ borderBottom: '1px solid #F3F4F6', fontSize: 14, transition: 'background 0.1s' }} onMouseEnter={(e) => (e.currentTarget.style.background = '#FAFAFA')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
                       <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-primary)' }}>{p.title}</td>

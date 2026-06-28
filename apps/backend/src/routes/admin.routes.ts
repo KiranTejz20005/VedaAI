@@ -8,7 +8,7 @@ const router = Router();
 
 // Enforce auth and admin permission requirements
 router.use(authenticate);
-router.use(authorize(['ADMIN', 'ORG_ADMIN']));
+router.use(authorize(['SUPER_ADMIN', 'ADMIN', 'ORG_ADMIN']));
 router.use(requirePermission('MANAGE_USERS'));
 
 // ── 1. Organization Management ──

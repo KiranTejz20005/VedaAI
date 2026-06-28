@@ -14,6 +14,7 @@ import { getGenerationQueue } from '../queues/generation.queue';
 import { getPdfQueue } from '../queues/pdf.queue';
 import { createInvitation } from '../services/invitation.service';
 import { processCsvImport } from '../services/csv-import.service';
+import { v4 as uuidv4 } from 'uuid';
 import * as argon2 from 'argon2';
 import * as fs from 'fs';
 
@@ -1789,6 +1790,7 @@ export class AdminController {
   static async getPendingApprovals(req: Request, res: Response) {
     try {
       const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
+      console.log(`[Admin:getPendingApprovals] User: ${req.user?.id}, Role: ${req.user?.role}, OrgId: ${orgId}`);
       if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
       const pending = await prisma.assignment.findMany({
         where: { organizationId: orgId, status: 'PENDING_APPROVAL' },
@@ -1798,6 +1800,7 @@ export class AdminController {
           createdBy: { select: { firstName: true, lastName: true, email: true } }
         },
       });
+      console.log(`[Admin:getPendingApprovals] orgId: ${orgId}, found: ${pending.length} pending approvals.`);
       res.json({ success: true, data: pending });
     } catch (err: any) {
       logger.error(`[Admin:getPendingApprovals] ${err}`);
@@ -1817,7 +1820,8 @@ export class AdminController {
       `;
       const updated = await prisma.assignment.findUnique({ where: { id: req.params.id } });
       if (!updated) {
-        return res.status(404).json({ success: false, error: 'Assignment not found' });
+        res.status(404).json({ success: false, error: 'Assignment not found' });
+        return;
       }
       if (updated.createdById) {
         await prisma.notification.create({
@@ -1850,7 +1854,8 @@ export class AdminController {
       `;
       const updated = await prisma.assignment.findUnique({ where: { id: req.params.id } });
       if (!updated) {
-        return res.status(404).json({ success: false, error: 'Assignment not found' });
+        res.status(404).json({ success: false, error: 'Assignment not found' });
+        return;
       }
       if (updated.createdById) {
         await prisma.notification.create({

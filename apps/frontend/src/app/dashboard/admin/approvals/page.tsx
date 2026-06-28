@@ -53,7 +53,7 @@ export default function ApprovalsOverview() {
   };
 
   useEffect(() => {
-    if (activeOrganizationId || user?.role === 'ADMIN') {
+    if (user && (activeOrganizationId || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'ORG_ADMIN')) {
       fetchApprovals();
     }
   }, [activeOrganizationId, user]);

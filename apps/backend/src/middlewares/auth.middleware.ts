@@ -126,7 +126,9 @@ export const authorize = (allowedRoles: string[]) => {
     if (!req.user) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
-    const role = req.user.role.toUpperCase();
+    let role = req.user.role.toUpperCase();
+    if (role === 'ORG_ADMIN') role = 'ADMIN';
+    if (role === 'FACULTY') role = 'TEACHER';
 
     // Super Admins bypass role restrictions
     if (role === 'SUPER_ADMIN') {
@@ -139,6 +141,7 @@ export const authorize = (allowedRoles: string[]) => {
     }
 
     // Role is not authorized
+    console.error(`[Authorize Failed] User: ${req.user.email} (ID: ${req.user.id}), Role in Token: ${req.user.role}, Normalized Role: ${role}, Allowed: ${normalizedAllowedRoles.join(', ')}, URL: ${req.originalUrl}`);
     return res.status(403).json({ success: false, error: 'Forbidden: Insufficient privileges' });
   };
 };

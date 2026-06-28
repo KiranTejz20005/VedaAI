@@ -100,7 +100,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   useEffect(() => {
     if (!assignment) return;
     const loadPaperAndQuestions = async () => {
-      if (['completed', 'partially_generated', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED'].includes(assignment.status)) {
+      if (['COMPLETED', 'PARTIALLY_GENERATED', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED'].includes(assignment.status)) {
         try {
           const p = await fetchPaper(id, selectedPaperId);
           setPaper(p);
@@ -151,6 +151,19 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     }
   };
 
+  const handleAdminApprove = async () => {
+    setIsPublishing(true);
+    try {
+      await api.post(`/admin/approvals/${id}/approve`);
+      toast.success('Assignment approved and published to students');
+      setAssignment((prev) => (prev ? { ...prev, status: 'PUBLISHED' as any } : prev));
+    } catch (err) {
+      toast.error('Failed to approve and publish assignment');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   const handleGenerate = useCallback(async () => {
     if (retryCooldownRef.current) return;
     retryCooldownRef.current = true;
@@ -160,11 +173,11 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     try {
       const queued = await generateAssignment(id);
       setQueued(queued.jobRecordId, queued.generationSeq, 0, Date.now());
-      setAssignment((prev) => (prev ? { ...prev, status: 'queued' } : prev));
+      setAssignment((prev) => (prev ? { ...prev, status: 'QUEUED' } : prev));
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to queue generation';
       if (msg.toLowerCase().includes('already in progress')) {
-        setAssignment((prev) => (prev ? { ...prev, status: 'queued' } : prev));
+        setAssignment((prev) => (prev ? { ...prev, status: 'QUEUED' } : prev));
         return;
       }
       toast.error(msg);
@@ -179,7 +192,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   }, [id, router]);
 
   useEffect(() => {
-    if (!assignment || assignment.status !== 'draft' || hasAutoQueuedRef.current) return;
+    if (!assignment || assignment.status !== 'DRAFT' || hasAutoQueuedRef.current) return;
     // Only auto-generate if explicitly requested via URL param or not in production
     const shouldAutoGen = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('autoGenerate');
     if (!shouldAutoGen) return;
@@ -201,13 +214,13 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
           const genSeq = jobStatus.generationSeq ?? 0;
           const ts = jobStatus.ts ?? Date.now();
           const version = jobStatus.version ?? 0;
-          if (jobStatus.status === 'completed' && jobStatus.paperId) {
+          if (jobStatus.status === 'COMPLETED' && jobStatus.paperId) {
             useGenerationStore.getState().setCompleted(jobRecordId, genSeq, version, ts, jobStatus.paperId);
             if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
-          } else if (jobStatus.status === 'failed') {
+          } else if (jobStatus.status === 'FAILED') {
             useGenerationStore.getState().setFailed(jobRecordId, genSeq, version, ts, jobStatus.error ?? 'Generation failed');
             if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
-          } else if (['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'].includes(jobStatus.status)) {
+          } else if (['QUEUED', 'EXTRACTING_CONTENT', 'TOPIC_PREPROCESSING', 'GENERATION_PLANNING', 'BATCH_GENERATING', 'VALIDATING', 'ANSWER_KEY_GENERATING', 'PDF_COMPOSING', 'PERSISTING', 'PDF-GENERATING'].includes(jobStatus.status)) {
             wasGeneratingRef.current = true;
             useGenerationStore.getState().setProgress(jobRecordId, genSeq, version, ts, jobStatus.progress, jobStatus.status as GenerationStage);
           }
@@ -246,12 +259,13 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   const isPartial = assignment?.status === 'PARTIALLY_GENERATED';
   const failureReason = genMeta?.failureReason || error || null;
 
-  const isGenActive = showGenScreen && (stage !== null && ['queued', 'extracting_content', 'topic_preprocessing', 'generation_planning', 'batch_generating', 'validating', 'answer_key_generating', 'pdf_composing', 'persisting', 'pdf-generating'].includes(stage as string));
+  const isGenActive = showGenScreen && (stage !== null && ['QUEUED', 'EXTRACTING_CONTENT', 'TOPIC_PREPROCESSING', 'GENERATION_PLANNING', 'BATCH_GENERATING', 'VALIDATING', 'ANSWER_KEY_GENERATING', 'PDF_COMPOSING', 'PERSISTING', 'PDF-GENERATING'].includes(stage as string));
   const phase = useAssignmentPhase({
     isLoading: loading,
     error: fetchError,
     isProcessing: isGenActive || showGeneration,
     isComplete: !isGenActive && !showGeneration && (assignment?.status === 'COMPLETED' || assignment?.status === 'PARTIALLY_GENERATED' || assignment?.status === 'PENDING_APPROVAL'),
+    hasPaper: !!assignment?.paperId,
   });
 
   if (loading) {
@@ -364,7 +378,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
               </div>
             </motion.div>
 
-            {(assignment.status === 'DRAFT' || ['COMPLETED', 'PARTIALLY_GENERATED', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED', 'REJECTED'].includes(assignment.status)) && (
+            {(assignment.status === 'DRAFT' || assignment.status === 'draft' || ['COMPLETED', 'PARTIALLY_GENERATED', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED', 'REJECTED'].includes(assignment.status)) && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }} className="card" style={{ marginBottom: 16 }}>
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>Actions</h3>
                 {assignment.status === 'REJECTED' && assignment.reviewComments && (
@@ -373,7 +387,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {isFaculty && (assignment.status === 'DRAFT' || assignment.status === 'REJECTED') && (
+                  {isFaculty && (assignment.status === 'DRAFT' || assignment.status === 'draft' || assignment.status === 'REJECTED') && (
                     <button className="btn btn-secondary btn-sm" style={{ gap: 4 }} onClick={() => router.push(`/assignments/create?id=${assignment.id}`)}>
                       <Edit3 size={14} /> Edit
                     </button>
@@ -406,7 +420,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                       }} className="btn btn-secondary btn-sm" style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }} disabled={downloading}>
                         <Download size={14} /> {downloading ? 'Downloading...' : 'Download PDF'}
                       </button>
-                      {isFaculty && ['COMPLETED', 'PARTIALLY_GENERATED', 'REJECTED'].includes(assignment.status) && (
+                      {(isFaculty || isAdmin) && ['DRAFT', 'draft', 'COMPLETED', 'PARTIALLY_GENERATED', 'REJECTED'].includes(assignment.status) && (
                         <button onClick={handleSendForApproval} className="btn btn-dark btn-sm" disabled={isSubmittingForApproval} style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
                           <CheckCircle2 size={14} /> {isSubmittingForApproval ? 'Sending...' : 'Send for Approval'}
                         </button>
@@ -418,12 +432,12 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                       )}
                       {isAdmin && ['PENDING_APPROVAL'].includes(assignment.status) && (
                         <>
-                          <button onClick={handlePublish} className="btn btn-success btn-sm" disabled={isPublishing} style={{ gap: 4, display: 'inline-flex', alignItems: 'center', background: '#10b981', color: 'white', border: 'none' }}>
+                          <button onClick={handleAdminApprove} className="btn btn-success btn-sm" disabled={isPublishing} style={{ gap: 4, display: 'inline-flex', alignItems: 'center', background: '#10b981', color: 'white', border: 'none' }}>
                             <CheckCircle2 size={14} /> {isPublishing ? 'Approving...' : 'Approve & Publish'}
                           </button>
                           <button onClick={async () => {
                             try {
-                              await api.post(`/assignments/${id}/reject`, { reviewComments: 'Rejected by admin' });
+                              await api.post(`/admin/approvals/${id}/reject`, { reviewComments: 'Rejected by admin' });
                               toast.success('Assignment rejected');
                               setAssignment((prev) => (prev ? { ...prev, status: 'REJECTED' as any } : prev));
                             } catch { toast.error('Failed to reject assignment'); }
@@ -453,7 +467,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
               </motion.div>
             )}
 
-            {!showGeneration && (assignment.status === 'FAILED' || isPartial) && (
+            {!showGeneration && (assignment.status === 'failed' || isPartial) && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{
                 background: isPartial ? '#FFFBEB' : '#FEF2F2',
                 border: isPartial ? '1px solid #FDE68A' : '1px solid #FECACA',

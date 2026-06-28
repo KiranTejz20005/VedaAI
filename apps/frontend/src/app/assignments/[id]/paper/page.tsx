@@ -14,6 +14,7 @@ import { resolveAssetUrl } from '@/utils/url';
 import type { GenerationPdfReadyPayload } from '@/types/socket.types';
 import type { GeneratedPaper, Question, Section } from '@/types/paper.types';
 import type { DifficultyLevel } from '@/types/assignment.types';
+import { useAuthStore } from '@/store/auth.store';
 
 const DIFFICULTY_LABELS: Record<DifficultyLevel, string> = {
   easy: 'Easy',
@@ -24,6 +25,8 @@ const DIFFICULTY_LABELS: Record<DifficultyLevel, string> = {
 export default function PaperViewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const { user } = useAuthStore();
+  const isStudent = user?.role === 'STUDENT';
   const [paper, setPaper] = useState<GeneratedPaper | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -260,15 +263,17 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
               </button>
             </>
           ) : (
-            <>
-              <button
-                onClick={() => setIsEditMode(true)}
-                className="btn btn-pill"
-                style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              >
-                <Edit size={15} />
-                Edit Paper
-              </button>
+            <div style={{ display: 'flex', gap: 12 }}>
+              {!isStudent && (
+                <button
+                  onClick={() => setIsEditMode(true)}
+                  className="btn btn-pill"
+                  style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <Edit size={15} />
+                  Edit Paper
+                </button>
+              )}
               <button
                 onClick={handleDownload}
                 disabled={downloading}
@@ -278,7 +283,7 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
                 {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
                 Download PDF
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>

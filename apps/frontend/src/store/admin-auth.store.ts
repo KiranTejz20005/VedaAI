@@ -42,7 +42,12 @@ export const useAdminAuthStore = create<AdminAuthStore>((set, get) => ({
   initializeFromStorage: () => {
     if (typeof window === 'undefined') return;
     const originalAdminToken = window.sessionStorage.getItem('original_admin_token');
-    const activeOrganizationId = window.localStorage.getItem('active_organization_id');
+    
+    // We get the activeOrganizationId from the auth.store which tracks the user's DB state
+    const { useAuthStore } = require('./auth.store');
+    const user = useAuthStore.getState().user;
+    const activeOrganizationId = user?.activeOrganizationId || user?.organizationId || null;
+    
     set({
       originalAdminToken,
       isImpersonating: !!originalAdminToken,
@@ -75,9 +80,6 @@ export const useAdminAuthStore = create<AdminAuthStore>((set, get) => ({
         if (!stored && orgs.length > 0) {
           const firstId = orgs[0].id;
           set({ activeOrganizationId: firstId });
-          if (typeof window !== 'undefined') {
-            window.localStorage.setItem('active_organization_id', firstId);
-          }
         }
       }
     } catch {
@@ -89,9 +91,6 @@ export const useAdminAuthStore = create<AdminAuthStore>((set, get) => ({
     try {
       const res = await api.post('/auth/me/switch-organization', { organizationId: orgId });
       if (res.data?.success) {
-        if (typeof window !== 'undefined') {
-          window.localStorage.setItem('active_organization_id', orgId);
-        }
         set({ activeOrganizationId: orgId });
         const { useAuthStore } = await import('./auth.store');
         await useAuthStore.getState().initialize();
@@ -104,13 +103,6 @@ export const useAdminAuthStore = create<AdminAuthStore>((set, get) => ({
   },
 
   setActiveOrganization: (orgId) => {
-    if (typeof window !== 'undefined') {
-      if (orgId) {
-        window.localStorage.setItem('active_organization_id', orgId);
-      } else {
-        window.localStorage.removeItem('active_organization_id');
-      }
-    }
     set({ activeOrganizationId: orgId });
   },
 }));

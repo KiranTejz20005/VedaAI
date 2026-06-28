@@ -75,8 +75,6 @@ export default function MessagesPage() {
   const endRef = useRef<HTMLDivElement>(null);
 
   const uid = user?.id || '';
-  const userName = user ? `${user.firstName} ${user.lastName}` : 'Student';
-  const userSub = user?.role?.replaceAll('_', ' ') ?? 'Student Portal';
 
   const fetchConvos = async (silent = false) => {
     try {
@@ -234,16 +232,7 @@ export default function MessagesPage() {
           })}
         </div>
 
-        {/* Profile footer */}
-        <div style={{ borderTop: '1px solid #e8eaf0', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, background: '#fff', flexShrink: 0 }}>
-          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
-            {initials(userName)}
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <p style={{ fontSize: 13, fontWeight: 800, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</p>
-            <p style={{ fontSize: 11, color: '#64748b', fontWeight: 500, margin: 0 }}>{userSub}</p>
-          </div>
-        </div>
+
       </aside>
 
       {/* ── Chat panel ── */}

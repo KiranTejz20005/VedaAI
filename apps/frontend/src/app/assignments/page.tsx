@@ -237,7 +237,7 @@ export default function StudentAssignmentsPage() {
                     fontSize: 14
                   }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <PlayCircle size={18} /> Take Assignment
+                      <PlayCircle size={18} /> {['SUBMITTED', 'GRADED', 'UNDER_REVIEW', 'RESULT_PUBLISHED'].includes(assignment.status || '') ? 'View Submission' : 'Take Assignment'}
                     </span>
                     <ChevronRight size={18} />
                   </div>

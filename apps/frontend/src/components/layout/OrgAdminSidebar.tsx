@@ -74,21 +74,7 @@ export function OrgAdminSidebar() {
           })}
         </nav>
 
-        <div className="sidebar-bottom">
-          <div className="sidebar-profile" role="button" tabIndex={0} aria-label="Account settings">
-            <div className="sidebar-profile-avatar" aria-hidden="true" style={{ background: 'linear-gradient(135deg, #059669, #10B981)', color: 'white', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'A'}
-            </div>
-            <div className="sidebar-profile-info">
-              <div className="sidebar-profile-name">
-                {user ? `${user.firstName} ${user.lastName}` : 'Admin'}
-              </div>
-              <div className="sidebar-profile-sub">
-                {availableOrganizations.find(org => org.id === activeOrganizationId)?.name || user?.organizationName || 'Organization'}
-              </div>
-            </div>
-          </div>
-        </div>
+
       </aside>
     </>
   );

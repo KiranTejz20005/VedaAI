@@ -6,6 +6,7 @@ import {
   Building2, Plus, Edit3, Trash2, Power, Search, Mail, Phone, MapPin,
   Users, X, Loader2, GraduationCap, BookOpen, ShieldCheck,
 } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { PageHeader } from '@/design-system/PageHeader';
@@ -18,6 +19,7 @@ import { Select } from '@/design-system/Select';
 import { EmptyState } from '@/design-system/EmptyState';
 import { LoadingState } from '@/design-system/LoadingState';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
+import { useAuthStore } from '@/store/auth.store';
 
 interface Organization {
   id: string;
@@ -59,7 +61,9 @@ export default function SuperAdminOrganizations() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const { fetchAvailableOrganizations } = useAdminAuthStore();
+  const { fetchAvailableOrganizations, switchOrganization, setOriginalAdminToken, originalAdminToken } = useAdminAuthStore();
+  const { accessToken } = useAuthStore();
+  const router = useRouter();
 
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState<'create' | 'edit'>('create');
@@ -185,9 +189,24 @@ export default function SuperAdminOrganizations() {
         <DataTable
           columns={[
             { key: 'name', header: 'Name', render: (_: any, row: Organization) => (
-              <Link href={`/super-admin/organizations/${row.id}`} style={{ fontWeight: 700, color: 'var(--text-primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button onClick={async () => {
+                try {
+                  if (!originalAdminToken && accessToken) {
+                    setOriginalAdminToken(accessToken);
+                  }
+                  const success = await switchOrganization(row.id);
+                  if (success) {
+                    toast.success(`Switched to ${row.name}`);
+                    router.push('/dashboard/admin');
+                  } else {
+                    toast.error('Failed to switch organization');
+                  }
+                } catch {
+                  toast.error('Error switching organization');
+                }
+              }} style={{ fontWeight: 700, color: 'var(--brand)', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: 0 }}>
                 <Building2 size={14} color="var(--brand)" />{row.name}
-              </Link>
+              </button>
             )},
             { key: 'code', header: 'Code' },
             { key: 'status', header: 'Status', render: (value: string) => (

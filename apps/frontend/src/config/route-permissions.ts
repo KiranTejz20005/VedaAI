@@ -66,6 +66,11 @@ export const canAccessRoute = (role: string, path: string): boolean => {
 
   if (normalizedRole === 'SUPER_ADMIN') return true;
 
+  const isSuperAdminRoute = path === '/super-admin' || path.startsWith('/super-admin/') || path === '/dashboard/super-admin' || path.startsWith('/dashboard/super-admin/');
+  if (isSuperAdminRoute) {
+    return false; // Already checked for SUPER_ADMIN above
+  }
+
   if (normalizedRole === 'STUDENT') {
     if (STUDENT_DENIED_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
       return false;

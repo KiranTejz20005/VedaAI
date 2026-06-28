@@ -19,30 +19,19 @@ export const api = axios.create({
   },
 });
 
+let _accessToken: string | null = null;
+export const setApiToken = (token: string | null) => {
+  _accessToken = token;
+};
+
+
 api.interceptors.request.use(async (config) => {
   config.baseURL = getBaseURL();
 
-  // Dynamic import to break dependency cycle
-  try {
-    const { useAuthStore } = await import('@/store/auth.store');
-    const token = useAuthStore.getState().accessToken;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-  } catch (err) {
-    // Ignore errors during boot
+  if (_accessToken) {
+    config.headers.Authorization = `Bearer ${_accessToken}`;
   }
 
-  // Attach organization context header from admin-auth store
-  try {
-    const { useAdminAuthStore } = await import('@/store/admin-auth.store');
-    const orgId = useAdminAuthStore.getState().activeOrganizationId;
-    if (orgId) {
-      config.headers['X-Organization-Id'] = orgId;
-    }
-  } catch (err) {
-    // Ignore errors during boot
-  }
 
   if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
     if (config.headers) {

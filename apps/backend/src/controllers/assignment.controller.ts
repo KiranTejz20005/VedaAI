@@ -335,12 +335,18 @@ export async function submitAssignmentForApproval(req: Request, res: Response): 
   });
 
   const orgAdmins = await prisma.user.findMany({
-    where: { organizationId: assignment.organizationId, role: 'ADMIN' }
+    where: { 
+      OR: [
+        { organizationId: assignment.organizationId, role: 'ADMIN' },
+        { role: 'SUPER_ADMIN' }
+      ]
+    }
   });
 
   if (orgAdmins.length > 0) {
     await prisma.notification.createMany({
       data: orgAdmins.map(admin => ({
+        id: uuidv4(),
         userId: admin.id,
         organizationId: assignment.organizationId,
         title: 'Pending Approval',

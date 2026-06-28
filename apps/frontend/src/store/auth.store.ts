@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api } from '@/lib/api';
+import { api, setApiToken } from '@/lib/api';
 
 export interface User {
   id: string;
@@ -67,10 +67,12 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   isLoading: true,
 
   setAuth: (user, token) => {
+    setApiToken(token);
     set({ user, accessToken: token, isAuthenticated: true, isLoading: false });
   },
 
   clearAuth: () => {
+    setApiToken(null);
     set({ user: null, accessToken: null, isAuthenticated: false, isLoading: false });
   },
 
@@ -83,6 +85,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const token = refreshRes.data?.data?.accessToken;
 
       if (token) {
+        setApiToken(token);
         set({ accessToken: token });
         const meRes = await api.get('/auth/me');
         const user = meRes.data?.data;
@@ -113,6 +116,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const res = await api.post('/auth/login', { email, password });
       const { accessToken, user } = res.data?.data || {};
       if (accessToken && user) {
+        setApiToken(accessToken);
         set({
           user,
           accessToken,
@@ -135,6 +139,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const res = await api.post('/auth/sso', data);
       const { accessToken, user } = res.data?.data || {};
       if (accessToken && user) {
+        setApiToken(accessToken);
         set({
           user,
           accessToken,
@@ -157,6 +162,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const res = await api.post('/auth/signup', data);
       const { accessToken, user } = res.data?.data || {};
       if (accessToken && user) {
+        setApiToken(accessToken);
         set({
           user,
           accessToken,
