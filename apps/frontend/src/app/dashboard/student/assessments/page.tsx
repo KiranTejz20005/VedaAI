@@ -31,7 +31,7 @@ const statusConfig: Record<StudentAssessmentStatus, { cls: string; label: string
   AVAILABLE: { cls: 'badge-draft', label: 'Available', icon: FileText },
   STARTED: { cls: 'badge-generating', label: 'Started', icon: AlertCircle },
   IN_PROGRESS: { cls: 'badge-queued', label: 'In Progress', icon: Clock },
-  SUBMITTED: { cls: 'badge-warning', label: 'Submitted', icon: CheckCircle2 },
+  SUBMITTED: { cls: 'badge-warning', label: 'Attempted', icon: CheckCircle2 },
   GRADED: { cls: 'badge-completed', label: 'Graded', icon: BarChart3 },
 };
 

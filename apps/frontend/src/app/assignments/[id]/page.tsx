@@ -58,6 +58,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   const { user } = useAuthStore();
   const isFaculty = user?.role === 'TEACHER' || user?.role === 'FACULTY';
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'ORG_ADMIN';
+  const isStudent = user?.role === 'STUDENT';
 
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [paper, setPaper] = useState<GeneratedPaper | null>(null);
@@ -137,6 +138,35 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   };
 
   const [isPublishing, setIsPublishing] = useState(false);
+
+  const [submissionFile, setSubmissionFile] = useState<File | null>(null);
+  const [isSubmittingTest, setIsSubmittingTest] = useState(false);
+
+  const handleStudentSubmit = async () => {
+    if (!submissionFile) {
+      toast.error('Please select a file to submit');
+      return;
+    }
+    if (submissionFile.size > 20 * 1024 * 1024) {
+      toast.error('File size cannot exceed 20MB');
+      return;
+    }
+    setIsSubmittingTest(true);
+    try {
+      const formData = new FormData();
+      formData.append('files', submissionFile);
+      await api.post(`/student/assessments/${id}/submit`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      toast.success('Assignment submitted successfully!');
+      setSubmissionFile(null);
+      router.push('/dashboard/student/assessments');
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to submit assignment');
+    } finally {
+      setIsSubmittingTest(false);
+    }
+  };
 
   const handlePublish = async () => {
     setIsPublishing(true);
@@ -357,8 +387,9 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
               </div>
             </motion.div>
 
-            <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="card" style={{ marginBottom: 16 }}>
-              <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 14 }}>Status Workflow</h3>
+            {!isStudent && (
+              <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="card" style={{ marginBottom: 16 }}>
+                <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 14 }}>Status Workflow</h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: 0, overflow: 'hidden', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-page)' }}>
                 {WORKFLOW_STEPS.map((step, idx) => {
                   const StepIcon = step.icon;
@@ -375,10 +406,11 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                     </div>
                   );
                 })}
-              </div>
-            </motion.div>
+                </div>
+              </motion.div>
+            )}
 
-            {(assignment.status === 'DRAFT' || assignment.status === 'draft' || ['COMPLETED', 'PARTIALLY_GENERATED', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED', 'REJECTED'].includes(assignment.status)) && (
+            {!isStudent && (assignment.status === 'DRAFT' || assignment.status === 'draft' || ['COMPLETED', 'PARTIALLY_GENERATED', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED', 'REJECTED'].includes(assignment.status)) && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }} className="card" style={{ marginBottom: 16 }}>
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>Actions</h3>
                 {assignment.status === 'REJECTED' && assignment.reviewComments && (
@@ -467,7 +499,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
               </motion.div>
             )}
 
-            {!showGeneration && (assignment.status === 'failed' || isPartial) && (
+            {!isStudent && !showGeneration && (assignment.status === 'failed' || isPartial) && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{
                 background: isPartial ? '#FFFBEB' : '#FEF2F2',
                 border: isPartial ? '1px solid #FDE68A' : '1px solid #FECACA',
@@ -490,7 +522,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
               </motion.div>
             )}
 
-            {paperHistory.length > 0 && (
+            {!isStudent && paperHistory.length > 0 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.09 }} className="card" style={{ marginBottom: 16 }}>
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>Generation History</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -513,6 +545,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
               </motion.div>
             )}
 
+
             {paper && paper.sections && paper.sections.length > 0 && !showGeneration && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="card" style={{ marginBottom: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -520,7 +553,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                     Question Paper Preview
                   </h3>
                   <button onClick={handleViewPaper} className="btn btn-primary btn-sm" style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
-                    <Eye size={14} /> Full View & Edit
+                    <Eye size={14} /> {isStudent ? 'Full View' : 'Full View & Edit'}
                   </button>
                 </div>
                 
@@ -580,7 +613,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
               </motion.div>
             )}
 
-            {paper && !showGeneration && (
+            {!isStudent && paper && !showGeneration && (
               <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} style={{
                 background: isPartial ? '#FFFBEB' : '#F0FDF4',
                 border: isPartial ? '1px solid #FDE68A' : '1px solid #BBF7D0',
@@ -597,6 +630,50 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                   <Zap size={16} />
                   {isPartial ? 'View Partial Results' : 'View Generated Paper'}
                 </button>
+              </motion.div>
+            )}
+
+            {isStudent && assignment.status === 'PUBLISHED' && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card" style={{ marginTop: 16 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>Student Submission</h3>
+                {assignment.studentSubmission ? (
+                  <div style={{ padding: '16px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#059669', marginBottom: 12 }}>
+                      <CheckCircle2 size={20} />
+                      <strong style={{ fontSize: 16 }}>Assignment Submitted</strong>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14, color: 'var(--text-secondary)' }}>
+                      <div><strong>Submitted on:</strong> {new Date(assignment.studentSubmission.submittedAt || assignment.studentSubmission.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</div>
+                      <div><strong>File Type:</strong> {assignment.studentSubmission.fileType}</div>
+                      <div><strong>Status:</strong> {assignment.studentSubmission.status}</div>
+                    </div>
+                  </div>
+                ) : new Date() > new Date(assignment.dueDate || assignment.createdAt) ? (
+                  <div style={{ padding: '16px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', color: '#991B1B' }}>
+                    <strong>Overdue</strong> - The due date for this assignment has passed. You missed the test.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <p style={{ margin: 0, fontSize: 14, color: 'var(--text-secondary)' }}>
+                      Upload your completed assignment below. Accepted formats: PDF or Word (.docx).
+                    </p>
+                    <input 
+                      type="file" 
+                      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onChange={(e) => setSubmissionFile(e.target.files?.[0] || null)}
+                      style={{ padding: '8px', border: '1px solid var(--border)', borderRadius: '6px' }}
+                    />
+                    <button 
+                      onClick={handleStudentSubmit} 
+                      className="btn btn-primary"
+                      disabled={isSubmittingTest || !submissionFile}
+                      style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <CheckCircle2 size={16} /> 
+                      {isSubmittingTest ? 'Submitting...' : 'Submit Assignment'}
+                    </button>
+                  </div>
+                )}
               </motion.div>
             )}
           </motion.div>
