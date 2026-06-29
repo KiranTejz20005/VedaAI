@@ -405,4 +405,32 @@ export class CommunityService {
 
     return message;
   }
+
+  // --- Top Contributors ---
+
+  static async getTopContributors(organizationId?: string, limit = 5) {
+    const users = await prisma.user.findMany({
+      where: organizationId ? { organizationId } : {},
+      include: {
+        _count: {
+          select: { communityPosts: true, communityComments: true }
+        },
+        department: {
+          select: { name: true }
+        }
+      },
+      take: 100, // Fetch more to sort by karma locally since Prisma can't easily sort by derived sum
+    });
+
+    const ranked = users.map(u => ({
+      id: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      avatar: u.avatar,
+      subject: u.department?.name || 'General',
+      karma: (u._count.communityPosts * 50) + (u._count.communityComments * 10)
+    })).sort((a, b) => b.karma - a.karma).slice(0, limit);
+    
+    return ranked;
+  }
 }

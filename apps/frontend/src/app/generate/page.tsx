@@ -1,9 +1,9 @@
 'use client';
-/* eslint-disable react-hooks/purity */
+ 
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Loader2, CheckCircle, AlertCircle, ImageOff, Check, X, Eye, History, Trash2, RotateCcw, Clock, Award, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { Sparkles, CheckCircle, AlertCircle, ImageOff, Check, X, Eye, History, Clock, Award } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/services/api.client';
 import { QuizGeneratorForm, type QuizFormData } from '@/components/generate/QuizGeneratorForm';

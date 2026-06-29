@@ -15,12 +15,12 @@ export function formatBytes(bytes: number): string {
 
 export function getStatusColor(status: AssignmentStatus): string {
   const map: Record<AssignmentStatus, string> = {
-    draft: 'badge-draft',
-    queued: 'badge-queued',
-    generating: 'badge-generating',
-    completed: 'badge-completed',
-    failed: 'badge-failed',
-    partially_generated: 'badge-partial',
+    DRAFT: 'badge-draft',
+    QUEUED: 'badge-queued',
+    GENERATING: 'badge-generating',
+    COMPLETED: 'badge-completed',
+    FAILED: 'badge-failed',
+    PARTIALLY_GENERATED: 'badge-partial',
     PENDING_APPROVAL: 'badge-queued',
     APPROVED: 'badge-completed',
     REJECTED: 'badge-failed',

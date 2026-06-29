@@ -27,5 +27,6 @@ router.get('/groups/:groupId/messages', asyncHandler(CommunityController.getGrou
 router.post('/groups/:groupId/messages', asyncHandler(CommunityController.sendGroupMessage));
 
 router.get('/users/search', asyncHandler(CommunityController.searchUsers));
+router.get('/users/top', asyncHandler(CommunityController.getTopContributors));
 
 export default router;

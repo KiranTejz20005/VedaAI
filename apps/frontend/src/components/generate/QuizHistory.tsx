@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { History, RefreshCw, Trash2, RotateCcw, ChevronDown, ChevronUp, Check, X, Eye } from 'lucide-react';
-import type { HistoryQuiz, Quiz } from '@/app/generate/page'; // Need to export these from page.tsx or move to types
+import type { HistoryQuiz } from '@/app/generate/page'; // Need to export these from page.tsx or move to types
 
 interface QuizHistoryProps {
   history: HistoryQuiz[];

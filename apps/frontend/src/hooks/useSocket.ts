@@ -31,7 +31,7 @@ export function useGenerationSocket(assignmentId: string | null) {
     const onQueued = (payload: GenerationQueuedPayload) => {
       if (payload.assignmentId !== assignmentId) return;
       callbacksRef.current.setQueued(payload.jobRecordId, payload.generationSeq, payload.version, payload.ts);
-      callbacksRef.current.updateAssignmentStatus(assignmentId, 'queued');
+      callbacksRef.current.updateAssignmentStatus(assignmentId, 'QUEUED');
     };
 
     const onProgress = (payload: GenerationProgressPayload) => {
@@ -42,13 +42,13 @@ export function useGenerationSocket(assignmentId: string | null) {
     const onCompleted = (payload: GenerationCompletedPayload) => {
       if (payload.assignmentId !== assignmentId) return;
       callbacksRef.current.setCompleted(payload.jobRecordId, payload.generationSeq, payload.version, payload.ts, payload.paperId, payload.partial);
-      callbacksRef.current.updateAssignmentStatus(assignmentId, payload.partial ? 'partially_generated' : 'completed');
+      callbacksRef.current.updateAssignmentStatus(assignmentId, payload.partial ? 'PARTIALLY_GENERATED' : 'COMPLETED');
     };
 
     const onFailed = (payload: GenerationFailedPayload) => {
       if (payload.assignmentId !== assignmentId) return;
       callbacksRef.current.setFailed(payload.jobRecordId, payload.generationSeq, payload.version, payload.ts, payload.error);
-      callbacksRef.current.updateAssignmentStatus(assignmentId, 'failed');
+      callbacksRef.current.updateAssignmentStatus(assignmentId, 'FAILED');
     };
 
     socket.on('generation:queued', onQueued);

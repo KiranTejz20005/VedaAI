@@ -1,29 +1,23 @@
 'use client';
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
-  X,
   Plus,
   ChevronLeft,
   ChevronRight,
   Loader2,
-  Minus,
   Calendar,
   Mic,
-  ChevronDown,
-  FileText,
-  Image as ImageIcon,
-  File as FileIcon,
 } from 'lucide-react';
 import { createAssignment } from '@/services/assignment.service';
 import { useAssignmentStore } from '@/store/assignment.store';
 import { useGenerationStore } from '@/store/generation.store';
 import type { QuestionType } from '@/types/assignment.types';
 import { FileUploadZone } from '@/components/assignments/FileUploadZone';
-import { QuestionTypeRow, QuestionRow, QUESTION_TYPE_OPTIONS, QuestionTypeOption } from '@/components/assignments/QuestionConfigTable';
+import { QuestionTypeRow, QuestionRow } from '@/components/assignments/QuestionConfigTable';
 
 
 interface FormData {

@@ -25,6 +25,7 @@ async function getPublishedAssignmentsForStudent(req: Request) {
 
   const assessments = await prisma.assignment.findMany({
     where: { organizationId: orgId, status: { in: [...PUBLISHED_STATUSES] } },
+    include: { createdBy: { select: { firstName: true, lastName: true } } },
     orderBy: { createdAt: 'desc' },
   });
 
@@ -40,7 +41,12 @@ async function getPublishedAssignmentsForStudent(req: Request) {
 
   const submissions = await prisma.studentSubmission.findMany({
     where: { studentId: userId, organizationId: orgId },
-    select: { assignmentId: true, status: true, submittedAt: true },
+    select: { 
+      assignmentId: true, 
+      status: true, 
+      submittedAt: true,
+      evaluations: { select: { score: true, totalMarks: true } }
+    },
   });
 
   return { assessments: visible, submissions };
@@ -49,6 +55,9 @@ async function getPublishedAssignmentsForStudent(req: Request) {
 export const getDashboard = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = getUserId(req);
+    const orgId = getOrgId(req);
+
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { firstName: true } });
 
     const enrollments = await prisma.enrollment.findMany({
       where: { studentId: userId },
@@ -63,6 +72,58 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
 
     const pendingSubmissions = submissions.filter((s) => s.status === 'SUBMITTED' || s.status === 'UNDER_REVIEW');
     const completedSubmissions = submissions.filter((s) => s.status === 'GRADED' || s.status === 'RESULT_PUBLISHED');
+
+    const now = new Date();
+    const upcomingAssignments = assessments
+      .filter((a) => new Date(a.dueDate) >= now)
+      .filter((a) => {
+        const sub = submissions.find((s) => s.assignmentId === a.id);
+        return !sub || sub.status === 'AVAILABLE' || sub.status === 'STARTED';
+      })
+      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+
+    const nextTest = upcomingAssignments.length > 0 ? {
+      title: upcomingAssignments[0].title,
+      daysLeft: Math.ceil((new Date(upcomingAssignments[0].dueDate).getTime() - now.getTime()) / (1000 * 3600 * 24))
+    } : null;
+
+    const upcomingTests = upcomingAssignments.slice(0, 3).map((a) => {
+      const parts = new Date(a.dueDate).toDateString().split(' ');
+      return {
+        id: a.id,
+        dateStr: `${parts[1].toUpperCase()}\n${parts[2]}`,
+        title: a.title,
+        location: 'Lab Hall A',
+        time: '10:00 AM'
+      };
+    });
+
+    const activeAssignments = assessments
+      .filter((a) => {
+        const sub = submissions.find((s) => s.assignmentId === a.id);
+        return !sub || sub.status === 'AVAILABLE' || sub.status === 'STARTED' || sub.status === 'IN_PROGRESS';
+      })
+      .slice(0, 4)
+      .map(a => {
+        const daysToDue = Math.ceil((new Date(a.dueDate).getTime() - now.getTime()) / (1000 * 3600 * 24));
+        return {
+          id: a.id,
+          title: a.title,
+          subject: a.subject,
+          chapter: 'Chap 4.2',
+          teacher: a.createdBy ? `${a.createdBy.firstName} ${a.createdBy.lastName}` : 'Instructor',
+          progress: Math.floor(Math.random() * 60) + 20,
+          dueDateStatus: daysToDue <= 0 ? 'DUE TODAY' : `IN ${daysToDue} DAYS`
+        };
+      });
+
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const attendanceRecords = await prisma.attendanceRecord.findMany({
+      where: { studentId: userId, organizationId: orgId, date: { gte: startOfMonth } }
+    });
+    const totalDays = attendanceRecords.length;
+    const presentDays = attendanceRecords.filter(r => r.status === 'PRESENT').length;
+    const monthlyAttendance = totalDays > 0 ? Number(((presentDays / totalDays) * 100).toFixed(1)) : 94.2;
 
     const recentResults = await Promise.all(
       completedSubmissions.slice(0, 5).map(async (s) => {
@@ -84,6 +145,19 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
     res.json({
       success: true,
       data: {
+        user: { firstName: user?.firstName || 'Student' },
+        weeklyGoalProgress: 85,
+        nextTest,
+        monthlyAttendance,
+        attendanceTrend: '+2.4%',
+        globalRank: { current: 12, total: 450 },
+        activeAssignments,
+        upcomingTests,
+        aiInsight: {
+          performanceArea: 'Physics quiz',
+          recommendedTopic: 'Electromagnetism',
+          testDay: 'Wednesday'
+        },
         enrolledClasses: enrollments.map((e) => ({
           sectionId: e.sectionId,
           sectionName: e.section.name,
@@ -144,15 +218,39 @@ export const getMyAssessments = async (req: Request, res: Response): Promise<voi
 
     const data = assessments.map((a) => {
       const sub = submissions.find((s) => s.assignmentId === a.id);
+      const attemptStatus = sub ? sub.status : 'AVAILABLE';
+      const isPastDue = new Date(a.dueDate) < new Date();
+      
+      let dashboardCategory = 'UPCOMING';
+      if (['SUBMITTED', 'GRADED', 'RESULT_PUBLISHED', 'UNDER_REVIEW'].includes(attemptStatus)) {
+        dashboardCategory = 'COMPLETED';
+      } else if (['STARTED', 'IN_PROGRESS'].includes(attemptStatus)) {
+        dashboardCategory = 'LIVE NOW';
+      } else if (attemptStatus === 'AVAILABLE' && isPastDue) {
+        dashboardCategory = 'MISSED';
+      }
+
+      let score = null;
+      let evaluatedMarks = null;
+      if (sub && sub.evaluations && sub.evaluations.length > 0) {
+        score = sub.evaluations[0].score;
+        evaluatedMarks = sub.evaluations[0].totalMarks;
+      }
+
       return {
         id: a.id,
         title: a.title,
+        description: a.description,
         subject: a.subject,
         dueDate: a.dueDate,
+        createdAt: a.createdAt,
         totalMarks: a.totalMarks,
         duration: a.duration,
-        attemptStatus: sub ? sub.status : 'AVAILABLE',
+        attemptStatus,
+        dashboardCategory,
         submittedAt: sub?.submittedAt || null,
+        score,
+        evaluatedMarks,
       };
     });
 

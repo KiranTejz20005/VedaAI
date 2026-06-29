@@ -15,7 +15,7 @@ interface AdminAuthStore {
   availableOrganizations: AvailableOrganization[];
   activeOrganizationId: string | null;
   setOriginalAdminToken: (token: string | null) => void;
-  initializeFromStorage: () => void;
+  initializeFromStorage: () => void | Promise<void>;
   exitImpersonation: () => Promise<void>;
   fetchAvailableOrganizations: () => Promise<void>;
   switchOrganization: (orgId: string) => Promise<boolean>;
@@ -39,14 +39,14 @@ export const useAdminAuthStore = create<AdminAuthStore>((set, get) => ({
     set({ originalAdminToken: token, isImpersonating: !!token });
   },
 
-  initializeFromStorage: () => {
+  initializeFromStorage: async () => {
     if (typeof window === 'undefined') return;
     const originalAdminToken = window.sessionStorage.getItem('original_admin_token');
     
     // We get the activeOrganizationId from the auth.store which tracks the user's DB state
-    const { useAuthStore } = require('./auth.store');
+    const { useAuthStore } = await import('./auth.store');
     const user = useAuthStore.getState().user;
-    const activeOrganizationId = user?.activeOrganizationId || user?.organizationId || null;
+    const activeOrganizationId = (user as any)?.activeOrganizationId || user?.organizationId || null;
     
     set({
       originalAdminToken,

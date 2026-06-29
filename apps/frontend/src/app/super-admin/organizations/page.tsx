@@ -6,8 +6,7 @@ import {
   Building2, Plus, Edit3, Trash2, Power, Search, Mail, Phone, MapPin,
   Users, X, Loader2, GraduationCap, BookOpen, ShieldCheck,
 } from 'lucide-react';
-import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { PageHeader } from '@/design-system/PageHeader';
 import { DataTable } from '@/design-system/DataTable';

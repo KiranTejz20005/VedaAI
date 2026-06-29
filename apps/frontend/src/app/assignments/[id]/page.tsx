@@ -295,7 +295,6 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     error: fetchError,
     isProcessing: isGenActive || showGeneration,
     isComplete: !isGenActive && !showGeneration && (assignment?.status === 'COMPLETED' || assignment?.status === 'PARTIALLY_GENERATED' || assignment?.status === 'PENDING_APPROVAL'),
-    hasPaper: !!assignment?.paperId,
   });
 
   if (loading) {
@@ -410,7 +409,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
               </motion.div>
             )}
 
-            {!isStudent && (assignment.status === 'DRAFT' || assignment.status === 'draft' || ['COMPLETED', 'PARTIALLY_GENERATED', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED', 'REJECTED'].includes(assignment.status)) && (
+            {!isStudent && (assignment.status === 'DRAFT' || ['COMPLETED', 'PARTIALLY_GENERATED', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED', 'REJECTED'].includes(assignment.status)) && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }} className="card" style={{ marginBottom: 16 }}>
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>Actions</h3>
                 {assignment.status === 'REJECTED' && assignment.reviewComments && (
@@ -419,7 +418,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {isFaculty && (assignment.status === 'DRAFT' || assignment.status === 'draft' || assignment.status === 'REJECTED') && (
+                  {isFaculty && (assignment.status === 'DRAFT' || assignment.status === 'REJECTED') && (
                     <button className="btn btn-secondary btn-sm" style={{ gap: 4 }} onClick={() => router.push(`/assignments/create?id=${assignment.id}`)}>
                       <Edit3 size={14} /> Edit
                     </button>
@@ -499,7 +498,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
               </motion.div>
             )}
 
-            {!isStudent && !showGeneration && (assignment.status === 'failed' || isPartial) && (
+            {!isStudent && !showGeneration && (assignment.status === 'FAILED' || isPartial) && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{
                 background: isPartial ? '#FFFBEB' : '#FEF2F2',
                 border: isPartial ? '1px solid #FDE68A' : '1px solid #FECACA',

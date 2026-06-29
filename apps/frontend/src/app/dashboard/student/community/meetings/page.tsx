@@ -124,7 +124,7 @@ function MiniCalendar({ highlightedDays }: { highlightedDays: number[] }) {
         </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, textAlign: 'center' as const }}>
-        {['M','T','W','T','F','S','S'].map((d, i) => <span key={i} style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', paddingBottom: 6 }}>{d}</span>)}
+        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => <span key={i} style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', paddingBottom: 6 }}>{d}</span>)}
         {Array.from({ length: 35 }, (_, i) => {
           const day = i + 1;
           const isToday = offset === 0 && day === today;

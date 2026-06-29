@@ -168,7 +168,7 @@ function AttemptPageContent() {
     }, 1000);
 
     return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [activeQuiz?.id, activeQuiz?.isSubmitted]);
 
   const handleSelectOption = (qIdx: number, val: string) => {

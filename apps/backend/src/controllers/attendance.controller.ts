@@ -97,6 +97,34 @@ export const getStudentAttendance = async (req: Request, res: Response): Promise
     const presentClasses = records.filter((r: any) => r.status === 'PRESENT').length;
     const percentage = totalClasses > 0 ? (presentClasses / totalClasses) * 100 : 0;
 
+    // Group by subject
+    const subjectStats: Record<string, { total: number, present: number }> = {};
+    records.forEach(r => {
+      const subject = r.subject || 'General';
+      if (!subjectStats[subject]) {
+        subjectStats[subject] = { total: 0, present: 0 };
+      }
+      subjectStats[subject].total++;
+      if (r.status === 'PRESENT') {
+        subjectStats[subject].present++;
+      }
+    });
+
+    const subjectAttendance = Object.entries(subjectStats).map(([subject, stats]) => ({
+      subject,
+      percentage: Math.round((stats.present / stats.total) * 100)
+    }));
+
+    // Mock "No data" if no subject stats exist, for UI display purposes
+    if (subjectAttendance.length === 0) {
+      subjectAttendance.push(
+        { subject: 'Mathematics', percentage: 0 },
+        { subject: 'Physics', percentage: 0 },
+        { subject: 'Computer Science', percentage: 0 },
+        { subject: 'English Literature', percentage: 0 }
+      );
+    }
+
     res.json({
       success: true,
       data: {
@@ -105,11 +133,61 @@ export const getStudentAttendance = async (req: Request, res: Response): Promise
           totalClasses,
           presentClasses,
           percentage: Number(percentage.toFixed(2)),
+          subjectAttendance
         }
       }
     });
   } catch (error: any) {
     logger.error(`[Attendance:studentView] ${error}`);
     res.status(500).json({ success: false, error: error.message || 'Failed to fetch attendance' });
+  }
+};
+
+const leaveApplicationSchema = z.object({
+  title: z.string().min(1, 'Title is required'),
+  subject: z.string().min(1, 'Subject is required'),
+  body: z.string().min(1, 'Reason is required'),
+  duration: z.string().min(1, 'Duration is required'),
+});
+
+export const submitLeaveApplication = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const orgId = requireRequestOrgId(req);
+    const studentId = getRequestUserId(req);
+    const parsed = leaveApplicationSchema.parse(req.body);
+
+    const application = await prisma.leaveApplication.create({
+      data: {
+        studentId,
+        organizationId: orgId,
+        title: parsed.title,
+        subject: parsed.subject,
+        body: parsed.body,
+        duration: parsed.duration,
+        status: 'PENDING'
+      }
+    });
+
+    res.json({ success: true, data: application });
+  } catch (error: any) {
+    logger.error(`[Attendance:submitLeave] ${error}`);
+    res.status(400).json({ success: false, error: error.message || 'Failed to submit leave application' });
+  }
+};
+
+export const getLeaveApplications = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const orgId = requireRequestOrgId(req);
+    const studentId = getRequestUserId(req);
+
+    const applications = await prisma.leaveApplication.findMany({
+      where: { studentId, organizationId: orgId },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json({ success: true, data: applications });
+  } catch (error: any) {
+    logger.error(`[Attendance:getLeaveApplications] ${error}`);
+    res.status(500).json({ success: false, error: error.message || 'Failed to fetch leave applications' });
   }
 };

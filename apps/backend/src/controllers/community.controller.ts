@@ -172,3 +172,9 @@ export const searchUsers = async (req: Request, res: Response) => {
   );
   res.json({ success: true, data: users });
 };
+
+export const getTopContributors = async (req: Request, res: Response) => {
+  const topUsers = await CommunityService.getTopContributors(req.user!.organizationId ? req.user!.organizationId : undefined);
+  res.status(200).json({ status: 'success', data: topUsers });
+};
+

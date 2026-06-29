@@ -1,10 +1,13 @@
 'use client';
-/* eslint-disable react-hooks/purity */
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { Paperclip, Sparkles, Loader2, AlertCircle, ImageOff, Check, X, Eye, History, Trash2, RotateCcw, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Sparkles, X, 
+  Calculator, Thermometer, Globe, Microscope, 
+  ChevronRight, Filter, Settings2, BarChart2, Zap
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/services/api.client';
 
@@ -19,35 +22,6 @@ interface GeneratedQuestion {
   hint?: string;
 }
 
-interface Quiz {
-  id: string;
-  topic: string;
-  subject: string;
-  questions: GeneratedQuestion[];
-  timeLimitSeconds: number;
-  timeRemainingSeconds: number;
-  timeTakenSeconds?: number;
-  attempts: Record<number, string>; // question index -> option letter
-  isSubmitted: boolean;
-  score?: number;
-  timestamp: number;
-}
-
-interface HistoryQuiz {
-  id: string;
-  topic: string;
-  subject: string;
-  difficulty: string;
-  bloomLevel: string;
-  questions: GeneratedQuestion[];
-  timeLimitSeconds: number;
-  timeTakenSeconds: number;
-  attempts: Record<number, string>;
-  score: number;
-  timestamp: number;
-}
-
-// Shape returned by GET /api/v1/generate/history
 interface ApiQuizSession {
   id: string;
   topic: string;
@@ -74,124 +48,81 @@ interface ApiQuizSession {
   }>;
 }
 
-function GeneratePageContent() {
-  const searchParams = useSearchParams();
+interface HistoryQuiz {
+  id: string;
+  topic: string;
+  subject: string;
+  difficulty: string;
+  bloomLevel: string;
+  questions: GeneratedQuestion[];
+  timeLimitSeconds: number;
+  timeTakenSeconds: number;
+  attempts: Record<number, string>;
+  score: number;
+  timestamp: number;
+}
+
+const TEMPLATES = [
+  {
+    id: 't1',
+    title: 'Algebra',
+    subject: 'MATHEMATICS',
+    topic: 'Quadratic equations and polynomials',
+    description: 'Quadratic equations, polynomials, and complex numbers with step-by-step AI hints.',
+    qCount: 124,
+    icon: <Calculator size={24} color="#D97706" />,
+    iconBg: '#FEF3C7'
+  },
+  {
+    id: 't2',
+    title: 'Thermodynamics',
+    subject: 'PHYSICS',
+    topic: 'Heat transfer and entropy',
+    description: 'Heat transfer, laws of thermodynamics, and entropy visualization challenges.',
+    qCount: 86,
+    icon: <Thermometer size={24} color="#EA580C" />,
+    iconBg: '#FFEDD5'
+  },
+  {
+    id: 't3',
+    title: 'Modern History',
+    subject: 'HISTORY',
+    topic: 'WWII to Digital Age',
+    description: 'World War II to the Digital Age. Chronology and thematic analysis.',
+    qCount: 210,
+    icon: <Globe size={24} color="#2563EB" />,
+    iconBg: '#DBEAFE'
+  },
+  {
+    id: 't4',
+    title: 'Cell Biology',
+    subject: 'BIOLOGY',
+    topic: 'Organelles and transcription',
+    description: 'Micro-interactions, organelles, and genetic transcription practice.',
+    qCount: 156,
+    icon: <Microscope size={24} color="#059669" />,
+    iconBg: '#D1FAE5'
+  }
+];
+
+export default function PracticeDashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const sharedId = searchParams.get('sharedId');
 
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    topic: '',
-    subject: '',
-    difficulty: 'MEDIUM',
-    bloom_level: 'APPLY',
-    numQuestions: 5,
-    context: ''
-  });
-
-  const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
-  const [generationError, setGenerationError] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setIsUploading(true);
-    const fd = new FormData();
-    fd.append('file', f);
-    try {
-      const res = await apiClient.post<{success:boolean, data:{content:string}}>('/generate/parse', fd);
-      setFormData(prev => ({ ...prev, context: res.data.data.content }));
-      toast.success('Document parsed!');
-    } catch {
-      toast.error('Failed to parse document');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleShareQuiz = async () => {
-    if (!activeQuiz) return;
-    try {
-      const res = await apiClient.post<{success:boolean, data:{sharedId:string}}>('/generate/share', { 
-        topic: activeQuiz.topic, 
-        subject: activeQuiz.subject, 
-        questions: activeQuiz.questions 
-      });
-      const url = `${window.location.origin}/dashboard/student/practice?sharedId=${res.data.data.sharedId}`;
-      await navigator.clipboard.writeText(url);
-      toast.success('Share link copied to clipboard!');
-    } catch {
-      toast.error('Failed to share quiz');
-    }
-  };
-
-  const handleShareHistoryQuiz = async (hQuiz: HistoryQuiz) => {
-    try {
-      const res = await apiClient.post<{success:boolean, data:{sharedId:string}}>('/generate/share', { 
-        topic: hQuiz.topic, 
-        subject: hQuiz.subject, 
-        questions: hQuiz.questions 
-      });
-      const url = `${window.location.origin}/dashboard/student/practice?sharedId=${res.data.data.sharedId}`;
-      await navigator.clipboard.writeText(url);
-      toast.success('Share link copied to clipboard!');
-    } catch {
-      toast.error('Failed to share quiz');
-    }
-  };
-
-  const handleRetakeQuiz = async () => {
-    if(!activeQuiz) return;
-    try {
-      const newQuiz = {
-        topic: activeQuiz.topic,
-        subject: activeQuiz.subject,
-        difficulty: formData.difficulty,
-        bloomLevel: formData.bloom_level,
-        timeLimitSeconds: activeQuiz.timeLimitSeconds,
-        timeTakenSeconds: 0,
-        score: 0,
-        attempts: {},
-        questions: activeQuiz.questions
-      };
-      const saveRes = await apiClient.post<{ success: boolean; data: { id: string } }>('/generate/session', newQuiz);
-      router.push(`/dashboard/student/practice/attempt?sessionId=${saveRes.data.data.id}`);
-    } catch {
-      toast.error('Failed to retake quiz');
-    }
-  };
-
-  const handleRetakeQuizGroup = async (hQuiz: HistoryQuiz) => {
-    toast.success('Starting a new attempt...');
-    try {
-      const newQuiz = {
-        topic: hQuiz.topic,
-        subject: hQuiz.subject,
-        difficulty: hQuiz.difficulty,
-        bloomLevel: hQuiz.bloomLevel,
-        timeLimitSeconds: hQuiz.timeLimitSeconds,
-        timeTakenSeconds: 0,
-        score: 0,
-        attempts: {},
-        questions: hQuiz.questions
-      };
-      const saveRes = await apiClient.post<{ success: boolean; data: { id: string } }>('/generate/session', newQuiz);
-      router.push(`/dashboard/student/practice/attempt?sessionId=${saveRes.data.data.id}`);
-    } catch {
-      toast.error('Failed to start retry session');
-    }
-  };
-
-  // History State
   const [history, setHistory] = useState<HistoryQuiz[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [showGeneratorForm, setShowGeneratorForm] = useState(false);
-  const [activeTab, setActiveTab] = useState<'generate' | 'history'>('generate');
-  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
-  const [revealedAnswers, setRevealedAnswers] = useState<Record<string, boolean>>({});
+  const [loading, setLoading] = useState(false);
+  const [generatingTemplateId, setGeneratingTemplateId] = useState<string | null>(null);
+  
+  // Modals
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  
+  // Stats
+  const [avgScore, setAvgScore] = useState(0);
+  const [timePerQuest, setTimePerQuest] = useState(0);
+  const [streakDays, setStreakDays] = useState(0);
+  const [weekActivity, setWeekActivity] = useState<boolean[]>([false, false, false, false, false, false, false]); // M to S
 
-  // Convert API session to HistoryQuiz
   const mapSessionToHistory = (s: ApiQuizSession): HistoryQuiz => ({
     id: s.id,
     topic: s.topic,
@@ -215,678 +146,365 @@ function GeneratePageContent() {
     timestamp: new Date(s.createdAt).getTime(),
   });
 
-  // Load history from database
   const loadHistory = useCallback(async () => {
-    setHistoryLoading(true);
     try {
       const res = await apiClient.get<{ success: boolean; data: ApiQuizSession[] }>('/generate/history');
-      setHistory(res.data.data.map(mapSessionToHistory));
+      const mapped = res.data.data.map(mapSessionToHistory);
+      setHistory(mapped);
+      calculateStats(mapped);
     } catch {
       setHistory([]);
-    } finally {
-      setHistoryLoading(false);
     }
   }, []);
 
-  // Group history by subject + topic
-  const groupedHistoryMap = new Map<string, HistoryQuiz[]>();
-  history.forEach(hq => {
-    const key = `${hq.subject}:::${hq.topic}`;
-    if (!groupedHistoryMap.has(key)) groupedHistoryMap.set(key, []);
-    groupedHistoryMap.get(key)!.push(hq);
-  });
-  const groupedHistory = Array.from(groupedHistoryMap.entries()).map(([key, quizzes]) => ({
-    key,
-    subject: quizzes[0].subject,
-    topic: quizzes[0].topic,
-    quizzes
-  }));
-
-  // Load shared quiz
-  useEffect(() => {
-    if (sharedId) {
-      setLoading(true);
-      apiClient.get<{success: boolean, data: ApiQuizSession}>('/generate/shared/' + sharedId).then(async (res) => {
-        const sharedData = res.data.data;
-        const newQuiz = {
-          topic: sharedData.topic,
-          subject: sharedData.subject,
-          difficulty: sharedData.difficulty,
-          bloomLevel: sharedData.bloomLevel,
-          timeLimitSeconds: sharedData.timeLimitSeconds,
-          timeTakenSeconds: 0,
-          score: 0,
-          attempts: {},
-          questions: sharedData.questions.map(q => ({
-            id: q.id,
-            question_text: q.questionText || '',
-            options: q.options,
-            answer: q.answer,
-            difficulty: q.difficulty,
-            bloomLevel: q.bloomLevel,
-            ai_confidence_score: q.aiConfidenceScore,
-            hint: q.hint
-          }))
-        };
-        const saveRes = await apiClient.post<{ success: boolean; data: { id: string } }>('/generate/session', newQuiz);
-        router.push(`/dashboard/student/practice/attempt?sessionId=${saveRes.data.data.id}`);
-      }).catch(() => toast.error('Shared quiz not found')).finally(() => setLoading(false));
-    }
-  }, [sharedId, router]);
-
-  // Load history on mount
   useEffect(() => { void loadHistory(); }, [loadHistory]);
 
-  // Save a completed quiz session to database
-  const persistSession = async (quiz: Quiz, score: number, timeTaken: number): Promise<string | null> => {
-    try {
-      const res = await apiClient.post<{ success: boolean; data: { id: string } }>('/generate/session', {
-        topic: quiz.topic,
-        subject: quiz.subject,
-        difficulty: formData.difficulty,
-        bloomLevel: formData.bloom_level,
-        timeLimitSeconds: quiz.timeLimitSeconds,
-        timeTakenSeconds: timeTaken,
-        score,
-        attempts: quiz.attempts,
-        questions: quiz.questions,
-      });
-      return res.data.data.id;
-    } catch {
-      return null;
+  function calculateStats(data: HistoryQuiz[]) {
+    if (data.length === 0) {
+      setAvgScore(0);
+      setTimePerQuest(0);
+      setStreakDays(0);
+      return;
     }
-  };
 
-  const submitQuizData = (quiz: Quiz) => {
-    // Calculate score
-    let score = 0;
-    quiz.questions.forEach((q, idx) => {
-      const attempt = quiz.attempts[idx];
-      if (attempt === q.answer) {
-        score++;
-      }
+    // Avg Score & Time per question
+    let totalScore = 0;
+    let totalQuestions = 0;
+    let totalTime = 0;
+    let totalAttemptedQuestions = 0;
+
+    data.forEach(q => {
+      totalScore += q.score;
+      totalQuestions += q.questions.length;
+      totalTime += (q.timeTakenSeconds || 0);
+      totalAttemptedQuestions += Object.keys(q.attempts).length;
     });
 
-    const timeTaken = quiz.timeLimitSeconds - quiz.timeRemainingSeconds;
+    const scorePct = totalQuestions > 0 ? Math.round((totalScore / totalQuestions) * 100) : 0;
+    setAvgScore(scorePct);
 
-    // Build optimistic history entry for immediate UI update
-    const historyQuiz: HistoryQuiz = {
-      id: quiz.id,
-      topic: quiz.topic,
-      subject: quiz.subject,
-      difficulty: formData.difficulty,
-      bloomLevel: formData.bloom_level,
-      questions: quiz.questions,
-      timeLimitSeconds: quiz.timeLimitSeconds,
-      timeTakenSeconds: timeTaken,
-      attempts: quiz.attempts,
-      score,
-      timestamp: Date.now()
-    };
+    const tpq = totalAttemptedQuestions > 0 ? Math.round(totalTime / totalAttemptedQuestions) : 0;
+    setTimePerQuest(tpq);
 
-    // Optimistic UI update, then persist to DB
-    setHistory(prev => [historyQuiz, ...prev]);
-    void persistSession(quiz, score, timeTaken).then(() => { void loadHistory(); });
-
-    setActiveQuiz(prev => prev ? { ...prev, isSubmitted: true, score, timeTakenSeconds: timeTaken } : null);
-    toast.success(`Quiz Completed! You scored ${score}/${quiz.questions.length}`);
-  };
-
-  const handleAutoSubmit = (quiz: Quiz) => {
-    toast.error("Time is up! Quiz submitted automatically.");
-    submitQuizData(quiz);
-  };
-
-  // Timer Effect
-  useEffect(() => {
-    if (!activeQuiz || activeQuiz.isSubmitted) return;
-
-    const timer = setInterval(() => {
-      setActiveQuiz(prev => {
-        if (!prev) return null;
-        if (prev.timeRemainingSeconds <= 1) {
-          clearInterval(timer);
-          // Auto submit
-          handleAutoSubmit(prev);
-          return {
-            ...prev,
-            timeRemainingSeconds: 0,
-            isSubmitted: true
-          };
-        }
-        return {
-          ...prev,
-          timeRemainingSeconds: prev.timeRemainingSeconds - 1
-        };
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [activeQuiz?.id, activeQuiz?.isSubmitted]);
-
-  const handleSubmitQuiz = () => {
-    if (!activeQuiz) return;
-    const unansweredCount = activeQuiz.questions.length - Object.keys(activeQuiz.attempts).length;
-    if (unansweredCount > 0) {
-      if (!window.confirm(`You have ${unansweredCount} unanswered questions. Submit anyway?`)) {
-        return;
+    // Streak & Week Activity
+    const dates = data.map(q => {
+      const d = new Date(q.timestamp);
+      d.setHours(0,0,0,0);
+      return d.getTime();
+    });
+    const uniqueDates = Array.from(new Set(dates)).sort((a,b) => b - a);
+    
+    let streak = 0;
+    const currentDate = new Date();
+    currentDate.setHours(0,0,0,0);
+    const currentMs = currentDate.getTime();
+    
+    // Check if practiced today or yesterday to continue streak
+    if (uniqueDates.includes(currentMs) || uniqueDates.includes(currentMs - 86400000)) {
+      let checkMs = uniqueDates.includes(currentMs) ? currentMs : currentMs - 86400000;
+      while (uniqueDates.includes(checkMs)) {
+        streak++;
+        checkMs -= 86400000;
       }
     }
-    submitQuizData(activeQuiz);
+    setStreakDays(streak);
+
+    // Week Activity (Monday = 0, Sunday = 6)
+    const week = [false, false, false, false, false, false, false];
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // Sun = 0, Mon = 1, etc.
+    const dist = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // distance to last Monday
+    const lastMonday = new Date(today);
+    lastMonday.setDate(today.getDate() - dist);
+    lastMonday.setHours(0,0,0,0);
+
+    uniqueDates.forEach(dMs => {
+      const d = new Date(dMs);
+      if (d >= lastMonday) {
+        let idx = d.getDay() - 1;
+        if (idx === -1) idx = 6; // Sunday
+        week[idx] = true;
+      }
+    });
+    setWeekActivity(week);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setActiveQuiz(null);
-    setGenerationError(null);
-    setRevealedAnswers({});
+  const handleStartPractice = async (template: typeof TEMPLATES[0]) => {
+    setGeneratingTemplateId(template.id);
     try {
-      const count = formData.numQuestions;
+      const count = 5; // default 5 questions for template
       const res = await apiClient.post<{ success: boolean; data: GeneratedQuestion[] }>('/generate/questions', {
-        topic: formData.topic,
-        subject: formData.subject,
-        difficulty: formData.difficulty,
-        bloomLevel: formData.bloom_level,
-        context: formData.context || undefined,
+        topic: template.topic,
+        subject: template.subject,
+        difficulty: 'MEDIUM',
+        bloomLevel: 'APPLY',
         count,
       });
       const questions = res.data.data;
-
-      const timeLimit = count * 60; // 1 minute per question
+      const timeLimit = count * 60;
       const newQuiz = {
-        topic: formData.topic,
-        subject: formData.subject,
-        difficulty: formData.difficulty,
-        bloomLevel: formData.bloom_level,
+        topic: template.topic,
+        subject: template.subject,
+        difficulty: 'MEDIUM',
+        bloomLevel: 'APPLY',
         timeLimitSeconds: timeLimit,
         timeTakenSeconds: 0,
         score: 0,
         attempts: {},
         questions
       };
-
-      // Instantly save to database
-      await apiClient.post<{ success: boolean; data: { id: string } }>('/generate/session', newQuiz);
       
-      toast.success(`${count} questions generated successfully!`);
-      setShowGeneratorForm(false);
-      void loadHistory();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Generation failed';
-      setGenerationError(message);
-      if (message.includes('image') || message.includes('png') || message.includes('jpg')) {
-        toast.error('Image references detected. Please use text-only content.');
-      } else if (message.includes('AI provider') || message.includes('API key')) {
-        toast.error('AI service unavailable. Please check your API configuration.');
-      } else {
-        toast.error(message);
-      }
+      const saveRes = await apiClient.post<{ success: boolean; data: { id: string } }>('/generate/session', newQuiz);
+      router.push(`/dashboard/student/practice/attempt?sessionId=${saveRes.data.data.id}`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to generate practice module');
     } finally {
-      setLoading(false);
+      setGeneratingTemplateId(null);
     }
   };
 
-  const getOptionLetter = (optionText: string, index: number): string => {
-    const match = optionText.trim().match(/^([A-Da-d])\s*[\.\)]/);
-    if (match) {
-      return match[1].toUpperCase();
+  // Mock bar chart heights (0-100)
+  const chartBars = [40, 70, 50, 90, 60, 100, 75];
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isTemplateModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
     }
-    return String.fromCharCode(65 + index); // Fallback
-  };
-
-  const cleanOptionText = (optionText: string): string => {
-    return optionText;
-  };
-
-  const handleSelectOption = (qIdx: number, letter: string) => {
-    if (!activeQuiz || activeQuiz.isSubmitted) return;
-    setActiveQuiz(prev => {
-      if (!prev) return null;
-      return {
-        ...prev,
-        attempts: {
-          ...prev.attempts,
-          [qIdx]: letter
-        }
-      };
-    });
-  };
-
-  const formatTime = (secs: number) => {
-    const mins = Math.floor(secs / 60);
-    const remainder = secs % 60;
-    return `${mins}:${remainder < 10 ? '0' : ''}${remainder}`;
-  };
-
-  const toggleRevealAnswer = (key: string) => {
-    setRevealedAnswers(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const handleReattemptHistoryQuiz = (hQuiz: HistoryQuiz) => {
-    toast.success('Retrying past quiz! Navigating to quiz room...');
-    router.push(`/dashboard/student/practice/attempt?sessionId=${hQuiz.id}&retake=true`);
-  };
-
-  const handleClearHistory = async () => {
-    if (!window.confirm('Are you sure you want to clear your quiz history?')) return;
-    try {
-      await apiClient.delete('/generate/history');
-      setHistory([]);
-      toast.success('History cleared.');
-    } catch {
-      toast.error('Failed to clear history');
-    }
-  };
+    return () => { document.body.style.overflow = 'unset'; };
+  }, [isTemplateModalOpen]);
 
   return (
-    <div className="dashboard-view">
-      <div className="desktop-page-header dashboard-header-v3" style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
-        <div style={{ flex: 1, textAlign: 'left' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Sparkles size={24} color="#0f172a" />
-            <h1 className="page-title">Generate Quiz</h1>
+    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'var(--font-sans)', color: '#0F172A', background: '#F8FAFC', minHeight: '100vh' }}>
+      
+      {/* Top Banner */}
+      <div style={{ background: '#FFFFFF', borderRadius: 24, padding: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)', marginBottom: 24, flexWrap: 'wrap', gap: 24 }}>
+        <div style={{ maxWidth: 500 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#FFF7ED', color: '#EA580C', padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>
+            <Zap size={14} fill="#EA580C" /> AI POWERED
           </div>
-          <p className="page-subtitle">Instantly generate syllabus-aligned multiple choice quizzes to test student concepts.</p>
+          <h1 style={{ fontSize: 36, fontWeight: 900, lineHeight: 1.1, marginBottom: 16, letterSpacing: '-0.02em' }}>
+            Generate a Custom Practice Quiz in Seconds
+          </h1>
+          <p style={{ fontSize: 15, color: '#475569', lineHeight: 1.5, marginBottom: 24 }}>
+            Our AI analyzes your curriculum and performance gaps to create the perfect study session tailored just for you.
+          </p>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button 
+              onClick={() => router.push('/dashboard/student/practice/generate')}
+              style={{ background: '#0F172A', color: '#FFFFFF', border: 'none', borderRadius: 24, padding: '12px 24px', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+            >
+              <Sparkles size={16} /> Generate Quiz
+            </button>
+            <button 
+              onClick={() => setIsTemplateModalOpen(true)}
+              style={{ background: '#FFFFFF', color: '#0F172A', border: '2px solid #E2E8F0', borderRadius: 24, padding: '12px 24px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+            >
+              View Templates
+            </button>
+          </div>
         </div>
-
+        
+        {/* Banner Illustration */}
+        <div style={{ width: 240, height: 240, background: '#FFF7ED', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{ width: 100, height: 100, background: '#FFFFFF', borderRadius: 20, boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'rotate(10deg)' }}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#0F172A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <circle cx="10" cy="13" r="2"></circle>
+              <path d="m14 17-2.5-2.5"></path>
+              <path d="M15.5 13a2.5 2.5 0 0 0-2.5 2.5"></path>
+            </svg>
+          </div>
+        </div>
       </div>
 
-      <div className="mobile-page-header">
-        <button onClick={() => window.history.back()} aria-label="Go back" className="topbar-icon-btn" style={{ width: 32, height: 32, flexShrink: 0, cursor: 'pointer' }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
-        </button>
-        <h1 className="mobile-header-title">{activeTab === 'history' ? 'History' : 'Quiz Room'}</h1>
-        <div style={{ width: 32 }} />
-      </div>
+      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        
+        {/* Left Column */}
+        <div style={{ width: '300px', display: 'flex', flexDirection: 'column', gap: 24, flexShrink: 0 }}>
+          
+          {/* Recent Performance */}
+          <div style={{ background: '#FFFFFF', borderRadius: 24, padding: 24, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: '#0F172A' }}>Recent Performance</h3>
+              <div style={{ letterSpacing: 2, color: '#94A3B8', fontWeight: 900, cursor: 'pointer' }}>...</div>
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: 80, marginBottom: 24, gap: 8 }}>
+              {chartBars.map((height, i) => (
+                <div key={i} style={{ flex: 1, background: height === 100 ? '#B45309' : '#F8FAFC', height: `${height}%`, borderRadius: 4, transition: 'all 0.3s ease' }}></div>
+              ))}
+            </div>
 
-      <div style={{ position: 'relative', width: '100%', display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {/* Generator Form (Only show when not in active quiz or after submitting) */}
-          {(!activeQuiz || activeQuiz.isSubmitted) && (
-            <>
-              {!showGeneratorForm ? (
-                <div 
-                  className="card" 
-                  style={{ marginBottom: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px', border: '2px dashed var(--border)', background: '#FFFFFF', transition: 'all 0.2s ease' }}
-                  onClick={() => setShowGeneratorForm(true)}
-                >
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ width: 48, height: 48, background: '#F3F4F6', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                      <Sparkles size={24} color="var(--brand)" />
-                    </div>
-                    <h3 style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-primary)' }}>Generate Quiz</h3>
-                    <p style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>Click here to create a new AI-generated practice quiz</p>
-                  </div>
-                </div>
-              ) : (
-                <form onSubmit={handleSubmit}>
-                  <div className="card" style={{ marginBottom: 20, position: 'relative' }}>
-                    <button 
-                      type="button" 
-                      onClick={() => setShowGeneratorForm(false)}
-                      style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, background: '#F3F4F6', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      title="Cancel"
-                    >
-                      <X size={16} />
-                    </button>
-                    <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 16 }}>Configure Quiz</h3>
-                    <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                  <div className="input-group" style={{ flex: 1, minWidth: 200 }}>
-                    <label className="label">Topic</label>
-                    <input required type="text" className="input" placeholder="e.g. Machine Learning Basics" value={formData.topic} onChange={e => setFormData({...formData, topic: e.target.value})} />
-                  </div>
-                  <div className="input-group" style={{ flex: 1, minWidth: 200 }}>
-                    <label className="label">Subject</label>
-                    <input required type="text" className="input" placeholder="e.g. Computer Science" value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 14 }}>
-                  <div className="input-group" style={{ flex: 1, minWidth: 150 }}>
-                    <label className="label">Difficulty</label>
-                    <select className="input" value={formData.difficulty} onChange={e => setFormData({...formData, difficulty: e.target.value})}>
-                      <option value="EASY">Easy</option>
-                      <option value="MEDIUM">Medium</option>
-                      <option value="HARD">Hard</option>
-                    </select>
-                  </div>
-                  <div className="input-group" style={{ flex: 1, minWidth: 150 }}>
-                    <label className="label">Bloom Level</label>
-                    <select className="input" value={formData.bloom_level} onChange={e => setFormData({...formData, bloom_level: e.target.value})}>
-                      <option value="REMEMBER">Remember</option>
-                      <option value="UNDERSTAND">Understand</option>
-                      <option value="APPLY">Apply</option>
-                      <option value="ANALYZE">Analyze</option>
-                      <option value="EVALUATE">Evaluate</option>
-                      <option value="CREATE">Create</option>
-                    </select>
-                  </div>
-                  <div className="input-group" style={{ flex: 1, minWidth: 150 }}>
-                    <label className="label">Number of Questions</label>
-                    <select className="input" value={formData.numQuestions} onChange={e => setFormData({...formData, numQuestions: parseInt(e.target.value) || 5})}>
-                      {Array.from({ length: 10 }).map((_, i) => (
-                        <option key={i + 1} value={i + 1}>{i + 1} Question{i > 0 ? 's' : ''}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="input-group" style={{ marginTop: 14 }}>
-                  <label className="label">Reference Context (Optional)</label>
-                  <div style={{ position: 'relative' }}>
-                    <textarea 
-                      rows={4} 
-                      className="input" 
-                      placeholder="Paste syllabus or reference material here... Avoid pasting images or file paths." 
-                      value={formData.context} 
-                      onChange={e => setFormData({...formData, context: e.target.value})} 
-                      style={{ resize: 'none', paddingBottom: 44 }} 
-                    />
-                    <label style={{
-                      position: 'absolute',
-                      bottom: 12,
-                      right: 12,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: '12px',
-                      background: '#F9FAFB',
-                      border: '1px solid #E5E7EB',
-                      borderRadius: 6,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: isUploading ? 'default' : 'pointer',
-                      color: 'var(--text-secondary)',
-                      opacity: isUploading ? 0.7 : 1,
-                      transition: 'all 0.2s ease',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                    }}>
-                      {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Paperclip size={14} />}
-                      {isUploading ? 'Parsing...' : 'Attach File'}
-                      <input type="file" accept=".pdf,.txt" style={{display:'none'}} onChange={handleFileUpload} disabled={isUploading} />
-                    </label>
-                  </div>
-                </div>
-
-                <button type="submit" disabled={loading} className="btn btn-dark" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, marginTop: 16, width: '100%' }}>
-                  {loading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-                  {loading ? 'Generating Quiz...' : 'Generate with AI'}
-                </button>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ flex: 1, background: '#F8FAFC', borderRadius: 16, padding: '16px 12px', textAlign: 'center' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', letterSpacing: 0.5, marginBottom: 4 }}>AVG SCORE</div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: '#0F172A' }}>{avgScore}%</div>
               </div>
-            </form>
-              )}
-            </>
-          )}
-
-          {generationError && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card" style={{ background: '#FEF2F2', borderColor: '#FECACA', marginBottom: 16 }}>
-              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                {generationError.includes('image') ? <ImageOff size={20} color="#EF4444" style={{ flexShrink: 0, marginTop: 2 }} /> : <AlertCircle size={20} color="#EF4444" style={{ flexShrink: 0, marginTop: 2 }} />}
-                <div>
-                  <h4 style={{ fontSize: 14, fontWeight: 600, color: '#991B1B', marginBottom: 4 }}>
-                    {generationError.includes('image') ? 'Image Content Detected' : 'Generation Failed'}
-                  </h4>
-                  <p style={{ fontSize: 13, color: '#B91C1C', lineHeight: 1.5 }}>{generationError}</p>
-                </div>
+              <div style={{ flex: 1, background: '#F8FAFC', borderRadius: 16, padding: '16px 12px', textAlign: 'center' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', letterSpacing: 0.5, marginBottom: 4 }}>TIME/QUEST</div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: '#0F172A' }}>{timePerQuest}s</div>
               </div>
-            </motion.div>
-          )}
+            </div>
+          </div>
 
-          {(!activeQuiz || activeQuiz.isSubmitted) && (
-            <div style={{ marginTop: 24 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <History size={20} /> Your Quizzes
-                  <button
-                    type="button"
-                    onClick={() => void loadHistory()}
-                    disabled={historyLoading}
-                    title="Refresh history"
-                    style={{ background: 'none', border: 'none', cursor: historyLoading ? 'default' : 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
-                  >
-                    <RefreshCw size={14} style={{ opacity: 0.5, animation: historyLoading ? 'spin 1s linear infinite' : 'none' }} />
-                  </button>
-                </h2>
-                {history.length > 0 && (
-                  <button 
-                    type="button" 
-                    onClick={handleClearHistory} 
-                    style={{ 
-                      background: '#FEE2E2', 
-                      border: '1px solid #FECACA', 
-                      color: '#B91C1C', 
-                      padding: '6px 12px', 
-                      borderRadius: 8, 
-                      fontSize: 12, 
-                      fontWeight: 600, 
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6
-                    }}
-                  >
-                    <Trash2 size={14} /> Clear History
-                  </button>
-                )}
-              </div>
-
-              {historyLoading ? (
-                <div style={{ padding: 40, textAlign: 'center' }}><Loader2 className="animate-spin" style={{ margin: '0 auto' }} /></div>
-              ) : history.length === 0 ? (
-                <div className="card" style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--text-muted)' }}>
-                  <History size={48} style={{ margin: '0 auto 16px', opacity: 0.3 }} />
-                  <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>No generated quiz available</h3>
-                  <p style={{ fontSize: 14 }}>Create your first AI-generated quiz using the button above.</p>
-                </div>
-              ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {groupedHistory.map((group, groupIdx) => {
-                const isExpanded = expandedHistoryId === group.key;
-                const quizzes = group.quizzes;
-                const bestQuiz = quizzes.reduce((prev, curr) => (curr.score > prev.score ? curr : prev), quizzes[0]);
-                const percentScore = Math.round((bestQuiz.score / bestQuiz.questions.length) * 100);
-                const hasUntaken = quizzes.some(q => Object.keys(q.attempts).length === 0 && q.timeTakenSeconds === 0);
-                const latestUntaken = quizzes.find(q => Object.keys(q.attempts).length === 0 && q.timeTakenSeconds === 0);
-
+          {/* Practice Streak */}
+          <div style={{ background: '#0F172A', borderRadius: 24, padding: 24, color: '#FFFFFF', position: 'relative', overflow: 'hidden' }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, zIndex: 2, position: 'relative' }}>Practice Streak</h3>
+            <p style={{ fontSize: 13, color: '#94A3B8', lineHeight: 1.5, marginBottom: 24, zIndex: 2, position: 'relative' }}>
+              You've practiced for {streakDays} consecutive days. Keep it up!
+            </p>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', zIndex: 2, position: 'relative' }}>
+              {['M','T','W','T','F','S','S'].map((day, i) => {
+                const isActive = weekActivity[i];
                 return (
-                  <div key={group.key} className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                    <div 
-                      onClick={() => setExpandedHistoryId(isExpanded ? null : group.key)}
-                      style={{ 
-                        padding: '16px 20px', 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'center', 
-                        cursor: 'pointer',
-                        background: '#F9FAFB',
-                        flexWrap: 'wrap',
-                        gap: 12
-                      }}
-                    >
-                      <div style={{ flex: 1, minWidth: 200 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--brand)', textTransform: 'uppercase' }}>
-                            {group.subject}
-                          </span>
-                          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>&middot;</span>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
-                            {group.topic}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                          {quizzes.length} Attempt{quizzes.length > 1 ? 's' : ''} &middot; {quizzes[0].questions.length} Qs
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                        {hasUntaken && quizzes.length === 1 ? (
-                          <div style={{ 
-                            fontSize: 13, 
-                            fontWeight: 700, 
-                            color: '#4B5563',
-                            background: '#F3F4F6',
-                            padding: '4px 10px',
-                            borderRadius: 8
-                          }}>
-                            Not attempted
-                          </div>
-                        ) : (
-                          <div style={{ 
-                            fontSize: 13, 
-                            fontWeight: 800, 
-                            color: percentScore >= 70 ? '#047857' : percentScore >= 40 ? '#B45309' : '#B91C1C',
-                            background: percentScore >= 70 ? '#D1FAE5' : percentScore >= 40 ? '#FEF3C7' : '#FEE2E2',
-                            padding: '4px 10px',
-                            borderRadius: 8
-                          }}>
-                            Best: {bestQuiz.score} / {bestQuiz.questions.length} ({percentScore}%)
-                          </div>
-                        )}
-
-                        {hasUntaken ? (
-                          <button 
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/dashboard/student/practice/attempt?sessionId=${latestUntaken!.id}`);
-                            }}
-                            style={{
-                              background: 'var(--brand)',
-                              border: 'none',
-                              color: '#FFF',
-                              borderRadius: 6,
-                              padding: '6px 14px',
-                              fontSize: 12,
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 6,
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                            }}
-                          >
-                            <Sparkles size={14} /> Resume
-                          </button>
-                        ) : (
-                          <button 
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRetakeQuizGroup(quizzes[0]);
-                            }}
-                            style={{
-                              background: '#FFFFFF',
-                              border: '1px solid var(--border)',
-                              borderRadius: 6,
-                              padding: '6px 14px',
-                              fontSize: 12,
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 6
-                            }}
-                          >
-                            <RotateCcw size={14} /> Retake
-                          </button>
-                        )}
-                        
-                        <button 
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleShareHistoryQuiz(quizzes[0]);
-                          }}
-                          style={{
-                            background: '#FFFFFF',
-                            border: '1px solid var(--border)',
-                            borderRadius: 6,
-                            padding: '6px 14px',
-                            fontSize: 12,
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6
-                          }}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-                          Share
-                        </button>
-
-                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                      </div>
-                    </div>
-
-                    {isExpanded && (
-                      <div style={{ padding: '20px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12, background: '#FFFFFF' }}>
-                        <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase' }}>Attempt History</h4>
-                        {quizzes.map((q, i) => {
-                          const attemptScore = Math.round((q.score / q.questions.length) * 100);
-                          const isAttemptUntaken = Object.keys(q.attempts).length === 0 && q.timeTakenSeconds === 0;
-                          return (
-                            <div key={q.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#F9FAFB', borderRadius: 8, border: '1px solid var(--border)' }}>
-                              <div>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-                                  Attempt {quizzes.length - i}
-                                </div>
-                                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                                  {new Date(q.timestamp).toLocaleString()}
-                                </div>
-                              </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                {isAttemptUntaken ? (
-                                  <span style={{ fontSize: 12, fontWeight: 600, color: '#4B5563', padding: '4px 8px', background: '#E5E7EB', borderRadius: 6 }}>Not Attempted</span>
-                                ) : (
-                                  <>
-                                    <span style={{ fontSize: 12, fontWeight: 700, color: attemptScore >= 70 ? '#047857' : attemptScore >= 40 ? '#B45309' : '#B91C1C' }}>
-                                      Score: {q.score}/{q.questions.length} ({attemptScore}%)
-                                    </span>
-                                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatTime(q.timeTakenSeconds)}</span>
-                                  </>
-                                )}
-                                <button 
-                                  onClick={() => router.push(`/dashboard/student/practice/attempt?sessionId=${q.id}&retake=true`)}
-                                  style={{ background: '#FFFFFF', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', color: 'var(--text-primary)' }}
-                                >
-                                  {isAttemptUntaken ? 'Resume' : 'Review'}
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                  <div key={i} style={{ 
+                    width: 32, height: 32, borderRadius: '50%', 
+                    background: isActive ? '#FFFFFF' : 'rgba(255,255,255,0.1)', 
+                    color: isActive ? '#0F172A' : '#94A3B8',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12, fontWeight: 700
+                  }}>
+                    {day}
                   </div>
-                );
+                )
               })}
             </div>
-          )}
+
+            {/* Background Star decoration */}
+            <div style={{ position: 'absolute', right: -20, bottom: -20, opacity: 0.05, transform: 'rotate(15deg)', zIndex: 1 }}>
+              <svg width="150" height="150" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
             </div>
-          )}
+          </div>
+        </div>
+
+        {/* Right Column */}
+        <div style={{ flex: 1, minWidth: 300 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 800 }}>Available Topics</h2>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 20, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                <Filter size={14} /> Filter
+              </button>
+              <button style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 20, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                <Settings2 size={14} /> Difficulty
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+            {TEMPLATES.map(t => (
+              <div key={t.id} style={{ background: '#FFFFFF', borderRadius: 24, padding: 24, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: t.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                  {t.icon}
+                </div>
+                <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 8 }}>{t.title}</h3>
+                <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5, marginBottom: 24, flex: 1 }}>
+                  {t.description}
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94A3B8', fontSize: 11, fontWeight: 600 }}>
+                    <BarChart2 size={14} /> {t.qCount} Questions
+                  </div>
+                  <button 
+                    onClick={() => handleStartPractice(t)}
+                    disabled={generatingTemplateId === t.id}
+                    style={{ background: '#0F172A', color: '#FFFFFF', border: 'none', borderRadius: 20, padding: '8px 16px', fontSize: 12, fontWeight: 700, cursor: generatingTemplateId === t.id ? 'default' : 'pointer', opacity: generatingTemplateId === t.id ? 0.7 : 1 }}
+                  >
+                    {generatingTemplateId === t.id ? 'Loading...' : 'Start Practice'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-      
-      {/* Styles for option hover transitions */}
-      <style jsx global>{`
-        .generate-option-btn:hover {
-          background: #F3F4F6 !important;
-          border-color: #9CA3AF !important;
-          transform: translateY(-1px);
-        }
-        .generate-option-btn:active {
-          transform: translateY(0);
-        }
-      `}</style>
-    </div>
-  );
-}
 
-export default function GeneratePage() {
-  return (
-    <Suspense fallback={<div className="dashboard-view"><Loader2 className="animate-spin" /></div>}>
-      <GeneratePageContent />
-    </Suspense>
+      {/* Bottom Banner */}
+      <div style={{ background: '#E2E8F0', borderRadius: 24, padding: 32, marginTop: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 24, overflow: 'hidden', position: 'relative' }}>
+        <div style={{ maxWidth: 500, zIndex: 2 }}>
+          <div style={{ display: 'inline-block', background: '#B45309', color: '#FFFFFF', padding: '4px 10px', borderRadius: 12, fontSize: 10, fontWeight: 800, letterSpacing: 0.5, marginBottom: 16 }}>
+            NEW MODULE
+          </div>
+          <h2 style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.1, marginBottom: 16, letterSpacing: '-0.02em', color: '#0F172A' }}>
+            Quantum Physics Basics:<br/>Visual Concept Quiz
+          </h2>
+          <p style={{ fontSize: 14, color: '#475569', lineHeight: 1.5, marginBottom: 24 }}>
+            Experience our new interactive quiz module with 3D models and real-time AI explanations for complex phenomena.
+          </p>
+          <button style={{ background: '#0F172A', color: '#FFFFFF', border: 'none', borderRadius: 24, padding: '12px 24px', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            Explore Module <ChevronRight size={16} />
+          </button>
+        </div>
+        
+        {/* Abstract Placeholder for the image */}
+        <div style={{ width: 300, height: 180, background: '#0F172A', borderRadius: 16, position: 'relative', overflow: 'hidden', zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <svg width="100%" height="100%" viewBox="0 0 280 160" preserveAspectRatio="none">
+            <path d="M0 80 Q 70 20 140 80 T 280 80" fill="none" stroke="#38BDF8" strokeWidth="2" opacity="0.5" />
+            <path d="M0 80 Q 70 140 140 80 T 280 80" fill="none" stroke="#818CF8" strokeWidth="2" opacity="0.5" />
+            <path d="M0 80 Q 70 50 140 80 T 280 80" fill="none" stroke="#C084FC" strokeWidth="2" opacity="0.5" />
+            <circle cx="140" cy="80" r="4" fill="#FFFFFF" />
+          </svg>
+        </div>
+      </div>
+
+      {/* View Templates Modal (Strict overlay) */}
+      <AnimatePresence>
+        {isTemplateModalOpen && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {/* Backdrop strictly blocks all background interactions */}
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }}
+              style={{ position: 'absolute', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)' }}
+              onClick={(e) => { e.stopPropagation(); setIsTemplateModalOpen(false); }}
+            />
+            
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }} 
+              animate={{ opacity: 1, scale: 1, y: 0 }} 
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              style={{ background: '#FFFFFF', width: '90%', maxWidth: 700, borderRadius: 24, padding: 32, position: 'relative', zIndex: 10000, maxHeight: '90vh', overflowY: 'auto' }}
+              onClick={(e) => e.stopPropagation()} // Stop clicks from reaching backdrop
+            >
+              <button 
+                onClick={() => setIsTemplateModalOpen(false)}
+                style={{ position: 'absolute', top: 24, right: 24, background: '#F1F5F9', border: 'none', width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748B' }}
+              >
+                <X size={16} />
+              </button>
+              
+              <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 8, color: '#0F172A' }}>Quiz Templates</h2>
+              <p style={{ fontSize: 14, color: '#64748B', marginBottom: 24 }}>Select a pre-configured template to instantly start practicing. Models are generated dynamically using your syllabus.</p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {TEMPLATES.map(t => (
+                  <div 
+                    key={`modal-${t.id}`} 
+                    style={{ display: 'flex', alignItems: 'center', gap: 16, padding: 16, border: '1px solid #E2E8F0', borderRadius: 16, transition: 'all 0.2s ease', cursor: 'pointer', background: '#F8FAFC' }} 
+                    onClick={() => { setIsTemplateModalOpen(false); handleStartPractice(t); }}
+                  >
+                    <div style={{ width: 48, height: 48, borderRadius: 12, background: t.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {t.icon}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 2, color: '#0F172A' }}>{t.title}</h4>
+                      <p style={{ fontSize: 13, color: '#64748B' }}>{t.description}</p>
+                    </div>
+                    <ChevronRight size={20} color="#CBD5E1" />
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+    </div>
   );
 }

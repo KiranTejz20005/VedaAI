@@ -2,8 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowLeft, Bell, Info, MessageSquarePlus, Paperclip,
-  Phone, Search, Send, Smile, UserRound, Video, X,
+  ArrowLeft, Bell, Info, Paperclip, Phone, Search, Send, UserRound, Video, X, Sparkles, Plus
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
@@ -66,7 +65,7 @@ export default function MessagesPage() {
   const [orgUsers, setOrgUsers] = useState<OrgUser[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(''); // Kept state just in case, but hidden in UI
   const [composeQuery, setComposeQuery] = useState('');
   const [draft, setDraft] = useState('');
   const [composeOpen, setComposeOpen] = useState(false);
@@ -160,86 +159,88 @@ export default function MessagesPage() {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100%', width: '100%', background: '#f8f9fb', color: '#0b1020', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div style={{ display: 'flex', height: '100%', width: '100%', background: '#f8fafc', color: '#0b1020', fontFamily: 'Inter, system-ui, sans-serif', padding: '24px', boxSizing: 'border-box' }}>
+      <div style={{ 
+        display: 'flex', 
+        width: '100%', 
+        height: '100%', 
+        background: '#fff', 
+        borderRadius: 24, 
+        boxShadow: '0 4px 40px rgba(0,0,0,0.04)', 
+        border: '1px solid #e2e8f0',
+        overflow: 'hidden' 
+      }}>
+        {/* ── Conversations sidebar ── */}
+        <aside style={{
+          display: 'flex',
+          flexDirection: 'column',
+          width: 340, minWidth: 340, height: '100%', borderRight: '1px solid #e8eaf0',
+          background: '#fff',
+        }}
+          className={`${activeId ? 'hidden md:flex' : 'flex'}`}
+          aria-label="Conversations list"
+        >
+          {/* Header matching screenshot */}
+          <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid #e8eaf0' }}>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: '0 0 4px' }}>Community</h1>
+            <p style={{ fontSize: 13, color: '#64748b', fontWeight: 500, margin: 0 }}>Active Conversations</p>
+          </div>
 
-      {/* ── Conversations sidebar ── */}
-      <aside style={{
-        flexDirection: 'column',
-        width: 340, minWidth: 340, height: '100%', borderRight: '1px solid #e8eaf0',
-        background: '#fff',
-      }}
-        className={`${activeId ? 'hidden md:flex' : 'flex'}`}
-        aria-label="Conversations list"
-      >
-        {/* Search bar */}
-        <div style={{ padding: '16px 16px 0', flexShrink: 0 }}>
-          <label style={{ position: 'relative', display: 'block' }}>
-            <Search style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: '#94a3b8', pointerEvents: 'none' }} />
-            <input
-              value={query} onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search conversations..."
-              style={{ width: '100%', height: 42, borderRadius: 21, border: 'none', background: '#f1f3f9', paddingLeft: 40, paddingRight: 16, fontSize: 13, fontWeight: 500, color: '#0f172a', outline: 'none', boxSizing: 'border-box' }}
-            />
-          </label>
-        </div>
-
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 20px 12px' }}>
-          <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.5px', margin: 0 }}>Messages</h1>
-          <button
-            onClick={() => setComposeOpen(true)}
-            style={{ width: 44, height: 44, borderRadius: '50%', background: '#2563eb', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0, boxShadow: '0 2px 8px rgba(37,99,235,0.3)' }}
-            aria-label="New message"
-          >
-            <MessageSquarePlus style={{ width: 20, height: 20 }} />
-          </button>
-        </div>
-
-        {/* List */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 10px 12px' }}>
-          {loadingConvos ? (
-            <div style={{ padding: '48px 16px', textAlign: 'center', fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>Loading…</div>
-          ) : filteredConvos.length === 0 ? (
-            <div style={{ margin: '16px 8px', borderRadius: 16, border: '1.5px dashed #dde3f5', background: 'rgba(255,255,255,0.7)', padding: '40px 20px', textAlign: 'center' }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#374151', margin: 0 }}>No conversations yet</p>
-              <p style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Start a message with someone in your org.</p>
-            </div>
-          ) : filteredConvos.map((c) => {
-            const active = c.id === activeId;
-            return (
-              <button key={c.id} onClick={() => setActiveId(c.id)} style={{
-                display: 'flex', alignItems: 'center', gap: 12, width: '100%',
-                padding: '10px 12px', borderRadius: 16, border: 'none', cursor: 'pointer',
-                background: active ? '#f1f5ff' : 'transparent', textAlign: 'left',
-                marginBottom: 2, transition: 'background 0.15s',
-              }}
-                onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = '#f8f9fb'; }}
-                onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
-              >
-                <div style={{ position: 'relative', width: 46, height: 46, flexShrink: 0, borderRadius: '50%', background: active ? '#2563eb' : '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff', letterSpacing: 0.5 }}>
-                  {initials(c.name)}
-                  <span style={{ position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: '50%', background: '#22c55e', border: '2px solid #fff' }} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: active ? '#2563eb' : '#94a3b8', whiteSpace: 'nowrap' }}>{formatTime(c.lastMessageTime)}</span>
+          {/* List */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }}>
+            {loadingConvos ? (
+              <div style={{ padding: '48px 16px', textAlign: 'center', fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>Loading…</div>
+            ) : filteredConvos.length === 0 ? (
+              <div style={{ margin: '16px 24px', borderRadius: 16, border: '1.5px dashed #dde3f5', background: 'rgba(255,255,255,0.7)', padding: '40px 20px', textAlign: 'center' }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#374151', margin: 0 }}>No conversations yet</p>
+                <p style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Start a message with someone in your org.</p>
+              </div>
+            ) : filteredConvos.map((c) => {
+              const active = c.id === activeId;
+              return (
+                <button key={c.id} onClick={() => setActiveId(c.id)} style={{
+                  display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+                  padding: '12px 24px', border: 'none', cursor: 'pointer',
+                  background: active ? '#f8f9fb' : 'transparent', textAlign: 'left',
+                  borderLeft: active ? '3px solid #0f172a' : '3px solid transparent',
+                  transition: 'background 0.15s',
+                }}
+                  onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = '#f8f9fb'; }}
+                  onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <div style={{ position: 'relative', width: 44, height: 44, flexShrink: 0, borderRadius: '50%', background: active ? '#2563eb' : '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff', letterSpacing: 0.5 }}>
+                    {initials(c.name)}
+                    <span style={{ position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: '50%', background: '#22c55e', border: '2px solid #fff' }} />
                   </div>
-                  <p style={{ fontSize: 12, color: '#64748b', fontWeight: 500, margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.lastMessage || 'No messages yet'}</p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatTime(c.lastMessageTime)}</span>
+                    </div>
+                    <p style={{ fontSize: 12, color: active ? '#0f172a' : '#64748b', fontWeight: active ? 600 : 500, margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.lastMessage || 'No messages yet'}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
 
+          {/* New Conversation Button at bottom */}
+          <div style={{ padding: '20px 24px' }}>
+            <button
+              onClick={() => setComposeOpen(true)}
+              style={{ width: '100%', padding: '14px', borderRadius: 12, border: '1.5px dashed #cbd5e1', background: '#fff', color: '#475569', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            >
+              <Plus size={16} /> New Conversation
+            </button>
+          </div>
 
-      </aside>
+        </aside>
 
-      {/* ── Chat panel ── */}
-      <main style={{ flex: 1, flexDirection: 'column', minWidth: 0, background: '#f8f9fb' }}
-        className={`${activeId ? 'flex' : 'hidden md:flex'}`}
-        aria-label="Chat window"
-      >
+        {/* ── Chat panel ── */}
+        <main style={{ display: 'flex', flex: 1, flexDirection: 'column', minWidth: 0, background: '#fff' }}
+          className={`${activeId ? 'flex' : 'hidden md:flex'}`}
+          aria-label="Chat window"
+        >
         {!activeId ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
             <div style={{ width: 64, height: 64, borderRadius: 20, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
@@ -262,7 +263,7 @@ export default function MessagesPage() {
                 </div>
                 <div>
                   <p style={{ fontSize: 15, fontWeight: 800, margin: 0 }}>{activeConvo?.name || 'Conversation'}</p>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: '#2563eb', margin: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: '#22c55e', margin: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
                     Online
                   </p>
@@ -282,9 +283,11 @@ export default function MessagesPage() {
             </header>
 
             {/* Messages area */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '32px 48px' }}>
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
-                <span style={{ background: '#eef2ff', borderRadius: 20, padding: '5px 18px', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#475569' }}>Today</span>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '32px 48px', background: '#fff' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32, alignItems: 'center', gap: 16 }}>
+                 <div style={{ height: 1, background: '#e2e8f0', flex: 1 }} />
+                 <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b' }}>Today</span>
+                 <div style={{ height: 1, background: '#e2e8f0', flex: 1 }} />
               </div>
               {loadingMsgs ? (
                 <div style={{ textAlign: 'center', padding: '48px 0', fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>Loading messages…</div>
@@ -301,63 +304,79 @@ export default function MessagesPage() {
                     return (
                       <div key={msg.id} style={{ display: 'flex', alignItems: 'flex-end', gap: 10, maxWidth: '72%', alignSelf: mine ? 'flex-end' : 'flex-start' }}>
                         {!mine && (
-                          <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff', flexShrink: 0, marginBottom: 18 }}>
+                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0, marginBottom: 18 }}>
                             {initials(name)}
                           </div>
                         )}
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: mine ? 'flex-end' : 'flex-start' }}>
                           <div style={{
-                            padding: '11px 16px', borderRadius: mine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                            background: mine ? '#2563eb' : '#f1f3f9',
+                            padding: '16px', borderRadius: 16,
+                            background: mine ? '#000000' : '#f8f9fb',
                             color: mine ? '#fff' : '#0f172a',
                             fontSize: 14, fontWeight: 500, lineHeight: 1.55,
-                            boxShadow: mine ? '0 2px 8px rgba(37,99,235,0.2)' : '0 1px 3px rgba(0,0,0,0.05)',
+                            border: mine ? 'none' : '1px solid #f1f5f9'
                           }}>
                             {msg.message}
                           </div>
-                          <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, marginTop: 4 }}>
-                            {msgTime(msg.createdAt)}{mine ? '  ✓✓' : ''}
+                          <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, marginTop: 6 }}>
+                            {msgTime(msg.createdAt)}{mine ? ' • Read' : ''}
                           </span>
                         </div>
+                        {mine && (
+                          <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 800, color: '#fff', flexShrink: 0, marginBottom: 18 }}>
+                            {initials(user?.firstName + ' ' + user?.lastName)}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
+                  
+                  {/* Decorative VedaAI Suggestion block, purely visual for demonstration as requested */}
+                  {messages.length > 0 && (
+                     <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
+                       <button 
+                         onClick={() => setDraft('Exactly. A few concrete examples of how the stack grows would make it perfect.')}
+                         style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 24, border: '1px solid #f97316', background: '#fffaf5', color: '#ea580c', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
+                       >
+                         <Sparkles size={16} /> VedaAI suggest: Prof. Hamilton often values practical examples for space complexity.
+                       </button>
+                     </div>
+                  )}
+
                   <div ref={endRef} />
                 </div>
               )}
             </div>
 
             {/* Message input */}
-            <form onSubmit={sendMessage} style={{ flexShrink: 0, borderTop: '1px solid #e8eaf0', background: '#fff', padding: '14px 20px 10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <button type="button" style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', flexShrink: 0 }} aria-label="Attach file">
-                  <Paperclip style={{ width: 19, height: 19 }} />
+            <form onSubmit={sendMessage} style={{ flexShrink: 0, borderTop: '1px solid #e8eaf0', background: '#fff', padding: '16px 24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#f8f9fb', borderRadius: 16, padding: '6px 6px 6px 16px', border: '1px solid #f1f5f9' }}>
+                <button type="button" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}>
+                  <Paperclip style={{ width: 18, height: 18 }} />
                 </button>
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', borderRadius: 24, border: '1.5px solid #e2e8f0', background: '#f8fafc', padding: '0 6px 0 16px', minWidth: 0 }}>
-                  <input
-                    value={draft} onChange={(e) => setDraft(e.target.value)}
-                    placeholder="Type your message..."
-                    style={{ flex: 1, height: 48, border: 'none', background: 'transparent', fontSize: 14, fontWeight: 500, color: '#0f172a', outline: 'none' }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(e as any); } }}
-                  />
-                  <button type="button" style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb' }} aria-label="Emoji">
-                    <Smile style={{ width: 18, height: 18 }} />
-                  </button>
-                </div>
+                <input
+                  value={draft} onChange={(e) => setDraft(e.target.value)}
+                  placeholder="Type your message..."
+                  style={{ flex: 1, height: 40, border: 'none', background: 'transparent', fontSize: 14, fontWeight: 500, color: '#0f172a', outline: 'none' }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(e as any); } }}
+                />
+                <button type="button" onClick={() => setDraft('Thank you, Professor! I was a bit worried about the space complexity section.')} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#d97706', display: 'flex', alignItems: 'center', padding: '0 8px' }}>
+                  <Sparkles style={{ width: 18, height: 18 }} />
+                </button>
                 <button type="submit" disabled={!draft.trim()} style={{
-                  width: 48, height: 48, borderRadius: 16, border: 'none', cursor: draft.trim() ? 'pointer' : 'not-allowed',
-                  background: draft.trim() ? '#2563eb' : '#e2e8f0', color: draft.trim() ? '#fff' : '#94a3b8',
+                  width: 44, height: 44, borderRadius: 12, border: 'none', cursor: draft.trim() ? 'pointer' : 'not-allowed',
+                  background: '#000000', color: '#fff',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                  transition: 'background 0.15s, color 0.15s', boxShadow: draft.trim() ? '0 2px 8px rgba(37,99,235,0.3)' : 'none',
+                  opacity: draft.trim() ? 1 : 0.5
                 }} aria-label="Send">
-                  <Send style={{ width: 20, height: 20 }} />
+                  <Send style={{ width: 18, height: 18 }} />
                 </button>
               </div>
-              <p style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', fontWeight: 500, marginTop: 8 }}>Press Enter to send. Shift + Enter for new line</p>
             </form>
           </>
         )}
       </main>
+      </div>
 
       {/* ── Compose modal ── */}
       {composeOpen && (

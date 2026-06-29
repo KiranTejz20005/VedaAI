@@ -168,3 +168,6 @@ tests/           — Test suite
 - Code is readable and maintainable
 - Performance is acceptable
 - User requirements are met
+
+## Source Control Rules
+- DO NOT push code to the repository without explicit permission. Only push code upon direct instructions from the user.

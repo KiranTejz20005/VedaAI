@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Send, Users, Circle, Loader2, User, UserPlus, X, Search, Sparkles } from 'lucide-react';
+import { ArrowLeft, Send, Users, Loader2, UserPlus, X, Search, Sparkles } from 'lucide-react';
 // We will rely on socket.io-client to connect
 import { io, Socket } from 'socket.io-client';
 
