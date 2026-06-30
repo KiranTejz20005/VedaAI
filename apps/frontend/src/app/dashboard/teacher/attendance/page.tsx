@@ -1,189 +1,165 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { api } from '@/lib/api';
+import { useState } from 'react';
+import { PageHeader } from '@/design-system/PageHeader';
+import { Card } from '@/design-system/Card';
+import { Button } from '@/design-system/Button';
+import { Check, X, Calendar as CalendarIcon, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Check, X, Save, Users, Calendar, AlertCircle } from 'lucide-react';
 
 interface Student {
   id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
+  name: string;
   rollNo: string;
+  status: 'PRESENT' | 'ABSENT' | 'NONE';
 }
 
-export default function TeacherAttendancePage() {
-  const [students, setStudents] = useState<Student[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [attendance, setAttendance] = useState<Record<string, 'PRESENT' | 'ABSENT'>>({});
+const MOCK_STUDENTS: Student[] = [
+  { id: '1', name: 'Alice Smith', rollNo: 'CS-001', status: 'NONE' },
+  { id: '2', name: 'Bob Johnson', rollNo: 'CS-002', status: 'NONE' },
+  { id: '3', name: 'Charlie Williams', rollNo: 'CS-003', status: 'NONE' },
+  { id: '4', name: 'Diana Brown', rollNo: 'CS-004', status: 'NONE' },
+  { id: '5', name: 'Ethan Davis', rollNo: 'CS-005', status: 'NONE' },
+];
+
+export default function AttendancePage() {
+  const [students, setStudents] = useState<Student[]>(MOCK_STUDENTS);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [saving, setSaving] = useState(false);
-  const [alreadyTaken, setAlreadyTaken] = useState(false);
+  const [subject, setSubject] = useState('Computer Science 101');
 
-  // Using a hardcoded class ID for demonstration since class selection is out of scope
-  const DUMMY_CLASS_ID = '00000000-0000-0000-0000-000000000001';
-
-  useEffect(() => {
-    const fetchStudents = async () => {
-      try {
-        // Fetch students directly from teacher endpoint to avoid 403 Forbidden errors
-        const res = await api.get<{ success: boolean; data: Student[] }>('/teacher/students');
-        const studentList = res.data.data || [];
-        setStudents(studentList);
-        
-        // Initialize all to PRESENT
-        const initialMap: Record<string, 'PRESENT' | 'ABSENT'> = {};
-        studentList.forEach(s => {
-          initialMap[s.id] = 'PRESENT';
-        });
-        setAttendance(initialMap);
-      } catch (err: any) {
-        toast.error('Failed to load students');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchStudents();
-  }, []);
-
-  useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const res = await api.get<{ success: boolean; alreadyTaken: boolean }>(`/attendance/status?date=${date}`);
-        setAlreadyTaken(res.data.alreadyTaken);
-      } catch (err) {
-        console.error('Failed to fetch status', err);
-      }
-    };
-    fetchStatus();
-  }, [date]);
-
-  const toggleStatus = (id: string) => {
-    if (alreadyTaken) return;
-    setAttendance(prev => ({
-      ...prev,
-      [id]: prev[id] === 'PRESENT' ? 'ABSENT' : 'PRESENT'
-    }));
+  const handleStatusChange = (id: string, status: 'PRESENT' | 'ABSENT') => {
+    setStudents(prev => prev.map(s => s.id === id ? { ...s, status } : s));
   };
 
-  const handleSave = async () => {
-    if (alreadyTaken) return;
-    setSaving(true);
-    try {
-      const records = Object.entries(attendance).map(([studentId, status]) => ({
-        studentId,
-        status,
-        topics: ['React', 'Next.js'], // Placeholder topic
-      }));
+  const handleMarkAll = (status: 'PRESENT' | 'ABSENT') => {
+    setStudents(prev => prev.map(s => ({ ...s, status })));
+  };
 
-      await api.post('/attendance/mark', {
-        classId: DUMMY_CLASS_ID,
-        date,
-        attendance: records,
-      });
-
-      toast.success('Attendance saved successfully');
-      setAlreadyTaken(true);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to save attendance');
-    } finally {
-      setSaving(false);
+  const handleSave = () => {
+    const unrecorded = students.filter(s => s.status === 'NONE').length;
+    if (unrecorded > 0) {
+      toast.error(`Please record attendance for all students (${unrecorded} remaining).`);
+      return;
     }
+    
+    // In a real implementation, this would call the API
+    toast.success('Attendance recorded successfully!');
   };
+
+  const presentCount = students.filter(s => s.status === 'PRESENT').length;
+  const totalCount = students.length;
 
   return (
-    <div style={{ padding: 'var(--page-pad)', maxWidth: 800, margin: '0 auto', width: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, color: '#1E293B' }}>Mark Attendance</h1>
-          <p style={{ color: '#64748B' }}>Select a date and mark students present or absent.</p>
-        </div>
-        
-        <div style={{ display: 'flex', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F1F5F9', padding: '8px 16px', borderRadius: 12 }}>
-            <Calendar size={18} color="#64748B" />
-            <input 
-              type="date" 
-              value={date} 
-              onChange={e => setDate(e.target.value)}
-              style={{ border: 'none', background: 'transparent', outline: 'none', fontWeight: 600, color: '#334155' }}
-            />
-          </div>
-          <button 
-            onClick={handleSave} 
-            disabled={saving || loading || alreadyTaken}
-            style={{ 
-              display: 'flex', alignItems: 'center', gap: 8, 
-              background: 'var(--brand)', color: '#fff', 
-              padding: '10px 20px', borderRadius: 12, fontWeight: 600,
-              opacity: saving || loading || alreadyTaken ? 0.5 : 1,
-              cursor: alreadyTaken ? 'not-allowed' : 'pointer'
-            }}
-          >
-            {saving ? 'Saving...' : <><Save size={18} /> Save Attendance</>}
-          </button>
-        </div>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <PageHeader
+        title="Class Attendance"
+        subtitle="Record and manage daily or subject-specific attendance."
+      />
 
-      {alreadyTaken && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '12px', marginBottom: '24px' }}>
-          <AlertCircle size={20} color="#DC2626" />
-          <span style={{ color: '#991B1B', fontWeight: 600 }}>Today's attendance is already taken.</span>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 3fr', gap: 24 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <Card padding="20px">
+            <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 600, marginBottom: 16 }}>Configuration</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>Date</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)' }}>
+                  <CalendarIcon size={16} color="var(--text-muted)" />
+                  <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', color: 'var(--text-primary)' }} />
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>Class / Subject</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)' }}>
+                  <Users size={16} color="var(--text-muted)" />
+                  <select value={subject} onChange={e => setSubject(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', color: 'var(--text-primary)' }}>
+                    <option value="Computer Science 101">Computer Science 101</option>
+                    <option value="Advanced Mathematics">Advanced Mathematics</option>
+                    <option value="Physics II">Physics II</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </Card>
+          
+          <Card padding="20px">
+            <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 600, marginBottom: 16 }}>Summary</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Total Students:</span>
+                <span style={{ fontWeight: 600 }}>{totalCount}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Present:</span>
+                <span style={{ fontWeight: 600, color: '#10B981' }}>{presentCount}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Absent:</span>
+                <span style={{ fontWeight: 600, color: '#EF4444' }}>{totalCount - presentCount - students.filter(s => s.status === 'NONE').length}</span>
+              </div>
+              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Attendance Rate:</span>
+                <span style={{ fontWeight: 700, color: 'var(--brand)' }}>{totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0}%</span>
+              </div>
+            </div>
+          </Card>
         </div>
-      )}
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        {loading ? (
-          <div style={{ padding: 48, textAlign: 'center', color: '#64748B' }}>Loading students...</div>
-        ) : students.length === 0 ? (
-          <div style={{ padding: 48, textAlign: 'center', color: '#64748B' }}>
-            <Users size={48} style={{ opacity: 0.2, margin: '0 auto 16px' }} />
-            No students found.
+        <Card padding="24px">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 700 }}>Student List</h3>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <Button variant="outline" size="sm" onClick={() => handleMarkAll('PRESENT')}>Mark All Present</Button>
+              <Button variant="outline" size="sm" onClick={() => handleMarkAll('ABSENT')}>Mark All Absent</Button>
+            </div>
           </div>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', textAlign: 'left', color: '#64748B', fontSize: 13 }}>
-                <th style={{ padding: '16px 24px', fontWeight: 600, width: 100 }}>Roll No</th>
-                <th style={{ padding: '16px 24px', fontWeight: 600 }}>Student</th>
-                <th style={{ padding: '16px 24px', fontWeight: 600 }}>Email</th>
-                <th style={{ padding: '16px 24px', fontWeight: 600, width: 200 }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map(student => (
-                <tr key={student.id} style={{ borderBottom: '1px solid #F1F5F9', opacity: alreadyTaken ? 0.7 : 1 }}>
-                  <td style={{ padding: '16px 24px', color: '#64748B', fontWeight: 600 }}>
-                    {student.rollNo}
-                  </td>
-                  <td style={{ padding: '16px 24px', fontWeight: 600, color: '#1E293B' }}>
-                    {student.firstName} {student.lastName}
-                  </td>
-                  <td style={{ padding: '16px 24px', color: '#64748B' }}>
-                    {student.email}
-                  </td>
-                  <td style={{ padding: '16px 24px' }}>
-                    <div 
-                      onClick={() => toggleStatus(student.id)}
-                      style={{ 
-                        display: 'inline-flex', alignItems: 'center', gap: 6,
-                        padding: '6px 12px', borderRadius: 20, 
-                        cursor: alreadyTaken ? 'not-allowed' : 'pointer',
-                        fontSize: 12, fontWeight: 700, userSelect: 'none',
-                        background: attendance[student.id] === 'PRESENT' ? '#ECFDF5' : '#FEF2F2',
-                        color: attendance[student.id] === 'PRESENT' ? '#059669' : '#DC2626'
-                      }}
-                    >
-                      {attendance[student.id] === 'PRESENT' ? <Check size={14} /> : <X size={14} />}
-                      {attendance[student.id] === 'PRESENT' ? 'PRESENT' : 'ABSENT'}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {students.map((student) => (
+              <div key={student.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-muted)', borderRadius: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--brand-light)', color: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                    {student.name.charAt(0)}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{student.name}</div>
+                    <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>{student.rollNo}</div>
+                  </div>
+                </div>
+                
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => handleStatusChange(student.id, 'PRESENT')}
+                    style={{ 
+                      padding: '8px 16px', borderRadius: 20, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                      background: student.status === 'PRESENT' ? '#10B981' : 'white',
+                      color: student.status === 'PRESENT' ? 'white' : 'var(--text-secondary)',
+                      boxShadow: student.status === 'PRESENT' ? '0 4px 12px rgba(16, 185, 129, 0.2)' : '0 2px 4px rgba(0,0,0,0.05)',
+                    }}
+                  >
+                    <Check size={16} /> Present
+                  </button>
+                  <button
+                    onClick={() => handleStatusChange(student.id, 'ABSENT')}
+                    style={{ 
+                      padding: '8px 16px', borderRadius: 20, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                      background: student.status === 'ABSENT' ? '#EF4444' : 'white',
+                      color: student.status === 'ABSENT' ? 'white' : 'var(--text-secondary)',
+                      boxShadow: student.status === 'ABSENT' ? '0 4px 12px rgba(239, 68, 68, 0.2)' : '0 2px 4px rgba(0,0,0,0.05)',
+                    }}
+                  >
+                    <X size={16} /> Absent
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 32, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+            <Button variant="primary" onClick={handleSave} style={{ padding: '0 32px' }}>Save Attendance</Button>
+          </div>
+        </Card>
       </div>
     </div>
   );

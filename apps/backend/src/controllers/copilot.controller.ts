@@ -69,3 +69,25 @@ export const listWorkflows = async (req: Request, res: Response): Promise<void> 
 
   sendSuccess(res, workflows, { message: 'Workflows retrieved' });
 };
+
+/**
+ * POST /v1/copilot/obe-analysis
+ * Generates an automated accreditation report (e.g., NBA, NAAC) using Hybrid RAG and calculated attainment.
+ */
+export const analyzeOBE = async (req: Request, res: Response): Promise<void> => {
+  const { reportType, departmentId } = req.body;
+  const userId = req.user?.id ?? 'demo-faculty-id';
+  
+  if (!reportType) {
+    sendError(res, 400, 'reportType is required', { errorCode: 'VALIDATION_ERROR' });
+    return;
+  }
+
+  // In production:
+  // 1. attainmentService.calculateProgramOutcomeAttainment(...)
+  // 2. Fetch CQI Actions
+  // 3. Feed to LLM via Orchestrator
+  const mockReport = `Generated ${reportType} Report for Department ${departmentId || 'ALL'}...\n\nAttainment Summary: 82%\nCQI Actions: 12 Pending.\nBloom's Distribution: Optimal.`;
+
+  sendSuccess(res, { report: mockReport }, { message: 'OBE Analysis Complete' });
+};

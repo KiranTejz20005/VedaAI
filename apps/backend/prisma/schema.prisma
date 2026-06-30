@@ -6,7 +6,7 @@ datasource db {
   provider = "postgresql"
 }
 
-// ── Enums ──
+// â”€â”€ Enums â”€â”€
 
 enum SystemRole {
   SUPER_ADMIN
@@ -78,7 +78,7 @@ enum BloomLevel {
   CREATE
 }
 
-// ── Organization (tenant) ──
+// â”€â”€ Organization (tenant) â”€â”€
 
 model Organization {
   id               String             @id @default(uuid())
@@ -205,7 +205,7 @@ model User {
   @@index([email])
 }
 
-// ── ClassGroup (legacy) ──
+// â”€â”€ ClassGroup (legacy) â”€â”€
 
 model ClassGroup {
   id             String        @id @default(uuid())
@@ -299,7 +299,7 @@ model PredictiveAnalytics {
   updatedAt DateTime @updatedAt
 }
 
-// ── Classroom structure ──
+// â”€â”€ Classroom structure â”€â”€
 
 model Classroom {
   id             String       @id @default(uuid())
@@ -342,7 +342,7 @@ model Enrollment {
   @@index([studentId])
 }
 
-// ── Invitations ──
+// â”€â”€ Invitations â”€â”€
 
 model Invitation {
   id             String           @id @default(uuid())
@@ -363,7 +363,7 @@ model Invitation {
   @@index([createdById])
 }
 
-// ── Syllabus ──
+// â”€â”€ Syllabus â”€â”€
 
 model Syllabus {
   id             String          @id @default(uuid())
@@ -410,7 +410,7 @@ model SyllabusSubtopic {
   @@index([topicId])
 }
 
-// ── Questions & Assessment ──
+// â”€â”€ Questions & Assessment â”€â”€
 
 model Question {
   id         String     @id @default(uuid())
@@ -468,11 +468,11 @@ model Assessment {
   status     String  @default("DRAFT")
 
   authorId       String
-  author         User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author         User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
   organizationId String
-  organization   Organization  @relation("OrganizationAssessments", fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  organization   Organization @relation("OrganizationAssessments", fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   questions AssessmentQuestion[]
 
@@ -492,7 +492,7 @@ model AssessmentQuestion {
   @@index([questionId])
 }
 
-// ── Assignment & Papers ──
+// â”€â”€ Assignment & Papers â”€â”€
 
 model Assignment {
   id                     String         @id @default(uuid())
@@ -584,7 +584,7 @@ model GenerationJob {
   @@index([organizationId])
 }
 
-// ── Quiz Sessions ──
+// â”€â”€ Quiz Sessions â”€â”€
 
 model QuizSession {
   id               String        @id @default(uuid())
@@ -641,7 +641,7 @@ model QuizSessionQuestion {
   @@index([sessionId, questionIndex])
 }
 
-// ── Sessions & Auth ──
+// â”€â”€ Sessions & Auth â”€â”€
 
 model Session {
   id        String   @id @default(uuid())
@@ -700,7 +700,7 @@ model PasswordResetToken {
   @@index([userId])
 }
 
-// ── Prompt Templates & Execution ──
+// â”€â”€ Prompt Templates & Execution â”€â”€
 
 model PromptTemplate {
   id             String          @id @default(uuid())
@@ -749,7 +749,7 @@ model PromptExecution {
   @@index([promptVersionId])
 }
 
-// ── Question Bank ──
+// â”€â”€ Question Bank â”€â”€
 
 model QuestionBank {
   id             String               @id @default(uuid())
@@ -787,7 +787,7 @@ model QuestionVersion {
   @@index([questionId])
 }
 
-// ── Audit Log ──
+// â”€â”€ Audit Log â”€â”€
 
 model AuditLog {
   id             String        @id @default(uuid())
@@ -809,7 +809,7 @@ model AuditLog {
   @@index([organizationId, createdAt])
 }
 
-// ── Subscription ──
+// â”€â”€ Subscription â”€â”€
 
 model Subscription {
   id               String           @id @default(uuid())
@@ -841,7 +841,7 @@ model Invoice {
   @@index([subscriptionId])
 }
 
-// ── Grading ──
+// â”€â”€ Grading â”€â”€
 
 model Rubric {
   id          String  @id @default(uuid())
@@ -919,10 +919,11 @@ model AssignmentGradingConfig {
   answerKeyText String   @default("")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
   @@index([rubricId])
 }
 
-// ── Submissions ──
+// â”€â”€ Submissions â”€â”€
 
 model StudentSubmission {
   id             String                 @id @default(uuid())
@@ -958,7 +959,7 @@ model SubmissionEvaluation {
   updatedAt       DateTime          @updatedAt
 }
 
-// ── Collections ──
+// â”€â”€ Collections â”€â”€
 
 model QuestionCollection {
   id          String         @id @default(uuid())
@@ -973,7 +974,7 @@ model QuestionCollection {
   @@index([userId])
 }
 
-// ── AI Features ──
+// â”€â”€ AI Features â”€â”€
 
 model AIRecommendation {
   id              String        @id @default(uuid())
@@ -1078,7 +1079,7 @@ model GeneratedNotes {
   @@index([organizationId])
 }
 
-// ── RBAC ──
+// â”€â”€ RBAC â”€â”€
 
 model Role {
   id          String       @id @default(uuid())
@@ -1112,7 +1113,7 @@ model UserRole {
   @@index([roleId])
 }
 
-// ── Classes & Groups ──
+// â”€â”€ Classes & Groups â”€â”€
 
 model Class {
   id                String             @id @default(uuid())
@@ -1175,7 +1176,7 @@ model GroupStudent {
   @@index([groupId])
 }
 
-// ── Notifications ──
+// â”€â”€ Notifications â”€â”€
 
 model Notification {
   id             String       @id @default(uuid())
@@ -1195,7 +1196,7 @@ model Notification {
   @@index([organizationId, createdAt])
 }
 
-// ── Community Hub ──
+// â”€â”€ Community Hub â”€â”€
 
 model CommunityPost {
   id             String        @id @default(uuid())
@@ -1343,7 +1344,7 @@ model Meeting {
   @@index([organizationId])
 }
 
-// ── System Settings ──
+// â”€â”€ System Settings â”€â”€
 model SystemSetting {
   id                String   @id @default("global")
   platformName      String   @default("Vidya AI Education")
@@ -1358,7 +1359,7 @@ model SystemSetting {
   updatedAt         DateTime @updatedAt
 }
 
-// ── Attendance ──
+// â”€â”€ Attendance â”€â”€
 model AttendanceRecord {
   id             String       @id @default(uuid())
   studentId      String
@@ -1402,7 +1403,7 @@ model LeaveApplication {
   @@index([organizationId])
 }
 
-// ── RAG Knowledge Base ──
+// â”€â”€ RAG Knowledge Base â”€â”€
 
 model KnowledgeDocument {
   id             String                 @id @default(uuid())
@@ -1490,7 +1491,7 @@ model RagEvaluationBenchmark {
   createdAt DateTime @default(now())
 }
 
-// ── AI Tutor ──
+// â”€â”€ AI Tutor â”€â”€
 
 model TutorSession {
   id             String        @id @default(uuid())
@@ -1538,4 +1539,88 @@ model TeacherTutorConfig {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// â”€â”€ OBE & Accreditation (Phase 20) â”€â”€
+model CourseOutcome {
+  id             String     @id @default(uuid())
+  code           String
+  description    String
+  bloomLevel     BloomLevel
+  courseId       String
+  organizationId String
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([courseId])
+  @@index([organizationId])
+}
+
+model ProgramOutcome {
+  id             String   @id @default(uuid())
+  code           String
+  description    String
+  programId      String
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([programId])
+  @@index([organizationId])
+}
+
+model CoPoMapping {
+  id        String   @id @default(uuid())
+  coId      String
+  poId      String
+  weightage Int      @default(3)
+  createdAt DateTime @default(now())
+
+  @@unique([coId, poId])
+}
+
+// â”€â”€ Research & Digital Library (Phase 21) â”€â”€
+model DigitalLibraryItem {
+  id             String   @id @default(uuid())
+  title          String
+  type           String // Book, Journal, Paper
+  authors        String
+  metadata       Json? // ISBN, DOI, publisher
+  fileUrl        String?
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+model ResearchPaper {
+  id             String   @id @default(uuid())
+  title          String
+  abstract       String
+  status         String // Draft, Review, Published
+  authorId       String
+  organizationId String
+  citationFormat String   @default("APA")
+  fileUrl        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([authorId])
+  @@index([organizationId])
+}
+
+model ThesisProposal {
+  id             String   @id @default(uuid())
+  title          String
+  abstract       String
+  studentId      String
+  supervisorId   String
+  status         String // Proposed, Approved, Defended
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([supervisorId])
 }

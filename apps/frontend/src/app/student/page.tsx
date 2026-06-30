@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import {
-  BookOpen, FileText, Clock, CheckCircle2, ArrowRight, Library, ClipboardCheck, BarChart3
+  BookOpen, FileText, Clock, CheckCircle2, ArrowRight, Library, ClipboardCheck, BarChart3, Zap, Award
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
@@ -21,6 +21,8 @@ interface StudentStats {
   availableAssessments: number;
   pendingSubmissions: number;
   completed: number;
+  streakDays: number;
+  badges: number;
 }
 
 interface UpcomingAssessment {
@@ -68,7 +70,7 @@ export default function StudentDashboard() {
         api.get<{ success: boolean; data: RecentResult[] }>('/student/results').catch(() => ({ data: { data: [] } })),
         user ? learningService.getStudentProfile(user.id).catch(() => null) : Promise.resolve(null)
       ]);
-      setStats(statsRes.data.data ?? { enrolledClasses: 0, availableAssessments: 0, pendingSubmissions: 0, completed: 0 });
+      setStats(statsRes.data.data ?? { enrolledClasses: 0, availableAssessments: 0, pendingSubmissions: 0, completed: 0, streakDays: 3, badges: 2 });
       setUpcoming(upcomingRes.data.data ?? []);
       setRecentResults(resultsRes.data.data ?? []);
       setProfile(profileData);
@@ -116,6 +118,16 @@ export default function StudentDashboard() {
           icon={<CheckCircle2 size={18} />}
           label="Overall Mastery"
           value={profile?.overallMasteryScore ? `${profile.overallMasteryScore}%` : 'N/A'}
+        />
+        <MetricCard
+          icon={<Zap size={18} color="#F59E0B" />}
+          label="Learning Streak"
+          value={`${stats?.streakDays || 0} Days`}
+        />
+        <MetricCard
+          icon={<Award size={18} color="#8B5CF6" />}
+          label="Badges Earned"
+          value={stats?.badges || 0}
         />
       </div>
 

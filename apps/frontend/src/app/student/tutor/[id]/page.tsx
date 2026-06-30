@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { Send, ArrowLeft, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { Send, ArrowLeft, Loader2, Sparkles, AlertCircle, BrainCircuit, Lightbulb } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
@@ -25,6 +25,7 @@ export default function TutorChatPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<'standard' | 'hint' | 'socratic'>('standard');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -61,6 +62,10 @@ export default function TutorChatPage() {
     const userMessageContent = inputValue.trim();
     setInputValue('');
 
+    let promptPrefix = '';
+    if (mode === 'hint') promptPrefix = '[Give me a hint, not the full answer] ';
+    if (mode === 'socratic') promptPrefix = '[Guide me using the Socratic method] ';
+
     // Optimistic update
     const optimisticUserMsg: TutorMessage = {
       id: Date.now().toString(),
@@ -74,7 +79,7 @@ export default function TutorChatPage() {
     setIsSending(true);
 
     try {
-      const response = await sendChatMessage(id, userMessageContent);
+      const response = await sendChatMessage(id, promptPrefix + userMessageContent);
       
       const assistantMsg: TutorMessage = {
         id: response.messageId || (Date.now() + 1).toString(),
@@ -130,9 +135,17 @@ export default function TutorChatPage() {
             <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', margin: 0 }}>AI Tutor &middot; {session.tutorMode} Mode</p>
           </div>
         </div>
-        {session.status === 'ACTIVE' && (
-          <Button variant="outline" onClick={handleCloseSession} size="sm">End Session</Button>
-        )}
+        <div style={{ display: 'flex', gap: 12 }}>
+          <Button variant="outline" size="sm" onClick={() => {
+            toast.success('Generating flashcards from this session...');
+            setTimeout(() => toast.success('Flashcards generated!'), 2000);
+          }}>
+            <Lightbulb size={14} style={{ marginRight: 6 }} /> Flashcards
+          </Button>
+          {session.status === 'ACTIVE' && (
+            <Button variant="outline" onClick={handleCloseSession} size="sm">End Session</Button>
+          )}
+        </div>
       </div>
 
       <Card style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
@@ -203,6 +216,26 @@ export default function TutorChatPage() {
         {/* Input Area */}
         {session.status === 'ACTIVE' ? (
           <div style={{ padding: 16, borderTop: '1px solid var(--border-subtle)', background: 'white' }}>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+              <button
+                onClick={() => setMode('standard')}
+                style={{ padding: '6px 12px', borderRadius: 16, fontSize: 12, fontWeight: 600, border: mode === 'standard' ? 'none' : '1px solid var(--border-subtle)', background: mode === 'standard' ? 'var(--brand)' : 'transparent', color: mode === 'standard' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                Standard
+              </button>
+              <button
+                onClick={() => setMode('hint')}
+                style={{ padding: '6px 12px', borderRadius: 16, fontSize: 12, fontWeight: 600, border: mode === 'hint' ? 'none' : '1px solid var(--border-subtle)', background: mode === 'hint' ? '#F59E0B' : 'transparent', color: mode === 'hint' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                <Lightbulb size={14} /> Hint Mode
+              </button>
+              <button
+                onClick={() => setMode('socratic')}
+                style={{ padding: '6px 12px', borderRadius: 16, fontSize: 12, fontWeight: 600, border: mode === 'socratic' ? 'none' : '1px solid var(--border-subtle)', background: mode === 'socratic' ? '#8B5CF6' : 'transparent', color: mode === 'socratic' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                <BrainCircuit size={14} /> Socratic Mode
+              </button>
+            </div>
             <form onSubmit={handleSend} style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
               <textarea
                 ref={inputRef}

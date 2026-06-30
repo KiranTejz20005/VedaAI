@@ -142,31 +142,39 @@ export default function TeacherDashboard() {
         </Card>
         
         <Card padding="clamp(16px, 2vw, 20px)">
-          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 16 }}>Quick Actions</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 16 }}>Teacher Command Center</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
             <button
-              onClick={() => router.push('/generate')}
-              style={{ padding: '12px 16px', background: 'var(--brand)', color: 'white', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, border: 'none', cursor: 'pointer', transition: 'opacity 0.2s' }}
+              onClick={() => router.push('/dashboard/teacher/generate-quiz')}
+              style={{ padding: '12px 16px', background: 'var(--brand)', color: 'white', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, border: 'none', cursor: 'pointer', transition: 'opacity 0.2s', justifyContent: 'center' }}
               onMouseOver={e => e.currentTarget.style.opacity = '0.9'}
               onMouseOut={e => e.currentTarget.style.opacity = '1'}
             >
-              <FileText size={18} /> Create Test
+              <FileText size={18} /> Quick Generate Quiz
             </button>
             <button
-              onClick={() => router.push('/assignments/create')}
-              style={{ padding: '12px 16px', background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 0.2s' }}
+              onClick={() => router.push('/dashboard/teacher/grade')}
+              style={{ padding: '12px 16px', background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 0.2s', justifyContent: 'center' }}
               onMouseOver={e => e.currentTarget.style.background = 'var(--bg-muted)'}
               onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
             >
-              <ClipboardList size={18} /> Create Assignment
+              <ClipboardList size={18} /> Grade Pending Assignments
+            </button>
+            <button
+              onClick={() => router.push('/dashboard/teacher/insights?filter=at-risk')}
+              style={{ padding: '12px 16px', background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 0.2s', justifyContent: 'center' }}
+              onMouseOver={e => e.currentTarget.style.background = 'var(--bg-muted)'}
+              onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
+            >
+              <UserX size={18} color="#ef4444" /> Review At-Risk Students
             </button>
             <button
               onClick={() => setShowUploadModal(true)}
-              style={{ padding: '12px 16px', background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 0.2s' }}
+              style={{ padding: '12px 16px', background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 0.2s', justifyContent: 'center' }}
               onMouseOver={e => e.currentTarget.style.background = 'var(--bg-muted)'}
               onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
             >
-              <UploadCloud size={18} /> Upload Material
+              <UploadCloud size={18} /> Upload Class Material
             </button>
           </div>
         </Card>
