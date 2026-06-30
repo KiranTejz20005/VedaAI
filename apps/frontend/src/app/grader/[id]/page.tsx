@@ -26,6 +26,8 @@ interface Evaluation {
     fileUrl: string;
     fileType: string;
   };
+  studentText?: string;
+  rubricCriteria?: { id: string; name: string; maxMarks: number }[];
 }
 
 export default function GradeReviewPage() {
@@ -55,11 +57,8 @@ export default function GradeReviewPage() {
       });
       setManualGrades(initialGrades);
 
-      // Fetch student submission text
-      // We can fetch the raw path or display it. We fetch details or read content.
-      // For demonstration in split view, we can call a route or show a fallback mock text
-      const subId = evalRes.data.data.submission.id;
-      setStudentText("Extracting submission document...\n\nStudent Answer:\nLorem ipsum dolor sit amet, consectetur adipiscing elit. This is the student's essay submission on subject curriculum topics. The student states that the Renaissance was a period of cultural, artistic, political and scientific rebirth. It promoted the redistribution of classical philosophy and literature.");
+      // Bind actual student submission text
+      setStudentText(evalRes.data.data.studentText || 'No text extracted from submission.');
     } catch {
       toast.error('Failed to load evaluation details');
     } finally {
@@ -157,7 +156,9 @@ export default function GradeReviewPage() {
                       value={manualGrades[cg.criteriaId] ?? cg.score}
                       onChange={(e) => setManualGrades({ ...manualGrades, [cg.criteriaId]: Number(e.target.value) })}
                     />
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>/ 10</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      / {evaluation.rubricCriteria?.find(c => c.id === cg.criteriaId)?.maxMarks ?? 10}
+                    </span>
                   </div>
                 </div>
                 <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>

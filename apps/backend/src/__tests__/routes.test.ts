@@ -1,8 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import request from 'supertest';
 import apiRouter from '../routes';
 import { errorMiddleware } from '../middlewares/error.middleware';
+
+// Mock Auth Middleware
+vi.mock('../middlewares/auth.middleware', () => ({
+  authenticate: vi.fn((req: Request, _res: Response, next: NextFunction) => {
+    req.user = {
+      id: 'test-user',
+      email: 'test@example.com',
+      role: 'SUPER_ADMIN',
+      organizationId: 'org-a',
+      activeOrganizationId: 'org-a',
+    };
+    next();
+  }),
+  authorize: vi.fn(() => (_req: Request, _res: Response, next: NextFunction) => next()),
+  requireOrganizationScope: vi.fn(() => (_req: Request, _res: Response, next: NextFunction) => next()),
+  requireOwnership: vi.fn(() => (_req: Request, _res: Response, next: NextFunction) => next()),
+}));
 
 // Mock Services
 vi.mock('../services/assignment.service', () => ({

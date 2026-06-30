@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
-import { evaluateSubmission } from '../services/grader.service';
+import { evaluateSubmission, extractTextFromFile } from '../services/grader.service';
 import {
   assertCanGradeAssignment,
   loadSubmissionScoped,
@@ -68,7 +68,19 @@ export const getSubmissionEvaluation = async (req: Request, res: Response): Prom
       where: { submissionId: submission.id },
       include: { submission: true },
     });
-    res.json({ success: true, data: evaluation });
+    
+    let studentText = '';
+    if (evaluation?.submission) {
+      studentText = await extractTextFromFile(evaluation.submission.fileUrl, evaluation.submission.fileType);
+    }
+    
+    const config = await prisma.assignmentGradingConfig.findUnique({
+      where: { assignmentId: submission.assignmentId },
+      include: { rubric: { include: { criteria: true } } },
+    });
+    const rubricCriteria = config?.rubric?.criteria || [];
+    
+    res.json({ success: true, data: { ...evaluation, studentText, rubricCriteria } });
   } catch (err) {
     if (handleAccessError(res, err)) return;
     res.status(500).json({ success: false, error: 'Failed to fetch evaluation' });
@@ -132,11 +144,11 @@ export const listSubmissions = async (req: Request, res: Response): Promise<void
       submissions.map(async (sub) => {
         const user = await prisma.user.findUnique({
           where: { id: sub.studentId },
-          select: { name: true, email: true }
+          select: { firstName: true, lastName: true, email: true }
         });
         return {
           ...sub,
-          studentName: user?.name || user?.email || sub.studentId
+          studentName: user ? `${user.firstName} ${user.lastName}`.trim() : sub.studentId
         };
       })
     );
@@ -188,5 +200,59 @@ export const listRubrics = async (req: Request, res: Response): Promise<void> =>
     res.json({ success: true, data: rubrics });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to list rubrics' });
+  }
+};
+
+export const updateRubric = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const organizationId = requireRequestOrgId(req);
+    const { rubricId } = req.params;
+    const { title, description, criteria } = req.body;
+    
+    // Ensure it belongs to org
+    const existing = await prisma.rubric.findFirst({ where: { id: rubricId, organizationId } });
+    if (!existing) {
+       res.status(404).json({ success: false, error: 'Rubric not found' });
+       return;
+    }
+
+    const updated = await prisma.rubric.update({
+      where: { id: rubricId },
+      data: {
+        title,
+        description,
+        criteria: {
+          deleteMany: {},
+          create: criteria.map((c: any) => ({
+            name: c.name,
+            description: c.description,
+            maxMarks: Number(c.maxMarks) || 10,
+          })),
+        }
+      },
+      include: { criteria: true },
+    });
+
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to update rubric' });
+  }
+};
+
+export const deleteRubric = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const organizationId = requireRequestOrgId(req);
+    const { rubricId } = req.params;
+
+    const existing = await prisma.rubric.findFirst({ where: { id: rubricId, organizationId } });
+    if (!existing) {
+       res.status(404).json({ success: false, error: 'Rubric not found' });
+       return;
+    }
+
+    await prisma.rubric.delete({ where: { id: rubricId } });
+    res.json({ success: true, message: 'Rubric deleted' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to delete rubric' });
   }
 };

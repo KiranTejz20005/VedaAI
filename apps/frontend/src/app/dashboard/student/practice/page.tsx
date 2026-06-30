@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, X, 
   Calculator, Thermometer, Globe, Microscope, 
-  ChevronRight, Filter, Settings2, BarChart2, Zap
+  ChevronRight, Filter, Settings2, BarChart2, Zap,
+  Paperclip, Loader2, AlertCircle, ImageOff, History, Trash2, RotateCcw, ChevronDown, ChevronUp, RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/services/api.client';

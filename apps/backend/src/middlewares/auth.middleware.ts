@@ -1,8 +1,9 @@
-/* eslint-disable @typescript-eslint/no-namespace */
 import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../services/auth.service';
+import { logger } from '../utils/logger';
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: {
@@ -36,36 +37,18 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
     }
 
     if (!token) {
-      // 3. Fallback for local development / testing
-      const isMockAuthEnabled =
-        process.env.NODE_ENV !== 'production' &&
-        (process.env.NODE_ENV === 'test' || process.env.ENABLE_MOCK_AUTH === 'true' || process.env.NODE_ENV === 'development');
-      if (isMockAuthEnabled) {
-        const mockRole = (req.headers['x-mock-role'] as string) || 'TEACHER';
-        const mockUserId = (req.headers['x-mock-userid'] as string) || 'demo-faculty-id';
-        req.user = {
-          id: mockUserId,
-          email: 'demo@bloomverify.com',
-          role: mockRole,
-          organizationId: 'demo-org-id',
-          activeOrganizationId: 'demo-org-id',
-          departmentId: 'dept-demo',
-        };
-        return next();
-      }
       return res.status(401).json({ success: false, error: 'Authentication required' });
     }
 
     // Token exists, verify it
     const decodedPayload = verifyAccessToken(token);
-    const headerOrgId = req.headers['x-organization-id'] as string | undefined;
 
     req.user = {
       id: decodedPayload.userId,
       email: decodedPayload.email,
       role: decodedPayload.role,
       organizationId: decodedPayload.organizationId,
-      activeOrganizationId: headerOrgId || decodedPayload.activeOrganizationId,
+      activeOrganizationId: decodedPayload.activeOrganizationId,
       departmentId: decodedPayload.departmentId,
     };
     return next();
@@ -141,7 +124,7 @@ export const authorize = (allowedRoles: string[]) => {
     }
 
     // Role is not authorized
-    console.error(`[Authorize Failed] User: ${req.user.email} (ID: ${req.user.id}), Role in Token: ${req.user.role}, Normalized Role: ${role}, Allowed: ${normalizedAllowedRoles.join(', ')}, URL: ${req.originalUrl}`);
+    logger.warn({ userId: req.user.id, role: req.user.role, normalizedRole: role, allowedRoles: normalizedAllowedRoles, url: req.originalUrl }, '[Authorize] Insufficient privileges');
     return res.status(403).json({ success: false, error: 'Forbidden: Insufficient privileges' });
   };
 };

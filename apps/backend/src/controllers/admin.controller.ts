@@ -14,7 +14,6 @@ import { getGenerationQueue } from '../queues/generation.queue';
 import { getPdfQueue } from '../queues/pdf.queue';
 import { createInvitation } from '../services/invitation.service';
 import { processCsvImport } from '../services/csv-import.service';
-import { v4 as uuidv4 } from 'uuid';
 import * as argon2 from 'argon2';
 import * as fs from 'fs';
 
@@ -1746,7 +1745,6 @@ export class AdminController {
     try {
       if (!req.file) { res.status(400).json({ success: false, error: 'No CSV file uploaded' }); return; }
       const orgId = getAdminOrgId(req);
-      const fs = require('fs');
       const content = fs.readFileSync(req.file.path, 'utf-8');
       const lines = content.split('\n').filter((l: string) => l.trim());
       if (lines.length < 2) { res.status(400).json({ success: false, error: 'CSV has no data rows' }); return; }
@@ -1790,7 +1788,7 @@ export class AdminController {
   static async getPendingApprovals(req: Request, res: Response) {
     try {
       const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
-      console.log(`[Admin:getPendingApprovals] User: ${req.user?.id}, Role: ${req.user?.role}, OrgId: ${orgId}`);
+      logger.debug({ userId: req.user?.id, role: req.user?.role, orgId }, '[Admin:getPendingApprovals] fetching');
       if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
       const pending = await prisma.assignment.findMany({
         where: { organizationId: orgId, status: 'PENDING_APPROVAL' },
@@ -1800,7 +1798,7 @@ export class AdminController {
           createdBy: { select: { firstName: true, lastName: true, email: true } }
         },
       });
-      console.log(`[Admin:getPendingApprovals] orgId: ${orgId}, found: ${pending.length} pending approvals.`);
+      logger.debug({ orgId, count: pending.length }, '[Admin:getPendingApprovals] found approvals');
       res.json({ success: true, data: pending });
     } catch (err: any) {
       logger.error(`[Admin:getPendingApprovals] ${err}`);

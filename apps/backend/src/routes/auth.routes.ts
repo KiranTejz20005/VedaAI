@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { asyncHandler } from '../utils/async-handler';
 import {
   getMe,
@@ -24,21 +25,29 @@ import { authenticate } from '../middlewares/auth.middleware';
 
 const router = Router();
 
-// Public auth endpoints
+// Strict rate limiting for auth endpoints to prevent brute-force attacks
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many authentication attempts. Please try again later.' },
+});
+
+// Public auth endpoints (with strict rate limiting)
 router.get('/public-organizations', asyncHandler(getPublicOrganizations));
-router.post('/signup', asyncHandler(signup));
-router.post('/accept-invite', asyncHandler(acceptInvite));
-router.post('/login', asyncHandler(login));
-router.post('/sso', asyncHandler(ssoLogin));
-router.post('/refresh', asyncHandler(refresh));
-router.post('/logout', asyncHandler(logout));
+router.post('/signup', authLimiter, asyncHandler(signup));
+router.post('/accept-invite', authLimiter, asyncHandler(acceptInvite));
+router.post('/login', authLimiter, asyncHandler(login));
+router.post('/sso', authLimiter, asyncHandler(ssoLogin));
+router.post('/refresh', authLimiter, asyncHandler(refresh));
+router.post('/logout', authLimiter, asyncHandler(logout));
 
 // Protected auth endpoints
 router.use(authenticate);
 
 router.get('/me', asyncHandler(getMe));
 router.post('/onboarding/complete', asyncHandler(completeOnboarding));
-router.put('/me', asyncHandler(updateProfile));
 router.put('/me/profile', asyncHandler(updateProfile));
 router.put('/me/preferences', asyncHandler(updatePreferences));
 router.get('/me/organizations', asyncHandler(getAvailableOrganizations));

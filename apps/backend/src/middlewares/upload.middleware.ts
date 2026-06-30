@@ -4,7 +4,6 @@ import crypto from 'crypto';
 import fs from 'fs';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
-import { v4 as uuidv4 } from 'uuid';
 
 const uploadDir = path.resolve(env.UPLOAD_DIR);
 if (!fs.existsSync(uploadDir)) {
@@ -20,6 +19,18 @@ const storage = multer.diskStorage({
   },
 });
 
+const ALLOWED_TYPES: Record<string, string[]> = {
+  '.pdf': ['application/pdf'],
+  '.txt': ['text/plain'],
+  '.docx': [
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/zip', // DOCX files are ZIP archives; some browsers/OSes report this MIME
+  ],
+  '.png': ['image/png'],
+  '.jpg': ['image/jpeg'],
+  '.jpeg': ['image/jpeg'],
+};
+
 function fileFilter(
   req: any,
   file: Express.Multer.File,
@@ -27,30 +38,18 @@ function fileFilter(
 ): void {
   const fileExt = path.extname(file.originalname).toLowerCase();
   const mime = (file.mimetype || '').toLowerCase();
-  
-  const allowedByExtAndMime =
-    (fileExt === '.pdf' && (mime === 'application/pdf' || mime === 'application/octet-stream')) ||
-    (fileExt === '.txt' && (mime === 'text/plain' || mime === 'application/octet-stream')) ||
-    (fileExt === '.docx' && (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || mime === 'application/octet-stream'));
+  const allowed = ALLOWED_TYPES[fileExt]?.includes(mime) ?? false;
 
-  if (allowedByExtAndMime) {
+  if (allowed) {
     cb(null, true);
   } else {
-    const userId = req.user?.id || 'anonymous';
-    const organizationId = req.user?.organizationId || 'no-organization';
-    const requestId = (req.headers['x-request-id'] as string) || uuidv4();
-    
     logger.warn({
-      action: 'Upload Rejected',
-      userId,
-      organizationId,
-      requestId,
+      userId: req.user?.id || 'anonymous',
       fileName: file.originalname,
-      reason: `File type ${file.mimetype} with extension ${fileExt || '(none)'} is not allowed.`,
-      timestamp: new Date().toISOString(),
-    });
-
-    cb(new Error(`File type ${file.mimetype} with extension ${fileExt || '(none)'} is not allowed. Only PDF, DOCX, and TXT files are accepted.`));
+      mime,
+      ext: fileExt,
+    }, '[Upload] Rejected file — type not allowed');
+    cb(new Error('File type not allowed. Only PDF, DOCX, and TXT files are accepted.'));
   }
 }
 
@@ -58,7 +57,7 @@ export const uploadMiddleware = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024, // Enforce strict 10MB limit
+    fileSize: 10 * 1024 * 1024, // 10MB hard limit
     files: 10,
   },
 });

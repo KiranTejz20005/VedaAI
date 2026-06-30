@@ -11,6 +11,7 @@ import {
   revokeSession,
 } from '../services/auth.service';
 import { validateInvitationToken } from '../services/invitation.service';
+import { getRedisClient } from '../config/redis';
 
 const REFRESH_COOKIE_NAME = 'refresh_token';
 
@@ -54,8 +55,12 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (String(password).length < 6) {
-      res.status(400).json({ success: false, error: 'Password must be at least 6 characters long' });
+    if (String(password).length < 8) {
+      res.status(400).json({ success: false, error: 'Password must be at least 8 characters long' });
+      return;
+    }
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(String(password))) {
+      res.status(400).json({ success: false, error: 'Password must contain at least one uppercase letter, one lowercase letter, and one number' });
       return;
     }
 
@@ -63,9 +68,10 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
     const assignedRole = role === 'STUDENT' ? 'STUDENT' : 'TEACHER';
 
     const normalizedEmail = String(email).trim().toLowerCase();
+    // Intentionally using generic message to prevent user enumeration
     const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {
-      res.status(409).json({ success: false, error: 'An account with this email already exists' });
+      res.status(409).json({ success: false, error: 'Registration failed. Please check your details and try again.' });
       return;
     }
 
@@ -146,7 +152,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
     });
   } catch (error: any) {
     logger.error(`[signup] ${error}`);
-    res.status(500).json({ success: false, error: error.message || 'Registration failed' });
+    res.status(500).json({ success: false, error: 'Registration failed. Please try again later.' });
   }
 };
 
@@ -157,6 +163,15 @@ export const acceptInvite = async (req: Request, res: Response): Promise<void> =
 
     if (!token || !password || !firstName || !lastName) {
       res.status(400).json({ success: false, error: 'Missing required fields' });
+      return;
+    }
+
+    if (String(password).length < 8) {
+      res.status(400).json({ success: false, error: 'Password must be at least 8 characters long' });
+      return;
+    }
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(String(password))) {
+      res.status(400).json({ success: false, error: 'Password must contain at least one uppercase letter, one lowercase letter, and one number' });
       return;
     }
 
@@ -215,6 +230,23 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     const normalizedEmail = String(email).trim().toLowerCase();
+
+    // ── Brute-force / account-lockout protection ──
+    const loginKey = `login:attempts:${normalizedEmail}:${ipAddress}`;
+    const lockKey = `login:locked:${normalizedEmail}:${ipAddress}`;
+    const MAX_ATTEMPTS = 5;
+    const LOCK_DURATION = 15 * 60; // 15 minutes
+    try {
+      const redis = getRedisClient();
+      const isLocked = await redis.get(lockKey);
+      if (isLocked) {
+        logger.warn({ email: normalizedEmail, ip: ipAddress }, '[login] Account temporarily locked');
+        res.status(429).json({ success: false, error: 'Too many failed login attempts. Try again in 15 minutes.' });
+        return;
+      }
+    } catch (redisErr) {
+      logger.warn({ redisErr }, '[login] Redis brute-force check unavailable — proceeding');
+    }
     const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (!user) {
       res.status(401).json({ success: false, error: 'Invalid email or password' });
@@ -242,6 +274,18 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         metadata: { reason: 'FAILED_PASSWORD' }
       });
 
+      // Increment brute-force counter
+      try {
+        const redis = getRedisClient();
+        const attempts = await redis.incr(loginKey);
+        if (attempts === 1) await redis.expire(loginKey, LOCK_DURATION);
+        if (attempts >= MAX_ATTEMPTS) {
+          await redis.set(lockKey, '1', 'EX', LOCK_DURATION);
+          await redis.del(loginKey);
+          logger.warn({ email: normalizedEmail, ip: ipAddress }, '[login] Account locked after max failed attempts');
+        }
+      } catch { /* non-critical — continue even if Redis unavailable */ }
+
       res.status(401).json({ success: false, error: 'Invalid email or password' });
       return;
     }
@@ -255,6 +299,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       activeOrganizationId: user.activeOrganizationId,
       departmentId: user.departmentId,
     });
+
+    // Clear brute-force counter on successful login
+    try {
+      const redis = getRedisClient();
+      await Promise.all([redis.del(loginKey), redis.del(lockKey)]);
+    } catch { /* non-critical */ }
 
     const refreshToken = await createRefreshToken(user.id);
 
@@ -640,6 +690,14 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
 
     if (!currentPassword || !newPassword) {
       res.status(400).json({ success: false, error: 'Current password and new password are required' });
+      return;
+    }
+    if (String(newPassword).length < 8) {
+      res.status(400).json({ success: false, error: 'New password must be at least 8 characters long' });
+      return;
+    }
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(String(newPassword))) {
+      res.status(400).json({ success: false, error: 'New password must contain at least one uppercase letter, one lowercase letter, and one number' });
       return;
     }
 

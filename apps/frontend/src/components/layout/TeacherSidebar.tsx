@@ -4,38 +4,26 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutGrid,
-  Users,
-  ClipboardList,
-  GraduationCap,
   Settings,
   X,
-  PieChart,
-  ClipboardCheck,
-  BookOpen,
+  Users,
+  FileText,
+  Smartphone,
+  History,
+  Sparkles,
+  GraduationCap
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
 
-function QuestionBankIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={props.strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
-      <circle cx="12" cy="11" r="2" />
-      <path d="M8 16c0-1.5 1.5-2.5 4-2.5s4 1 4 2.5" />
-    </svg>
-  );
-}
-
 const NAV_ITEMS = [
-  { href: '/dashboard/teacher', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/classes', label: 'Students', icon: Users },
-  { href: '/my-classes', label: 'My Classes', icon: BookOpen },
-  { href: '/assessments', label: 'Tests', icon: ClipboardCheck },
-  { href: '/assignments', label: 'Assignments', icon: ClipboardList },
+  { href: '/dashboard/teacher', label: 'Home', icon: LayoutGrid, exact: true },
+  { href: '/my-classes', label: 'My Groups', icon: Users },
+  { href: '/assignments', label: 'Assignments', icon: FileText, badge: 32 },
   { href: '/dashboard/teacher/attendance', label: 'Attendance', icon: GraduationCap },
-  { href: '/question-bank', label: 'Question Bank', icon: QuestionBankIcon },
-  { href: '/analytics', label: 'Analytics', icon: PieChart },
+  { href: '/ai-toolkit', label: 'AI Teacher\'s Toolkit', icon: Smartphone },
+  { href: '/papers', label: 'My Library', icon: History },
 ];
 
 export function TeacherSidebar() {
@@ -55,28 +43,40 @@ export function TeacherSidebar() {
         <div className="sidebar-overlay" onClick={close} aria-hidden="true" />
       )}
       <aside role="navigation" aria-label="Main navigation" style={{ position: "fixed", top: 0, left: 0, bottom: 0, width: "260px", height: "100vh", background: "#FFFFFF", borderRight: "1px solid #E5E7EB", display: "flex", flexDirection: "column", zIndex: 40, overflow: "hidden" }}>
+        
         <div className="sidebar-logo">
           <div
             className="sidebar-logo-icon"
             aria-hidden="true"
-            style={{ background: 'linear-gradient(135deg, #F97316 0%, #E8531D 50%, #C2410C 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ background: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <text x="50%" y="55%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="16" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif">V</text>
             </svg>
           </div>
-          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>Teacher</span>
+          <span className="sidebar-logo-text" style={{ fontWeight: 800 }}>VedaAI</span>
           <button className="sidebar-close-btn" onClick={close} aria-label="Close navigation"><X size={18} /></button>
         </div>
 
-        <nav className="sidebar-nav" aria-label="Pages" style={{ marginTop: 24 }}>
-          <div className="sidebar-nav-section-label">Academics</div>
-          {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
+        <Link href="/ai-toolkit" className="sidebar-create-btn" onClick={close} style={{ background: '#1F2937', color: 'white', border: '1px solid #F97316' }}>
+          <Sparkles size={14} fill="#F97316" color="#F97316" />
+          AI Teacher's Toolkit
+        </Link>
+
+        <nav className="sidebar-nav" aria-label="Pages">
+          {NAV_ITEMS.map(({ href, label, icon: Icon, exact, badge }) => {
             const active = isActive(href, exact);
             return (
-              <Link key={href} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>
-                <Icon size={18} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
-                <span>{label}</span>
+              <Link key={label} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <Icon size={18} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
+                  <span>{label}</span>
+                </div>
+                {badge && (
+                  <span style={{ background: '#F97316', color: 'white', fontSize: '12px', fontWeight: 700, padding: '2px 8px', borderRadius: '9999px', marginLeft: 'auto' }}>
+                    {badge}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -87,6 +87,16 @@ export function TeacherSidebar() {
             <Settings size={18} aria-hidden="true" />
             <span>Settings</span>
           </Link>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#F3F4F6', borderRadius: '12px', margin: '16px' }}>
+            <div style={{ width: '32px', height: '32px', background: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <img src="https://ui-avatars.com/api/?name=DPS&background=10B981&color=fff&rounded=true&bold=true" alt="Org Logo" style={{ width: '100%', height: '100%', borderRadius: '8px', objectFit: 'cover' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>Delhi Public School</span>
+              <span style={{ fontSize: '11px', color: '#6B7280', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>Bokaro Steel City</span>
+            </div>
+          </div>
         </div>
       </aside>
     </>

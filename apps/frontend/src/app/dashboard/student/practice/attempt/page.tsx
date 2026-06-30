@@ -168,7 +168,7 @@ function AttemptPageContent() {
     }, 1000);
 
     return () => clearInterval(timer);
-     
+
   }, [activeQuiz?.id, activeQuiz?.isSubmitted]);
 
   const handleSelectOption = (qIdx: number, val: string) => {

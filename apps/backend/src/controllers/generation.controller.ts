@@ -5,7 +5,7 @@ import { logger } from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import pdfParse from 'pdf-parse';
-import { initializeDailyLimitService } from '../middlewares/daily-limit.middleware';
+
 
 export const generateQuestion = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -25,43 +25,29 @@ export const generateQuestion = async (req: Request, res: Response): Promise<voi
     });
 
     // Persist to DB so questions survive localStorage clears
-    try {
-      const userId = (req as any).user?.id || 'demo-faculty-id';
-      await prisma.question.upsert({
-        where: { id: question.id },
-        create: {
-          id: question.id,
-          content: question.question_text,
-          options: question.options as any,
-          answer: question.answer,
-          hint: question.hint,
-          difficulty: (difficulty || 'MEDIUM') as any,
-          bloomLevel: (bloomLevel || 'APPLY') as any,
-          author: {
-            connectOrCreate: {
-              where: { id: userId },
-              create: {
-                id: userId,
-                email: 'demo@bloomverify.com',
-                passwordHash: 'demo-hash',
-                firstName: 'Demo',
-                lastName: 'User',
-              },
+    const userId = (req as any).user?.id;
+    if (userId) {
+      try {
+        await prisma.question.upsert({
+          where: { id: question.id },
+          create: {
+            id: question.id,
+            content: question.question_text,
+            options: question.options as any,
+            answer: question.answer,
+            hint: question.hint,
+            difficulty: (difficulty || 'MEDIUM') as any,
+            bloomLevel: (bloomLevel || 'APPLY') as any,
+            author: {
+              connect: { id: userId },
             },
+            isPublished: false,
           },
-          isPublished: false,
-        },
-        update: {},
-      });
-    } catch (dbErr) {
-      // Non-fatal: log but still return the question
-      logger.warn(`[generateQuestion] Failed to persist question to DB: ${dbErr instanceof Error ? dbErr.message : dbErr}`);
-    }
-
-    const userRole = (req as any).user?.role;
-    if (userRole === 'STUDENT') {
-      const dailyLimitService = initializeDailyLimitService();
-      await dailyLimitService.incrementUsage((req as any).user.id, 'quiz');
+          update: {},
+        });
+      } catch (dbErr) {
+        logger.warn(`[generateQuestion] Failed to persist question to DB: ${dbErr instanceof Error ? dbErr.message : dbErr}`);
+      }
     }
 
     res.status(201).json({ success: true, data: question });
@@ -96,46 +82,33 @@ export const generateQuestions = async (req: Request, res: Response): Promise<vo
     });
 
     // Persist to DB so questions survive localStorage clears
-    const userId = (req as any).user?.id || 'demo-faculty-id';
-    await Promise.all(
-      questions.map(async (question) => {
-        try {
-          await prisma.question.upsert({
-            where: { id: question.id },
-            create: {
-              id: question.id,
-              content: question.question_text,
-              options: question.options as any,
-              answer: question.answer,
-              hint: question.hint,
-              difficulty: (difficulty || 'MEDIUM') as any,
-              bloomLevel: (bloomLevel || 'APPLY') as any,
-              author: {
-                connectOrCreate: {
-                  where: { id: userId },
-                  create: {
-                    id: userId,
-                    email: 'demo@bloomverify.com',
-                    passwordHash: 'demo-hash',
-                    firstName: 'Demo',
-                    lastName: 'User',
-                  },
+    const userId = (req as any).user?.id;
+    if (userId) {
+      await Promise.all(
+        questions.map(async (question) => {
+          try {
+            await prisma.question.upsert({
+              where: { id: question.id },
+              create: {
+                id: question.id,
+                content: question.question_text,
+                options: question.options as any,
+                answer: question.answer,
+                hint: question.hint,
+                difficulty: (difficulty || 'MEDIUM') as any,
+                bloomLevel: (bloomLevel || 'APPLY') as any,
+                author: {
+                  connect: { id: userId },
                 },
+                isPublished: false,
               },
-              isPublished: false,
-            },
-            update: {},
-          });
-        } catch (dbErr) {
-          logger.warn(`[generateQuestions] Failed to persist question to DB: ${dbErr instanceof Error ? dbErr.message : dbErr}`);
-        }
-      })
-    );
-
-    const userRole = (req as any).user?.role;
-    if (userRole === 'STUDENT') {
-      const dailyLimitService = initializeDailyLimitService();
-      await dailyLimitService.incrementUsage((req as any).user.id, 'quiz');
+              update: {},
+            });
+          } catch (dbErr) {
+            logger.warn(`[generateQuestions] Failed to persist question to DB: ${dbErr instanceof Error ? dbErr.message : dbErr}`);
+          }
+        })
+      );
     }
 
     res.status(201).json({ success: true, data: questions });
@@ -355,7 +328,7 @@ export const parseDocument = async (req: Request, res: Response): Promise<void> 
     }
 
     // Clean up uploaded file
-    try { fs.unlinkSync(filePath); } catch (e) {}
+    try { fs.unlinkSync(filePath); } catch { /* non-fatal */ }
 
     // Clean up text slightly to avoid massive token bloat
     const cleanText = extractedText.replace(/\s+/g, ' ').trim().slice(0, 30000); // limit to ~30k chars to avoid token limits

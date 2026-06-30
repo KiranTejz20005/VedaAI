@@ -6,37 +6,37 @@ export const ROUTE_PERMISSIONS = {
     '/dashboard/faculty',
     '/dashboard/teacher',
     '/dashboard/student',
-    // Fallback/Legacy routes to avoid breaking changes immediately
-    '/dashboard', '/reviews', '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/analytics', '/admin', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/my-classes', '/papers', '/profile', '/student',
+    // Fallback routes
+    '/dashboard', '/assignments', '/assignments/create', '/settings', '/admin', '/generate', '/ai-toolkit', '/grader', '/my-classes', '/papers', '/profile', '/student',
   ],
   ADMIN: [
     '/dashboard/admin',
     '/dashboard/faculty',
     '/dashboard/teacher',
     '/dashboard/student',
-    '/dashboard', '/reviews', '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/analytics', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/my-classes', '/papers', '/profile', '/admin',
+    '/dashboard', '/assignments', '/assignments/create', '/settings', '/generate', '/ai-toolkit', '/grader', '/my-classes', '/papers', '/profile', '/admin',
   ],
   ORG_ADMIN: [
     '/dashboard/admin',
     '/dashboard/faculty',
     '/dashboard/teacher',
     '/dashboard/student',
-    '/dashboard', '/reviews', '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/analytics', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/my-classes', '/papers', '/profile', '/admin',
+    '/dashboard', '/assignments', '/assignments/create', '/settings', '/generate', '/ai-toolkit', '/grader', '/my-classes', '/papers', '/profile', '/admin',
   ],
   FACULTY: [
     '/dashboard/faculty',
     '/dashboard/teacher',
     '/dashboard/student',
-    '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/my-classes', '/papers', '/profile', '/analytics',
+    '/assignments', '/assignments/create', '/settings', '/generate', '/ai-toolkit', '/grader', '/my-classes', '/papers', '/profile',
   ],
   TEACHER: [
     '/dashboard/teacher',
     '/dashboard/student',
-    '/groups', '/assignments', '/assignments/create', '/question-bank', '/syllabus', '/settings', '/lessons', '/assessments', '/generate', '/grader', '/classes', '/my-classes', '/papers', '/profile', '/analytics',
+    '/assignments', '/assignments/create', '/settings', '/generate', '/ai-toolkit', '/grader', '/my-classes', '/papers', '/profile',
   ],
   STUDENT: [
     '/dashboard/student',
-    '/tutor', '/notes', '/settings', '/student', '/profile', '/assignments',
+    '/settings', '/student', '/profile',
   ],
 };
 
@@ -51,13 +51,7 @@ const STUDENT_DENIED_PREFIXES = [
   '/generate',
   '/papers',
   '/admin',
-  '/reviews',
-  '/analytics',
-  '/classes',
-  '/groups',
-  '/question-bank',
-  '/syllabus',
-  '/lessons',
+
 ];
 
 export const canAccessRoute = (role: string, path: string): boolean => {

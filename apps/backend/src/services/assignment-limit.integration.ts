@@ -5,6 +5,7 @@
 
 import { getRedisClient } from '../config/redis';
 import { DailyLimitService } from './daily-limit.service';
+import { logger } from '../utils/logger';
 
 const dailyLimitService = new DailyLimitService(getRedisClient());
 
@@ -19,8 +20,7 @@ export async function trackAssignmentCreation(userId: string, role: string): Pro
       await dailyLimitService.incrementUsage(userId, 'assignment');
     }
   } catch (error) {
-    console.error('[AssignmentLimit] Failed to track assignment creation', error);
-    // Don't throw - just log the error to avoid breaking the flow
+    logger.error(error, '[AssignmentLimit] Failed to track assignment creation');
   }
 }
 
@@ -35,8 +35,7 @@ export async function trackPaperGeneration(userId: string, role: string): Promis
       await dailyLimitService.incrementUsage(userId, 'paper');
     }
   } catch (error) {
-    console.error('[PaperLimit] Failed to track paper generation', error);
-    // Don't throw - just log the error to avoid breaking the flow
+    logger.error(error, '[PaperLimit] Failed to track paper generation');
   }
 }
 
@@ -51,7 +50,6 @@ export async function trackQuizGeneration(userId: string, role: string): Promise
       await dailyLimitService.incrementUsage(userId, 'quiz');
     }
   } catch (error) {
-    console.error('[QuizLimit] Failed to track quiz generation', error);
-    // Don't throw - just log the error to avoid breaking the flow
+    logger.error(error, '[QuizLimit] Failed to track quiz generation');
   }
 }

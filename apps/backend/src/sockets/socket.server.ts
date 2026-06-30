@@ -5,7 +5,7 @@ import { env } from '../config/env';
 import { logger } from '../utils/logger';
 
 let io: SocketIOServer<ClientToServerEvents, ServerToClientEvents> | null = null;
-const ASSIGNMENT_ID_RE = /^[a-f\d]{24}$/i;
+const ASSIGNMENT_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SUBSCRIBE_WINDOW_MS = 10_000;
 const MAX_SUBSCRIBES_PER_WINDOW = 30;
 const MAX_ROOMS_PER_SOCKET = 50;

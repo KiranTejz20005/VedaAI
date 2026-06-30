@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { asyncHandler } from '../utils/async-handler';
 import { authenticate } from '../middlewares/auth.middleware';
+import { requirePermission } from '../security/access-control';
+import { PERMISSIONS } from '../security/permissions';
 import { 
   generatePlan, 
   getPlans, 
@@ -12,9 +14,9 @@ const router = Router();
 
 router.use(authenticate);
 
-router.post('/', asyncHandler(generatePlan));
+router.post('/', requirePermission(PERMISSIONS.MANAGE_SYLLABUS), asyncHandler(generatePlan));
 router.get('/', asyncHandler(getPlans));
 router.get('/:id', asyncHandler(getPlan));
-router.delete('/:id', asyncHandler(removePlan));
+router.delete('/:id', requirePermission(PERMISSIONS.MANAGE_SYLLABUS), asyncHandler(removePlan));
 
 export default router;

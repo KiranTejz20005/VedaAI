@@ -8,7 +8,7 @@ import {
 } from '../services/assignment.service';
 import { sendSuccess, sendError } from '../utils/api-response';
 import { emitToAssignment } from '../sockets/socket.server';
-import { AssignmentListResponse, AssignmentStatus } from '../types/assignment.types';
+
 import { isFacultyRole } from '../security/request-context';
 import type { FileRef } from '../types/assignment.types';
 import prisma from '../config/prisma';
@@ -56,7 +56,7 @@ export async function createAssignmentHandler(req: Request, res: Response): Prom
 
   if (!parsed.success) {
     const fieldErrors = parsed.error.flatten().fieldErrors;
-    console.error('[createAssignment] Validation failed:', JSON.stringify(fieldErrors));
+    logger.warn({ fieldErrors }, '[createAssignment] Validation failed');
     res.status(400).json({
       success: false,
       error: 'Validation failed',

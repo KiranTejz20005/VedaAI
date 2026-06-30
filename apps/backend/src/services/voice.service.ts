@@ -1,5 +1,6 @@
 import { AccessToken } from 'livekit-server-sdk';
 import prisma from '../config/prisma';
+import { logger } from '../utils/logger';
 
 export class VoiceService {
   static async createVoiceRoom(name: string, type: string, createdById: string, organizationId?: string) {
@@ -53,7 +54,7 @@ export class VoiceService {
         })),
       }));
     } catch (err) {
-      console.error('[VoiceService] Error fetching active rooms:', err);
+      logger.error(err, '[VoiceService] Error fetching active rooms');
       throw new Error('Failed to fetch active rooms');
     }
   }
@@ -72,7 +73,7 @@ export class VoiceService {
         create: { roomId, userId },
       });
     } catch (err: any) {
-      console.error('[VoiceService] Error joining room:', err);
+      logger.error(err, '[VoiceService] Error joining room');
       throw err;
     }
   }
@@ -84,7 +85,7 @@ export class VoiceService {
         data: { leftAt: new Date() },
       });
     } catch (err: any) {
-      console.error('[VoiceService] Error leaving room:', err);
+      logger.error(err, '[VoiceService] Error leaving room');
       throw err;
     }
   }
@@ -100,7 +101,7 @@ export class VoiceService {
         data: { isActive: false },
       });
     } catch (err: any) {
-      console.error('[VoiceService] Error closing room:', err);
+      logger.error(err, '[VoiceService] Error closing room');
       throw err;
     }
   }
@@ -117,7 +118,7 @@ export class VoiceService {
       at.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true });
       return Promise.resolve(at.toJwt());
     } catch (err: any) {
-      console.error('[VoiceService] Error generating token:', err);
+      logger.error(err, '[VoiceService] Error generating token');
       throw new Error('Failed to generate voice room token');
     }
   }

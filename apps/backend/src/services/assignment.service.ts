@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import prisma from '../config/prisma';
 import type { CreateAssignmentInput } from '../validators/assignment.validator';
 import type { FileRef } from '../types/assignment.types';
@@ -36,8 +37,6 @@ export async function createAssignment(
   logger.info(`Assignment created: ${assignment.id} by ${createdById ?? 'unknown'}`);
   return assignment;
 }
-
-import crypto from 'crypto';
 
 export async function enqueueGeneration(
   assignmentId: string,

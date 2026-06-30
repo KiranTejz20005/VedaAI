@@ -8,31 +8,17 @@ import {
   BookOpen,
   Settings,
   X,
-  GraduationCap,
   FileText,
   Sparkles,
-  BrainCircuit,
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
 
-function QuestionBankIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={props.strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
-      <circle cx="12" cy="11" r="2" />
-      <path d="M8 16c0-1.5 1.5-2.5 4-2.5s4 1 4 2.5" />
-    </svg>
-  );
-}
-
 const NAV_ITEMS = [
   { href: '/dashboard/faculty', label: 'Dashboard', icon: LayoutGrid, exact: true },
   { href: '/dashboard/teacher', label: 'Teachers', icon: Users },
-  { href: '/classes', label: 'Students', icon: GraduationCap },
-  { href: '/analytics', label: 'Reports', icon: FileText },
-  { href: '/analytics', label: 'Analytics', icon: BrainCircuit },
+  { href: '/assignments', label: 'Assignments', icon: FileText },
   { href: '/my-classes', label: 'My Classes', icon: BookOpen },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];

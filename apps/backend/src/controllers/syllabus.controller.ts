@@ -2,43 +2,11 @@ import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { logger } from '../utils/logger';
 
-const DEFAULT_USER_ID = 'demo-faculty-id';
-const DEFAULT_INST_ID = 'demo-inst-id';
-
-function getUserId(req: Request): string {
-  return (req as any).user?.id || DEFAULT_USER_ID;
-}
-
-async function ensureDemoUser(userId: string): Promise<void> {
-  try {
-    const exists = await prisma.user.findUnique({ where: { id: userId } });
-    if (!exists) {
-      const inst = await prisma.organization.upsert({
-        where: { id: DEFAULT_INST_ID },
-        create: { id: DEFAULT_INST_ID, name: 'VidyaAI Demo School', code: 'VEDA_DEMO' },
-        update: {},
-      });
-      await prisma.user.create({
-        data: {
-          id: userId,
-          email: 'demo@bloomverify.com',
-          passwordHash: 'demo-hash',
-          firstName: 'Demo',
-          lastName: 'Faculty',
-          role: 'TEACHER',
-          organizationId: inst.id,
-        },
-      });
-    }
-  } catch {
-    // non-fatal
-  }
-}
-
 // ── List all syllabuses ──
 export const getSyllabuses = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = getUserId(req);
+    const userId = (req as any).user?.id;
+    if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
     const syllabuses = await prisma.syllabus.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
@@ -87,8 +55,8 @@ export const createSyllabus = async (req: Request, res: Response): Promise<void>
       res.status(400).json({ success: false, error: 'title, subject, and grade are required' });
       return;
     }
-    const userId = getUserId(req);
-    await ensureDemoUser(userId);
+    const userId = (req as any).user?.id;
+    if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
 
     const syllabus = await prisma.syllabus.create({
       data: {

@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { asyncHandler } from '../utils/async-handler';
 import { authenticate } from '../middlewares/auth.middleware';
+import { requirePermission } from '../security/access-control';
+import { PERMISSIONS } from '../security/permissions';
 import {
   addToBank,
   searchBank,
@@ -13,13 +15,14 @@ import {
 
 import { uploadMiddleware } from '../middlewares/upload.middleware';
 import prisma from '../config/prisma';
+import { ingestionQueue } from '../queues/ingestion.queue';
 
 const router = Router();
 
 router.use(authenticate);
 
 // Bank CRUD & Search
-router.post('/upload', uploadMiddleware.single('file'), asyncHandler(async (req, res) => {
+router.post('/upload', requirePermission(PERMISSIONS.MANAGE_QUESTION_BANK), uploadMiddleware.single('file'), asyncHandler(async (req, res) => {
   if (!req.file) {
     res.status(400).json({ success: false, error: 'No file uploaded' });
     return;
@@ -30,6 +33,14 @@ router.post('/upload', uploadMiddleware.single('file'), asyncHandler(async (req,
     res.status(401).json({ success: false, error: 'User must belong to an organization' });
     return;
   }
+
+  // Enqueue for RAG document ingestion
+  await ingestionQueue.add('ingest-document', {
+    fileUrl: req.file.path,
+    fileType: req.file.mimetype,
+    organizationId: orgId,
+    filename: req.file.originalname,
+  });
 
   // Mock document parsing and question extraction
   // In a real app, you would parse the PDF/Doc, run it through an LLM, etc.
@@ -84,12 +95,12 @@ router.post('/upload', uploadMiddleware.single('file'), asyncHandler(async (req,
 }));
 
 router.get('/', asyncHandler(searchBank));
-router.post('/', asyncHandler(addToBank));
-router.put('/:id', asyncHandler(updateBankQuestion));
+router.post('/', requirePermission(PERMISSIONS.MANAGE_QUESTION_BANK), asyncHandler(addToBank));
+router.put('/:id', requirePermission(PERMISSIONS.MANAGE_QUESTION_BANK), asyncHandler(updateBankQuestion));
 router.get('/:id/versions', asyncHandler(getQuestionVersions));
 
 // Collections
-router.post('/collections', asyncHandler(createCollection));
+router.post('/collections', requirePermission(PERMISSIONS.MANAGE_QUESTION_BANK), asyncHandler(createCollection));
 router.get('/collections', asyncHandler(listCollections));
 router.get('/collections/:id', asyncHandler(getCollectionDetails));
 

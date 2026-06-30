@@ -9,20 +9,18 @@ const dailyLimitService = new DailyLimitService(getRedisClient());
  * Middleware to check daily limits for quiz generation
  */
 export const checkQuizDailyLimit = async (req: Request, res: Response, next: NextFunction) => {
-  return next(); // Temporarily bypass for testing
   try {
     if (!req.user) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
 
-    const { allowed, remaining, used, limit } = await dailyLimitService.checkLimit(
+    const { allowed, remaining, used, limit } = await dailyLimitService.checkAndIncrement(
       req.user!.id,
       req.user!.role,
       'quiz'
     );
 
-    // Attach to request for later use
     (req as any).dailyLimitStatus = { allowed, remaining, used, limit };
 
     if (!allowed) {
@@ -55,20 +53,18 @@ export const checkQuizDailyLimit = async (req: Request, res: Response, next: Nex
  * Middleware to check daily limits for paper/assignment generation
  */
 export const checkPaperDailyLimit = async (req: Request, res: Response, next: NextFunction) => {
-  return next(); // Temporarily bypass for testing
   try {
     if (!req.user) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
 
-    const { allowed, remaining, used, limit } = await dailyLimitService.checkLimit(
+    const { allowed, remaining, used, limit } = await dailyLimitService.checkAndIncrement(
       req.user!.id,
       req.user!.role,
       'paper'
     );
 
-    // Attach to request for later use
     (req as any).dailyLimitStatus = { allowed, remaining, used, limit };
 
     if (!allowed) {
@@ -101,20 +97,18 @@ export const checkPaperDailyLimit = async (req: Request, res: Response, next: Ne
  * Middleware to check daily limits for assignment creation
  */
 export const checkAssignmentDailyLimit = async (req: Request, res: Response, next: NextFunction) => {
-  return next(); // Temporarily bypass for testing
   try {
     if (!req.user) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
 
-    const { allowed, remaining, used, limit } = await dailyLimitService.checkLimit(
+    const { allowed, remaining, used, limit } = await dailyLimitService.checkAndIncrement(
       req.user!.id,
       req.user!.role,
       'assignment'
     );
 
-    // Attach to request for later use
     (req as any).dailyLimitStatus = { allowed, remaining, used, limit };
 
     if (!allowed) {

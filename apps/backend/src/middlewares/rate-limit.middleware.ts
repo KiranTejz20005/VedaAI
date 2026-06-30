@@ -3,28 +3,30 @@ import { getRedisClient } from '../config/redis';
 import { logger } from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 
-// Rate Limiting helper function
+// Atomic rate-limit check using a Lua script to avoid TOCTOU race conditions.
+const CHECK_LIMIT_SCRIPT = `
+  local key = KEYS[1]
+  local limit = tonumber(ARGV[1])
+  local expiry = tonumber(ARGV[2])
+  local current = redis.call("GET", key)
+  if current and tonumber(current) >= limit then
+    return {0, current}
+  end
+  local val = redis.call("INCR", key)
+  if val == 1 then
+    redis.call("EXPIRE", key, expiry)
+  end
+  return {1, val}
+`;
+
 async function checkLimit(
   key: string,
   limit: number,
   expirySeconds: number
 ): Promise<{ allowed: boolean; current: number }> {
   const redis = getRedisClient();
-  const current = await redis.get(key);
-
-  if (current && parseInt(current) >= limit) {
-    return { allowed: false, current: parseInt(current) };
-  }
-
-  const multi = redis.multi();
-  multi.incr(key);
-  if (!current) {
-    multi.expire(key, expirySeconds);
-  }
-  const results = await multi.exec();
-  const val = results ? (results[0][1] as number) : 1;
-
-  return { allowed: true, current: val };
+  const result = await redis.eval(CHECK_LIMIT_SCRIPT, 1, key, String(limit), String(expirySeconds)) as [number, number];
+  return { allowed: result[0] === 1, current: result[1] };
 }
 
 // Check cooldown key existence and set it if not present
@@ -43,7 +45,6 @@ export const paperGenerationRateLimiter = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  return next(); // Temporarily bypass for testing
   const userId = req.user?.id || 'anonymous';
   const organizationId = req.user?.organizationId || 'no-organization';
   const requestId = (req.headers['x-request-id'] as string) || uuidv4();
@@ -195,7 +196,6 @@ export const quizGenerationRateLimiter = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  return next(); // Temporarily bypass for testing
   const userId = req.user?.id || 'anonymous';
   const organizationId = req.user?.organizationId || 'no-organization';
   const requestId = (req.headers['x-request-id'] as string) || uuidv4();
@@ -249,7 +249,6 @@ export const uploadRateLimiter = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  return next(); // Temporarily bypass for testing
   const userId = req.user?.id || 'anonymous';
   const organizationId = req.user?.organizationId || 'no-organization';
   const requestId = (req.headers['x-request-id'] as string) || uuidv4();

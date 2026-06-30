@@ -73,7 +73,7 @@ export function generateAccessToken(payload: TokenPayload): string {
  */
 export function verifyAccessToken(token: string): TokenPayload {
   try {
-    const decoded = jwt.verify(token, env.JWT_SECRET) as any;
+    const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as any;
     return {
       userId: decoded.id,
       email: decoded.email,

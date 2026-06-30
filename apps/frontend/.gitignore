@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ESLint report (generated artifact)
+eslint-report.json
+
+# Internal planning docs
+PLAN.md

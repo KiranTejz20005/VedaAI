@@ -1,20 +1,26 @@
 version: '3.8'
 
 services:
-  mongodb:
-    image: mongo:7.0
-    container_name: vedaai-mongodb
-    command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]
+  postgres:
+    image: postgres:15-alpine
+    container_name: vidyaai-postgres
     ports:
-      - "27017:27017"
+      - "5432:5432"
     volumes:
-      - mongodb_data:/data/db
+      - postgres_data:/var/lib/postgresql/data
     environment:
-      MONGO_INITDB_DATABASE: vedaai
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: vidyaai
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7.2-alpine
-    container_name: vedaai-redis
+    container_name: vidyaai-redis
     ports:
       - "6379:6379"
     volumes:
@@ -22,5 +28,5 @@ services:
     command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
 
 volumes:
-  mongodb_data:
+  postgres_data:
   redis_data:

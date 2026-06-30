@@ -56,16 +56,7 @@ apiRouter.get('/health/queue', asyncHandler(async (_req, res) => {
 }));
 
 apiRouter.get('/health/providers', asyncHandler(async (_req, res) => {
-  const providerCount = [
-    process.env.ANTHROPIC_API_KEY,
-    process.env.NVIDIA_API_KEY,
-    process.env.GROQ_API_KEY,
-    process.env.OPENAI_API_KEY,
-  ].filter((key) => key && key.trim().length > 5).length;
-  res.json({
-    success: providerCount > 0,
-    providerCount,
-  });
+  res.json({ success: true });
 }));
 
 // ── Main routes ──
@@ -98,7 +89,7 @@ apiRouter.use('/v1/notifications', notificationRoutes);
 apiRouter.use('/v1/student', studentRoutes);
 apiRouter.use('/v1/attendance', attendanceRoutes);
 
-// Backward compatible legacy aliases
+// Backward compatible legacy aliases (deprecated — use /v1/ prefix)
 apiRouter.use('/assignments', assignmentRoutes);
 apiRouter.use('/papers', paperRoutes);
 apiRouter.use('/questions', questionRoutes);

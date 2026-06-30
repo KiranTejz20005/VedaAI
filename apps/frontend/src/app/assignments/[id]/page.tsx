@@ -23,24 +23,24 @@ import type { GeneratedPaper } from '@/types/paper.types';
 import type { GenerationStage } from '@/types/socket.types';
 
 const WORKFLOW_STEPS = [
-  { key: 'draft', label: 'Draft', icon: FileText },
+  { key: 'DRAFT', label: 'Draft', icon: FileText },
   { key: 'generated', label: 'Generated', icon: Zap },
-  { key: 'completed', label: 'Completed', icon: Check },
+  { key: 'COMPLETED', label: 'Completed', icon: Check },
 ];
 
 const BADGE_MAP: Record<string, string> = {
-  draft: 'badge-draft',
-  queued: 'badge-queued',
-  generating: 'badge-generating',
-  completed: 'badge-completed',
-  failed: 'badge-failed',
-  partially_generated: 'badge-warning',
+  DRAFT: 'badge-draft',
+  QUEUED: 'badge-queued',
+  GENERATING: 'badge-generating',
+  COMPLETED: 'badge-completed',
+  FAILED: 'badge-failed',
+  PARTIALLY_GENERATED: 'badge-warning',
 };
 
 function getWorkflowStep(status: string | Assignment['status']): number {
-  if (status === 'draft') return 0;
-  if (['queued', 'generating'].includes(status)) return 1;
-  if (status === 'completed' || status === 'partially_generated') return 2;
+  if (status === 'DRAFT') return 0;
+  if (['QUEUED', 'GENERATING'].includes(status)) return 1;
+  if (status === 'COMPLETED' || status === 'PARTIALLY_GENERATED') return 2;
   return 0;
 }
 
@@ -451,7 +451,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                       }} className="btn btn-secondary btn-sm" style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }} disabled={downloading}>
                         <Download size={14} /> {downloading ? 'Downloading...' : 'Download PDF'}
                       </button>
-                      {(isFaculty || isAdmin) && ['DRAFT', 'draft', 'COMPLETED', 'PARTIALLY_GENERATED', 'REJECTED'].includes(assignment.status) && (
+                      {(isFaculty || isAdmin) && ['DRAFT', 'COMPLETED', 'PARTIALLY_GENERATED', 'REJECTED'].includes(assignment.status) && (
                         <button onClick={handleSendForApproval} className="btn btn-dark btn-sm" disabled={isSubmittingForApproval} style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
                           <CheckCircle2 size={14} /> {isSubmittingForApproval ? 'Sending...' : 'Send for Approval'}
                         </button>

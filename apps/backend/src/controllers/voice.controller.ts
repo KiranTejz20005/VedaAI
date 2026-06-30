@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { VoiceService } from '../services/voice.service';
+import { logger } from '../utils/logger';
 import { z } from 'zod';
 
 const createRoomSchema = z.object({
@@ -18,7 +19,7 @@ export const createVoiceRoom = async (req: Request, res: Response) => {
     );
     res.status(201).json({ status: 'success', data: room });
   } catch (err: any) {
-    console.error('[VoiceController] Error creating room:', err);
+    logger.error(err, '[VoiceController] Error creating room');
     res.status(400).json({ status: 'error', error: err.message });
   }
 };
@@ -28,7 +29,7 @@ export const getActiveRooms = async (req: Request, res: Response) => {
     const rooms = await VoiceService.getActiveRooms(req.user!.organizationId || undefined);
     res.status(200).json({ status: 'success', data: rooms });
   } catch (err: any) {
-    console.error('[VoiceController] Error fetching rooms:', err);
+    logger.error(err, '[VoiceController] Error fetching rooms');
     res.status(500).json({ status: 'error', error: err.message });
   }
 };
@@ -45,7 +46,7 @@ export const generateToken = async (req: Request, res: Response) => {
     const livekitUrl = VoiceService.getLiveKitUrl();
     res.status(200).json({ status: 'success', data: { token, livekitUrl, roomName } });
   } catch (err: any) {
-    console.error('[VoiceController] Error generating token:', err);
+    logger.error(err, '[VoiceController] Error generating token');
     res.status(500).json({ status: 'error', error: err.message });
   }
 };
@@ -56,7 +57,7 @@ export const joinRoom = async (req: Request, res: Response) => {
     await VoiceService.joinRoom(roomId, req.user!.id);
     res.status(200).json({ status: 'success', data: { joined: true } });
   } catch (err: any) {
-    console.error('[VoiceController] Error joining room:', err);
+    logger.error(err, '[VoiceController] Error joining room');
     res.status(400).json({ status: 'error', error: err.message });
   }
 };
@@ -67,7 +68,7 @@ export const leaveRoom = async (req: Request, res: Response) => {
     await VoiceService.leaveRoom(roomId, req.user!.id);
     res.status(200).json({ status: 'success', data: { left: true } });
   } catch (err: any) {
-    console.error('[VoiceController] Error leaving room:', err);
+    logger.error(err, '[VoiceController] Error leaving room');
     res.status(400).json({ status: 'error', error: err.message });
   }
 };
@@ -78,7 +79,7 @@ export const closeRoom = async (req: Request, res: Response) => {
     await VoiceService.closeRoom(roomId, req.user!.id);
     res.status(200).json({ status: 'success', data: { closed: true } });
   } catch (err: any) {
-    console.error('[VoiceController] Error closing room:', err);
+    logger.error(err, '[VoiceController] Error closing room');
     res.status(403).json({ status: 'error', error: err.message });
   }
 };

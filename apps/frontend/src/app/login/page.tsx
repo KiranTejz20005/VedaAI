@@ -20,6 +20,7 @@ export default function LoginPage() {
     setMounted(true);
 
     const handleMessage = async (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
       if (event.data && event.data.type === 'SSO_SUCCESS') {
         setIsSubmitting(true);
         const result = await ssoLogin({
@@ -341,13 +342,14 @@ export default function LoginPage() {
               document.getElementById('loader').style.display = 'block';
               
               setTimeout(() => {
+                const targetOrigin = window.location.origin;
                 window.opener.postMessage({ 
                   type: 'SSO_SUCCESS', 
                   email: selectedEmail, 
                   firstName: selectedName, 
                   lastName: 'User', 
                   provider: '${providerName}' 
-                }, '*');
+                }, targetOrigin);
                 window.close();
               }, 1500);
             }

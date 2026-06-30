@@ -106,6 +106,8 @@ router.get('/dashboard/stats', asyncHandler(async (req, res) => {
 }));
 
 import { uploadMiddleware } from '../middlewares/upload.middleware';
+import { ingestionQueue } from '../queues/ingestion.queue';
+import { requireRequestOrgId } from '../security/request-context';
 
 // POST /upload-material
 router.post('/upload-material', uploadMiddleware.single('file'), asyncHandler(async (req, res) => {
@@ -114,8 +116,19 @@ router.post('/upload-material', uploadMiddleware.single('file'), asyncHandler(as
     return;
   }
   
-  // Here we could store the file details in the database or link to a user.
-  res.json({ success: true, message: 'File uploaded successfully', data: { path: req.file.path } });
+  const orgId = requireRequestOrgId(req);
+  const fileUrl = req.file.path;
+  const fileType = req.file.mimetype;
+  const filename = req.file.originalname;
+
+  await ingestionQueue.add('ingest-document', {
+    fileUrl,
+    fileType,
+    organizationId: orgId,
+    filename
+  });
+
+  res.json({ success: true, message: 'File uploaded and queued for processing', data: { path: fileUrl } });
 }));
 
 // GET /students - Returns students in the organization for the teacher
@@ -144,6 +157,12 @@ router.get('/students', asyncHandler(async (req, res) => {
       email: u.email,
       rollNo: cs ? cs.rollNo : 'N/A'
     };
+  });
+
+  students.sort((a, b) => {
+    if (a.rollNo === 'N/A') return 1;
+    if (b.rollNo === 'N/A') return -1;
+    return a.rollNo.localeCompare(b.rollNo, undefined, { numeric: true, sensitivity: 'base' });
   });
   
   res.json({ success: true, data: students });

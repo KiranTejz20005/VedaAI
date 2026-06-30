@@ -18,25 +18,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useSystemStore } from '@/store/system.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
 
-function MyGroupsIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={props.strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
-      <circle cx="12" cy="11" r="2" />
-      <path d="M8 16c0-1.5 1.5-2.5 4-2.5s4 1 4 2.5" />
-    </svg>
-  );
-}
-
-const ADMIN_NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/dashboard/admin/users', label: 'Faculty and Students', icon: Users },
-  { href: '/dashboard/admin/classes', label: 'Classes', icon: ClipboardCheck },
-  { href: '/dashboard/admin/analytics', label: 'Analytics', icon: PieChart },
-  { href: '/dashboard/admin/settings', label: 'Settings', icon: Settings },
-];
-
-const SUPER_ADMIN_NAV_ITEMS = [
+const NAV_ITEMS = [
   { href: '/dashboard/super-admin', label: 'Dashboard', icon: LayoutGrid, exact: true },
   { href: '/super-admin/organizations', label: 'Organizations', icon: Building2 },
   { href: '/super-admin/users', label: 'System Users', icon: Users },
@@ -82,7 +64,7 @@ export function AdminSidebar() {
 
         <nav className="sidebar-nav" aria-label="Pages">
           <div className="sidebar-nav-section-label">Management</div>
-          {(user?.role === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV_ITEMS : ADMIN_NAV_ITEMS).map(({ href, label, icon: Icon, exact }) => {
+          {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
             const active = isActive(href, exact);
             return (
               <Link key={label} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>

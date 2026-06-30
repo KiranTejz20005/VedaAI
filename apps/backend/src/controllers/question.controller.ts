@@ -3,11 +3,18 @@ import prisma from '../config/prisma';
 
 export const createQuestion = async (req: Request, res: Response) => {
   try {
-    const { content, options, answer, subjectId, unitId, difficulty, bloomLevel, authorId } = req.body;
-    
-    // Fallback for MVP if no authorId provided
-    const author = authorId || "temp-author-id"; // In real scenario, extract from req.user
-    
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Authentication required' });
+      return;
+    }
+
+    const { content, options, answer, subjectId, unitId, difficulty, bloomLevel } = req.body;
+
+    if (!content || !answer) {
+      res.status(400).json({ success: false, error: 'Content and answer are required' });
+      return;
+    }
+
     const question = await prisma.question.create({
       data: {
         content,
@@ -18,20 +25,11 @@ export const createQuestion = async (req: Request, res: Response) => {
         difficulty,
         bloomLevel,
         author: {
-            connectOrCreate: {
-                where: { id: author },
-                create: {
-                    id: author,
-                    email: 'test@example.com',
-                    passwordHash: 'dummy',
-                    firstName: 'Test',
-                    lastName: 'User'
-                }
-            }
+          connect: { id: req.user.id }
         }
       }
     });
-    
+
     res.status(201).json({ success: true, data: question });
   } catch (error) {
     res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed to create question' });
@@ -64,18 +62,28 @@ export const getQuestionById = async (req: Request, res: Response) => {
       return;
     }
     res.json({ success: true, data: question });
-    return;
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to fetch question' });
-    return;
   }
 };
 
 export const updateQuestion = async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Authentication required' });
+      return;
+    }
+
+    const allowedRoles = ['TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'];
+    if (!allowedRoles.includes(req.user.role)) {
+      res.status(403).json({ success: false, error: 'Insufficient privileges' });
+      return;
+    }
+
+    const { content, options, answer, difficulty, bloomLevel } = req.body;
     const question = await prisma.question.update({
       where: { id: req.params.id },
-      data: req.body
+      data: { content, options, answer, difficulty, bloomLevel }
     });
     res.json({ success: true, data: question });
   } catch (error) {
@@ -85,6 +93,17 @@ export const updateQuestion = async (req: Request, res: Response) => {
 
 export const deleteQuestion = async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Authentication required' });
+      return;
+    }
+
+    const allowedRoles = ['TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'];
+    if (!allowedRoles.includes(req.user.role)) {
+      res.status(403).json({ success: false, error: 'Insufficient privileges' });
+      return;
+    }
+
     await prisma.question.delete({
       where: { id: req.params.id }
     });

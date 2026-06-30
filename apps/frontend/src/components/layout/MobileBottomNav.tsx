@@ -1,6 +1,6 @@
 'use client';
 
-import { LayoutGrid, FileText, GraduationCap, Sparkles, Plus, BookOpen, ClipboardList } from 'lucide-react';
+import { LayoutGrid, FileText, Sparkles, Plus, BookOpen, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
@@ -8,15 +8,15 @@ import { useAuthStore } from '@/store/auth.store';
 const FACULTY_NAV = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true },
   { href: '/papers', label: 'Papers', icon: FileText },
-  { href: '/syllabus', label: 'Syllabus', icon: GraduationCap },
+  { href: '/assignments', label: 'Assignments', icon: ClipboardList },
   { href: '/generate', label: 'Quiz Room', icon: Sparkles },
 ];
 
 const STUDENT_NAV = [
   { href: '/student', label: 'Home', icon: LayoutGrid, exact: true },
-  { href: '/student/assessments', label: 'Assessments', icon: ClipboardList },
+  { href: '/dashboard/student/assessments', label: 'Assessments', icon: ClipboardList },
   { href: '/student/lessons', label: 'Lessons', icon: BookOpen },
-  { href: '/student/results', label: 'Results', icon: FileText },
+  { href: '/dashboard/student/results', label: 'Results', icon: FileText },
 ];
 
 export function MobileBottomNav() {

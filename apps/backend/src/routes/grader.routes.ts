@@ -13,6 +13,8 @@ import {
   listSubmissions,
   createRubric,
   listRubrics,
+  updateRubric,
+  deleteRubric,
 } from '../controllers/grader.controller';
 
 const router = Router();
@@ -23,6 +25,9 @@ router.use(requireOrganizationScope());
 // Rubrics — faculty/admin only
 router.post('/rubrics', requireRole('TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'), requirePermission(PERMISSIONS.GRADE_ASSESSMENT), asyncHandler(createRubric));
 router.get('/rubrics', requireRole('TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'), requirePermission(PERMISSIONS.GRADE_ASSESSMENT), asyncHandler(listRubrics));
+router.put('/rubrics/:rubricId', requireRole('TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'), requirePermission(PERMISSIONS.GRADE_ASSESSMENT), asyncHandler(updateRubric));
+router.delete('/rubrics/:rubricId', requireRole('TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'), requirePermission(PERMISSIONS.GRADE_ASSESSMENT), asyncHandler(deleteRubric));
+
 
 // Assignment grading configuration
 router.post('/assignments/:assignmentId/config', requireRole('TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'), requirePermission(PERMISSIONS.GRADE_ASSESSMENT), asyncHandler(saveGradingConfig));

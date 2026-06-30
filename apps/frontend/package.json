@@ -7,7 +7,7 @@
     "build": "node ../../node_modules/next/dist/bin/next build",
     "start": "node ../../node_modules/next/dist/bin/next start",
     "lint": "npx eslint",
-    "test": "echo \"No frontend test suite configured yet\""
+    "test": "vitest run"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -46,6 +46,7 @@
     "eslint-plugin-unused-imports": "^4.4.1",
     "shadcn": "^4.7.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.9"
   }
 }

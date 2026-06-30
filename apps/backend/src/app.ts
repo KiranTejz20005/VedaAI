@@ -137,9 +137,10 @@ async function initializeWorkers() {
     healthState.bullmqRedis = 'connecting';
     createAiGenerationWorker();
     createPdfWorker();
+    import('./workers/ingestion.worker');
     healthState.bullmqRedis = 'connected';
     healthState.workers = 'running';
-    logger.info('[WORKERS] AI + PDF workers created');
+    logger.info('[WORKERS] AI + PDF + Ingestion workers created');
 
     const bullConnection = getBullRedisClient();
     generationQueueEvents = new QueueEvents('generation', {
@@ -217,22 +218,30 @@ function createApp() {
     ...corsOrigins,
   ];
 
-  app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+  app.use(helmet({
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        fontSrc: ["'self'", 'data:'],
+        connectSrc: ["'self'", 'ws:', 'wss:'],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    },
+  }));
   app.use(compression());
 
   const corsMiddleware = cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
       const normalizedOrigin = origin.replace(/\/+$/, '');
-      let allowed = ALLOWED_ORIGINS.includes(normalizedOrigin);
-      if (!allowed) {
-        try {
-          const hostname = new URL(normalizedOrigin).hostname;
-          allowed = /^vidyaai[\w-]*\.vercel\.app$/i.test(hostname);
-        } catch {
-          allowed = false;
-        }
-      }
+      const allowed = ALLOWED_ORIGINS.includes(normalizedOrigin);
+      // Wildcard subdomain matching is intentionally omitted for security.
+      // All origins must be explicitly listed in FRONTEND_URL env var.
       if (!allowed) {
         logger.warn(`[CORS] Blocked origin: ${normalizedOrigin}`);
       }
@@ -240,7 +249,7 @@ function createApp() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Organization-Id'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
   app.use(corsMiddleware);
   app.options('*', corsMiddleware);
@@ -250,7 +259,7 @@ function createApp() {
 
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 500,
+    max: 100,
     standardHeaders: true,
     legacyHeaders: false,
     message: { success: false, error: 'Too many requests, please try again later.' },

@@ -8,6 +8,7 @@ export interface User {
   lastName: string;
   role: string;
   organizationId: string | null;
+  activeOrganizationId?: string | null;
   organizationName: string | null;
   departmentName: string | null;
   departmentId: string | null;

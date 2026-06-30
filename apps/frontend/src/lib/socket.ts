@@ -2,6 +2,8 @@ import { io, Socket } from 'socket.io-client';
 
 let socket: Socket | null = null;
 
+const isDev = process.env.NODE_ENV !== 'production';
+
 export const initSocket = (token?: string) => {
   if (socket) return socket;
 
@@ -12,13 +14,14 @@ export const initSocket = (token?: string) => {
     transports: ['websocket', 'polling'],
   });
 
-  socket.on('connect', () => {
-    console.log('[Socket] Connected');
-  });
-
-  socket.on('disconnect', () => {
-    console.log('[Socket] Disconnected');
-  });
+  if (isDev) {
+    socket.on('connect', () => {
+      console.log('[Socket] Connected');
+    });
+    socket.on('disconnect', () => {
+      console.log('[Socket] Disconnected');
+    });
+  }
 
   return socket;
 };

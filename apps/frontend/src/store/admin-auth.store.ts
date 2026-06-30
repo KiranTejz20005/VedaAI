@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { api } from '@/lib/api';
+import { useAuthStore } from './auth.store';
 
 export interface AvailableOrganization {
   id: string;
@@ -59,8 +60,6 @@ export const useAdminAuthStore = create<AdminAuthStore>((set, get) => ({
     const originalToken = get().originalAdminToken;
     if (!originalToken) return;
 
-    const { useAuthStore } = await import('./auth.store');
-
     if (typeof window !== 'undefined') {
       window.sessionStorage.removeItem('original_admin_token');
     }
@@ -92,7 +91,6 @@ export const useAdminAuthStore = create<AdminAuthStore>((set, get) => ({
       const res = await api.post('/auth/me/switch-organization', { organizationId: orgId });
       if (res.data?.success) {
         set({ activeOrganizationId: orgId });
-        const { useAuthStore } = await import('./auth.store');
         await useAuthStore.getState().initialize();
         return true;
       }

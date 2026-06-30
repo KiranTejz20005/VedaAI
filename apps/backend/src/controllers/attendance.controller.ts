@@ -46,10 +46,11 @@ export const markAttendance = async (req: Request, res: Response): Promise<void>
       parsed.attendance.map((record) => 
         prisma.attendanceRecord.upsert({
           where: {
-            studentId_classId_date: {
+            studentId_classId_date_subject: {
               studentId: record.studentId,
               classId: validClassId,
               date: targetDate,
+              subject: req.body.subject || '',
             },
           },
           create: {
@@ -74,6 +75,33 @@ export const markAttendance = async (req: Request, res: Response): Promise<void>
   } catch (error: any) {
     logger.error(`[Attendance:mark] ${error}`);
     res.status(400).json({ success: false, error: error.message || 'Failed to mark attendance' });
+  }
+};
+
+export const getAttendanceStatus = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const orgId = requireRequestOrgId(req);
+    const dateStr = req.query.date as string;
+    
+    if (!dateStr) {
+      res.status(400).json({ success: false, error: 'Date is required' });
+      return;
+    }
+
+    const targetDate = new Date(dateStr);
+    targetDate.setHours(0, 0, 0, 0);
+
+    const record = await prisma.attendanceRecord.findFirst({
+      where: {
+        organizationId: orgId,
+        date: targetDate,
+      },
+    });
+
+    res.json({ success: true, alreadyTaken: !!record });
+  } catch (error: any) {
+    logger.error(`[Attendance:status] ${error}`);
+    res.status(500).json({ success: false, error: error.message || 'Failed to check status' });
   }
 };
 

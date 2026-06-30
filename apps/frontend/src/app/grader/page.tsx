@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/services/api.client';
+import Link from 'next/link';
 
 interface Rubric {
   id: string;
@@ -129,6 +130,18 @@ export default function GraderDashboard() {
 
   const handleAddCriterion = () => {
     setCriteria([...criteria, { name: '', maxMarks: 10, description: '' }]);
+  };
+
+  const handleDeleteRubric = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this rubric?')) return;
+    try {
+      await apiClient.delete(`/grader/rubrics/${id}`);
+      setRubrics(rubrics.filter(r => r.id !== id));
+      toast.success('Rubric deleted successfully');
+      if (rubricId === id) setRubricId('');
+    } catch (error) {
+      toast.error('Failed to delete rubric');
+    }
   };
 
   const handleCreateRubric = async () => {
@@ -310,9 +323,14 @@ export default function GraderDashboard() {
                                 Grade with AI
                               </button>
                             ) : (
-                              <a href={`/grader/${sub.id}`} className="btn btn-secondary btn-sm">
-                                Review Grade
-                              </a>
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <button className="btn btn-secondary btn-sm" onClick={() => handleEvaluateSubmission(sub.id)}>
+                                  Regrade
+                                </button>
+                                <Link href={`/grader/${sub.id}`} className="btn btn-primary btn-sm">
+                                  Review Grade
+                                </Link>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -398,8 +416,11 @@ export default function GraderDashboard() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
                   {rubrics.map((r) => (
-                    <div key={r.id} className="card" style={{ padding: 20 }}>
-                      <h3 style={{ fontSize: 15, fontWeight: 800 }}>{r.title}</h3>
+                    <div key={r.id} className="card" style={{ padding: 20, position: 'relative' }}>
+                      <button onClick={() => handleDeleteRubric(r.id)} style={{ position: 'absolute', top: 12, right: 12, background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', padding: 4 }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                      </button>
+                      <h3 style={{ fontSize: 15, fontWeight: 800, paddingRight: 20 }}>{r.title}</h3>
                       <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>{r.description || 'No description provided.'}</p>
                       <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                         {r.criteria.map((c, i) => (

@@ -125,6 +125,8 @@ model Organization {
   voiceRooms         VoiceRoom[]
   meetings           Meeting[]
   attendanceRecords  AttendanceRecord[]
+  leaveApplications  LeaveApplication[]
+  knowledgeDocuments KnowledgeDocument[]
 }
 
 model Department {
@@ -225,7 +227,70 @@ model Student {
   isActive Boolean    @default(true)
   joinedAt DateTime   @default(now())
 
+  // Learning Intelligence
+  learningProfile StudentLearningProfile?
+  studyPlans      PersonalizedStudyPlan[]
+
   @@index([groupId])
+}
+
+model StudentLearningProfile {
+  id                 String   @id @default(uuid())
+  studentId          String   @unique
+  student            Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  masteryLevel       Float    @default(0.0) // 0 to 100, weighted history
+  knowledgeGrowth    Float    @default(0.0)
+  confidenceTrend    Float    @default(0.0) // Trend delta
+
+  // JSON representation of the Knowledge Graph / Gaps
+  weakConcepts       Json?    // e.g., ["thermodynamics", "pointers"]
+  strongConcepts     Json?
+  learningOutcomes   Json?
+  
+  // Analytics
+  averageAccuracy    Float    @default(0.0)
+  learningSpeed      Float    @default(1.0)
+  consistencyScore   Float    @default(0.0)
+
+  // One-to-one with predictions
+  predictiveAnalytics PredictiveAnalytics?
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model PersonalizedStudyPlan {
+  id                 String   @id @default(uuid())
+  studentId          String
+  student            Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  title              String
+  recommendedTopics  Json     // list of topics to review
+  referenceMaterials Json     // References retrieved from Hybrid RAG
+  estimatedTimeMins  Int
+  difficultyTarget   String
+  
+  isCompleted        Boolean  @default(false)
+  
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([studentId])
+}
+
+model PredictiveAnalytics {
+  id                 String                 @id @default(uuid())
+  profileId          String                 @unique
+  profile            StudentLearningProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  examReadiness      Float                  @default(0.0) // 0 to 100%
+  probabilityOfPassing Float                @default(0.0)
+  highRiskSubjects   Json?
+  knowledgeDecayRate Float                  @default(0.0)
+
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
 }
 
 // ── Classroom structure ──
@@ -459,6 +524,7 @@ model Assignment {
   generatedPapers GeneratedPaper[]
   generationJobs  GenerationJob[]
   submissions     StudentSubmission[]
+  knowledgeChunks KnowledgeChunk[]
 
   @@index([status, createdAt])
   @@index([subject])
@@ -525,6 +591,12 @@ model QuizSession {
   score            Int
   attempts         Json
   userId           String        @default("demo-faculty-id")
+  
+  // Adaptive Analytics
+  masteryLevel     Float         @default(0.0) // 0 to 100
+  weaknesses       Json?         // Array of strings (topics/concepts)
+  strengths        Json?         // Array of strings (topics/concepts)
+  
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -546,6 +618,14 @@ model QuizSessionQuestion {
   difficulty        String
   bloomLevel        String
   aiConfidenceScore Float       @default(0.85)
+  
+  // AI Explanation & RAG Feedback
+  explanation       String?     @db.Text
+  referenceChunks   Json?       // References from Hybrid RAG
+  suggestedReading  String?     @db.Text
+  learningOutcome   String?
+  adaptiveDelta     Int         @default(0) // -1 for difficulty decrease, +1 for increase, 0 for same
+
   createdAt         DateTime    @default(now())
 
   @@index([sessionId])
@@ -756,29 +836,68 @@ model Rubric {
   id             String                    @id @default(uuid())
   title          String
   description    String?
+  
+  // Detailed metadata
+  department     String?
+  course         String?
+  subject        String?
+  chapter        String?
+  topic          String?
+  difficulty     String?
+  language       String?                   @default("en")
+  
+  // Versioning
+  version        Int                       @default(1)
+  status         String                    @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
+  previousVersionId String?
+  previousVersion Rubric?                  @relation("RubricHistory", fields: [previousVersionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  nextVersions   Rubric[]                  @relation("RubricHistory")
+  
   organizationId String?
   organization   Organization?             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   authorId       String
+  
   criteria       RubricCriterion[]
   configs        AssignmentGradingConfig[]
+  
   createdAt      DateTime                  @default(now())
   updatedAt      DateTime                  @updatedAt
 
   @@index([organizationId])
   @@index([authorId])
+  @@index([previousVersionId])
 }
 
 model RubricCriterion {
-  id          String   @id @default(uuid())
-  rubricId    String
-  rubric      Rubric   @relation(fields: [rubricId], references: [id], onDelete: Cascade)
-  name        String
-  description String
-  maxMarks    Int
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String            @id @default(uuid())
+  rubricId         String
+  rubric           Rubric            @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  
+  // Self-referencing relationship for sub-criteria
+  parentId         String?
+  parent           RubricCriterion?  @relation("SubCriteria", fields: [parentId], references: [id], onDelete: Cascade)
+  subCriteria      RubricCriterion[] @relation("SubCriteria")
+  
+  name             String
+  description      String            @db.Text
+  maxMarks         Int
+  minMarks         Int               @default(0)
+  
+  // Semantic Expectations
+  expectedConcepts Json?             // Array of strings or objects
+  expectedKeywords Json?
+  bloomLevel       String?
+  difficulty       String?
+  teacherNotes     String?           @db.Text
+  
+  // Embedding for Hybrid RAG
+  vector           Json?             // Array of floats
+  
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
   @@index([rubricId])
+  @@index([parentId])
 }
 
 model AssignmentGradingConfig {
@@ -1048,9 +1167,9 @@ model CommunityPost {
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
-  
-  comments       CommunityComment[]
-  savedBy        SavedPost[]
+
+  comments CommunityComment[]
+  savedBy  SavedPost[]
 
   @@index([authorId])
   @@index([organizationId])
@@ -1058,26 +1177,26 @@ model CommunityPost {
 }
 
 model CommunityComment {
-  id             String        @id @default(uuid())
-  postId         String
-  post           CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  authorId       String
-  author         User          @relation("CommunityComments", fields: [authorId], references: [id], onDelete: Cascade)
-  content        String
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id        String        @id @default(uuid())
+  postId    String
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User          @relation("CommunityComments", fields: [authorId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 
   @@index([postId])
   @@index([authorId])
 }
 
 model SavedPost {
-  id             String        @id @default(uuid())
-  userId         String
-  user           User          @relation("SavedPosts", fields: [userId], references: [id], onDelete: Cascade)
-  postId         String
-  post           CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  createdAt      DateTime      @default(now())
+  id        String        @id @default(uuid())
+  userId    String
+  user      User          @relation("SavedPosts", fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
 
   @@unique([userId, postId])
   @@index([userId])
@@ -1229,4 +1348,92 @@ model LeaveApplication {
 
   @@index([studentId])
   @@index([organizationId])
+}
+
+// ── RAG Knowledge Base ──
+
+model KnowledgeDocument {
+  id             String           @id @default(uuid())
+  filename       String
+  fileUrl        String
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  chunks         KnowledgeChunk[]
+  qualityScore   KnowledgeQualityScore?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([organizationId])
+}
+
+model KnowledgeChunk {
+  id           String            @id @default(uuid())
+  documentId   String
+  document     KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  assignmentId String?
+  assignment   Assignment?       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  content      String            @db.Text
+  vector       Json
+  metadata     Json?
+  qualityMetrics ChunkQualityMetrics?
+  createdAt    DateTime          @default(now())
+
+  @@index([documentId])
+  @@index([assignmentId])
+}
+
+model KnowledgeQualityScore {
+  id                    String            @id @default(uuid())
+  documentId            String            @unique
+  document              KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  
+  overallScore          Float
+  documentCompleteness  Float
+  metadataCompleteness  Float
+  ocrConfidence         Float?
+  parsingConfidence     Float?
+  
+  // Coverage Tracking
+  topicCoverage         Float
+  bloomCoverage         Float
+  rubricCoverage        Float
+
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+}
+
+model ChunkQualityMetrics {
+  id                    String            @id @default(uuid())
+  chunkId               String            @unique
+  chunk                 KnowledgeChunk    @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+
+  overallScore          Float
+  chunkLength           Int
+  semanticCompleteness  Float
+  informationDensity    Float
+  duplicateRisk         Float
+  
+  // Flags
+  isOrphan              Boolean           @default(false)
+  isOversized           Boolean           @default(false)
+  isTiny                Boolean           @default(false)
+  
+  recommendation        String?           // Merge, Split, Delete, etc.
+
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+}
+
+model RagEvaluationBenchmark {
+  id                    String            @id @default(uuid())
+  queryType             String            // Question Generation, Grading, Formula
+  
+  topKAccuracy          Float
+  precision             Float
+  recall                Float
+  mrr                   Float             // Mean Reciprocal Rank
+  hitRate               Float
+  contextQuality        Float
+  
+  createdAt             DateTime          @default(now())
 }

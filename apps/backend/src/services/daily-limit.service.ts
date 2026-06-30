@@ -1,6 +1,21 @@
 import Redis from 'ioredis';
 import { logger } from '../utils/logger';
 
+const CHECK_AND_INCR_SCRIPT = `
+  local key = KEYS[1]
+  local limit = tonumber(ARGV[1])
+  local expiry = tonumber(ARGV[2])
+  local current = redis.call("GET", key)
+  if current and tonumber(current) >= limit then
+    return {0, current}
+  end
+  local val = redis.call("INCR", key)
+  if val == 1 then
+    redis.call("EXPIRE", key, expiry)
+  end
+  return {1, val}
+`;
+
 export interface DailyLimitConfig {
   STUDENT_QUIZ_LIMIT: number;
   TEACHER_PAPER_LIMIT: number;
@@ -54,7 +69,40 @@ export class DailyLimitService {
   }
 
   /**
-   * Check if user has exceeded daily limit
+   * Check AND increment usage atomically via Lua script.
+   * Replaces the old checkLimit + incrementUsage pattern to eliminate TOCTOU.
+   */
+  async checkAndIncrement(userId: string, role: string, type: 'quiz' | 'paper' | 'assignment'): Promise<{
+    allowed: boolean;
+    used: number;
+    limit: number;
+    remaining: number;
+  }> {
+    const limit = this.getLimit(role, type);
+
+    if (limit === Infinity) {
+      return { allowed: true, used: 0, limit: Infinity, remaining: Infinity };
+    }
+
+    if (limit === 0) {
+      return { allowed: false, used: 0, limit: 0, remaining: 0 };
+    }
+
+    const key = this.getRedisKey(userId, type);
+    const result = await this.redis.eval(CHECK_AND_INCR_SCRIPT, 1, key, String(limit), String(86400)) as [number, number];
+    const allowed = result[0] === 1;
+    const used = result[1];
+
+    return {
+      allowed,
+      used,
+      limit,
+      remaining: Math.max(0, limit - used),
+    };
+  }
+
+  /**
+   * Check if user has exceeded daily limit (read-only, no increment).
    */
   async checkLimit(userId: string, role: string, type: 'quiz' | 'paper' | 'assignment'): Promise<{
     allowed: boolean;
@@ -64,12 +112,10 @@ export class DailyLimitService {
   }> {
     const limit = this.getLimit(role, type);
 
-    // If unlimited (admin), always allow
     if (limit === Infinity) {
       return { allowed: true, used: 0, limit: Infinity, remaining: Infinity };
     }
 
-    // If no permission (limit is 0), reject
     if (limit === 0) {
       return { allowed: false, used: 0, limit: 0, remaining: 0 };
     }
@@ -86,15 +132,15 @@ export class DailyLimitService {
   }
 
   /**
-   * Increment usage counter
+   * Increment usage counter (only safe when used with pre-checked limits).
+   * Prefer checkAndIncrement for atomic operations.
    */
   async incrementUsage(userId: string, type: 'quiz' | 'paper' | 'assignment'): Promise<number> {
     const key = this.getRedisKey(userId, type);
     const used = await this.redis.incr(key);
 
-    // Set expiry on first increment (24 hours)
     if (used === 1) {
-      await this.redis.expire(key, 86400); // 24 hours
+      await this.redis.expire(key, 86400);
     }
 
     return used;
