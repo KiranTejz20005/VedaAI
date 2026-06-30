@@ -127,6 +127,10 @@ model Organization {
   attendanceRecords  AttendanceRecord[]
   leaveApplications  LeaveApplication[]
   knowledgeDocuments KnowledgeDocument[]
+  academicReports    AcademicReport[]
+  copilotWorkflows   CopilotWorkflow[]
+  tutorSessions      TutorSession[]
+  teacherTutorConfig TeacherTutorConfig?
 }
 
 model Department {
@@ -230,67 +234,68 @@ model Student {
   // Learning Intelligence
   learningProfile StudentLearningProfile?
   studyPlans      PersonalizedStudyPlan[]
+  tutorSessions   TutorSession[]
 
   @@index([groupId])
 }
 
 model StudentLearningProfile {
-  id                 String   @id @default(uuid())
-  studentId          String   @unique
-  student            Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid())
+  studentId String  @unique
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  masteryLevel       Float    @default(0.0) // 0 to 100, weighted history
-  knowledgeGrowth    Float    @default(0.0)
-  confidenceTrend    Float    @default(0.0) // Trend delta
+  masteryLevel    Float @default(0.0) // 0 to 100, weighted history
+  knowledgeGrowth Float @default(0.0)
+  confidenceTrend Float @default(0.0) // Trend delta
 
   // JSON representation of the Knowledge Graph / Gaps
-  weakConcepts       Json?    // e.g., ["thermodynamics", "pointers"]
-  strongConcepts     Json?
-  learningOutcomes   Json?
-  
+  weakConcepts     Json? // e.g., ["thermodynamics", "pointers"]
+  strongConcepts   Json?
+  learningOutcomes Json?
+
   // Analytics
-  averageAccuracy    Float    @default(0.0)
-  learningSpeed      Float    @default(1.0)
-  consistencyScore   Float    @default(0.0)
+  averageAccuracy  Float @default(0.0)
+  learningSpeed    Float @default(1.0)
+  consistencyScore Float @default(0.0)
 
   // One-to-one with predictions
   predictiveAnalytics PredictiveAnalytics?
 
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model PersonalizedStudyPlan {
-  id                 String   @id @default(uuid())
-  studentId          String
-  student            Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
+  id        String  @id @default(uuid())
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
   title              String
-  recommendedTopics  Json     // list of topics to review
-  referenceMaterials Json     // References retrieved from Hybrid RAG
+  recommendedTopics  Json // list of topics to review
+  referenceMaterials Json // References retrieved from Hybrid RAG
   estimatedTimeMins  Int
   difficultyTarget   String
-  
-  isCompleted        Boolean  @default(false)
-  
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+
+  isCompleted Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([studentId])
 }
 
 model PredictiveAnalytics {
-  id                 String                 @id @default(uuid())
-  profileId          String                 @unique
-  profile            StudentLearningProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  id        String                 @id @default(uuid())
+  profileId String                 @unique
+  profile   StudentLearningProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
-  examReadiness      Float                  @default(0.0) // 0 to 100%
-  probabilityOfPassing Float                @default(0.0)
-  highRiskSubjects   Json?
-  knowledgeDecayRate Float                  @default(0.0)
+  examReadiness        Float @default(0.0) // 0 to 100%
+  probabilityOfPassing Float @default(0.0)
+  highRiskSubjects     Json?
+  knowledgeDecayRate   Float @default(0.0)
 
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ── Classroom structure ──
@@ -591,14 +596,14 @@ model QuizSession {
   score            Int
   attempts         Json
   userId           String        @default("demo-faculty-id")
-  
+
   // Adaptive Analytics
-  masteryLevel     Float         @default(0.0) // 0 to 100
-  weaknesses       Json?         // Array of strings (topics/concepts)
-  strengths        Json?         // Array of strings (topics/concepts)
-  
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  masteryLevel Float @default(0.0) // 0 to 100
+  weaknesses   Json? // Array of strings (topics/concepts)
+  strengths    Json? // Array of strings (topics/concepts)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   questions QuizSessionQuestion[]
 
@@ -618,15 +623,15 @@ model QuizSessionQuestion {
   difficulty        String
   bloomLevel        String
   aiConfidenceScore Float       @default(0.85)
-  
-  // AI Explanation & RAG Feedback
-  explanation       String?     @db.Text
-  referenceChunks   Json?       // References from Hybrid RAG
-  suggestedReading  String?     @db.Text
-  learningOutcome   String?
-  adaptiveDelta     Int         @default(0) // -1 for difficulty decrease, +1 for increase, 0 for same
 
-  createdAt         DateTime    @default(now())
+  // AI Explanation & RAG Feedback
+  explanation      String? @db.Text
+  referenceChunks  Json? // References from Hybrid RAG
+  suggestedReading String? @db.Text
+  learningOutcome  String?
+  adaptiveDelta    Int     @default(0) // -1 for difficulty decrease, +1 for increase, 0 for same
+
+  createdAt DateTime @default(now())
 
   @@index([sessionId])
 }
@@ -833,35 +838,35 @@ model Invoice {
 // ── Grading ──
 
 model Rubric {
-  id             String                    @id @default(uuid())
-  title          String
-  description    String?
-  
+  id          String  @id @default(uuid())
+  title       String
+  description String?
+
   // Detailed metadata
-  department     String?
-  course         String?
-  subject        String?
-  chapter        String?
-  topic          String?
-  difficulty     String?
-  language       String?                   @default("en")
-  
+  department String?
+  course     String?
+  subject    String?
+  chapter    String?
+  topic      String?
+  difficulty String?
+  language   String? @default("en")
+
   // Versioning
-  version        Int                       @default(1)
-  status         String                    @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
+  version           Int      @default(1)
+  status            String   @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
   previousVersionId String?
-  previousVersion Rubric?                  @relation("RubricHistory", fields: [previousVersionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  nextVersions   Rubric[]                  @relation("RubricHistory")
-  
+  previousVersion   Rubric?  @relation("RubricHistory", fields: [previousVersionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  nextVersions      Rubric[] @relation("RubricHistory")
+
   organizationId String?
-  organization   Organization?             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   authorId       String
-  
-  criteria       RubricCriterion[]
-  configs        AssignmentGradingConfig[]
-  
-  createdAt      DateTime                  @default(now())
-  updatedAt      DateTime                  @updatedAt
+
+  criteria RubricCriterion[]
+  configs  AssignmentGradingConfig[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([organizationId])
   @@index([authorId])
@@ -869,32 +874,32 @@ model Rubric {
 }
 
 model RubricCriterion {
-  id               String            @id @default(uuid())
-  rubricId         String
-  rubric           Rubric            @relation(fields: [rubricId], references: [id], onDelete: Cascade)
-  
+  id       String @id @default(uuid())
+  rubricId String
+  rubric   Rubric @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+
   // Self-referencing relationship for sub-criteria
-  parentId         String?
-  parent           RubricCriterion?  @relation("SubCriteria", fields: [parentId], references: [id], onDelete: Cascade)
-  subCriteria      RubricCriterion[] @relation("SubCriteria")
-  
-  name             String
-  description      String            @db.Text
-  maxMarks         Int
-  minMarks         Int               @default(0)
-  
+  parentId    String?
+  parent      RubricCriterion?  @relation("SubCriteria", fields: [parentId], references: [id], onDelete: Cascade)
+  subCriteria RubricCriterion[] @relation("SubCriteria")
+
+  name        String
+  description String @db.Text
+  maxMarks    Int
+  minMarks    Int    @default(0)
+
   // Semantic Expectations
-  expectedConcepts Json?             // Array of strings or objects
+  expectedConcepts Json? // Array of strings or objects
   expectedKeywords Json?
   bloomLevel       String?
   difficulty       String?
-  teacherNotes     String?           @db.Text
-  
+  teacherNotes     String? @db.Text
+
   // Embedding for Hybrid RAG
-  vector           Json?             // Array of floats
-  
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  vector Json? // Array of floats
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([rubricId])
   @@index([parentId])
@@ -978,20 +983,55 @@ model AIRecommendation {
 }
 
 model LessonPlan {
-  id             String        @id @default(uuid())
-  title          String
-  subject        String
-  grade          String
-  duration       String
-  objectives     String
-  activities     Json
-  assessments    Json
-  content        String
-  userId         String        @default("demo-faculty-id")
+  id                 String        @id @default(uuid())
+  title              String
+  subject            String
+  grade              String
+  duration           String
+  objectives         String
+  activities         Json
+  assessments        Json
+  content            String
+  referenceMaterials Json? // References retrieved from Hybrid RAG
+  userId             String        @default("demo-faculty-id")
+  organizationId     String?
+  organization       Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([organizationId])
+}
+
+model AcademicReport {
+  id         String @id @default(uuid())
+  title      String
+  reportType String // e.g. "CLASS_PERFORMANCE", "SUBJECT_OUTCOME"
+  content    Json // The report data/insights
+
+  userId         String
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([organizationId])
+}
+
+model CopilotWorkflow {
+  id           String @id @default(uuid())
+  workflowName String // e.g. "LessonPlan -> Quiz"
+  status       String // "PENDING", "APPROVED", "PUBLISHED"
+  tasks        Json // List of cascading tasks and their outputs
+
+  userId         String
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([organizationId])
@@ -1353,87 +1393,136 @@ model LeaveApplication {
 // ── RAG Knowledge Base ──
 
 model KnowledgeDocument {
-  id             String           @id @default(uuid())
+  id             String                 @id @default(uuid())
   filename       String
   fileUrl        String
   organizationId String
-  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   chunks         KnowledgeChunk[]
   qualityScore   KnowledgeQualityScore?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
 
   @@index([organizationId])
 }
 
 model KnowledgeChunk {
-  id           String            @id @default(uuid())
-  documentId   String
-  document     KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  assignmentId String?
-  assignment   Assignment?       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  content      String            @db.Text
-  vector       Json
-  metadata     Json?
+  id             String               @id @default(uuid())
+  documentId     String
+  document       KnowledgeDocument    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  assignmentId   String?
+  assignment     Assignment?          @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  content        String               @db.Text
+  vector         Json
+  metadata       Json?
   qualityMetrics ChunkQualityMetrics?
-  createdAt    DateTime          @default(now())
+  createdAt      DateTime             @default(now())
 
   @@index([documentId])
   @@index([assignmentId])
 }
 
 model KnowledgeQualityScore {
-  id                    String            @id @default(uuid())
-  documentId            String            @unique
-  document              KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  
-  overallScore          Float
-  documentCompleteness  Float
-  metadataCompleteness  Float
-  ocrConfidence         Float?
-  parsingConfidence     Float?
-  
-  // Coverage Tracking
-  topicCoverage         Float
-  bloomCoverage         Float
-  rubricCoverage        Float
+  id         String            @id @default(uuid())
+  documentId String            @unique
+  document   KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  overallScore         Float
+  documentCompleteness Float
+  metadataCompleteness Float
+  ocrConfidence        Float?
+  parsingConfidence    Float?
+
+  // Coverage Tracking
+  topicCoverage  Float
+  bloomCoverage  Float
+  rubricCoverage Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ChunkQualityMetrics {
-  id                    String            @id @default(uuid())
-  chunkId               String            @unique
-  chunk                 KnowledgeChunk    @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+  id      String         @id @default(uuid())
+  chunkId String         @unique
+  chunk   KnowledgeChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
 
-  overallScore          Float
-  chunkLength           Int
-  semanticCompleteness  Float
-  informationDensity    Float
-  duplicateRisk         Float
-  
+  overallScore         Float
+  chunkLength          Int
+  semanticCompleteness Float
+  informationDensity   Float
+  duplicateRisk        Float
+
   // Flags
-  isOrphan              Boolean           @default(false)
-  isOversized           Boolean           @default(false)
-  isTiny                Boolean           @default(false)
-  
-  recommendation        String?           // Merge, Split, Delete, etc.
+  isOrphan    Boolean @default(false)
+  isOversized Boolean @default(false)
+  isTiny      Boolean @default(false)
 
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  recommendation String? // Merge, Split, Delete, etc.
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model RagEvaluationBenchmark {
-  id                    String            @id @default(uuid())
-  queryType             String            // Question Generation, Grading, Formula
-  
-  topKAccuracy          Float
-  precision             Float
-  recall                Float
-  mrr                   Float             // Mean Reciprocal Rank
-  hitRate               Float
-  contextQuality        Float
-  
-  createdAt             DateTime          @default(now())
+  id        String @id @default(uuid())
+  queryType String // Question Generation, Grading, Formula
+
+  topKAccuracy   Float
+  precision      Float
+  recall         Float
+  mrr            Float // Mean Reciprocal Rank
+  hitRate        Float
+  contextQuality Float
+
+  createdAt DateTime @default(now())
+}
+
+// ── AI Tutor ──
+
+model TutorSession {
+  id             String        @id @default(uuid())
+  studentId      String
+  student        Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  subject   String
+  tutorMode String         @default("SOCRATIC") // SOCRATIC, EXPLAIN, HINT, PRACTICE
+  status    String         @default("ACTIVE")
+  messages  TutorMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([organizationId])
+}
+
+model TutorMessage {
+  id        String       @id @default(uuid())
+  sessionId String
+  session   TutorSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  role          String // USER, ASSISTANT, SYSTEM
+  content       String @db.Text
+  ragReferences Json?
+  confidence    Float?
+
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+}
+
+model TeacherTutorConfig {
+  id             String        @id @default(uuid())
+  organizationId String?       @unique
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  allowDirectAnswers  Boolean @default(false)
+  maxExplanationDepth Int     @default(3)
+  strictDomainEnforce Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
