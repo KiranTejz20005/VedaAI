@@ -14,6 +14,7 @@ import { ActionCard } from '@/design-system/ActionCard';
 import { Card } from '@/design-system/Card';
 import { LoadingState } from '@/design-system/LoadingState';
 import { ErrorState } from '@/design-system/ErrorState';
+import { learningService } from '@/services/learning.service';
 
 interface StudentStats {
   enrolledClasses: number;
@@ -42,9 +43,10 @@ interface RecentResult {
 }
 
 const quickLinks = [
-  { href: '/student/lessons', label: 'My Lessons', description: 'Browse your assigned lessons', icon: Library },
+  { href: '/student/study-plan', label: 'Study Plan', description: 'Your personalized AI study tasks', icon: BookOpen },
+  { href: '/student/mastery', label: 'Mastery Profile', description: 'Visualize your learning progress', icon: BarChart3 },
   { href: '/student/assessments', label: 'My Assessments', description: 'Start or resume assessments', icon: ClipboardCheck },
-  { href: '/student/results', label: 'My Results', description: 'View your graded assessments', icon: BarChart3 },
+  { href: '/student/lessons', label: 'My Lessons', description: 'Browse your assigned lessons', icon: Library },
 ];
 
 export default function StudentDashboard() {
@@ -52,6 +54,7 @@ export default function StudentDashboard() {
   const [stats, setStats] = useState<StudentStats | null>(null);
   const [upcoming, setUpcoming] = useState<UpcomingAssessment[]>([]);
   const [recentResults, setRecentResults] = useState<RecentResult[]>([]);
+  const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,14 +62,16 @@ export default function StudentDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const [statsRes, upcomingRes, resultsRes] = await Promise.all([
+      const [statsRes, upcomingRes, resultsRes, profileData] = await Promise.all([
         api.get<{ success: boolean; data: StudentStats }>('/student/stats').catch(() => ({ data: { data: null } })),
         api.get<{ success: boolean; data: UpcomingAssessment[] }>('/student/assessments/upcoming').catch(() => ({ data: { data: [] } })),
         api.get<{ success: boolean; data: RecentResult[] }>('/student/results').catch(() => ({ data: { data: [] } })),
+        user ? learningService.getStudentProfile(user.id).catch(() => null) : Promise.resolve(null)
       ]);
       setStats(statsRes.data.data ?? { enrolledClasses: 0, availableAssessments: 0, pendingSubmissions: 0, completed: 0 });
       setUpcoming(upcomingRes.data.data ?? []);
       setRecentResults(resultsRes.data.data ?? []);
+      setProfile(profileData);
     } catch (err: any) {
       setError(err.message || 'Failed to load dashboard');
       toast.error('Failed to load dashboard data');
@@ -109,8 +114,8 @@ export default function StudentDashboard() {
         />
         <MetricCard
           icon={<CheckCircle2 size={18} />}
-          label="Completed"
-          value={stats?.completed ?? 0}
+          label="Overall Mastery"
+          value={profile?.overallMasteryScore ? `${profile.overallMasteryScore}%` : 'N/A'}
         />
       </div>
 

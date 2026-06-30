@@ -30,6 +30,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/student/attendance', label: 'Attendance', icon: User },
   { href: '/dashboard/student/results', label: 'Results', icon: TrendingUp },
   { href: '/dashboard/student/practice', label: 'Practice Quiz', icon: BookOpen },
+  { href: '/student/tutor', label: 'AI Tutor', icon: MessageSquare },
   { href: '/dashboard/student/community', label: 'Community', icon: Users },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];

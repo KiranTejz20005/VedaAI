@@ -1,0 +1,2 @@
+﻿src/api/admin/controller.ts(215,4): error TS1005: ',' expected.
+src/api/analytics/controller.ts(161,65): error TS1005: ',' expected.

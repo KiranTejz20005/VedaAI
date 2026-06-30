@@ -12,6 +12,9 @@ import {
   ClipboardCheck,
   ShieldCheck,
   Building2,
+  Activity,
+  Zap,
+  BookOpen
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
@@ -19,13 +22,11 @@ import { useSystemStore } from '@/store/system.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
 
 const NAV_ITEMS = [
-  { href: '/dashboard/super-admin', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/super-admin/organizations', label: 'Organizations', icon: Building2 },
-  { href: '/super-admin/users', label: 'System Users', icon: Users },
-  { href: '/dashboard/admin/users', label: 'Org Users', icon: GraduationCap },
-  { href: '/dashboard/admin/classes', label: 'Classes', icon: ClipboardCheck },
-  { href: '/super-admin/analytics', label: 'Analytics', icon: PieChart },
-  { href: '/super-admin/audit', label: 'Security & Logs', icon: ShieldCheck },
+  { href: '/dashboard/admin', label: 'Admin Overview', icon: LayoutGrid, exact: true },
+  { href: '/dashboard/admin/system-health', label: 'System Health', icon: Activity },
+  { href: '/dashboard/admin/providers', label: 'AI Providers', icon: Zap },
+  { href: '/dashboard/admin/knowledge', label: 'Knowledge Base', icon: BookOpen },
+  { href: '/dashboard/admin/users', label: 'Users', icon: Users },
   { href: '/super-admin/settings', label: 'Settings', icon: Settings },
 ];
 

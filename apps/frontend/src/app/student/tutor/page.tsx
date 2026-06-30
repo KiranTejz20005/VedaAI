@@ -1,0 +1,170 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
+import { MessageSquare, Plus, Clock, ArrowRight } from 'lucide-react';
+import { api } from '@/lib/api';
+import { useAuthStore } from '@/store/auth.store';
+import { PageHeader } from '@/design-system/PageHeader';
+import { Card } from '@/design-system/Card';
+import { LoadingState } from '@/design-system/LoadingState';
+import { ErrorState } from '@/design-system/ErrorState';
+import { Button } from '@/design-system/Button';
+import { Input } from '@/design-system/Input';
+import { Dialog } from '@/design-system/Dialog';
+import type { TutorSession } from '@/types/tutor.types';
+import { createSession } from '@/services/tutor.service';
+
+export default function TutorSessionsPage() {
+  const { user } = useAuthStore();
+  const router = useRouter();
+  const [sessions, setSessions] = useState<TutorSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newSubject, setNewSubject] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const fetchSessions = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.get<{ success: boolean; data: TutorSession[] }>(`/tutor/sessions?studentId=${user.id}`);
+      setSessions(res.data.data || []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load tutor sessions');
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
+
+  const handleCreateSession = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSubject.trim()) {
+      toast.error('Please enter a subject/topic');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const session = await createSession({ subject: newSubject, tutorMode: 'SOCRATIC' });
+      toast.success('Session created successfully');
+      router.push(`/student/tutor/${session.id}`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create session');
+      setIsSubmitting(false);
+    }
+  };
+
+  if (loading) return <LoadingState lines={5} />;
+  if (error) return <ErrorState message={error} onRetry={fetchSessions} />;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <PageHeader
+          title="AI Tutor"
+          subtitle="Your personalized Socratic learning companion."
+        />
+        <Button onClick={() => setIsModalOpen(true)} variant="primary" style={{ gap: 8 }}>
+          <Plus size={16} /> New Session
+        </Button>
+      </div>
+
+      <Dialog 
+        isOpen={isModalOpen} 
+        onClose={() => !isSubmitting && setIsModalOpen(false)}
+        title="Start a new Tutor Session"
+      >
+        <form onSubmit={handleCreateSession} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <Input
+            label="What would you like to learn about?"
+            placeholder="e.g. Newton's Laws of Motion, Quantum Physics, Data Structures..."
+            value={newSubject}
+            onChange={(e) => setNewSubject(e.target.value)}
+            disabled={isSubmitting}
+            required
+            autoFocus
+          />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
+            <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" isLoading={isSubmitting}>
+              Start Session
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {sessions.length === 0 ? (
+        <Card style={{ textAlign: 'center', padding: 48 }}>
+          <MessageSquare size={48} style={{ color: 'var(--text-muted)', margin: '0 auto 16px' }} />
+          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 600, marginBottom: 8, color: 'var(--text-primary)' }}>No active sessions</h3>
+          <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>Start a new session to get help with your studies.</p>
+          <Button onClick={() => setIsModalOpen(true)} variant="primary">Start a Session</Button>
+        </Card>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+          {sessions.map((session) => (
+            <Link key={session.id} href={`/student/tutor/${session.id}`} style={{ textDecoration: 'none' }}>
+              <Card 
+                padding="20px" 
+                style={{ 
+                  cursor: 'pointer', 
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: 12,
+                  height: '100%',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                  e.currentTarget.style.borderColor = 'var(--brand)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                  e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 600, color: 'var(--text-primary)', margin: 0, flex: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {session.subject}
+                  </h3>
+                  <div style={{ 
+                    padding: '2px 8px', 
+                    borderRadius: 12, 
+                    fontSize: '11px', 
+                    fontWeight: 600,
+                    background: session.status === 'ACTIVE' ? '#D1FAE5' : '#F3F4F6',
+                    color: session.status === 'ACTIVE' ? '#065F46' : '#4B5563',
+                    marginLeft: 12
+                  }}>
+                    {session.status}
+                  </div>
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 'var(--text-sm)', marginTop: 'auto' }}>
+                  <Clock size={14} />
+                  <span>{new Date(session.updatedAt || session.createdAt).toLocaleDateString()}</span>
+                  <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, color: 'var(--brand)', fontWeight: 500 }}>
+                    {session.status === 'ACTIVE' ? 'Resume' : 'View'} <ArrowRight size={14} />
+                  </span>
+                </div>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

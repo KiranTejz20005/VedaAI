@@ -14,8 +14,8 @@ const FACULTY_NAV = [
 
 const STUDENT_NAV = [
   { href: '/student', label: 'Home', icon: LayoutGrid, exact: true },
-  { href: '/dashboard/student/assessments', label: 'Assessments', icon: ClipboardList },
-  { href: '/student/lessons', label: 'Lessons', icon: BookOpen },
+  { href: '/dashboard/student/assessments', label: 'Tests', icon: ClipboardList },
+  { href: '/student/tutor', label: 'Tutor', icon: Sparkles },
   { href: '/dashboard/student/results', label: 'Results', icon: FileText },
 ];
 
