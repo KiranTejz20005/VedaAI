@@ -469,15 +469,13 @@ model Assessment {
 
   authorId       String
   author         User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-
-
+  organizationId String
+  organization   Organization  @relation("OrganizationAssessments", fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   questions AssessmentQuestion[]
 
-  @@index([organizationId])
   @@index([authorId])
 }
 

@@ -5,7 +5,7 @@ export const createAssessment = async (req: Request, res: Response) => {
   try {
     const { title, subjectId, totalMarks } = req.body;
     const authorId = req.user?.id || 'demo-author-id';
-    const organizationId = req.user?.organizationId;
+    const organizationId = req.user?.organizationId || 'demo-org-id';
     
     const assessment = await prisma.assessment.create({
       data: {
