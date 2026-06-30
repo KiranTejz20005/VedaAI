@@ -18,9 +18,9 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
     if (!cookieToken) {
       const token = generateToken();
       res.cookie(COOKIE_NAME, token, {
-        sameSite: 'strict',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         httpOnly: false,
-        secure: req.secure,
+        secure: process.env.NODE_ENV === 'production',
         path: '/',
       });
     }

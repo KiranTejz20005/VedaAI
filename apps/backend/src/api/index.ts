@@ -64,8 +64,6 @@ apiGateway.use('/copilot', copilotRouter);
 apiGateway.use('/jobs', jobsRouter);
 apiGateway.use(metricsRouter);
 
-apiGateway.use((_req, res) => {
-  sendNotFound(res, 'API endpoint not found');
-});
+
 
 export default apiGateway;

@@ -13,17 +13,19 @@ router.use(authenticate, authorize(['SUPER_ADMIN']), requirePermission('MANAGE_S
 
 // Dashboard Stats
 router.get('/dashboard/stats', asyncHandler(async (_req, res) => {
-  const [totalOrganizations, totalUsers, securityAlerts] = await Promise.all([
+  const [totalOrganizations, totalUsers, securityAlerts, activeSessions] = await Promise.all([
     prisma.organization.count(),
     prisma.user.count(),
     prisma.auditLog.count({
       where: { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
     }),
+    prisma.session.count({
+      where: { isActive: true }
+    })
   ]);
 
-  const activeSessions = Math.floor(totalUsers * 0.1); // Placeholder
-  const apiUsage = 84; // Placeholder
-  const systemUptime = 99.99; // Placeholder
+  const apiUsage = null;
+  const systemUptime = null;
 
   res.json({
     success: true,

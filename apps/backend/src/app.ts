@@ -213,34 +213,12 @@ function createApp() {
   app.use(cookieParser());
   app.set('trust proxy', 1);
 
-  // CSRF protection (double-submit cookie pattern) — skip webhook endpoints
-  app.use('/api/webhook', (_req, _res, next) => next());
-  app.use(csrfProtection);
-
-
   const corsOrigins = parseCorsOrigins(env.FRONTEND_URL);
   const ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:5173',
     ...corsOrigins,
   ];
-
-  app.use(helmet({
-    crossOriginEmbedderPolicy: false,
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'blob:'],
-        fontSrc: ["'self'", 'data:'],
-        connectSrc: ["'self'", 'ws:', 'wss:'],
-        objectSrc: ["'none'"],
-        frameAncestors: ["'none'"],
-      },
-    },
-  }));
-  app.use(compression());
 
   const corsMiddleware = cors({
     origin: (origin, callback) => {
@@ -260,6 +238,28 @@ function createApp() {
   });
   app.use(corsMiddleware);
   app.options('*', corsMiddleware);
+
+  // CSRF protection (double-submit cookie pattern) — skip webhook endpoints
+  app.use('/api/webhook', (_req, _res, next) => next());
+  app.use(csrfProtection);
+
+
+  app.use(helmet({
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        fontSrc: ["'self'", 'data:'],
+        connectSrc: ["'self'", 'ws:', 'wss:'],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    },
+  }));
+  app.use(compression());
 
   app.use((req, res, next) => {
     const requestId = req.headers['x-request-id'] as string || crypto.randomUUID();

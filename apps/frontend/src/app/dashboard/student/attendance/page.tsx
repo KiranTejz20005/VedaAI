@@ -169,13 +169,13 @@ export default function AttendanceDashboardPage() {
       <div 
         key={`${isCurrentMonth ? 'curr' : 'prev'}-${day}`}
         style={{
-          aspectRatio: '1',
+          aspectRatio: '1.3',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           background: bgColor,
-          borderRadius: 16,
+          borderRadius: 12,
           color: textColor,
           fontWeight: status === 'TODAY' ? 700 : 600,
           fontSize: 14,
@@ -199,10 +199,10 @@ export default function AttendanceDashboardPage() {
     <div style={{ padding: 'var(--page-pad)', background: '#F8FAFC', minHeight: '100vh' }}>
       
       {/* Top Stats Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 24, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16, marginBottom: 16 }}>
         
         {/* Monthly Attendance */}
-        <div style={{ background: '#fff', borderRadius: 24, padding: 24, display: 'flex', alignItems: 'center', gap: 20, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+        <div style={{ background: '#fff', borderRadius: 24, padding: 20, display: 'flex', alignItems: 'center', gap: 20, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
           <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <CheckCircle2 size={28} color="#22C55E" />
           </div>
@@ -220,7 +220,7 @@ export default function AttendanceDashboardPage() {
         </div>
 
         {/* Total Classes */}
-        <div style={{ background: '#fff', borderRadius: 24, padding: 24, display: 'flex', alignItems: 'center', gap: 20, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+        <div style={{ background: '#fff', borderRadius: 24, padding: 20, display: 'flex', alignItems: 'center', gap: 20, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
           <div style={{ width: 56, height: 56, borderRadius: 20, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Users size={28} color="#3B82F6" />
           </div>
@@ -239,7 +239,7 @@ export default function AttendanceDashboardPage() {
         </div>
 
         {/* Days Present */}
-        <div style={{ background: '#fff', borderRadius: 24, padding: 24, display: 'flex', alignItems: 'center', gap: 20, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+        <div style={{ background: '#fff', borderRadius: 24, padding: 20, display: 'flex', alignItems: 'center', gap: 20, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
           <div style={{ width: 56, height: 56, borderRadius: 20, background: '#FFF7ED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <CalendarDays size={28} color="#F97316" />
           </div>
@@ -261,8 +261,8 @@ export default function AttendanceDashboardPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24 }}>
         
         {/* Main Calendar Card */}
-        <div style={{ background: '#fff', borderRadius: 32, padding: 32, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+        <div style={{ background: '#fff', borderRadius: 24, padding: 24, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <div>
               <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0F172A' }}>Attendance Overview</h2>
               <div style={{ fontSize: 14, color: '#64748B', fontWeight: 500, marginTop: 4 }}>
@@ -285,7 +285,7 @@ export default function AttendanceDashboardPage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 12, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8, marginBottom: 8 }}>
             {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map(day => (
               <div key={day} style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#475569', paddingBottom: 8 }}>
                 {day}

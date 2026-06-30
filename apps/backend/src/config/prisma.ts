@@ -6,12 +6,7 @@ function createPrisma(): PrismaClient {
   const adapter = new PrismaPg({ connectionString });
   const client = new PrismaClient({ adapter });
 
-  if (process.env.NODE_ENV !== 'production') {
-    const globalForPrisma = global as typeof globalThis & { __prisma?: PrismaClient };
-    if (globalForPrisma.__prisma) return globalForPrisma.__prisma;
-    globalForPrisma.__prisma = client;
-  }
-
+  // Force new PrismaClient instance in dev to resolve cached schema issues
   return client;
 }
 

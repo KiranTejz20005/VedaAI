@@ -199,6 +199,7 @@ model User {
   communityComments   CommunityComment[]     @relation("CommunityComments")
   savedPosts          SavedPost[]            @relation("SavedPosts")
   leaveApplications   LeaveApplication[]     @relation("LeaveApplications")
+  tutorSessions       TutorSession[]
 
   @@index([organizationId])
   @@index([departmentId])
@@ -235,7 +236,6 @@ model Student {
   // Learning Intelligence
   learningProfile StudentLearningProfile?
   studyPlans      PersonalizedStudyPlan[]
-  tutorSessions   TutorSession[]
 
   @@index([groupId])
 }
@@ -1496,7 +1496,7 @@ model RagEvaluationBenchmark {
 model TutorSession {
   id             String        @id @default(uuid())
   studentId      String
-  student        Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student        User          @relation(fields: [studentId], references: [id], onDelete: Cascade)
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 

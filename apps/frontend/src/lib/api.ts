@@ -17,6 +17,8 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  xsrfCookieName: 'XSRF-TOKEN',
+  xsrfHeaderName: 'X-CSRF-Token',
 });
 
 let _accessToken: string | null = null;
@@ -24,9 +26,36 @@ export const setApiToken = (token: string | null) => {
   _accessToken = token;
 };
 
+let csrfPromise: Promise<any> | null = null;
+async function ensureCsrfToken() {
+  if (typeof document !== 'undefined' && !document.cookie.includes('XSRF-TOKEN=')) {
+    if (!csrfPromise) {
+      // Make a GET request to obtain the CSRF cookie
+      csrfPromise = axios.get(joinUrl(getBaseURL(), '/public-organizations'), { withCredentials: true })
+        .catch(() => {}) // Ignore errors, the cookie is set by middleware regardless
+        .finally(() => { csrfPromise = null; });
+    }
+    await csrfPromise;
+  }
+}
+
+function getCsrfTokenFromCookie(): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp('(^|;\\s*)XSRF-TOKEN=([^;]*)'));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
 
 api.interceptors.request.use(async (config) => {
   config.baseURL = getBaseURL();
+
+  if (typeof document !== 'undefined' && config.method && ['post', 'put', 'patch', 'delete'].includes(config.method.toLowerCase())) {
+    await ensureCsrfToken();
+    const token = getCsrfTokenFromCookie();
+    if (token) {
+      config.headers['X-CSRF-Token'] = token;
+    }
+  }
 
   if (_accessToken) {
     config.headers.Authorization = `Bearer ${_accessToken}`;
@@ -123,9 +152,16 @@ api.interceptors.response.use(
         if (!isRefreshing) {
           isRefreshing = true;
           try {
+            await ensureCsrfToken();
             // Attempt to refresh the token using a clean axios instance to avoid interceptor loops
             const refreshUrl = originalRequest.baseURL ? joinUrl(originalRequest.baseURL, '/auth/refresh') : '/auth/refresh';
-            const res = await axios.post(refreshUrl, {}, { withCredentials: true });
+            const csrfToken = getCsrfTokenFromCookie();
+            const res = await axios.post(refreshUrl, {}, { 
+              withCredentials: true,
+              headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
+              xsrfCookieName: 'XSRF-TOKEN',
+              xsrfHeaderName: 'X-CSRF-Token',
+            });
             const token = res.data?.data?.accessToken;
             
             if (token) {

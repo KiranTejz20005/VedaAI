@@ -52,12 +52,22 @@ router.get('/dashboard/stats', asyncHandler(async (req, res) => {
     select: { id: true, title: true, createdAt: true },
   });
 
-  const recentTests = recentTestsRaw.map(t => ({
-    id: t.id,
-    name: t.title,
-    date: t.createdAt.toISOString().split('T')[0],
-    score: Math.floor(Math.random() * 20) + 70, // Mock score average for the test, can be aggregated later
-  }));
+  const testIds = recentTestsRaw.map(t => t.id);
+  const evaluationsForTests = await prisma.submissionEvaluation.findMany({
+    where: { submission: { assignmentId: { in: testIds } } },
+    include: { submission: true }
+  });
+
+  const recentTests = recentTestsRaw.map(t => {
+    const evals = evaluationsForTests.filter(e => e.submission.assignmentId === t.id);
+    const avgScore = evals.length > 0 ? Math.round(evals.reduce((acc, e) => acc + ((e.score || 0) / (e.totalMarks || 100)) * 100, 0) / evals.length) : 0;
+    return {
+      id: t.id,
+      name: t.title,
+      date: t.createdAt.toISOString().split('T')[0],
+      score: avgScore,
+    };
+  });
 
   // Fetch top students from submissions
   const evaluationsRaw = await prisma.submissionEvaluation.findMany({
@@ -86,7 +96,10 @@ router.get('/dashboard/stats', asyncHandler(async (req, res) => {
 
   const absent = Math.max(0, totalStudents - presentToday);
   const averageClassScore = topStudents.length > 0 ? Math.round(topStudents.reduce((acc, s) => acc + s.average, 0) / topStudents.length) : 0;
-  const ongoingExams = 0; // Placeholder
+  
+  const ongoingExams = await prisma.assignment.count({
+    where: { createdById: userId, status: 'ACTIVE' },
+  });
 
   res.json({
     success: true,

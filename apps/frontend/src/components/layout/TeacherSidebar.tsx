@@ -1,7 +1,9 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { api } from '@/lib/api';
 import {
   LayoutGrid,
   Settings,
@@ -20,7 +22,7 @@ import { useAdminAuthStore } from '@/store/admin-auth.store';
 const NAV_ITEMS = [
   { href: '/dashboard/teacher', label: 'Home', icon: LayoutGrid, exact: true },
   { href: '/my-classes', label: 'My Groups', icon: Users },
-  { href: '/assignments', label: 'Assignments', icon: FileText, badge: 32 },
+  { href: '/assignments', label: 'Assignments', icon: FileText },
   { href: '/dashboard/teacher/attendance', label: 'Attendance', icon: GraduationCap },
   { href: '/dashboard/teacher/copilot', label: 'AI Copilot', icon: Sparkles },
   { href: '/dashboard/teacher/insights', label: 'Class Insights', icon: LayoutGrid },
@@ -38,6 +40,20 @@ export function TeacherSidebar() {
     if (exact) return pathname === href;
     return pathname.startsWith(href);
   }
+
+  const [assignmentCount, setAssignmentCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      api.get('/assignments').then((res: any) => {
+        if (res.data?.pagination?.total !== undefined) {
+          setAssignmentCount(res.data.pagination.total);
+        } else if (res.data?.data) {
+          setAssignmentCount(res.data.data.length);
+        }
+      }).catch(console.error);
+    }
+  }, [user]);
 
   return (
     <>
@@ -66,17 +82,18 @@ export function TeacherSidebar() {
         </Link>
 
         <nav className="sidebar-nav" aria-label="Pages">
-          {NAV_ITEMS.map(({ href, label, icon: Icon, exact, badge }) => {
+          {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
             const active = isActive(href, exact);
+            const displayBadge = label === 'Assignments' ? assignmentCount : undefined;
             return (
               <Link key={label} href={href} className={`sidebar-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={close}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <Icon size={18} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
                   <span>{label}</span>
                 </div>
-                {badge && (
+                {displayBadge !== undefined && displayBadge !== null && (
                   <span style={{ background: '#F97316', color: 'white', fontSize: '12px', fontWeight: 700, padding: '2px 8px', borderRadius: '9999px', marginLeft: 'auto' }}>
-                    {badge}
+                    {displayBadge}
                   </span>
                 )}
               </Link>
@@ -90,15 +107,36 @@ export function TeacherSidebar() {
             <span>Settings</span>
           </Link>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#F3F4F6', borderRadius: '12px', margin: '16px' }}>
-            <div style={{ width: '32px', height: '32px', background: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <img src="https://ui-avatars.com/api/?name=DPS&background=10B981&color=fff&rounded=true&bold=true" alt="Org Logo" style={{ width: '100%', height: '100%', borderRadius: '8px', objectFit: 'cover' }} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>Delhi Public School</span>
-              <span style={{ fontSize: '11px', color: '#6B7280', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>Bokaro Steel City</span>
-            </div>
-          </div>
+          {user && (() => {
+            const getInstituteDetails = (email?: string) => {
+              if (!email) return { name: user?.organizationName || 'Educational Institute', location: 'Campus', initials: 'EI' };
+              const domain = email.split('@')[1]?.split('.')[0]?.toLowerCase();
+              
+              switch(domain) {
+                case 'spec':
+                  return { name: "St. Peter's Engineering College", location: 'Hyderabad', initials: 'SPEC' };
+                case 'scs':
+                  return { name: "Sri Chaithanya Schools", location: 'Campus', initials: 'SCS' };
+                default:
+                  const fallbackName = user?.organizationName || (domain ? domain.toUpperCase() : 'Educational Institute');
+                  const initials = fallbackName.substring(0, 3).toUpperCase();
+                  return { name: fallbackName, location: 'Campus', initials };
+              }
+            };
+            const institute = getInstituteDetails(user.email);
+
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#F3F4F6', borderRadius: '12px', margin: '16px' }}>
+                <div style={{ width: '32px', height: '32px', background: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <img src={`https://ui-avatars.com/api/?name=${institute.initials}&background=10B981&color=fff&rounded=true&bold=true`} alt="Org Logo" style={{ width: '100%', height: '100%', borderRadius: '8px', objectFit: 'cover' }} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={institute.name}>{institute.name}</span>
+                  <span style={{ fontSize: '11px', color: '#6B7280', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{institute.location}</span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </aside>
     </>

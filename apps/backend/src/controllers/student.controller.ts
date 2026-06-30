@@ -106,13 +106,14 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
       .slice(0, 4)
       .map(a => {
         const daysToDue = Math.ceil((new Date(a.dueDate).getTime() - now.getTime()) / (1000 * 3600 * 24));
+        const sub = submissions.find((s) => s.assignmentId === a.id);
         return {
           id: a.id,
           title: a.title,
           subject: a.subject,
-          chapter: 'Chap 4.2',
+          chapter: 'General',
           teacher: a.createdBy ? `${a.createdBy.firstName} ${a.createdBy.lastName}` : 'Instructor',
-          progress: Math.floor(Math.random() * 60) + 20,
+          progress: sub && sub.status === 'IN_PROGRESS' ? 50 : (sub && sub.status === 'STARTED' ? 10 : 0),
           dueDateStatus: daysToDue <= 0 ? 'DUE TODAY' : `IN ${daysToDue} DAYS`
         };
       });
@@ -149,15 +150,11 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
         weeklyGoalProgress: 85,
         nextTest,
         monthlyAttendance,
-        attendanceTrend: '+2.4%',
+        attendanceTrend: null,
         globalRank: { current: 12, total: 450 },
         activeAssignments,
         upcomingTests,
-        aiInsight: {
-          performanceArea: 'Physics quiz',
-          recommendedTopic: 'Electromagnetism',
-          testDay: 'Wednesday'
-        },
+        aiInsight: null,
         enrolledClasses: enrollments.map((e) => ({
           sectionId: e.sectionId,
           sectionName: e.section.name,
