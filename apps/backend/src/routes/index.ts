@@ -31,12 +31,14 @@ import voiceRoutes from './voice.routes';
 import moderationRoutes from './moderation.routes';
 import meetingRoutes from './meeting.routes';
 import attendanceRoutes from './attendance.routes';
+import copilotRoutes from './copilot.routes';
 
 // ── New API Gateway ──
 import apiGateway from '../api/index';
 import swaggerRouter from '../api/swagger';
 
 const apiRouter = Router();
+
 
 // ── Health check endpoints ──
 
@@ -100,6 +102,9 @@ apiRouter.use('/v1/notifications', notificationRoutes);
 apiRouter.use('/v1/student', studentRoutes);
 apiRouter.use('/v1/attendance', attendanceRoutes);
 
+// Copilot
+apiRouter.use('/v1/copilot', copilotRoutes);
+
 // Backward compatible legacy aliases (deprecated — use /v1/ prefix)
 apiRouter.use('/assignments', assignmentRoutes);
 apiRouter.use('/papers', paperRoutes);
@@ -113,3 +118,4 @@ apiRouter.use('/v1/meetings', meetingRoutes);
 apiRouter.use('/v1/admin/community', moderationRoutes);
 
 export default apiRouter;
+

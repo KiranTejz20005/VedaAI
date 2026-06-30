@@ -13,9 +13,19 @@ export interface CopilotWorkflowRequest {
 }
 
 export const copilotService = {
+  getLessonPlans: async () => {
+    const response = await api.get('/copilot/lesson-plans');
+    return response.data.data;
+  },
+
   generateLessonPlan: async (data: LessonPlanRequest) => {
     const response = await api.post('/copilot/lesson-plan', data);
     return response.data.data;
+  },
+
+  deleteLessonPlan: async (id: string) => {
+    const response = await api.delete(`/copilot/lesson-plan/${id}`);
+    return response.data;
   },
 
   executeWorkflow: async (data: CopilotWorkflowRequest) => {

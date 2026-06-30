@@ -30,6 +30,54 @@ export const generateLessonPlan = async (req: Request, res: Response): Promise<v
 };
 
 /**
+ * GET /v1/copilot/lesson-plans
+ * Retrieves a list of generated lesson plans.
+ */
+export const getLessonPlans = async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id ?? 'demo-faculty-id';
+  const organizationId = req.user?.activeOrganizationId ?? req.user?.organizationId ?? '';
+
+  const plans = await prisma.lessonPlan.findMany({
+    where: { userId, organizationId: organizationId || undefined },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  });
+
+  sendSuccess(res, plans, { message: 'Lesson plans retrieved' });
+};
+
+/**
+ * DELETE /v1/copilot/lesson-plan/:id
+ * Deletes a generated lesson plan.
+ */
+export const deleteLessonPlan = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const userId = req.user?.id ?? 'demo-faculty-id';
+  
+  if (!id) {
+    sendError(res, 400, 'Lesson plan ID is required', { errorCode: 'VALIDATION_ERROR' });
+    return;
+  }
+
+  // Ensure the user owns the lesson plan or is an admin (simplified ownership check)
+  const plan = await prisma.lessonPlan.findUnique({ where: { id } });
+  
+  if (!plan) {
+    sendError(res, 404, 'Lesson plan not found', { errorCode: 'NOT_FOUND' });
+    return;
+  }
+
+  if (plan.userId !== userId && req.user?.role !== 'ADMIN') {
+    sendError(res, 403, 'Unauthorized to delete this lesson plan', { errorCode: 'UNAUTHORIZED' });
+    return;
+  }
+
+  await prisma.lessonPlan.delete({ where: { id } });
+
+  sendSuccess(res, null, { message: 'Lesson plan deleted successfully' });
+};
+
+/**
  * POST /v1/copilot/workflow
  * Initiates a multi-step automation workflow.
  */

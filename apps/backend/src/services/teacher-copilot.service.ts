@@ -28,23 +28,17 @@ CRITICAL RULES:
 1. ONLY generate content that aligns with the provided context.
 2. Provide a sequential flow of activities.
 3. Suggest an assessment methodology at the end.
+4. Output your response ONLY as a JSON object matching this schema:
+{
+  "objectives": "string",
+  "activities": ["string"],
+  "assessments": ["string"],
+  "content": "string"
+}
 `;
 
     const responseFormat = {
-      type: "json_schema",
-      json_schema: {
-        name: "lesson_plan",
-        schema: {
-          type: "object",
-          properties: {
-            objectives: { type: "string" },
-            activities: { type: "array", items: { type: "string" } },
-            assessments: { type: "array", items: { type: "string" } },
-            content: { type: "string" }
-          },
-          required: ["objectives", "activities", "assessments", "content"]
-        }
-      }
+      type: "json_object"
     };
 
     const planData = await AIOrchestrator.generate({
@@ -61,7 +55,7 @@ CRITICAL RULES:
         title: `${subject} - ${topic}`,
         subject,
         grade: "Not Specified",
-        duration,
+        duration: String(duration),
         objectives: planData.objectives,
         activities: planData.activities,
         assessments: planData.assessments,

@@ -2,6 +2,8 @@ import { ModelRegistryService } from './model-registry.service';
 import { TokenBudgetService } from './token-budget.service';
 import { PromptBuilderService } from './prompt-builder.service';
 import { OpenAIProvider } from './providers/openai.provider';
+import { GroqProvider } from './providers/groq.provider';
+import { NvidiaProvider } from './providers/nvidia.provider';
 import { AIProvider } from './providers/provider.interface';
 import { logger } from '../../utils/logger';
 
@@ -20,8 +22,8 @@ export interface AIRequestOptions {
 export class AIOrchestrator {
   private static providers: Record<string, AIProvider> = {
     'openai': new OpenAIProvider(),
-    // 'groq': new GroqProvider(),
-    // 'nvidia': new NvidiaProvider()
+    'groq': new GroqProvider(),
+    'nvidia': new NvidiaProvider()
   };
 
   static async generate(options: AIRequestOptions): Promise<any> {

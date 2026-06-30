@@ -13,7 +13,7 @@ function getBaseURL(): string {
 
 export const api = axios.create({
   withCredentials: true,
-  timeout: 60000,
+  timeout: 180000,
   headers: {
     'Content-Type': 'application/json',
   },

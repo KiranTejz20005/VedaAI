@@ -9,28 +9,18 @@ export interface ModelConfig {
 }
 
 export const ModelRegistry: Record<string, ModelConfig> = {
-  'gpt-4o-mini': {
-    provider: 'openai',
-    modelName: 'gpt-4o-mini',
+  'llama-3.1-70b-instruct': {
+    provider: 'nvidia',
+    modelName: 'meta/llama-3.1-70b-instruct',
     contextWindow: 128000,
-    maxOutputTokens: 16000,
-    supportsVision: true,
-    supportsJSON: true,
-    tier: 'fast',
-  },
-  'gpt-4o': {
-    provider: 'openai',
-    modelName: 'gpt-4o',
-    contextWindow: 128000,
-    maxOutputTokens: 4096,
-    supportsVision: true,
+    maxOutputTokens: 8000,
+    supportsVision: false,
     supportsJSON: true,
     tier: 'reasoning',
   },
-  // Stubbed out for future Nvidia NIM / Groq integrations
-  'llama-3.1-70b-instruct': {
+  'llama-3.1-8b-instant': {
     provider: 'groq',
-    modelName: 'llama-3.1-70b-versatile',
+    modelName: 'llama-3.1-8b-instant',
     contextWindow: 128000,
     maxOutputTokens: 8000,
     supportsVision: false,
@@ -42,9 +32,10 @@ export const ModelRegistry: Record<string, ModelConfig> = {
 export class ModelRegistryService {
   static getModelForIntent(intent: string): ModelConfig {
     // Basic routing logic
-    if (intent === 'GenerateQuestionPaper' || intent === 'EvaluateTypedAnswer') {
-      return ModelRegistry['gpt-4o']; // Needs deep reasoning
+    if (intent === 'GenerateQuestionPaper' || intent === 'EvaluateTypedAnswer' || intent === 'GenerateQuestionExplanation') {
+      return ModelRegistry['llama-3.1-70b-instruct']; // Needs deep reasoning, use NVIDIA
     }
-    return ModelRegistry['gpt-4o-mini']; // Fast fallback
+    return ModelRegistry['llama-3.1-8b-instant']; // Fast fallback, use Groq
   }
 }
+

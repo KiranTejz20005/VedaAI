@@ -56,26 +56,20 @@ CRITICAL RULES:
 3. Use the provided RAG context to ground your explanation.
 4. Keep the explanation within a maximum conceptual depth of ${maxDepth}.
 5. Provide a follow-up question to check understanding.
+6. Output your response ONLY as a JSON object matching this schema:
+{
+  "message": "string",
+  "suggestedFollowUp": "string",
+  "confidenceScore": "number",
+  "isDomainViolation": "boolean"
+}
 
 Student Message: "${userMessage}"
 `;
 
     // 5. Generate structured response via AI Orchestrator
     const responseFormat = {
-      type: "json_schema",
-      json_schema: {
-        name: "tutor_response",
-        schema: {
-          type: "object",
-          properties: {
-            message: { type: "string" },
-            suggestedFollowUp: { type: "string" },
-            confidenceScore: { type: "number" },
-            isDomainViolation: { type: "boolean" }
-          },
-          required: ["message", "suggestedFollowUp", "confidenceScore", "isDomainViolation"]
-        }
-      }
+      type: "json_object"
     };
 
     const tutorReply = await AIOrchestrator.generate({
