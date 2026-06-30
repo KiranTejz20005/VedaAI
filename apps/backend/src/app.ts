@@ -5,17 +5,20 @@ import cookieParser from 'cookie-parser';
 import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
-import morgan from 'morgan';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
+import crypto from 'crypto';
+import pinoHttp from 'pino-http';
+import { csrfProtection } from './middlewares/csrf.middleware';
 
 import { QueueEvents } from 'bullmq';
 import { env } from './config/env';
 import { closeRedis, closeBullRedis, getBullRedisClient, getBullRedisDiagnostics, getRedisClient, isBullRedisConnected, isRedisConnected } from './config/redis';
 import { initializeSocketServer, getSocketServer } from './sockets/socket.server';
-import { createAiGenerationWorker, getActiveAiJobCount, getStalledAiJobCount } from './workers/aiGeneration.worker';
-import { createPdfWorker } from './workers/pdf.worker';
+import { createAiGenerationWorker, getActiveAiJobCount, getStalledAiJobCount, getAiWorker } from './workers/aiGeneration.worker';
+import { createPdfWorker, getPdfWorker } from './workers/pdf.worker';
 import prisma from './config/prisma';
+import { getIngestionWorker } from './workers/ingestion.worker';
 import { emitToAssignment } from './sockets/socket.server';
 import apiRouter from './routes';
 import { errorMiddleware } from './middlewares/error.middleware';
@@ -210,6 +213,10 @@ function createApp() {
   app.use(cookieParser());
   app.set('trust proxy', 1);
 
+  // CSRF protection (double-submit cookie pattern) — skip webhook endpoints
+  app.use('/api/webhook', (_req, _res, next) => next());
+  app.use(csrfProtection);
+
 
   const corsOrigins = parseCorsOrigins(env.FRONTEND_URL);
   const ALLOWED_ORIGINS = [
@@ -249,13 +256,30 @@ function createApp() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
   });
   app.use(corsMiddleware);
   app.options('*', corsMiddleware);
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-  app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+
+  app.use((req, res, next) => {
+    const requestId = req.headers['x-request-id'] as string || crypto.randomUUID();
+    req.headers['x-request-id'] = requestId;
+    res.setHeader('X-Request-Id', requestId);
+    (req as any).requestId = requestId;
+    next();
+  });
+
+  app.use(express.json({ limit: '1mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+  app.use(pinoHttp({
+    logger,
+    quietReqLogger: true,
+    customLogLevel: function (res, _err) {
+      if ((res.statusCode ?? 500) >= 500) return 'error';
+      if ((res.statusCode ?? 400) >= 400) return 'warn';
+      return 'info';
+    },
+  }));
 
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -314,6 +338,23 @@ async function bootstrap() {
   logBoot('express', 'Creating Express app');
   const app = createApp();
   const httpServer = http.createServer(app);
+
+  // Liveness probe - is the process alive?
+  app.get('/health/live', (_req, res) => {
+    res.status(200).json({ status: 'alive', timestamp: new Date().toISOString() });
+  });
+
+  // Readiness probe - is the app ready to serve?
+  app.get('/health/ready', async (_req, res) => {
+    const dbOk = await prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false);
+    const redisOk = isRedisConnected();
+    const healthy = dbOk && redisOk;
+    res.status(healthy ? 200 : 503).json({
+      status: healthy ? 'ready' : 'not_ready',
+      checks: { database: dbOk, redis: redisOk, workers: healthState.workers },
+      timestamp: new Date().toISOString(),
+    });
+  });
 
   // Health endpoint
   app.get('/health', (_req, res) => {
@@ -384,6 +425,13 @@ async function bootstrap() {
 
     if (generationQueueEvents) { await generationQueueEvents.close().catch(() => {}); generationQueueEvents = null; }
     if (pdfQueueEvents) { await pdfQueueEvents.close().catch(() => {}); pdfQueueEvents = null; }
+
+    const aiWorker = getAiWorker();
+    if (aiWorker) { await aiWorker.close().catch(() => {}); }
+    const pdfWorker = getPdfWorker();
+    if (pdfWorker) { await pdfWorker.close().catch(() => {}); }
+    const ingestionWorker = getIngestionWorker();
+    if (ingestionWorker) { await ingestionWorker.close().catch(() => {}); }
 
     await Promise.allSettled([closeRedis(), closeBullRedis()]);
 

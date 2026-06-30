@@ -219,6 +219,7 @@ model ClassGroup {
   students       Student[]
 
   @@index([userId])
+  @@index([organizationId])
 }
 
 model Student {
@@ -318,7 +319,7 @@ model Section {
   classroomId String
   classroom   Classroom    @relation(fields: [classroomId], references: [id], onDelete: Cascade)
   teacherId   String
-  teacher     User         @relation("TeacherSections", fields: [teacherId], references: [id])
+  teacher     User         @relation("TeacherSections", fields: [teacherId], references: [id], onDelete: Cascade)
   enrollments Enrollment[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -332,7 +333,7 @@ model Enrollment {
   sectionId String
   section   Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   studentId String
-  student   User     @relation("StudentEnrollments", fields: [studentId], references: [id])
+  student   User     @relation("StudentEnrollments", fields: [studentId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -353,7 +354,7 @@ model Invitation {
   expiresAt      DateTime
   acceptedAt     DateTime?
   createdById    String
-  createdBy      User             @relation("CreatedInvitations", fields: [createdById], references: [id])
+  createdBy      User             @relation("CreatedInvitations", fields: [createdById], references: [id], onDelete: Cascade)
   status         InvitationStatus @default(PENDING)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
@@ -423,7 +424,7 @@ model Question {
   bloomLevel BloomLevel
 
   authorId       String
-  author         User          @relation("QuestionAuthor", fields: [authorId], references: [id])
+  author         User          @relation("QuestionAuthor", fields: [authorId], references: [id], onDelete: Cascade)
   organizationId String?
   organization   Organization? @relation("OrganizationQuestions", fields: [organizationId], references: [id])
 
@@ -440,14 +441,15 @@ model Question {
   @@index([subjectId])
   @@index([organizationId])
   @@index([authorId])
+  @@index([authorId, createdAt])
 }
 
 model QuestionReview {
   id              String   @id @default(uuid())
   questionId      String
-  question        Question @relation(fields: [questionId], references: [id])
+  question        Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   reviewerId      String
-  reviewer        User     @relation(fields: [reviewerId], references: [id])
+  reviewer        User     @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
   status          String
   comments        String?
   reason          String?
@@ -466,9 +468,9 @@ model Assessment {
   status     String  @default("DRAFT")
 
   authorId       String
-  author         User          @relation(fields: [authorId], references: [id])
-  organizationId String?
-  organization   Organization? @relation("OrganizationAssessments", fields: [organizationId], references: [id])
+  author         User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -482,9 +484,9 @@ model Assessment {
 model AssessmentQuestion {
   id           String     @id @default(uuid())
   assessmentId String
-  assessment   Assessment @relation(fields: [assessmentId], references: [id])
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   questionId   String
-  question     Question   @relation(fields: [questionId], references: [id])
+  question     Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
   marks        Int        @default(1)
   order        Int        @default(0)
 
@@ -536,12 +538,13 @@ model Assignment {
   @@index([organizationId])
   @@index([createdById])
   @@index([classId])
+  @@index([organizationId, status, createdAt])
 }
 
 model GeneratedPaper {
   id                String       @id @default(uuid())
   assignmentId      String
-  assignment        Assignment   @relation(fields: [assignmentId], references: [id])
+  assignment        Assignment   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   organizationId    String
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   title             String
@@ -562,7 +565,7 @@ model GeneratedPaper {
 model GenerationJob {
   id              String     @id @default(uuid())
   assignmentId    String
-  assignment      Assignment @relation(fields: [assignmentId], references: [id])
+  assignment      Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   bullmqJobId     String     @default("")
   generationSeq   Int        @default(0)
   progressVersion Int        @default(0)
@@ -570,6 +573,7 @@ model GenerationJob {
   status          String     @default("queued")
   progress        Int        @default(0)
   error           String?
+  organizationId  String?
   startedAt       DateTime   @default(now())
   completedAt     DateTime?
   createdAt       DateTime   @default(now())
@@ -578,6 +582,8 @@ model GenerationJob {
   @@index([assignmentId, status])
   @@index([assignmentId, generationSeq, createdAt])
   @@index([status, createdAt])
+  @@index([bullmqJobId])
+  @@index([organizationId])
 }
 
 // ── Quiz Sessions ──
@@ -634,6 +640,7 @@ model QuizSessionQuestion {
   createdAt DateTime @default(now())
 
   @@index([sessionId])
+  @@index([sessionId, questionIndex])
 }
 
 // ── Sessions & Auth ──
@@ -725,7 +732,7 @@ model PromptVersion {
 model PromptExecution {
   id               String        @id @default(uuid())
   promptVersionId  String
-  promptVersion    PromptVersion @relation(fields: [promptVersionId], references: [id])
+  promptVersion    PromptVersion @relation(fields: [promptVersionId], references: [id], onDelete: Cascade)
   providerName     String
   modelName        String
   tokensPrompt     Int
@@ -801,6 +808,7 @@ model AuditLog {
   @@index([organizationId])
   @@index([createdAt])
   @@index([userId])
+  @@index([organizationId, createdAt])
 }
 
 // ── Subscription ──
@@ -808,7 +816,7 @@ model AuditLog {
 model Subscription {
   id               String           @id @default(uuid())
   organizationId   String           @unique
-  organization     Organization     @relation(fields: [organizationId], references: [id])
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   plan             SubscriptionTier @default(FREE)
   status           String           @default("ACTIVE")
   stripeCustomerId String?
@@ -913,6 +921,7 @@ model AssignmentGradingConfig {
   answerKeyText String   @default("")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  @@index([rubricId])
 }
 
 // ── Submissions ──
@@ -1185,6 +1194,7 @@ model Notification {
 
   @@index([userId, isRead])
   @@index([organizationId])
+  @@index([organizationId, createdAt])
 }
 
 // ── Community Hub ──
@@ -1214,6 +1224,7 @@ model CommunityPost {
   @@index([authorId])
   @@index([organizationId])
   @@index([createdAt])
+  @@index([organizationId, createdAt, status])
 }
 
 model CommunityComment {
@@ -1228,6 +1239,7 @@ model CommunityComment {
 
   @@index([postId])
   @@index([authorId])
+  @@index([postId, createdAt])
 }
 
 model SavedPost {
@@ -1370,6 +1382,8 @@ model AttendanceRecord {
   @@index([studentId])
   @@index([classId, date])
   @@index([organizationId])
+  @@index([recordedById])
+  @@index([organizationId, date])
 }
 
 model LeaveApplication {
@@ -1512,6 +1526,7 @@ model TutorMessage {
   createdAt DateTime @default(now())
 
   @@index([sessionId])
+  @@index([sessionId, createdAt])
 }
 
 model TeacherTutorConfig {

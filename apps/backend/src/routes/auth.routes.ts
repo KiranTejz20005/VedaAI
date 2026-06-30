@@ -34,13 +34,22 @@ const authLimiter = rateLimit({
   message: { success: false, error: 'Too many authentication attempts. Please try again later.' },
 });
 
+// Per-user/ip rate limiting for refresh token endpoint (5 per minute)
+const refreshLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many refresh attempts. Please try again later.' },
+});
+
 // Public auth endpoints (with strict rate limiting)
 router.get('/public-organizations', asyncHandler(getPublicOrganizations));
 router.post('/signup', authLimiter, asyncHandler(signup));
 router.post('/accept-invite', authLimiter, asyncHandler(acceptInvite));
 router.post('/login', authLimiter, asyncHandler(login));
 router.post('/sso', authLimiter, asyncHandler(ssoLogin));
-router.post('/refresh', authLimiter, asyncHandler(refresh));
+router.post('/refresh', refreshLimiter, asyncHandler(refresh));
 router.post('/logout', authLimiter, asyncHandler(logout));
 
 // Protected auth endpoints

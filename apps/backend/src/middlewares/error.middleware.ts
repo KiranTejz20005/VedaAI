@@ -31,6 +31,12 @@ export function errorMiddleware(
     return;
   }
 
+  // Handle request body too large (PayloadTooLargeError)
+  if ((error as any).type === 'entity.too.large') {
+    res.status(413).json({ success: false, error: 'Request body too large' });
+    return;
+  }
+
   // Handle custom upload/filter errors thrown in multer fileFilter callback
   if (error.message.includes('not allowed') || error.message.includes('Only PDF')) {
     res.status(400).json({

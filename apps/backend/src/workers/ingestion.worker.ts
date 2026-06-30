@@ -11,6 +11,10 @@ interface IngestionJobData {
   filename: string;
 }
 
+export function getIngestionWorker(): Worker<IngestionJobData> | null {
+  return ingestionWorker;
+}
+
 export const ingestionWorker = new Worker<IngestionJobData>(
   INGESTION_QUEUE_NAME,
   async (job: Job<IngestionJobData>) => {

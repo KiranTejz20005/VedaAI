@@ -130,6 +130,10 @@ export function getStalledAiJobCount(): number {
   return stalledJobCount;
 }
 
+export function getAiWorker(): Worker<GenerationJobData> | null {
+  return aiWorker;
+}
+
 export function createAiGenerationWorker() {
   if (aiWorker) return aiWorker;
 

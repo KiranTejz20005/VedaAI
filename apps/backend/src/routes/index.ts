@@ -32,6 +32,10 @@ import moderationRoutes from './moderation.routes';
 import meetingRoutes from './meeting.routes';
 import attendanceRoutes from './attendance.routes';
 
+// ── New API Gateway ──
+import apiGateway from '../api/index';
+import swaggerRouter from '../api/swagger';
+
 const apiRouter = Router();
 
 // ── Health check endpoints ──
@@ -59,9 +63,16 @@ apiRouter.get('/health/providers', asyncHandler(async (_req, res) => {
   res.json({ success: true });
 }));
 
-// ── Main routes ──
+// ── New API Gateway (v1) ──
+apiRouter.use('/v1', apiGateway);
 
-// Versioned API routes
+// ── Swagger / OpenAPI Documentation ──
+apiRouter.use('/v1/docs', swaggerRouter);
+apiRouter.use('/docs', swaggerRouter);
+
+// ── Legacy routes (kept for backward compatibility) ──
+
+// Versioned API routes (legacy style)
 apiRouter.use('/v1/assignments', assignmentRoutes);
 apiRouter.use('/v1/papers', paperRoutes);
 apiRouter.use('/v1/questions', questionRoutes);

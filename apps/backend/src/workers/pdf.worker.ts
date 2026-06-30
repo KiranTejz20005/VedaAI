@@ -10,6 +10,10 @@ import { logger } from '../utils/logger';
 
 let pdfWorker: Worker<PdfJobData> | null = null;
 
+export function getPdfWorker(): Worker<PdfJobData> | null {
+  return pdfWorker;
+}
+
 export function createPdfWorker() {
   if (pdfWorker) return pdfWorker;
 

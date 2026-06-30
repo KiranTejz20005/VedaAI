@@ -10,6 +10,10 @@ function buildRedisOptions(): RedisOptions {
   const isTls =
     env.REDIS_URL.startsWith('rediss://') || env.REDIS_URL.startsWith('redis+tls://');
 
+  if (isTls && env.NODE_ENV === 'production') {
+    logger.warn('[REDIS] TLS certificate validation is disabled (rejectUnauthorized: false) — this is insecure in production');
+  }
+
   return {
     maxRetriesPerRequest: 20,
     enableReadyCheck: false,
@@ -93,6 +97,10 @@ function buildBullRedisOptions(): RedisOptions {
   const url = env.REDIS_BULLMQ_URL;
   const isTls = url.startsWith('rediss://') || url.startsWith('redis+tls://');
   const isUpstash = url.includes('.upstash.io');
+
+  if ((isTls || isUpstash) && env.NODE_ENV === 'production') {
+    logger.warn('[REDIS:BullMQ] TLS certificate validation is disabled (rejectUnauthorized: false) — this is insecure in production');
+  }
 
   return {
     maxRetriesPerRequest: null,
