@@ -133,8 +133,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
-    if (pathname === '/') return; // Never redirect from landing page
-
+    const publicPages = ['/', '/careers', '/contact', '/privacy', '/terms', '/cookie-policy', '/acceptable-use'];
+    if (publicPages.includes(pathname)) return; // Never redirect from landing and public pages
     const isPublicPath = pathname === '/login' || pathname === '/register';
     const isAuthPage = pathname === '/login' || pathname === '/register';
     const isOnboardingPage = pathname === '/onboarding';
@@ -168,7 +168,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, isLoading, user, pathname, router]);
 
-  const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/register' || pathname === '/forgot-password';
+  const publicPagesList = ['/', '/login', '/register', '/forgot-password', '/careers', '/contact', '/privacy', '/terms', '/cookie-policy', '/acceptable-use'];
+  const isPublicPage = publicPagesList.includes(pathname);
   const isRedirectingToLogin = !isLoading && !isAuthenticated && !isPublicPage && pathname !== '/onboarding';
 
   if ((isLoading || isRedirectingToLogin) && !isPublicPage) {
@@ -178,11 +179,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     // So we just let the code fall through.
   }
 
-  const isChromeExcluded =
-    pathname === '/' ||
-    pathname === '/login' ||
-    pathname === '/register' ||
-    pathname === '/onboarding';
+  const chromeExcludedPages = [
+    '/',
+    '/login',
+    '/register',
+    '/onboarding',
+    '/careers',
+    '/contact',
+    '/privacy',
+    '/terms',
+    '/cookie-policy',
+    '/acceptable-use'
+  ];
+  const isChromeExcluded = chromeExcludedPages.includes(pathname);
 
   if (isChromeExcluded) {
     return (

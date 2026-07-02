@@ -20,7 +20,6 @@ import LegalPage from "@/components/landing/LegalPage";
 export default function LandingPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"meeting" | "contact">("contact");
-  const [currentView, setCurrentView] = useState<"home" | "privacy" | "terms">("home");
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   const { scrollYProgress } = useScroll();
@@ -65,53 +64,38 @@ export default function LandingPage() {
       {/* 1. Global Header Navigation */}
       <Header 
         onContactClick={() => openInquiryModal("contact")} 
-        onNavigate={setCurrentView}
-        currentView={currentView}
       />
 
-      {currentView === "home" ? (
-        <>
-          {/* 2. Primary Showcase Hero Banner with Dashboard center board */}
-          <Hero onBookMeeting={() => openInquiryModal("meeting")} />
+      {/* 2. Primary Showcase Hero Banner with Dashboard center board */}
+      <Hero onBookMeeting={() => openInquiryModal("meeting")} />
 
-          {/* 3. Trusted row / continuous ticker carousel */}
-          <TrustBadges />
+      {/* 3. Trusted row / continuous ticker carousel */}
+      <TrustBadges />
 
-          {/* 4. Value Proposal section comprising phone metrics and Principal quote */}
-          <PhoneMockupSection />
+      {/* 4. Value Proposal section comprising phone metrics and Principal quote */}
+      <PhoneMockupSection />
 
-          {/* 5. What Vidya Enables card matrix */}
-          <WhatVidyaEnables />
+      {/* 5. What Vidya Enables card matrix */}
+      <WhatVidyaEnables />
 
-          {/* 6. Active evaluation desk and subjective grader mock playground */}
-          <AssessmentGrader />
+      {/* 6. Active evaluation desk and subjective grader mock playground */}
+      <AssessmentGrader />
 
-          {/* 7. Stands out / 6 columns feature layout */}
-          <StandsOut />
+      {/* 7. Stands out / 6 columns feature layout */}
+      <StandsOut />
 
-          {/* 8. Safety, Encryption protocols and Compliance standards badges */}
-          <SecurityPrivacy />
+      {/* 8. Safety, Encryption protocols and Compliance standards badges */}
+      <SecurityPrivacy />
 
-          {/* 9. Administrator profits panel with orbiting graphical metrics */}
-          <LeadersGain />
+      {/* 9. Administrator profits panel with orbiting graphical metrics */}
+      <LeadersGain />
 
-          {/* 11. Frequently Asked Questions block accordions */}
-          <FAQ />
-        </>
-      ) : (
-        <LegalPage 
-          initialTab={currentView} 
-          onBackToHome={() => {
-            setCurrentView("home");
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }} 
-        />
-      )}
+      {/* 11. Frequently Asked Questions block accordions */}
+      <FAQ />
 
       {/* 12. Bottom Conversion header & massive branding Footer backdrop */}
       <Footer 
         onContactClick={() => openInquiryModal("contact")} 
-        onNavigate={setCurrentView}
       />
 
       {/* 13. Dynamic onboarding meeting booking modal popup */}

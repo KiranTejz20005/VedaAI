@@ -1,13 +1,10 @@
 import React from "react";
 
 export default function TrustBadges() {
-  const logos = [
-    { name: "Google for Startups", icon: "⬡ Google for Startups" },
-    { name: "AWS Startups", icon: "▲ AWS Startups" },
-    { name: "Microsoft for Startups", icon: "❖ Microsoft for Startups" },
-    { name: "Academic Partnership", icon: "🏛 Academic Partnerships" },
-    { name: "IIM Bangalore Startup Hub", icon: "🎓 IIMB Incubatee" },
-  ];
+  const logos = Array(8).fill({ 
+    name: "Ourselves", 
+    icon: "🤝 Trusted and Backed by Ourselves" 
+  });
 
   return (
     <section className="py-12 border-t border-b border-[#f3ede4] bg-[#fcfbf9]/50 overflow-hidden">

@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { 
-  Search, 
-  LineChart, 
-  Sparkles, 
-  CheckSquare, 
-  ChevronRight, 
+import {
+  Search,
+  LineChart,
+  Sparkles,
+  CheckSquare,
+  ChevronRight,
   Check
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -68,19 +68,19 @@ export default function WhatVidyaEnables() {
   const studentDetail = students.find(s => s.name === selectedStudent) || students[0];
 
   const gradingLines = [
-    { 
+    {
       text: "1. V = I × R. In a parallel circuit loop, voltage is identical across all resistive elements.",
       feedback: "Correct. Parallel branches maintain equipotential criteria. Excellent terminology representation.",
       score: "+4 points (Full score)",
       status: "correct"
     },
-    { 
+    {
       text: "2. Therefore equivalent resistance (R_eq) equals R1 + R2 + R3 in this parallel mesh.",
       feedback: "Incorrect formulas used. Parallel R_eq requires reciprocal sum rule: 1/R_eq = Σ(1/Ri).",
       score: "+0 points (Formula misapplication)",
       status: "incorrect"
     },
-    { 
+    {
       text: "3. Heat generated is given by H = I²Rt. Since R is divided, warmth output rises.",
       feedback: "Partially correct rationale. Heat drops as total dynamic resistance drops if source supply remains constant.",
       score: "+1.5 points (Partial step credit)",
@@ -110,7 +110,7 @@ export default function WhatVidyaEnables() {
       <div className="absolute bottom-[10%] left-[-150px] w-[600px] h-[600px] rounded-full bg-stone-100/30 blur-[120px] pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         {/* Core Narrative Header */}
         <div className="text-center max-w-3xl mx-auto mb-20">
           <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-mono font-bold tracking-widest text-[#e05934] uppercase bg-orange-50 border border-orange-100/60 mb-4 shadow-2xs">
@@ -126,7 +126,7 @@ export default function WhatVidyaEnables() {
 
         {/* Dynamic Bento Box Matrix Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10">
-          
+
           {/* ================= CARD 1: Turn Data into Actionable Insights ================= */}
           <div className="bg-white border border-[#f3ede4] rounded-2xl p-6 sm:p-8 flex flex-col justify-start h-full items-stretch shadow-2xs hover:shadow-xs transition-shadow duration-300 relative overflow-hidden group">
             <div className="mb-6 flex-grow-0">
@@ -148,7 +148,7 @@ export default function WhatVidyaEnables() {
 
             {/* Simulated Live Dashboard Container */}
             <div className="bg-[#fcfbf9] rounded-xl border border-[#f3ede4] p-5 flex-1 flex flex-col justify-between mt-5">
-              
+
               {/* Dashboard Internal Control Bar */}
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#f3ede4] pb-3 mb-4">
                 <div className="flex items-center space-x-1">
@@ -162,11 +162,10 @@ export default function WhatVidyaEnables() {
                     <button
                       key={cl}
                       onClick={() => setSelectedClass(cl)}
-                      className={`px-2 py-1 rounded-md transition-all ${
-                        selectedClass === cl 
-                          ? "bg-white text-gray-900 shadow-3xs font-bold" 
+                      className={`px-2 py-1 rounded-md transition-all ${selectedClass === cl
+                          ? "bg-white text-gray-900 shadow-3xs font-bold"
                           : "text-gray-400 hover:text-gray-700"
-                      }`}
+                        }`}
                     >
                       Class {cl}
                     </button>
@@ -184,11 +183,10 @@ export default function WhatVidyaEnables() {
                   <button
                     key={tab.id}
                     onClick={() => setTrendMetric(tab.id as any)}
-                    className={`p-2.5 rounded-lg border text-left transition-all ${
-                      trendMetric === tab.id 
-                        ? "bg-white border-[#e05934] shadow-3xs" 
+                    className={`p-2.5 rounded-lg border text-left transition-all ${trendMetric === tab.id
+                        ? "bg-white border-[#e05934] shadow-3xs"
                         : "bg-transparent border-[#f3ede4] hover:bg-stone-50"
-                    }`}
+                      }`}
                   >
                     <span className="text-[9px] font-mono text-gray-400 uppercase block">{tab.label}</span>
                     <span className="font-display font-bold text-xs sm:text-sm text-gray-900 block mt-1 tracking-tight">{tab.val}</span>
@@ -211,7 +209,7 @@ export default function WhatVidyaEnables() {
                         <span>Electricity Test Timeline</span>
                         <span className="text-emerald-600 font-bold">Standard average: +12% vs last term</span>
                       </div>
-                      
+
                       {/* Interactive Visual Graph representation */}
                       <div className="flex items-end justify-between h-14 px-1 gap-3 pt-1">
                         {[
@@ -223,7 +221,7 @@ export default function WhatVidyaEnables() {
                           <div key={idx} className="flex-1 flex flex-col justify-end items-center h-full">
                             <span className="text-[8px] font-mono text-[#e05934] font-semibold mb-0.5 leading-none">{bar.percent}</span>
                             <div className="w-full bg-orange-50/50 rounded-t-xs border border-orange-100/10 h-7 overflow-hidden flex items-end">
-                              <motion.div 
+                              <motion.div
                                 initial={{ height: 0 }}
                                 animate={{ height: `${bar.heightVal}%` }}
                                 className="w-full bg-orange-100/90 hover:bg-[#e05934]/90 transition-all cursor-pointer"
@@ -304,8 +302,8 @@ export default function WhatVidyaEnables() {
             </div>
 
             {/* Interactive Student Search & Card selector component */}
-            <div className="bg-[#fcfbf9] rounded-xl border border-[#f3ede4] p-4 flex-1 flex flex-col justify-start space-y-3 mt-5">
-              
+            <div className="bg-[#fcfbf9] rounded-xl border border-[#f3ede4] p-4 flex-1 flex flex-col justify-start space-y-3 mt-5 min-h-0">
+
               {/* Filter controls */}
               <div className="flex items-center justify-between gap-2.5 mb-1">
                 <div className="relative flex-1">
@@ -331,69 +329,70 @@ export default function WhatVidyaEnables() {
               </div>
 
               {/* Split view: Left: List index, Right: Selection Details */}
-              <div className="grid grid-cols-12 gap-3.5 pt-1">
-                
-                {/* List portion */}
-                <div className="col-span-12 sm:col-span-7 space-y-1.5 h-[175px] overflow-y-auto pr-1 flex flex-col justify-start scrollbar-thin">
-                  {filteredStudents.length > 0 ? (
-                    filteredStudents.map((s, idx) => {
-                      const isSelected = selectedStudent === s.name;
-                      return (
-                        <div
-                          key={idx}
-                          role="button"
-                          onClick={() => setSelectedStudent(s.name)}
-                          className={`flex items-center justify-between p-2 rounded-lg border text-[10px] cursor-pointer transition-all ${
-                            isSelected 
-                              ? "bg-white border-[#e05934] shadow-3xs translate-x-1" 
-                              : "bg-white border-gray-100 hover:border-gray-300"
-                          }`}
-                        >
-                          <div className="flex items-center space-x-2">
-                             <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0 ${s.avatarBg}`}>
-                              {s.name.split(" ").map(w => w[0]).join("")}
-                             </div>
-                            <div>
-                              <p className="font-bold text-gray-900 leading-tight">{s.name}</p>
-                              <p className="text-[8px] text-gray-400 font-mono mt-0.5">{s.rollNo}</p>
+              <div className="flex-1 relative min-h-[175px] mt-1">
+                <div className="absolute inset-0 grid grid-cols-12 gap-3.5">
+
+                  {/* List portion */}
+                  <div className="col-span-12 sm:col-span-7 space-y-1.5 h-full overflow-y-auto pr-1 flex flex-col justify-start scrollbar-thin">
+                    {filteredStudents.length > 0 ? (
+                      filteredStudents.map((s, idx) => {
+                        const isSelected = selectedStudent === s.name;
+                        return (
+                          <div
+                            key={idx}
+                            role="button"
+                            onClick={() => setSelectedStudent(s.name)}
+                            className={`flex items-center justify-between p-2 rounded-lg border text-[10px] cursor-pointer transition-all ${isSelected
+                                ? "bg-white border-[#e05934] shadow-3xs translate-x-1"
+                                : "bg-white border-gray-100 hover:border-gray-300"
+                              }`}
+                          >
+                            <div className="flex items-center space-x-2">
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0 ${s.avatarBg}`}>
+                                {s.name.split(" ").map(w => w[0]).join("")}
+                              </div>
+                              <div>
+                                <p className="font-bold text-gray-900 leading-tight">{s.name}</p>
+                                <p className="text-[8px] text-gray-400 font-mono mt-0.5">{s.rollNo}</p>
+                              </div>
                             </div>
+                            <span className="font-mono font-bold text-gray-800 shrink-0">{s.grade.split(" ")[0]}</span>
                           </div>
-                          <span className="font-mono font-bold text-gray-800 shrink-0">{s.grade.split(" ")[0]}</span>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="text-center py-6 text-gray-400 text-[10px] font-mono">
-                      No matching records found.
+                        );
+                      })
+                    ) : (
+                      <div className="text-center py-6 text-gray-400 text-[10px] font-mono">
+                        No matching records found.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Profile card summary */}
+                  <div className="col-span-12 sm:col-span-5 bg-white border border-gray-100 rounded-lg p-3 flex flex-col justify-between shadow-3xs h-full">
+                    <div>
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-display font-extrabold text-[11px] text-gray-900 truncate pr-1">{studentDetail.name}</h4>
+                        <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border shrink-0 ${getStatusColorClass(studentDetail.status)}`}>
+                          {studentDetail.status.split(" ")[0]}
+                        </span>
+                      </div>
+
+                      <p className="text-[9px] leading-relaxed text-gray-505 mt-2 overflow-hidden text-ellipsis line-clamp-3">
+                        <strong className="text-gray-800 font-medium">Class Gap Analysis:</strong>
+                        <br />
+                        {studentDetail.gap === "None" ? "No conceptual gaps found. All benchmark criteria met perfectly." : `Struggling with: ${studentDetail.gap}.`}
+                      </p>
                     </div>
-                  )}
-                </div>
- 
-                {/* Right Profile card summary */}
-                <div className="col-span-12 sm:col-span-5 bg-white border border-gray-100 rounded-lg p-3 flex flex-col justify-between shadow-3xs h-[175px]">
-                  <div>
-                    <div className="flex justify-between items-start">
-                      <h4 className="font-display font-extrabold text-[11px] text-gray-900 truncate pr-1">{studentDetail.name}</h4>
-                      <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border shrink-0 ${getStatusColorClass(studentDetail.status)}`}>
-                        {studentDetail.status.split(" ")[0]}
+
+                    <div className="border-t border-gray-50 pt-2 flex items-center justify-between text-[8px] font-mono text-gray-400">
+                      <span>Grade: <strong className="text-gray-700">{studentDetail.marks}</strong></span>
+                      <span className="text-[#e05934] flex items-center gap-0.5 cursor-pointer hover:underline font-bold">
+                        Inspect <ChevronRight className="w-2.5 h-2.5" />
                       </span>
                     </div>
-                    
-                    <p className="text-[9px] leading-relaxed text-gray-505 mt-2 overflow-hidden text-ellipsis line-clamp-3">
-                      <strong className="text-gray-800 font-medium">Class Gap Analysis:</strong>
-                      <br />
-                      {studentDetail.gap === "None" ? "No conceptual gaps found. All benchmark criteria met perfectly." : `Struggling with: ${studentDetail.gap}.`}
-                    </p>
                   </div>
 
-                  <div className="border-t border-gray-50 pt-2 flex items-center justify-between text-[8px] font-mono text-gray-400">
-                    <span>Grade: <strong className="text-gray-700">{studentDetail.marks}</strong></span>
-                    <span className="text-[#e05934] flex items-center gap-0.5 cursor-pointer hover:underline font-bold">
-                      Inspect <ChevronRight className="w-2.5 h-2.5" />
-                    </span>
-                  </div>
                 </div>
-
               </div>
 
             </div>
@@ -429,27 +428,26 @@ export default function WhatVidyaEnables() {
                 {gradingLines.map((line, idx) => {
                   const isActive = activeFeedbackLine === idx;
                   const isApproved = approvedState[idx];
-                  
+
                   return (
-                    <div 
+                    <div
                       key={idx}
                       onClick={() => setActiveFeedbackLine(idx)}
                       role="button"
-                      className={`p-2 rounded-lg border text-left font-mono text-[10.5px] leading-normal transition-all relative group cursor-pointer ${
-                        isActive 
-                          ? line.status === "correct" 
-                            ? "bg-emerald-50/50 border-emerald-300 translate-x-1" 
-                            : line.status === "incorrect" 
-                              ? "bg-rose-50/50 border-rose-300 translate-x-1" 
+                      className={`p-2 rounded-lg border text-left font-mono text-[10.5px] leading-normal transition-all relative group cursor-pointer ${isActive
+                          ? line.status === "correct"
+                            ? "bg-emerald-50/50 border-emerald-300 translate-x-1"
+                            : line.status === "incorrect"
+                              ? "bg-rose-50/50 border-rose-300 translate-x-1"
                               : "bg-amber-50/50 border-amber-300 translate-x-1"
                           : "bg-white border-gray-100 hover:border-gray-200"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <span className={`${isActive ? "text-gray-950 font-medium" : "text-gray-500"}`}>
                           {line.text}
                         </span>
-                        
+
                         {/* Approval pill */}
                         <div className="flex items-center space-x-1.5 shrink-0 pl-1">
                           {isApproved ? (
@@ -479,7 +477,7 @@ export default function WhatVidyaEnables() {
                 <span className="p-1 px-1.5 bg-orange-50 text-[#e05934] rounded text-[10px] font-mono uppercase shrink-0 font-bold">
                   AI FEEDBACK
                 </span>
-                
+
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between text-[8px] font-mono text-gray-400 mb-1">
                     <span>LINE {activeFeedbackLine + 1} ASSESSMENT</span>
@@ -515,10 +513,10 @@ export default function WhatVidyaEnables() {
 
             {/* Interactive Alignment Controls */}
             <div className="bg-[#fcfbf9] rounded-xl border border-[#f3ede4] p-4 flex-1 flex flex-col justify-start space-y-4 mt-5">
-              
+
               {/* Presets and progress meter */}
               <div className="grid grid-cols-12 gap-4 items-center border-b border-[#f3ede4] pb-3">
-                
+
                 {/* Switchers */}
                 <div className="col-span-12 sm:col-span-7 space-y-1">
                   <span className="text-[9px] font-mono text-gray-400 block uppercase font-semibold">
@@ -533,11 +531,10 @@ export default function WhatVidyaEnables() {
                       <button
                         key={b.id}
                         onClick={() => setActiveBoard(b.id as any)}
-                        className={`flex-1 py-1 rounded transition-all text-center ${
-                          activeBoard === b.id 
-                            ? "bg-white text-gray-900 shadow-3xs font-bold" 
+                        className={`flex-1 py-1 rounded transition-all text-center ${activeBoard === b.id
+                            ? "bg-white text-gray-900 shadow-3xs font-bold"
                             : "text-gray-400 hover:text-gray-700"
-                        }`}
+                          }`}
                       >
                         {b.label}
                       </button>
@@ -555,7 +552,7 @@ export default function WhatVidyaEnables() {
                       {getCompliancePercentage()}% Compliant
                     </span>
                   </div>
-                  
+
                   {/* Micro compliance meter bars */}
                   <div className="w-12 h-12 rounded-full border border-[#f3ede4] bg-white flex items-center justify-center font-display font-extrabold text-[#e05934] text-xs shadow-3xs">
                     {getCompliancePercentage()}%
@@ -571,10 +568,10 @@ export default function WhatVidyaEnables() {
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px]">
-                  
+
                   <label className="flex items-center space-x-2 p-2 bg-white rounded-lg border border-gray-100 hover:border-gray-200 cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={complianceChecks.nep2020}
                       onChange={(e) => setComplianceChecks(prev => ({ ...prev, nep2020: e.target.checked }))}
                       className="rounded border-gray-300 text-[#e05934] focus:ring-[#e05934] focus:ring-1"
@@ -583,8 +580,8 @@ export default function WhatVidyaEnables() {
                   </label>
 
                   <label className="flex items-center space-x-2 p-2 bg-white rounded-lg border border-gray-100 hover:border-gray-200 cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={complianceChecks.competencyBased}
                       onChange={(e) => setComplianceChecks(prev => ({ ...prev, competencyBased: e.target.checked }))}
                       className="rounded border-gray-300 text-[#e05934] focus:ring-[#e05934] focus:ring-1"
@@ -593,8 +590,8 @@ export default function WhatVidyaEnables() {
                   </label>
 
                   <label className="flex items-center space-x-2 p-2 bg-white rounded-lg border border-gray-100 hover:border-gray-200 cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={complianceChecks.rubricMatched}
                       onChange={(e) => setComplianceChecks(prev => ({ ...prev, rubricMatched: e.target.checked }))}
                       className="rounded border-gray-300 text-[#e05934] focus:ring-[#e05934] focus:ring-1"
@@ -603,8 +600,8 @@ export default function WhatVidyaEnables() {
                   </label>
 
                   <label className="flex items-center space-x-2 p-2 bg-white rounded-lg border border-gray-100 hover:border-gray-200 cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={complianceChecks.formativeChecked}
                       onChange={(e) => setComplianceChecks(prev => ({ ...prev, formativeChecked: e.target.checked }))}
                       className="rounded border-gray-300 text-[#e05934] focus:ring-[#e05934] focus:ring-1"

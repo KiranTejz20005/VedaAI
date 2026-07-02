@@ -30,6 +30,18 @@ export default function FAQ() {
     {
       question: "What types of assessments can be evaluated?",
       answer: "VidyaAI easily evaluates both objective metrics (fill-in-the-blanks, multiple choice lists) and complex subjective exams (math steps, long science answers, humanities essays, diagrams, and formulas) across CBSE, ICSE, and international boards."
+    },
+    {
+      question: "Is student data secure and private?",
+      answer: "Absolutely. VidyaAI is built with enterprise-grade security protocols. All student data and assessments are encrypted end-to-end and stored on secure cloud servers. We comply with GDPR and local data protection regulations, ensuring that student information is never shared or used for unauthorized purposes."
+    },
+    {
+      question: "How long does onboarding take for a school?",
+      answer: "Our seamless onboarding process typically takes less than 48 hours. We handle the initial setup, curriculum alignment, and rubric customization. Since the interface is highly intuitive, teachers require minimal training and can start using VidyaAI immediately after a short orientation session."
+    },
+    {
+      question: "Can we integrate VidyaAI with our existing LMS?",
+      answer: "Yes, VidyaAI offers flexible API endpoints for seamless integration with major Learning Management Systems (LMS) and school ERPs. Grades, analytics, and feedback reports can be automatically synced to your existing digital infrastructure, ensuring a unified experience for administrators and teachers."
     }
   ];
 

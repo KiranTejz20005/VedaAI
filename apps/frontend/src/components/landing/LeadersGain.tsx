@@ -431,24 +431,6 @@ export default function LeadersGain() {
           </div>
         </div>
 
-        {/* Testimonial Block */}
-        <div className="max-w-3xl mx-auto mt-24 bg-white border border-[#e3dac9] rounded-2xl p-6 sm:p-10 text-center relative shadow-xs">
-          <span className="absolute top-4 left-6 text-orange-200 font-serif text-8xl leading-none select-none">“</span>
-          
-          <p className="font-sans font-medium text-gray-800 text-sm sm:text-base leading-relaxed relative z-10 px-4">
-            "Before <span className="text-[#e05934] font-semibold">VidyaAI</span>, copy checking took up a large part of my week. Now most of the checking is streamlined, and I only review and refine the output. I save several hours every week, which I can now use for investing in better teaching and mentoring of students."
-          </p>
-
-          <div className="mt-8 flex flex-col items-center">
-            {/* Avatar block */}
-            <div className="w-12 h-12 rounded-full border border-orange-100 overflow-hidden bg-orange-50 flex items-center justify-center font-display font-bold text-[#e05934] mb-3 text-sm tracking-wide shadow-xs">
-              DO
-            </div>
-            <h6 className="font-display font-semibold text-xs sm:text-sm text-gray-900">Dr. Obaidullah</h6>
-            <p className="text-[11px] text-[#e05934] font-medium leading-none mt-1">Senior Physics Teacher at DPS Bokaro</p>
-          </div>
-        </div>
-
       </div>
     </section>
   );

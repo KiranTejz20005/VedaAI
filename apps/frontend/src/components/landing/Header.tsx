@@ -2,51 +2,60 @@ import React from "react";
 import { Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import VidyaAiLogoIcon from "./VidyaAiLogoIcon";
 
 interface HeaderProps {
-  onContactClick: () => void;
-  onNavigate: (view: "home" | "privacy" | "terms") => void;
-  currentView: "home" | "privacy" | "terms";
+  onContactClick?: () => void;
+  onNavigate?: (view: "home" | "privacy" | "terms") => void;
+  currentView?: "home" | "privacy" | "terms";
 }
 
-export default function Header({ onContactClick, onNavigate, currentView }: HeaderProps) {
+export default function Header({ onContactClick, onNavigate, currentView = "home" }: HeaderProps) {
   const [isOpen, setIsOpen] = React.useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
 
   const links = [
-    { name: "Home", href: "#home" },
-    { name: "Solutions", href: "#solutions" },
-    { name: "Teachers", href: "#teachers" },
-    { name: "About Us", href: "#about" },
-    { name: "Careers", href: "#careers" },
-    { name: "FAQs", href: "#faqs" },
+    { name: "Home", href: "/" },
+    { name: "Solutions", href: "/#solutions" },
+    { name: "Teachers", href: "/#teachers" },
+    { name: "About Us", href: "/#about" },
+    { name: "Careers", href: "/careers" },
+    { name: "FAQs", href: "/#faqs" },
   ];
 
   const handleLogoClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    onNavigate("home");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (pathname === "/") {
+      e.preventDefault();
+      if (onNavigate) onNavigate("home");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   const handleLinkClick = (e: React.MouseEvent, name: string, href: string) => {
-    if (name === "Home") {
-      e.preventDefault();
-      onNavigate("home");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
+    if (href === "/" || href === "/careers" || href === "/contact") {
+      return; // Let <Link> handle it
     }
 
-    if (currentView !== "home") {
-      e.preventDefault();
+    if (pathname !== "/") {
+      return; // Let <Link> handle navigating to /#hash
+    }
+
+    // We are on home page, handle smooth scroll
+    e.preventDefault();
+    if (currentView !== "home" && onNavigate) {
       onNavigate("home");
       
-      const elementId = href.substring(1);
+      const elementId = href.replace("/#", "");
       setTimeout(() => {
         const el = document.getElementById(elementId);
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth" });
-        }
+        if (el) el.scrollIntoView({ behavior: "smooth" });
       }, 100);
+    } else {
+      const elementId = href.replace("/#", "");
+      const el = document.getElementById(elementId);
+      if (el) el.scrollIntoView({ behavior: "smooth" });
     }
   };
 
@@ -55,7 +64,7 @@ export default function Header({ onContactClick, onNavigate, currentView }: Head
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
-          <a href="#home" onClick={handleLogoClick} className="flex items-center space-x-2.5 group">
+          <Link href="/" onClick={handleLogoClick} className="flex items-center space-x-2.5 group">
             <div className="relative w-9.5 h-9.5 transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-300">
               <VidyaAiLogoIcon className="w-full h-full drop-shadow-sm" />
             </div>
@@ -64,20 +73,20 @@ export default function Header({ onContactClick, onNavigate, currentView }: Head
                 Vidya<span className="text-[#e05934]">AI</span>
               </span>
             </div>
-          </a>
+          </Link>
 
           {/* Desktop Links */}
           <nav className="hidden md:flex items-center space-x-8">
             {links.map((link) => (
-              <a
+              <Link
                 key={link.name}
                 href={link.href}
                 onClick={(e) => handleLinkClick(e, link.name, link.href)}
-                className="text-xs font-medium tracking-wide text-gray-600 hover:text-black transition-colors relative py-1 group"
+                className={`text-xs font-medium tracking-wide transition-colors relative py-1 group ${pathname === link.href ? 'text-black' : 'text-gray-600 hover:text-black'}`}
               >
                 {link.name}
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#e05934] transition-all duration-200 group-hover:w-full" />
-              </a>
+                <span className={`absolute bottom-0 left-0 h-0.5 bg-[#e05934] transition-all duration-200 ${pathname === link.href ? 'w-full' : 'w-0 group-hover:w-full'}`} />
+              </Link>
             ))}
           </nav>
 
@@ -89,12 +98,18 @@ export default function Header({ onContactClick, onNavigate, currentView }: Head
             >
               Sign In
             </Link>
-            <button
-              onClick={onContactClick}
+            <Link
+              href="/contact"
+              onClick={(e) => {
+                if (onContactClick && pathname === "/") {
+                  e.preventDefault();
+                  onContactClick();
+                }
+              }}
               className="px-5 py-2.5 text-xs font-semibold tracking-wide text-white bg-black rounded-full hover:bg-gray-800 transition-all duration-200 hover:shadow-lg hover:shadow-black/5 hover:-translate-y-0.5"
             >
               Contact Us
-            </button>
+            </Link>
           </div>
 
           {/* Mobile menu button */}
@@ -123,17 +138,17 @@ export default function Header({ onContactClick, onNavigate, currentView }: Head
           >
             <div className="px-2 pt-2 pb-6 space-y-1 sm:px-3">
               {links.map((link) => (
-                <a
+                <Link
                   key={link.name}
                   href={link.href}
                   onClick={(e) => {
                     setIsOpen(false);
                     handleLinkClick(e, link.name, link.href);
                   }}
-                  className="block px-3 py-3 rounded-md text-sm font-medium text-gray-700 hover:text-black hover:bg-[#f3ede4]/40"
+                  className={`block px-3 py-3 rounded-md text-sm font-medium ${pathname === link.href ? 'text-black bg-[#f3ede4]/40' : 'text-gray-700 hover:text-black hover:bg-[#f3ede4]/40'}`}
                 >
                   {link.name}
-                </a>
+                </Link>
               ))}
               <div className="pt-4 px-3 space-y-2">
                 <Link
@@ -143,15 +158,19 @@ export default function Header({ onContactClick, onNavigate, currentView }: Head
                 >
                   Sign In
                 </Link>
-                <button
-                  onClick={() => {
+                <Link
+                  href="/contact"
+                  onClick={(e) => {
                     setIsOpen(false);
-                    onContactClick();
+                    if (onContactClick && pathname === "/") {
+                      e.preventDefault();
+                      onContactClick();
+                    }
                   }}
-                  className="w-full text-center px-4 py-3 text-sm font-semibold text-white bg-black rounded-full hover:bg-gray-800 transition-colors"
+                  className="block w-full text-center px-4 py-3 text-sm font-semibold text-white bg-black rounded-full hover:bg-gray-800 transition-colors"
                 >
                   Contact Us
-                </button>
+                </Link>
               </div>
             </div>
           </motion.div>

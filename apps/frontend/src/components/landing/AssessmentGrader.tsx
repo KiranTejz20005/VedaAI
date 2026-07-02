@@ -192,7 +192,7 @@ export default function AssessmentGrader() {
         </div>
 
         {/* Outer Grid Interface */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch max-w-6xl mx-auto lg:min-h-[660px] min-h-[auto]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch max-w-6xl mx-auto lg:h-[660px] min-h-[auto]">
           
           {/* Left Column: Grade Deck Selection list (4 columns) */}
           <div className="lg:col-span-4 flex flex-col h-full bg-white border border-[#f3ede4] rounded-2xl shadow-md overflow-hidden">

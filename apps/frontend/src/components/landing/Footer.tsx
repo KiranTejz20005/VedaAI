@@ -12,10 +12,9 @@ export default function Footer({ onContactClick, onNavigate }: FooterProps) {
     { name: "Home", href: "#home" },
     { name: "Solutions", href: "#solutions" },
     { name: "About Us", href: "#about" },
-    { name: "Careers", href: "#careers" },
+    { name: "Careers", href: "/careers" },
     { name: "FAQs", href: "#faqs" },
     { name: "For Teachers", href: "#teachers" },
-    { name: "Be a Partner", href: "#" },
   ];
 
   const handleLinkClick = (e: React.MouseEvent, name: string, href: string) => {
@@ -76,29 +75,28 @@ export default function Footer({ onContactClick, onNavigate }: FooterProps) {
         </div>
 
         {/* Unified Layer 2: Main Navigation & Links */}
-        <div className="pt-16 grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 pb-12">
+        <div className="pt-16 grid grid-cols-1 md:grid-cols-12 gap-8 pb-12">
           
-          {/* Brand info (5 cols) */}
-          <div className="md:col-span-5 space-y-4">
-            <a href="#home" onClick={(e) => handleLinkClick(e, "Home", "#home")} className="flex items-center space-x-2.5 group">
-              <div className="w-8.5 h-8.5 transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-300">
-                <VidyaAiLogoIcon className="w-full h-full drop-shadow-xs" />
-              </div>
-              <span className="font-display font-extrabold text-lg text-gray-900">
-                Vidya<span className="text-[#e05934]">AI</span>
-              </span>
-            </a>
+          {/* Get in touch (4 cols) */}
+          <div className="md:col-span-4 space-y-4 pr-4">
+            <h4 className="font-display font-extrabold text-xl text-gray-900">
+              Get in touch
+            </h4>
             <p className="text-xs text-gray-500 leading-relaxed font-sans max-w-sm">
-              Grade assignments in minutes, not hours. Empowering schools with specialized, compliant AI rubric assessment systems.
+              Sales, support, partnerships, or press. Reach out and we'll reply within one business day.
             </p>
+            <a href="mailto:info.vidhyaai@gmail.com" className="inline-flex items-center px-4 py-2 mt-2 bg-white border border-gray-200 rounded-full text-xs font-semibold text-gray-700 hover:border-[#e05934] hover:text-[#e05934] transition-colors shadow-sm group">
+              <svg className="w-4 h-4 mr-2 text-gray-400 group-hover:text-[#e05934]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+              info.vidhyaai@gmail.com
+            </a>
           </div>
 
-          {/* Links (4 cols) */}
-          <div className="md:col-span-4 space-y-3.5">
-            <h5 className="text-[10px] sm:text-xs font-mono font-bold tracking-widest text-[#e05934] uppercase">
+          {/* Page Links (2 cols) */}
+          <div className="md:col-span-2 space-y-3.5">
+            <h5 className="text-[10px] sm:text-xs font-mono font-bold tracking-widest text-gray-900 uppercase">
               Page Links
             </h5>
-            <ul className="grid grid-cols-2 gap-x-4 gap-y-2">
+            <ul className="flex flex-col gap-y-3">
               {footerLinks.map((link) => (
                 <li key={link.name}>
                   <a
@@ -113,40 +111,45 @@ export default function Footer({ onContactClick, onNavigate }: FooterProps) {
             </ul>
           </div>
 
-          {/* Connect (3 cols) */}
-          <div className="md:col-span-3 space-y-3.5">
-            <h5 className="text-[10px] sm:text-xs font-mono font-bold tracking-widest text-[#e05934] uppercase">
-              Social Channels
+          {/* Company (2 cols) */}
+          <div className="md:col-span-2 space-y-3.5">
+            <h5 className="text-[10px] sm:text-xs font-mono font-bold tracking-widest text-gray-900 uppercase">
+              Company
             </h5>
-            <div className="flex items-center space-x-3.5">
-              <a
-                href="#"
-                className="p-2 bg-white rounded-lg border border-gray-100 text-gray-500 hover:text-black hover:border-gray-300 transition-all flex items-center justify-center"
-                aria-label="LinkedIn"
-              >
-                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.779-1.75-1.75s.784-1.75 1.75-1.75 1.75.779 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
-                </svg>
+            <ul className="flex flex-col gap-y-3">
+              <li><a href="/careers" className="text-xs text-gray-500 hover:text-black transition-colors">Careers</a></li>
+              <li><a href="#" className="text-xs text-gray-500 hover:text-black transition-colors">Login</a></li>
+              <li><a href="/contact" className="text-xs text-gray-500 hover:text-black transition-colors">Contact</a></li>
+            </ul>
+          </div>
+
+          {/* Legal (2 cols) */}
+          <div className="md:col-span-2 space-y-3.5">
+            <h5 className="text-[10px] sm:text-xs font-mono font-bold tracking-widest text-gray-900 uppercase">
+              Legal
+            </h5>
+            <ul className="flex flex-col gap-y-3">
+              <li><a href="/privacy" className="text-xs text-gray-500 hover:text-black transition-colors">Privacy Policy</a></li>
+              <li><a href="/terms" className="text-xs text-gray-500 hover:text-black transition-colors">Terms of Service</a></li>
+              <li><a href="/cookie-policy" className="text-xs text-gray-500 hover:text-black transition-colors">Cookie Policy</a></li>
+              <li><a href="/acceptable-use" className="text-xs text-gray-500 hover:text-black transition-colors">Acceptable Use</a></li>
+            </ul>
+          </div>
+
+          {/* Social Channels (2 cols) */}
+          <div className="md:col-span-2 space-y-3.5">
+            <h5 className="text-[10px] sm:text-xs font-mono font-bold tracking-widest text-gray-900 uppercase">
+              Social
+            </h5>
+            <div className="flex items-center space-x-2">
+              <a href="#" className="p-2 bg-white rounded-lg border border-gray-100 text-gray-500 hover:text-black hover:border-gray-300 transition-all flex items-center justify-center">
+                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.779-1.75-1.75s.784-1.75 1.75-1.75 1.75.779 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
               </a>
-              <a
-                href="#"
-                className="p-2 bg-white rounded-lg border border-gray-100 text-gray-500 hover:text-black hover:border-gray-300 transition-all flex items-center justify-center"
-                aria-label="Twitter"
-              >
-                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                </svg>
+              <a href="#" className="p-2 bg-white rounded-lg border border-gray-100 text-gray-500 hover:text-black hover:border-gray-300 transition-all flex items-center justify-center">
+                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
               </a>
-              <a
-                href="#"
-                className="p-2 bg-white rounded-lg border border-gray-100 text-gray-500 hover:text-black hover:border-gray-300 transition-all flex items-center justify-center"
-                aria-label="Instagram"
-              >
-                <svg className="w-4 h-4 stroke-current fill-none" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
-                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-                  <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
-                </svg>
+              <a href="#" className="p-2 bg-white rounded-lg border border-gray-100 text-gray-500 hover:text-black hover:border-gray-300 transition-all flex items-center justify-center">
+                <svg className="w-3.5 h-3.5 stroke-current fill-none" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="20" height="20" rx="5" ry="5" /><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" /><line x1="17.5" y1="6.5" x2="17.51" y2="6.5" /></svg>
               </a>
             </div>
           </div>

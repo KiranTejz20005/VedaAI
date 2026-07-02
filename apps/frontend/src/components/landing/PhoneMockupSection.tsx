@@ -385,9 +385,7 @@ export default function PhoneMockupSection() {
         {/* Small Bottom Quote text */}
         <div className="max-w-3xl mx-auto text-center mt-12 px-6">
           <p className="text-xs sm:text-sm italic text-gray-500 leading-relaxed font-sans max-w-2xl mx-auto">
-            "By improving learning outcomes and academic results through empowered teachers and personalised student
-            support, VidyaAI enables educational institutions to operate more efficiently at scale while building a
-            strong, long-lasting reputation."
+            "By implementing VidyaAI, we've successfully addressed the two biggest challenges in our institution: teacher workload and personalized feedback for students. It's the perfect balance of automation and human oversight."
           </p>
         </div>
 
@@ -396,16 +394,16 @@ export default function PhoneMockupSection() {
           <span className="absolute top-4 left-6 text-orange-200 font-serif text-8xl leading-none select-none">“</span>
           
           <p className="font-sans font-medium text-gray-800 text-sm sm:text-base leading-relaxed relative z-10 px-4">
-            <span className="text-[#e05934] font-semibold">VidyaAI</span> reduced the time required for homework, assignments, and exam evaluation while maintaining consistent quality across sections. We saw faster result cycles and clearer academic insights within the first term, with visible ROI and no increase in staff or operational costs.
+            Since integrating <span className="text-[#e05934] font-semibold">VidyaAI</span>, our teachers spend significantly less time grading and more time on high-impact teaching. The detailed analytics give us unprecedented visibility into student performance, allowing us to intervene early and improve overall academic results. It's a game-changer for our school's efficiency.
           </p>
 
           <div className="mt-8 flex flex-col items-center">
             {/* Avatar block */}
             <div className="w-12 h-12 rounded-full border border-orange-200 overflow-hidden bg-orange-50 flex items-center justify-center font-display font-bold text-[#e05934] mb-3 text-sm tracking-wide shadow-xs">
-              DS
+              JD
             </div>
-            <h6 className="font-display font-semibold text-xs sm:text-sm text-gray-900">Dr. A. Sharma</h6>
-            <p className="text-[11px] text-[#e05934] font-medium leading-none mt-1">Principal, Horizon International School, Delhi</p>
+            <h6 className="font-display font-semibold text-xs sm:text-sm text-gray-900">Dr. James Doe</h6>
+            <p className="text-[11px] text-[#e05934] font-medium leading-none mt-1">Director of Academics, Excel Global School</p>
           </div>
         </div>
 
