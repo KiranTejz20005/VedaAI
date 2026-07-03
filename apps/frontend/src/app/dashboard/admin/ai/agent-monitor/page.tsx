@@ -3,7 +3,7 @@
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
 import { MetricCard } from '@/design-system/MetricCard';
-import { Activity, ShieldAlert, Cpu, CheckCircle2, Clock, Zap } from 'lucide-react';
+import { Activity, ShieldAlert, Cpu, CheckCircle2, Clock } from 'lucide-react';
 
 const AGENT_METRICS = [
   { name: 'Knowledge Agent', latency: '245ms', calls: '14,203', errors: '0.02%', status: 'Healthy' },

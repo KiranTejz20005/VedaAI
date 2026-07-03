@@ -153,8 +153,8 @@ export default function OBEDashboard() {
               );
             })}
           </div>
+        </Card>
       </div>
-
       {/* CQI Action Taken Reports */}
       <Card padding="24px">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>

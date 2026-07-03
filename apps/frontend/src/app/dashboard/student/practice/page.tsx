@@ -6,8 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, X, 
   Calculator, Thermometer, Globe, Microscope, 
-  ChevronRight, Filter, Settings2, BarChart2, Zap,
-  Paperclip, Loader2, AlertCircle, ImageOff, History, Trash2, RotateCcw, ChevronDown, ChevronUp, RefreshCw
+  ChevronRight, Filter, Settings2, BarChart2, Zap
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/services/api.client';
@@ -147,19 +146,6 @@ export default function PracticeDashboard() {
     timestamp: new Date(s.createdAt).getTime(),
   });
 
-  const loadHistory = useCallback(async () => {
-    try {
-      const res = await apiClient.get<{ success: boolean; data: ApiQuizSession[] }>('/generate/history');
-      const mapped = res.data.data.map(mapSessionToHistory);
-      setHistory(mapped);
-      calculateStats(mapped);
-    } catch {
-      setHistory([]);
-    }
-  }, []);
-
-  useEffect(() => { void loadHistory(); }, [loadHistory]);
-
   function calculateStats(data: HistoryQuiz[]) {
     if (data.length === 0) {
       setAvgScore(0);
@@ -228,7 +214,20 @@ export default function PracticeDashboard() {
       }
     });
     setWeekActivity(week);
-  };
+  }
+
+  const loadHistory = useCallback(async () => {
+    try {
+      const res = await apiClient.get<{ success: boolean; data: ApiQuizSession[] }>('/generate/history');
+      const mapped = res.data.data.map(mapSessionToHistory);
+      setHistory(mapped);
+      calculateStats(mapped);
+    } catch {
+      setHistory([]);
+    }
+  }, []);
+
+  useEffect(() => { void loadHistory(); }, [loadHistory]);
 
   const handleStartPractice = async (template: typeof TEMPLATES[0]) => {
     setGeneratingTemplateId(template.id);

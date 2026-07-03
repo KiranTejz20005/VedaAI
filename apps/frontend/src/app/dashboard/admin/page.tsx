@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Users, Building2, BookOpen, Layers, Bot, Cpu, AlertCircle, Activity } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { Users, Building2, BookOpen, Layers, AlertCircle, Activity } from 'lucide-react';
 import { PageHeader } from '@/design-system/PageHeader';
 import { MetricCard } from '@/design-system/MetricCard';
 import { Card } from '@/design-system/Card';

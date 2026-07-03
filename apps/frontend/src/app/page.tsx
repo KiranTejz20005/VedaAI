@@ -15,7 +15,6 @@ import LeadersGain from "@/components/landing/LeadersGain";
 import FAQ from "@/components/landing/FAQ";
 import Footer from "@/components/landing/Footer";
 import ContactModal from "@/components/landing/ContactModal";
-import LegalPage from "@/components/landing/LegalPage";
 
 export default function LandingPage() {
   const [modalOpen, setModalOpen] = useState(false);
@@ -96,6 +95,7 @@ export default function LandingPage() {
       {/* 12. Bottom Conversion header & massive branding Footer backdrop */}
       <Footer 
         onContactClick={() => openInquiryModal("contact")} 
+        onNavigate={(view) => { window.location.href = view === "home" ? "/" : "/" + view; }}
       />
 
       {/* 13. Dynamic onboarding meeting booking modal popup */}

@@ -71,7 +71,7 @@ export default function CareersPage() {
               </span>
             </h1>
             <p className="max-w-2xl mx-auto text-lg md:text-xl text-gray-600 mb-10 leading-relaxed">
-              We're a fast-growing team of educators, engineers, and designers building the future of assessment. If you're passionate about empowering teachers and students, you belong here.
+              We&apos;re a fast-growing team of educators, engineers, and designers building the future of assessment. If you&apos;re passionate about empowering teachers and students, you belong here.
             </p>
           </motion.div>
         </div>
@@ -144,8 +144,8 @@ export default function CareersPage() {
           
           {/* Cannot find role */}
           <div className="mt-16 text-center bg-orange-50/50 rounded-2xl p-8 border border-orange-100/50">
-            <h4 className="text-lg font-bold text-gray-900 mb-2">Don't see a fit?</h4>
-            <p className="text-gray-600 mb-6 text-sm">We're always looking for talented individuals. Send us your resume and we'll keep you in mind for future roles.</p>
+            <h4 className="text-lg font-bold text-gray-900 mb-2">Don&apos;t see a fit?</h4>
+            <p className="text-gray-600 mb-6 text-sm">We&apos;re always looking for talented individuals. Send us your resume and we&apos;ll keep you in mind for future roles.</p>
             <Link 
               href="/contact"
               className="inline-flex items-center justify-center px-6 py-2.5 rounded-full bg-white border border-[#f3ede4] text-gray-800 text-sm font-semibold hover:bg-gray-50 transition-colors shadow-sm hover:shadow"
@@ -157,7 +157,10 @@ export default function CareersPage() {
         </div>
       </section>
 
-      <Footer />
+      <Footer 
+        onContactClick={() => { window.location.href = '/contact'; }}
+        onNavigate={(view) => { window.location.href = view === "home" ? "/" : "/" + view; }}
+      />
     </div>
   );
 }

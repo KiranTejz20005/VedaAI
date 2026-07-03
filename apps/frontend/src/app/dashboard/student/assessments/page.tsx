@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import {
-  ClipboardCheck, Clock, Play, Eye, FileText, CheckCircle2,
+  ClipboardCheck, Clock,
   AlertCircle, Filter, Plus, Zap, Calendar, BarChart3, Mail, MoreHorizontal, Timer
 } from 'lucide-react';
 import { api } from '@/lib/api';

@@ -3,8 +3,7 @@
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
 import { MetricCard } from '@/design-system/MetricCard';
-import { CheckCircle2, AlertTriangle, Zap, Target, BookOpen, Clock, MessageSquare, Send } from 'lucide-react';
-import Link from 'next/link';
+import { CheckCircle2, AlertTriangle, Zap, Target, BookOpen, Clock, Send } from 'lucide-react';
 import { Button } from '@/design-system/Button';
 
 // Mock Data representing the 1:1 mapped student view

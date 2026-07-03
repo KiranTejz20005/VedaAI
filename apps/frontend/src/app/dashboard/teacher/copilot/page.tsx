@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bot, Sparkles, BookOpen, Layers, CheckCircle2, Loader2, Search, X, Eye, Trash2 } from 'lucide-react';
+import { Bot, Sparkles, BookOpen, Layers, CheckCircle2, Loader2, X, Eye, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';

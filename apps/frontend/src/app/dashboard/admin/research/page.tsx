@@ -26,10 +26,10 @@ export default function ResearchAdminDashboard() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-        <MetricCard icon={<BarChart3 size={18} />} label="Total Publications (YTD)" value="142" trend="+12%" />
-        <MetricCard icon={<Target size={18} color="#10B981" />} label="Granted Patents" value="8" trend="+2" />
+        <MetricCard icon={<BarChart3 size={18} />} label="Total Publications (YTD)" value="142" trend="up" trendValue="+12%" />
+        <MetricCard icon={<Target size={18} color="#10B981" />} label="Granted Patents" value="8" trend="up" trendValue="+2" />
         <MetricCard icon={<PieChart size={18} color="#8B5CF6" />} label="Active Datasets" value="54" />
-        <MetricCard icon={<LineChart size={18} color="#F59E0B" />} label="Citation Impact" value="1.8k" trend="+15%" />
+        <MetricCard icon={<LineChart size={18} color="#F59E0B" />} label="Citation Impact" value="1.8k" trend="up" trendValue="+15%" />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
@@ -85,7 +85,7 @@ export default function ResearchAdminDashboard() {
                <ShieldAlert size={16} /> Similarity Engine Alert
              </div>
              <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: '#7F1D1D' }}>
-               2 pending thesis proposals triggered high similarity scores (>25%). Review required.
+               2 pending thesis proposals triggered high similarity scores (&gt;25%). Review required.
              </p>
            </div>
 

@@ -86,7 +86,7 @@ export default function TutorChatPage() {
         role: 'ASSISTANT',
         content: response.message,
         createdAt: new Date().toISOString(),
-        confidence: response.confidenceScore,
+        confidence: (response as any).confidenceScore,
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
@@ -196,7 +196,7 @@ export default function TutorChatPage() {
                     whiteSpace: 'pre-wrap'
                   }}>
                     {msg.content}
-                    {!isUser && msg.ragReferences && (
+                    {!isUser && !!msg.ragReferences && (
                       <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-subtle)', fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <AlertCircle size={12} /> Sourced from institution knowledge
                       </div>

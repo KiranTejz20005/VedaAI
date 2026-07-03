@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Layers, Search, RefreshCw, AlertCircle, Database, CheckCircle2 } from 'lucide-react';
+import { Layers, Search, RefreshCw, Database, CheckCircle2 } from 'lucide-react';
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
 import { Button } from '@/design-system/Button';

@@ -3,7 +3,7 @@
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
 import { Button } from '@/design-system/Button';
-import { Settings, RefreshCw, Link as LinkIcon, Unlink, Activity, ShieldCheck, Database, Calendar } from 'lucide-react';
+import { Settings, RefreshCw, Link as LinkIcon, Unlink, Activity, ShieldCheck, Database } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const INTEGRATIONS = [

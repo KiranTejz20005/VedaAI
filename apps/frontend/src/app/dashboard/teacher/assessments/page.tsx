@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
 import { Button } from '@/design-system/Button';
-import { FileText, Clock, CheckCircle2, AlertTriangle, Users, BookOpen } from 'lucide-react';
+import { FileText, Clock, CheckCircle2, Users, BookOpen, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Homework {

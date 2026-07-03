@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
 import { Button } from '@/design-system/Button';
-import { Image as ImageIcon, Type, Palette, Smartphone, FileText, Settings2 } from 'lucide-react';
+import { Image as ImageIcon, Type, Palette, FileText, Settings2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function WhiteLabelBrandingPage() {

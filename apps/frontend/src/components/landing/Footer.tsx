@@ -1,6 +1,5 @@
 import React from "react";
 import { motion } from "framer-motion";
-import VidyaAiLogoIcon from "./VidyaAiLogoIcon";
 
 interface FooterProps {
   onContactClick: () => void;

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect } from "react";
-import { Shield, FileText, CheckCircle, Scale, ScrollText, Users, Lock, HeartHandshake, Cookie, AlertTriangle } from "lucide-react";
+import React from "react";
+import { Shield, FileText, Scale, ScrollText, Users, Lock, HeartHandshake, Cookie, AlertTriangle } from "lucide-react";
 import Header from "./Header";
 import Footer from "./Footer";
 import { useRouter } from "next/navigation";

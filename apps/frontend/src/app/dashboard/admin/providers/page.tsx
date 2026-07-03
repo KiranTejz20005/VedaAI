@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Cpu, Zap, Activity, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Cpu, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
 import { Button } from '@/design-system/Button';

@@ -4,14 +4,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutGrid,
-  PieChart,
   Settings,
   X,
-  GraduationCap,
   Users,
-  ClipboardCheck,
-  ShieldCheck,
-  Building2,
   Activity,
   Zap,
   BookOpen

@@ -60,13 +60,13 @@ export default function ContactPage() {
                 Get in Touch
               </span>
               <h1 className="text-5xl md:text-6xl font-display font-extrabold tracking-tight text-gray-900 mb-6 leading-tight">
-                Let's build something <br className="hidden md:block" />
+                Let&apos;s build something <br className="hidden md:block" />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#e05934] to-[#f08a5d]">
                   amazing together.
                 </span>
               </h1>
               <p className="text-lg md:text-xl text-gray-600 mb-12 leading-relaxed max-w-lg">
-                Whether you're applying for a role, looking to partner with us, or just want to say hello, we'd love to hear from you.
+                Whether you&apos;re applying for a role, looking to partner with us, or just want to say hello, we&apos;d love to hear from you.
               </p>
 
               <div className="space-y-6">
@@ -106,7 +106,7 @@ export default function ContactPage() {
                   className="absolute -top-4 left-1/2 -translate-x-1/2 bg-green-500 text-white px-6 py-2 rounded-full text-sm font-semibold shadow-lg flex items-center gap-2 whitespace-nowrap z-20"
                 >
                   <MessageSquare className="w-4 h-4" />
-                  Message sent successfully! We'll be in touch.
+                  Message sent successfully! We&apos;ll be in touch.
                 </motion.div>
               )}
 
@@ -194,7 +194,10 @@ export default function ContactPage() {
         </div>
       </section>
 
-      <Footer />
+      <Footer 
+        onContactClick={() => { window.location.href = '/contact'; }}
+        onNavigate={(view) => { window.location.href = view === "home" ? "/" : "/" + view; }}
+      />
     </div>
   );
 }

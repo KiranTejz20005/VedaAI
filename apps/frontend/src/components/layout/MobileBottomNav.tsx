@@ -1,6 +1,6 @@
 'use client';
 
-import { LayoutGrid, FileText, Sparkles, Plus, BookOpen, ClipboardList } from 'lucide-react';
+import { LayoutGrid, FileText, Sparkles, Plus, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';

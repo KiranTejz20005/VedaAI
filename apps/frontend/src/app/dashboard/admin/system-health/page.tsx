@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Activity, Cpu, Database, Server, Settings, Zap } from 'lucide-react';
+import { Cpu, Database, Server, Settings, Zap } from 'lucide-react';
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
 import { LoadingState } from '@/design-system/LoadingState';
