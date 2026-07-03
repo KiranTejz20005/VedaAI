@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { getRedisClient } from '../../config/redis';
 
 export const CacheTTL = {
@@ -79,5 +80,5 @@ export function fingerprint(obj: Record<string, unknown>): string {
     acc[k] = obj[k];
     return acc;
   }, {} as Record<string, unknown>);
-  return require('crypto').createHash('md5').update(JSON.stringify(sorted)).digest('hex');
+  return crypto.createHash('md5').update(JSON.stringify(sorted)).digest('hex');
 }

@@ -9,7 +9,7 @@ interface ActionCardProps {
   description?: string;
   href?: string;
   onClick?: () => void;
-  variant?: 'default' | 'primary' | 'warning';
+  variant?: 'default' | 'primary' | 'warning' | 'admin-primary' | 'admin-warning';
   className?: string;
 }
 
@@ -17,12 +17,16 @@ const variantStyles: Record<string, React.CSSProperties> = {
   default: { background: 'var(--bg-hover)', color: 'var(--text-primary)' },
   primary: { background: 'var(--brand-light)', color: 'var(--brand-text)' },
   warning: { background: '#FEF3C7', color: '#92400E' },
+  'admin-primary': { background: '#FFEDD5', color: 'var(--text-primary)' },
+  'admin-warning': { background: '#FEF3C7', color: 'var(--text-primary)' },
 };
 
 const variantHover: Record<string, React.CSSProperties> = {
   default: { background: '#E5E7EB' },
   primary: { background: 'var(--brand-border)' },
   warning: { background: '#FDE68A' },
+  'admin-primary': { background: '#FED7AA' },
+  'admin-warning': { background: '#FDE68A' },
 };
 
 export function ActionCard({ icon, label, description, href, onClick, variant = 'default', className }: ActionCardProps) {

@@ -9,7 +9,7 @@ export class AssessmentAgent extends BaseAgent {
     return true; // Assume valid for MVP
   }
 
-  protected async buildRAGContext(query: string, context: AgentContext): Promise<string> {
+  protected async buildRAGContext(_query: string, _context: AgentContext): Promise<string> {
     console.log(`[${this.name}] Fetching prior context from Hybrid RAG...`);
     // Simulated RAG Fetch
     return 'Context: The course is Data Structures. Topics include Arrays, Trees, and Graphs.';

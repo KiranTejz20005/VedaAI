@@ -8,6 +8,7 @@ import { sendError } from './response';
 import { AppError, ValidationError } from './errors';
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       requestId: string;

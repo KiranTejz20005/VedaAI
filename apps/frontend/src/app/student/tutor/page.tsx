@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { MessageSquare, Plus, Clock, ArrowRight, RotateCcw, Lightbulb } from 'lucide-react';
@@ -16,7 +15,7 @@ import { Input } from '@/design-system/Input';
 import { Dialog } from '@/design-system/Dialog';
 import { FlashcardModal } from '@/components/ui/FlashcardModal';
 import type { TutorSession } from '@/types/tutor.types';
-import { createSession, listSessions, restartSession, generateFlashcards } from '@/services/tutor.service';
+import { createSession, restartSession, generateFlashcards } from '@/services/tutor.service';
 
 export default function TutorSessionsPage() {
   const { user } = useAuthStore();
@@ -116,7 +115,7 @@ export default function TutorSessionsPage() {
             <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" isLoading={isSubmitting}>
+            <Button type="submit" variant="primary" loading={isSubmitting}>
               Start Session
             </Button>
           </div>
@@ -137,6 +136,14 @@ export default function TutorSessionsPage() {
               key={session.id} 
               onClick={() => router.push(`/student/tutor/${session.id}`)}
               style={{ textDecoration: 'none', display: 'block' }}
+              onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+              }}
+              onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+              }}
             >
               <Card 
                 padding="20px" 
@@ -147,16 +154,6 @@ export default function TutorSessionsPage() {
                   flexDirection: 'column', 
                   gap: 12,
                   height: '100%',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                  e.currentTarget.style.borderColor = 'var(--brand)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                  e.currentTarget.style.borderColor = 'var(--border-subtle)';
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

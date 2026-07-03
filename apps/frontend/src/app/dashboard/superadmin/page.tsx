@@ -34,10 +34,10 @@ export default function SuperAdminDashboard() {
 
       {/* Global Business Metrics */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-        <MetricCard icon={<DollarSign size={18} color="#10B981" />} label="Global MRR" value="$142,500" trend="+15%" />
-        <MetricCard icon={<Building2 size={18} />} label="Active Institutions" value="124" trend="+4" />
+        <MetricCard icon={<DollarSign size={18} color="#10B981" />} label="Global MRR" value="$142,500" trend="up" trendValue="+15%" />
+        <MetricCard icon={<Building2 size={18} />} label="Active Institutions" value="124" trend="up" trendValue="+4" />
         <MetricCard icon={<Activity size={18} color="#8B5CF6" />} label="Platform MAU" value="4.2M" />
-        <MetricCard icon={<Zap size={18} color="#F59E0B" />} label="Total AI Inference Cost" value="$18,402" trend="+5%" />
+        <MetricCard icon={<Zap size={18} color="#F59E0B" />} label="Total AI Inference Cost" value="$18,402" trend="up" trendValue="+5%" />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 24 }}>

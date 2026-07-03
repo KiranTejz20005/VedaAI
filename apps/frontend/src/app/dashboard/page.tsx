@@ -15,7 +15,6 @@ import {
 import { PageHeader } from '@/design-system/PageHeader';
 import { MetricCard } from '@/design-system/MetricCard';
 import { ActionCard } from '@/design-system/ActionCard';
-import { ActivityCard } from '@/design-system/ActivityCard';
 import { Card } from '@/design-system/Card';
 import { LoadingState } from '@/design-system/LoadingState';
 import { ErrorState } from '@/design-system/ErrorState';
@@ -32,9 +31,14 @@ interface DashboardData {
   totalSubmissions: number;
   recentActivity: Array<{
     id: string;
-    description: string;
-    timestamp: string;
-    type: string;
+    action: string;
+    createdAt: string;
+    entity?: string;
+    user?: {
+      firstName: string | null;
+      lastName: string | null;
+      email: string | null;
+    } | null;
   }>;
 }
 
@@ -123,98 +127,138 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, position: 'relative', paddingBottom: 60 }}>
       <PageHeader
         title="Organization Admin Dashboard"
-        subtitle="Monitor your institution at a glance."
+        subtitle="Monitor your institution at a glance and manage key educational assets."
       />
 
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-        gap: 12,
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: 16,
       }}>
         <MetricCard
-          icon={<GraduationCap size={18} />}
+          icon={<GraduationCap size={20} color="var(--text-muted)" />}
           label="Total Faculty"
           value={stats.totalFaculty}
+          badgeText="+1 this month"
+          badgeVariant="brand"
         />
         <MetricCard
-          icon={<Users size={18} />}
+          icon={<Users size={20} color="var(--text-muted)" />}
           label="Total Students"
           value={stats.totalStudents}
+          badgeText="Stabilized"
+          badgeVariant="neutral"
         />
         <MetricCard
-          icon={<BookOpen size={18} />}
+          icon={<BookOpen size={20} color="var(--text-muted)" />}
           label="Total Classes"
           value={stats.totalClasses}
+          badgeText="Active"
+          badgeVariant="brand"
         />
         <MetricCard
-          icon={<Clock size={18} />}
+          icon={<Clock size={20} color="var(--text-muted)" />}
           label="Pending Approvals"
           value={stats.pendingApprovals}
+          badgeText="All clear"
+          badgeVariant="neutral"
         />
       </div>
 
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
         gap: 16,
       }}>
-        <ActivityCard
-          title="Recent Activity"
-          items={activity.slice(0, 5)}
-          emptyMessage="No recent activity"
-          viewAllHref="/admin/audit"
-        />
+        <Card padding="clamp(16px, 2vw, 24px)" style={{ display: 'flex', flexDirection: 'column', minHeight: 320 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+            <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Recent Activity
+            </h3>
+            <a href="/admin/audit" style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--brand)', textDecoration: 'none' }}>
+              View All
+            </a>
+          </div>
+          
+          <div style={{ position: 'relative', flex: 1, paddingLeft: 8, overflowY: 'auto', maxHeight: 200, paddingRight: 8 }}>
+            <div style={{ position: 'absolute', top: 12, bottom: 12, left: 13, width: 2, background: 'var(--border)' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, position: 'relative' }}>
+              {activity.map((item, i) => {
+                const dotColors = ['#111827', '#E8531D', '#9CA3AF', '#D1D5DB'];
+                return (
+                  <div key={item.id} style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: dotColors[i % dotColors.length], zIndex: 1, flexShrink: 0, marginTop: 4, marginLeft: -1 }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-primary)', lineHeight: 1.4, fontWeight: 500 }}>
+                        {item.user ? (
+                          <><strong>{item.user.firstName || item.user.lastName || item.user.email || 'User'}</strong> performed </>
+                        ) : null}
+                        {item.action} {item.entity ? `on ${item.entity}` : ''}
+                      </p>
+                      <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        {item.createdAt ? new Date(item.createdAt).toLocaleString() : 'Invalid Date'}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+              {activity.length === 0 && (
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>No recent activity</p>
+              )}
+            </div>
+          </div>
+        </Card>
 
-        <Card padding="clamp(16px, 2vw, 20px)">
-          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>
+        <Card padding="clamp(16px, 2vw, 24px)" style={{ display: 'flex', flexDirection: 'column', minHeight: 320 }}>
+          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 24 }}>
             Quick Actions
           </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <ActionCard
-              icon={<GraduationCap size={16} />}
+              icon={<UserPlus size={18} />}
               label="Create Faculty"
               href="/admin/users"
-              variant="primary"
+              variant="admin-primary"
             />
             <ActionCard
-              icon={<UserPlus size={16} />}
+              icon={<Users size={18} />}
               label="Manage Users"
               href="/dashboard/admin/users"
-              variant="primary"
+              variant="admin-primary"
             />
             <ActionCard
-              icon={<Plus size={16} />}
+              icon={<Plus size={18} />}
               label="Create Class"
               href="/admin/classes"
             />
             <ActionCard
-              icon={<CheckCircle size={16} />}
+              icon={<CheckCircle size={18} />}
               label="View Approvals"
               href="/admin/approvals"
-              variant="warning"
+              variant="admin-warning"
             />
           </div>
         </Card>
 
-        <Card padding="clamp(16px, 2vw, 20px)">
-          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>
+        <Card padding="clamp(16px, 2vw, 24px)" style={{ display: 'flex', flexDirection: 'column', minHeight: 320 }}>
+          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 24 }}>
             Stats Summary
           </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             {[
-              { label: 'Published Assessments', value: summary.publishedAssessments, color: '#3B82F6' },
-              { label: 'Active Lessons', value: summary.activeLessons, color: '#8B5CF6' },
-              { label: 'Submission Rate', value: `${summary.submissionRate}%`, color: '#10B981' },
+              { label: 'Published Assessments', value: summary.publishedAssessments, color: '#111827' },
+              { label: 'Active Lessons', value: summary.activeLessons, color: '#92400E' },
+              { label: 'Submission Rate', value: `${summary.submissionRate}%`, color: '#10B981', valueColor: '#10B981' },
             ].map((item) => (
-              <div key={item.label} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 'var(--text-xs)', fontWeight: 600 }}>
+              <div key={item.label} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 'var(--text-sm)', fontWeight: 600 }}>
                   <span style={{ color: 'var(--text-secondary)' }}>{item.label}</span>
-                  <span style={{ color: 'var(--text-primary)' }}>{item.value}</span>
+                  <span style={{ color: item.valueColor || 'var(--text-primary)', fontSize: 'var(--text-base)' }}>{item.value}</span>
                 </div>
-                <div style={{ width: '100%', height: 6, background: 'var(--bg-hover)', borderRadius: 'var(--radius-pill)', overflow: 'hidden' }}>
+                <div style={{ width: '100%', height: 8, background: 'var(--bg-hover)', borderRadius: 'var(--radius-pill)', overflow: 'hidden' }}>
                   <div style={{
                     height: '100%',
                     background: item.color,
@@ -226,14 +270,57 @@ export default function AdminDashboard() {
               </div>
             ))}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-            <TrendingUp size={12} color="#10B981" />
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-              Submission rate is {summary.submissionRate >= 70 ? 'healthy' : 'needs improvement'}
-            </span>
+          
+          <div style={{ 
+            marginTop: 'auto', 
+            background: '#F9FAFB', 
+            padding: 16, 
+            borderRadius: 'var(--radius-md)', 
+            display: 'flex', 
+            gap: 10, 
+            alignItems: 'flex-start' 
+          }}>
+            <TrendingUp size={18} color="#10B981" style={{ flexShrink: 0, marginTop: 2 }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <strong style={{ fontSize: 'var(--text-xs)', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Insights</strong>
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                Submission rate is currently stable but needs improvement in Science modules.
+              </span>
+            </div>
           </div>
         </Card>
       </div>
+
+      <button style={{
+        position: 'fixed',
+        bottom: 32,
+        right: 32,
+        background: '#111827',
+        color: 'white',
+        padding: '12px 24px',
+        borderRadius: 'var(--radius-pill)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        fontSize: 'var(--text-sm)',
+        fontWeight: 600,
+        boxShadow: 'var(--shadow-lg)',
+        border: 'none',
+        cursor: 'pointer',
+        zIndex: 50,
+        transition: 'transform 0.2s, box-shadow 0.2s'
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.15)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'none';
+        e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+      }}
+      >
+        <span style={{ color: 'var(--brand)' }}>✨</span> Launch AI Assistant
+      </button>
     </div>
   );
 }

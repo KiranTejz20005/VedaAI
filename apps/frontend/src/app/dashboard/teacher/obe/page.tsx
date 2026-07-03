@@ -5,7 +5,7 @@ import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
 import { Button } from '@/design-system/Button';
 import { MetricCard } from '@/design-system/MetricCard';
-import { Target, CheckCircle2, TrendingUp, Sparkles, Download, Layers, AlertTriangle, PenTool } from 'lucide-react';
+import { Target, CheckCircle2, TrendingUp, Sparkles, Download, Layers, PenTool } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 // Mock Data for CO-PO Mapping

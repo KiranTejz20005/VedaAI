@@ -43,8 +43,8 @@ export default function CopilotPage() {
       const html2pdf = (await import('html2pdf.js')).default;
       const opt = {
         margin:       1,
-        filename:     `${topic.replace(/\\s+/g, '_') || 'Lesson'}_Plan.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
+        filename:     `${topic.replace(/\s+/g, '_') || 'Lesson'}_Plan.pdf`,
+        image:        { type: 'jpeg' as const, quality: 0.98 },
         html2canvas:  { scale: 2 },
         jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
       };
@@ -150,7 +150,7 @@ export default function CopilotPage() {
                 }}
               />
             </div>
-            <Button type="submit" variant="primary" isLoading={isGenerating} style={{ marginTop: 8 }}>
+            <Button type="submit" variant="primary" loading={isGenerating} style={{ marginTop: 8 }}>
               {isGenerating ? 'Generating...' : 'Generate Lesson Plan'}
             </Button>
           </form>

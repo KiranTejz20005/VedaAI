@@ -52,9 +52,9 @@ export class FeatureEntitlementService {
       throw new Error(`[EntitlementService] Organization ${organizationId} not found.`);
     }
 
-    // @ts-ignore
+    // @ts-expect-error - Prisma mismatch
     const tier = (org.subscription?.tier || org.subscription?.plan || 'FREE') as SaaSPlanTier;
-    // @ts-ignore
+    // @ts-expect-error - Prisma mismatch
     const aiCreditsRemaining = org.subscription?.aiCreditsRemaining || 0;
     
     // Feature gating logic based on tier
@@ -65,7 +65,7 @@ export class FeatureEntitlementService {
       organizationId,
       tier,
       isActive: org.subscription?.status === 'ACTIVE',
-      // @ts-ignore
+      // @ts-expect-error - Prisma mismatch
       maxSeats: org.subscription?.maxSeats || 10,
       aiCreditsRemaining,
       features: {
@@ -112,7 +112,7 @@ export class FeatureEntitlementService {
     await prisma.subscription.update({
       where: { organizationId },
       data: {
-        // @ts-ignore
+        // @ts-expect-error - Prisma mismatch
         aiCreditsRemaining: {
           decrement: creditsToConsume
         }

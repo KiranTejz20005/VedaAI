@@ -36,16 +36,25 @@ export default function ClassesManagement() {
   const [classStudents, setClassStudents] = useState<any[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [studentSearch, setStudentSearch] = useState('');
+  
+  const [analytics, setAnalytics] = useState<any>(null);
 
   const loadData = async (isInitial = false) => {
     try {
       setLoading(true);
-      const res = await api.get('/admin/classrooms');
+      const [res, analyticsRes] = await Promise.all([
+        api.get('/admin/classrooms'),
+        api.get('/admin/analytics/dashboard').catch(() => null)
+      ]);
+      
       if (res.data?.success) {
         setList(res.data.data);
         if (isInitial && res.data.data.length === 0) {
           setShowBulkModal(true);
         }
+      }
+      if (analyticsRes?.data?.success) {
+        setAnalytics(analyticsRes.data.data);
       }
     } catch (err) {
       toast.error('Failed to load classes');
@@ -190,67 +199,140 @@ export default function ClassesManagement() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-6 pb-12">
+      {/* Header */}
+      <div className="mb-2 flex items-center gap-2 text-sm">
+        <span className="text-gray-500">Dashboard /</span>
+        <span className="font-bold text-gray-900">Classes</span>
+      </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Class Management</h2>
-          <p className="text-gray-600">Manage classes and student enrollments.</p>
+          <h1 className="text-[28px] font-bold text-gray-900 tracking-tight">Class Management</h1>
+          <p className="text-gray-500 mt-1 text-[15px]">Manage classes and student enrollments across the organization.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <button 
             onClick={() => setShowBulkModal(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg text-sm flex items-center gap-2 transition-all shadow-sm">
-            <Layers size={18} /> Bulk Create
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#F97316] hover:bg-[#EA580C] text-white rounded-xl font-semibold text-sm transition-all shadow-sm">
+            <Layers size={16} /> Bulk Create
           </button>
           <button 
             onClick={handleOpenCreate}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg text-sm flex items-center gap-2 transition-all shadow-sm">
-            <Plus size={18} /> Add Class
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 hover:bg-black text-white rounded-xl font-semibold text-sm transition-all shadow-sm">
+            <Plus size={16} /> Add Class
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-3 text-gray-400" size={18} />
+      {/* Metrics Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 bg-orange-50 text-[#F97316] rounded-xl flex items-center justify-center shrink-0">
+            <Layers size={24} />
+          </div>
+          <div>
+            <div className="text-sm font-medium text-gray-500">Total Classes</div>
+            <div className="text-2xl font-bold text-gray-900">{analytics?.totalClasses || list.length || 0}</div>
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 bg-gray-100 text-gray-600 rounded-xl flex items-center justify-center shrink-0">
+            <Users size={24} />
+          </div>
+          <div>
+            <div className="text-sm font-medium text-gray-500">Active Students</div>
+            <div className="text-2xl font-bold text-gray-900">{analytics?.totalStudents || 0}</div>
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 bg-gray-100 text-gray-600 rounded-xl flex items-center justify-center shrink-0">
+            <Users size={24} />
+          </div>
+          <div>
+            <div className="text-sm font-medium text-gray-500">Total Faculty</div>
+            <div className="text-2xl font-bold text-gray-900">{analytics?.totalFaculty || 0}</div>
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 bg-green-50 text-green-600 rounded-xl flex items-center justify-center shrink-0">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          </div>
+          <div>
+            <div className="text-sm font-medium text-gray-500">Attendance Rate</div>
+            <div className="text-2xl font-bold text-gray-900">94%</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
           <input
             type="text"
             placeholder="Search by grade or section..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-gray-50 border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 bg-gray-50/50"
           />
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="flex flex-col items-center gap-2">
-              <Loader2 size={32} className="animate-spin text-blue-600" />
+              <Loader2 size={32} className="animate-spin text-[#004EEB]" />
               <span className="text-gray-500">Loading classes...</span>
             </div>
           </div>
         ) : sortedList.length === 0 ? (
           <div className="text-center py-16 text-gray-500 text-sm">No classes found.</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sortedList.map((c) => (
-              <div key={c.id} onClick={() => handleViewStudents(c)} className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer">
-                <div className="flex items-start justify-between mb-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {sortedList.map((c, i) => {
+              // Mock Progress for UI
+              const progress = [85, 70, 92, 45, 60, 88, 75, 95, 50, 80, 68, 40][i % 12];
+              let statusText = 'TRENDING_';
+              let statusBg = 'bg-orange-50';
+              let statusColor = 'text-orange-600';
+              if (progress >= 80) { statusText = 'Top Tier'; }
+              else if (progress <= 50) { statusText = 'Needs Review'; statusBg = 'bg-red-50'; statusColor = 'text-red-600'; }
+
+              return (
+                <div key={c.id} onClick={() => handleViewStudents(c)} className="bg-white border border-gray-200 rounded-2xl p-5 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between min-h-[220px]">
                   <div>
-                    <h3 className="font-bold text-lg text-gray-900">Class {c.grade}</h3>
-                    <p className="text-sm text-gray-600">Section {c.section}</p>
+                    <div className="flex items-start justify-between mb-1">
+                      <h3 className="font-bold text-xl text-gray-900">Class {c.grade}</h3>
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => handleOpenEdit(c)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-700 transition-colors" title="Edit"><Edit3 size={16} /></button>
+                        <button onClick={() => handleDelete(c.id)} className="p-1.5 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600 transition-colors" title="Delete"><Trash2 size={16} /></button>
+                      </div>
+                    </div>
+                    <p className="text-[13px] text-gray-500 mb-5">Section {c.section}</p>
+
+                    <div className="flex items-center gap-2 mb-8">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 bg-gray-100/80 px-2.5 py-1 rounded-full">
+                        <Users size={14} />
+                        <span>{c._count?.students || 0} Students</span>
+                      </div>
+                      <div className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full ${statusBg} ${statusColor}`}>
+                        {statusText === 'Top Tier' && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>}
+                        {statusText === 'Needs Review' && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>}
+                        {statusText}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={() => handleOpenEdit(c)} className="p-1 hover:bg-white rounded text-gray-600" title="Edit"><Edit3 size={16} /></button>
-                    <button onClick={() => handleDelete(c.id)} className="p-1 hover:bg-white rounded text-red-600" title="Delete"><Trash2 size={16} /></button>
+
+                  <div>
+                    <div className="flex justify-between items-center text-xs font-semibold text-gray-900 mb-2">
+                      <span>Curriculum Progress</span>
+                      <span>{progress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                      <div className="bg-gray-900 h-1.5 rounded-full" style={{ width: `${progress}%` }}></div>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600 bg-white bg-opacity-50 px-3 py-2 rounded w-max">
-                  <Users size={16} />
-                  <span>{c._count?.students || 0} Students</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

@@ -139,7 +139,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         sendError(res, { error: 'Too many failed login attempts. Try again in 15 minutes.', code: 'RATE_LIMITED', statusCode: 429 });
         return;
       }
-    } catch {}
+    } catch { /* ignore */ }
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
@@ -165,7 +165,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
           await redis.set(lockKey, '1', 'EX', LOCK_DURATION);
           await redis.del(loginKey);
         }
-      } catch {}
+      } catch { /* ignore */ }
       sendUnauthorized(res, 'Invalid email or password');
       return;
     }
@@ -180,7 +180,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     try {
       const redis = getRedisClient();
       await Promise.all([redis.del(loginKey), redis.del(lockKey)]);
-    } catch {}
+    } catch { /* ignore */ }
 
     const refreshToken = await createRefreshToken(user.id);
 

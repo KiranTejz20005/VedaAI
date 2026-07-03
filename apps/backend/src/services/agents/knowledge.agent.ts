@@ -9,12 +9,12 @@ export class KnowledgeAgent extends BaseAgent {
     return true; // Assume valid for MVP
   }
 
-  protected async buildRAGContext(query: string, context: AgentContext): Promise<string> {
+  protected async buildRAGContext(_query: string, _context: AgentContext): Promise<string> {
     // Knowledge agent builds the DB, so it rarely needs prior context to act
     return '';
   }
 
-  protected async executeTask(query: string, ragContext: string, context: AgentContext): Promise<AgentResult> {
+  protected async executeTask(query: string, _ragContext: string, _context: AgentContext): Promise<AgentResult> {
     console.log(`[${this.name}] Executing task: ${query}`);
     
     // Simulated Business Logic:

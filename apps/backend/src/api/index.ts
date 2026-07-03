@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requestIdMiddleware, requestTimingMiddleware } from './common/middleware';
-import { sendNotFound } from './common/response';
+
 import metricsRouter from './common/metrics';
 
 import authRouter from './auth/routes';

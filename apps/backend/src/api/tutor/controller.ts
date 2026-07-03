@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
-import { sendSuccess, sendCreated, sendNoContent, sendNotFound } from '../common/response';
+import { sendSuccess, sendCreated, sendNoContent, sendNotFound, sendForbidden } from '../common/response';
 import { getRequestUserId, getRequestOrgId } from '../../security/request-context';
 import { AITutorService } from '../../services/ai-tutor.service';
 import prisma from '../../config/prisma';
+import { AIOrchestrator } from '../../services/ai/ai-orchestrator.service';
 import {
   serializeSession,
   serializeSessionDetail,
@@ -126,7 +127,6 @@ Output your response ONLY as a JSON object matching this schema:
 }
 `;
 
-  const { AIOrchestrator } = require('../../services/ai/ai-orchestrator.service');
   const result = await AIOrchestrator.generate({
     intent: 'GenerateQuestionExplanation',
     context: '',

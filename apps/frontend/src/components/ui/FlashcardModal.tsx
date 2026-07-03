@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog } from '@/design-system/Dialog';
 import { Button } from '@/design-system/Button';
-import { Loader2, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface Flashcard {
   front: string;
@@ -24,6 +24,19 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({ open, onClose, f
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
 
+  const loadFlashcards = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const cards = await fetchFlashcards();
+      setFlashcards(cards);
+    } catch (err: any) {
+      setError(err.message || 'Failed to generate flashcards.');
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchFlashcards]);
+
   useEffect(() => {
     if (open) {
       loadFlashcards();
@@ -36,20 +49,7 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({ open, onClose, f
         setError(null);
       }, 300);
     }
-  }, [open]);
-
-  const loadFlashcards = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const cards = await fetchFlashcards();
-      setFlashcards(cards);
-    } catch (err: any) {
-      setError(err.message || 'Failed to generate flashcards.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [open, loadFlashcards]);
 
   const handleNext = () => {
     setIsFlipped(false);

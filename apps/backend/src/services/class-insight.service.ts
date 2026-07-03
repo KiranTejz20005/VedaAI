@@ -16,7 +16,7 @@ export class ClassInsightService {
     if (recentQuizzes.length === 0) return null;
 
     let totalScore = 0;
-    let maxPossibleScore = recentQuizzes.length * 100; // Assuming 100 per quiz
+    const maxPossibleScore = recentQuizzes.length * 100; // Assuming 100 per quiz
     
     recentQuizzes.forEach(q => totalScore += q.score);
     const averageScore = (totalScore / maxPossibleScore) * 100;

@@ -21,10 +21,10 @@ export default function AgentObservabilityPage() {
       />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-        <MetricCard icon={<Activity size={18} />} label="Total Swarm Executions (24h)" value="25,154" trend="+12%" />
+        <MetricCard icon={<Activity size={18} />} label="Total Swarm Executions (24h)" value="25,154" trend="up" trendValue="+12%" />
         <MetricCard icon={<Cpu size={18} color="#8B5CF6" />} label="Total Tokens Processed" value="4.2M" />
         <MetricCard icon={<Clock size={18} color="#3B82F6" />} label="Avg. Swarm Latency" value="1.2s" />
-        <MetricCard icon={<ShieldAlert size={18} color="#EF4444" />} label="Safety Interventions" value="14" trend="-3" />
+        <MetricCard icon={<ShieldAlert size={18} color="#EF4444" />} label="Safety Interventions" value="14" trend="down" trendValue="-3" />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>

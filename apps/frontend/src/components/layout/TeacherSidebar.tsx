@@ -15,7 +15,6 @@ import {
   Sparkles,
   GraduationCap,
   PieChart,
-  ClipboardCheck,
   BookOpen,
   FileCheck,
 } from 'lucide-react';

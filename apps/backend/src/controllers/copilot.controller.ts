@@ -124,7 +124,7 @@ export const listWorkflows = async (req: Request, res: Response): Promise<void> 
  */
 export const analyzeOBE = async (req: Request, res: Response): Promise<void> => {
   const { reportType, departmentId } = req.body;
-  const userId = req.user?.id ?? 'demo-faculty-id';
+  // unused userId
   
   if (!reportType) {
     sendError(res, 400, 'reportType is required', { errorCode: 'VALIDATION_ERROR' });

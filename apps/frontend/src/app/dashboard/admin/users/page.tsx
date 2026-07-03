@@ -1,188 +1,98 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { api } from '@/lib/api';
-import {
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { 
   Upload,
   UserPlus,
+  ChevronDown,
+  Building,
+  Calendar,
+  X,
   Search,
-  Download,
   MoreVertical,
-  Key,
-  CheckCircle2,
-  XCircle,
-  ShieldCheck,
-  GraduationCap,
-  Users as UsersIcon,
-  Radio
+  Zap
 } from 'lucide-react';
-import toast from 'react-hot-toast';
-import { useAuthStore } from '@/store/auth.store';
-import { useAdminAuthStore } from '@/store/admin-auth.store';
+import { PageHeader } from '@/design-system/PageHeader';
+import { Card } from '@/design-system/Card';
+import { LoadingState } from '@/design-system/LoadingState';
+import { ErrorState } from '@/design-system/ErrorState';
+import { api } from '@/lib/api';
+import { formatDistanceToNow } from 'date-fns';
 
 interface UnifiedUser {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
-  role: 'FACULTY' | 'STUDENT';
+  role: string;
   status: string;
-  department?: { id: string; name: string } | null;
-  lastActivity?: string;
-  institution?: string;
-  departmentId?: string | null;
-  designation?: string;
-  subjects?: string[];
-  rollNo?: string;
-  classId?: string | null;
-  phone?: string | null;
+  institution: string;
+  lastActivity: string;
 }
 
-interface Department { id: string; name: string; }
-interface ClassRecord { id: string; grade: string; section: string; }
+interface DirectoryData {
+  users: UnifiedUser[];
+  stats: {
+    activeUsers: number;
+    inactiveUsers: number;
+    crossOrgEngagement: number;
+    orgBreakdown: { name: string; count: number }[];
+  }
+}
 
-const getTimeAgo = (dateStr: string | Date | undefined) => {
-  if (!dateStr) return 'Offline';
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+export default function GlobalUsersDirectory() {
+  const [data, setData] = useState<DirectoryData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (diffInSeconds < 60) return 'Just now';
-  const diffInMinutes = Math.floor(diffInSeconds / 60);
-  if (diffInMinutes < 60) return `${diffInMinutes} min${diffInMinutes > 1 ? 's' : ''} ago`;
-  const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
-  const diffInDays = Math.floor(diffInHours / 24);
-  if (diffInDays < 7) return `Offline (${diffInDays}d)`;
-  return `Offline`;
-};
+  // Modals & Menus
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+  const [isNewUserOpen, setIsNewUserOpen] = useState(false);
+  const [activeActionMenu, setActiveActionMenu] = useState<string | null>(null);
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
-export default function DirectoryOverview() {
-  const { user } = useAuthStore();
-  const { activeOrganizationId, availableOrganizations } = useAdminAuthStore();
+  // Filters
+  const [roleFilter, setRoleFilter] = useState('All Roles');
+  const [orgFilter, setOrgFilter] = useState('All Organizations');
+  const [statusFilter, setStatusFilter] = useState('Active Only');
+  const [periodFilter, setPeriodFilter] = useState('Last 30 Days');
 
-  const [users, setUsers] = useState<UnifiedUser[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'All' | 'Faculty' | 'Students'>('All');
-  const [search, setSearch] = useState('');
-  
-  // Table Dropdown state
-  const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const handleGlobalClick = () => setActiveDropdownId(null);
-    document.addEventListener('click', handleGlobalClick);
-    return () => document.removeEventListener('click', handleGlobalClick);
-  }, []);
-  
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Modals & Form State
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showBulkModal, setShowBulkModal] = useState(false);
-  const [modalRole, setModalRole] = useState<'FACULTY' | 'STUDENT'>('FACULTY');
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [classes, setClasses] = useState<ClassRecord[]>([]);
-
-  // Add User Form Fields
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [emailPrefix, setEmailPrefix] = useState('');
-  const [departmentId, setDepartmentId] = useState('');
-  const [designation, setDesignation] = useState('');
-  const [subjects, setSubjects] = useState('');
-  const [rollNo, setRollNo] = useState('');
-  const [classId, setClassId] = useState('');
-  const [phone, setPhone] = useState('');
-  const [csvFile, setCsvFile] = useState<File | null>(null);
-
-  // Stats
-  const [totalFaculty, setTotalFaculty] = useState(0);
-  const [totalStudents, setTotalStudents] = useState(0);
-  const [activeSessions, setActiveSessions] = useState(0);
-
-  const activeOrg = availableOrganizations.find(o => o.id === activeOrganizationId);
-  const orgName = activeOrg?.name || 'Institution';
-
-  let emailDomain = 'institution.edu';
-  if (user?.role === 'SUPER_ADMIN' && activeOrg?.email) emailDomain = activeOrg.email.split('@')[1];
-  else if (user?.email) emailDomain = user.email.split('@')[1];
-
-  const loadData = async () => {
+  const fetchDirectoryData = useCallback(async () => {
     try {
-      setLoading(true);
-      const queryParams = user?.role === 'SUPER_ADMIN' && activeOrganizationId 
-        ? `?organizationId=${activeOrganizationId}` 
-        : '';
-        
-      const [facRes, stuRes, deptRes, clsRes] = await Promise.all([
-        api.get(`/admin/faculty${queryParams}`),
-        api.get(`/admin/students${queryParams}`),
-        api.get(`/admin/departments${queryParams}`),
-        api.get(`/admin/classrooms${queryParams}`)
-      ]);
-
-      const facultyData = facRes.data?.data || [];
-      const studentsData = stuRes.data?.data || [];
-      
-      if (deptRes.data?.success) setDepartments(deptRes.data.data);
-      if (clsRes.data?.success) setClasses(clsRes.data.data);
-
-      setTotalFaculty(facultyData.length);
-      setTotalStudents(studentsData.length);
-
-      const unified: UnifiedUser[] = [
-        ...facultyData.map((f: any) => ({
-          ...f,
-          role: 'FACULTY',
-          institution: orgName,
-          lastActivity: getTimeAgo(f.updatedAt)
-        })),
-        ...studentsData.map((s: any) => ({
-          ...s,
-          role: 'STUDENT',
-          institution: orgName,
-          lastActivity: getTimeAgo(s.updatedAt)
-        }))
-      ];
-
-      setUsers(unified.sort((a, b) => (a.firstName || '').localeCompare(b.firstName || '')));
-      setActiveSessions(unified.filter(u => u.status === 'ACTIVE').length);
-    } catch (err) {
-      toast.error('Failed to load directory data');
-      console.error(err);
+      const response = await api.get('/admin/users/global-directory');
+      setData(response.data.data);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load directory data');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  };
-
-  useEffect(() => { 
-    if (user?.role === 'SUPER_ADMIN' && !activeOrganizationId) return;
-    loadData(); 
-  }, [user?.role, activeOrganizationId, orgName]);
-
-  const filteredUsers = useMemo(() => {
-    let filtered = users;
-    if (activeTab === 'Faculty') filtered = filtered.filter(u => u.role === 'FACULTY');
-    if (activeTab === 'Students') filtered = filtered.filter(u => u.role === 'STUDENT');
-    
-    if (search) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter(u => 
-        u.firstName.toLowerCase().includes(q) || 
-        u.lastName.toLowerCase().includes(q) || 
-        u.email.toLowerCase().includes(q) ||
-        (u.institution && u.institution.toLowerCase().includes(q))
-      );
-    }
-    return filtered;
-  }, [users, activeTab, search]);
+  }, []);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab, search]);
+    fetchDirectoryData();
+    const interval = setInterval(fetchDirectoryData, 10000); // Polling every 10s
+    return () => clearInterval(interval);
+  }, [fetchDirectoryData]);
+
+  const filteredUsers = useMemo(() => {
+    if (!data) return [];
+    let filtered = data.users;
+    if (roleFilter !== 'All Roles') {
+      filtered = filtered.filter(u => u.role === roleFilter || (roleFilter === 'Faculty' && u.role === 'FACULTY') || (roleFilter === 'Student' && u.role === 'STUDENT') || (roleFilter === 'Org Admin' && u.role === 'ORG_ADMIN'));
+    }
+    if (orgFilter !== 'All Organizations') {
+      filtered = filtered.filter(u => u.institution === orgFilter);
+    }
+    if (statusFilter === 'Active Only') {
+      filtered = filtered.filter(u => u.status === 'ACTIVE');
+    }
+    return filtered;
+  }, [data, roleFilter, orgFilter, statusFilter]);
 
   const paginatedUsers = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -191,551 +101,389 @@ export default function DirectoryOverview() {
 
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
 
-  const handleOpenAddModal = () => {
-    setModalRole('FACULTY');
-    setFirstName(''); setLastName(''); setEmailPrefix('');
-    setDepartmentId(''); setDesignation(''); setSubjects('');
-    setClassId(''); setPhone(''); setRollNo('');
-    setShowAddModal(true);
-  };
-
-  useEffect(() => {
-    if (showAddModal && modalRole === 'STUDENT') {
-      const fName = firstName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-      const lName = lastName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (fName || lName) setEmailPrefix(`${fName}${lName}`);
-      else setEmailPrefix('');
-    }
-  }, [firstName, lastName, modalRole, showAddModal]);
-
-  const handleAddSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!firstName || !lastName || !emailPrefix) {
-      return toast.error('First Name, Last Name, and Email Prefix are required.');
-    }
-    
-    let domain = 'vidyaai.com';
-    if (user?.role === 'SUPER_ADMIN' && activeOrg?.email) domain = activeOrg.email.split('@')[1];
-    else if (user?.email) domain = user.email.split('@')[1];
-
-    const fullEmail = `${emailPrefix}@${domain}`;
-    const payload: Record<string, unknown> = {
-      firstName, lastName, email: fullEmail, role: modalRole,
-      organizationId: user?.role === 'SUPER_ADMIN' ? activeOrganizationId : undefined
-    };
-
-    try {
-      if (modalRole === 'FACULTY') {
-        Object.assign(payload, {
-          departmentId: departmentId || undefined,
-          designation: designation || undefined,
-          subjects: subjects ? subjects.split(',').map(s => s.trim()).filter(Boolean) : []
-        });
-        const res = await api.post('/admin/faculty', payload);
-        if (res.data?.success) toast.success('Faculty added successfully!');
-      } else {
-        Object.assign(payload, {
-          rollNo: rollNo || undefined,
-          classId: classId || undefined,
-          phone: phone || undefined
-        });
-        const res = await api.post('/admin/students', payload);
-        if (res.data?.success) toast.success('Student added successfully!');
-      }
-      setShowAddModal(false);
-      loadData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to create user');
-    }
-  };
-
-  const handleBulkUpload = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!csvFile) return toast.error('Please select a CSV file');
-    
-    const formData = new FormData();
-    formData.append('file', csvFile);
-    if (user?.role === 'SUPER_ADMIN' && activeOrganizationId) {
-      formData.append('organizationId', activeOrganizationId);
-    }
-
-    try {
-      const endpoint = modalRole === 'FACULTY' ? '/admin/faculty/import' : '/admin/students/import';
-      const res = await api.post(endpoint, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      if (res.data?.success) {
-        toast.success(`${modalRole} imported successfully`);
-        setShowBulkModal(false);
-        setCsvFile(null);
-        loadData();
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Import failed');
-    }
-  };
-
-  const handleAction = (action: string, u: UnifiedUser) => {
-    if (action === 'delete') {
-      toast.success(`Mock: Deleted ${u.firstName}`);
-    } else if (action === 'reset') {
-      toast.success(`Mock: Sent password reset to ${u.email}`);
-    } else if (action === 'manage') {
-      toast.success(`Mock: Opened access management for ${u.firstName}`);
-    }
-  };
-
-  const handleExportCSV = () => {
-    if (filteredUsers.length === 0) return toast.error('No users to export');
-    
-    const headers = ['Name,Email,Role,Institution,Status,Last Activity'];
-    const rows = filteredUsers.map(u => 
-      `"${u.firstName} ${u.lastName}","${u.email}","${u.role}","${u.institution || ''}","${u.status}","${u.lastActivity || ''}"`
-    );
-    const csvContent = headers.concat(rows).join('\\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'directory_export.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success('Export started');
-  };
+  if (isLoading && !data) return <LoadingState lines={8} />;
+  if (error && !data) return <ErrorState message={error} onRetry={fetchDirectoryData} />;
 
   const getInitials = (f: string, l: string) => `${f?.[0]||''}${l?.[0]||''}`.toUpperCase();
 
+  const getRoleStyle = (role: string, status: string) => {
+    if (status === 'SUSPENDED') return { bg: '#FEE2E2', color: '#DC2626', label: 'Suspended' };
+    if (role === 'FACULTY') return { bg: '#F3F4F6', color: '#4B5563', label: 'Faculty' };
+    if (role === 'ORG_ADMIN') return { bg: '#FFF7ED', color: '#EA580C', label: 'Org Admin' };
+    if (role === 'STUDENT') return { bg: '#F3F4F6', color: '#4B5563', label: 'Student' };
+    if (role === 'SUPER_ADMIN') return { bg: '#EFF6FF', color: '#3B82F6', label: 'Super Admin' };
+    return { bg: '#F3F4F6', color: '#4B5563', label: role };
+  };
+
+  const { stats } = data || { stats: { activeUsers: 0, inactiveUsers: 0, crossOrgEngagement: 0, orgBreakdown: [] } };
+
+  // Calculate dynamic bar chart heights (max 120px)
+  const totalBarCount = stats.activeUsers + stats.inactiveUsers;
+  const activeHeight = totalBarCount > 0 ? (stats.activeUsers / totalBarCount) * 120 : 0;
+  const inactiveHeight = totalBarCount > 0 ? (stats.inactiveUsers / totalBarCount) * 120 : 0;
+
   return (
-    <div className="pb-12">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-        <div>
-          <h1 className="text-[28px] font-bold text-gray-900 tracking-tight">Directory Overview</h1>
-          <p className="text-gray-500 mt-1 text-[15px]">Manage global user access across all integrated educational institutions.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button onClick={() => setShowBulkModal(true)} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-semibold text-sm transition-all shadow-sm">
-            <Upload size={16} />
-            Bulk Upload
-          </button>
-          <button onClick={handleOpenAddModal} className="flex items-center gap-2 px-4 py-2.5 bg-[#004EEB] hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-all shadow-sm">
-            <UserPlus size={16} />
-            Add User
-          </button>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col justify-between relative overflow-hidden">
-          <div className="flex justify-between items-start mb-2">
-            <span className="text-gray-500 text-sm font-medium">Total Faculty</span>
-            <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
-              <GraduationCap size={18} />
-            </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 1200, margin: '0 auto', width: '100%', paddingBottom: 48 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>Directory / <span style={{ color: '#111827' }}>Global Users</span></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#111827', margin: '4px 0 8px 0' }}>Global User Directory</h1>
+            <p style={{ fontSize: 14, color: '#6B7280', margin: 0, maxWidth: 600, lineHeight: 1.5 }}>
+              Manage cross-ecosystem identities, synchronize permissions, and audit activity across all organizations within the Vidya AI network.
+            </p>
           </div>
-          <div className="flex items-baseline gap-3">
-            <span className="text-3xl font-bold text-gray-900">{totalFaculty.toLocaleString()}</span>
-            <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">+12%</span>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col justify-between relative overflow-hidden">
-          <div className="flex justify-between items-start mb-2">
-            <span className="text-gray-500 text-sm font-medium">Total Students</span>
-            <div className="w-8 h-8 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center">
-              <UsersIcon size={18} />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-3">
-            <span className="text-3xl font-bold text-gray-900">{totalStudents.toLocaleString()}</span>
-            <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">+4.2%</span>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col justify-between relative overflow-hidden">
-          <div className="flex justify-between items-start mb-2">
-            <span className="text-gray-500 text-sm font-medium">Active Sessions</span>
-            <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
-              <Radio size={18} />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-3">
-            <span className="text-3xl font-bold text-gray-900">{activeSessions.toLocaleString()}</span>
-            <span className="text-xs font-medium text-gray-500">Live now</span>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button 
+              onClick={() => setIsBulkImportOpen(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 99, padding: '10px 24px', fontSize: 14, fontWeight: 600, color: '#374151', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+              <Upload size={16} /> Bulk Import
+            </button>
+            <button 
+              onClick={() => setIsNewUserOpen(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F97316', border: 'none', borderRadius: 99, padding: '10px 24px', fontSize: 14, fontWeight: 600, color: '#FFFFFF', cursor: 'pointer', boxShadow: '0 4px 14px rgba(249, 115, 22, 0.3)' }}>
+              <UserPlus size={16} /> New User
+            </button>
           </div>
         </div>
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white border border-gray-100 p-3 rounded-2xl shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 bg-gray-50/80 p-1 rounded-xl">
-          {(['All', 'Faculty', 'Students'] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                activeTab === tab 
-                  ? 'bg-white text-gray-900 shadow-sm border border-gray-200/50' 
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-        
-        <div className="flex items-center gap-3 flex-1 md:max-w-[400px]">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-            <input 
-              type="text" 
-              placeholder="Filter by institution or name..." 
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 bg-gray-50/50"
-            />
+      <Card padding="16px" style={{ display: 'flex', alignItems: 'center', gap: 16, background: '#FFFFFF', borderRadius: 16, overflow: 'visible' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, position: 'relative' }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: '#6B7280' }}>Role</label>
+          <div 
+            onClick={() => setActiveDropdown(activeDropdown === 'role' ? null : 'role')}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', border: '1px solid #E5E7EB', borderRadius: 8, background: '#F9FAFB', cursor: 'pointer', minWidth: 120 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#374151', flex: 1 }}>{roleFilter}</span>
+            <ChevronDown size={14} color="#9CA3AF" />
           </div>
-          <button className="px-4 py-2 border border-gray-200 text-gray-700 bg-gray-50/50 rounded-xl text-sm font-medium flex items-center gap-2 hover:bg-gray-100 transition-colors whitespace-nowrap">
-            Status: Active <ChevronDownIcon />
-          </button>
-          <button onClick={handleExportCSV} className="p-2 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition-colors" title="Export to CSV">
-            <Download size={18} />
-          </button>
+          {activeDropdown === 'role' && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, background: '#FFF', border: '1px solid #E5E7EB', borderRadius: 8, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', zIndex: 50, minWidth: '100%' }}>
+              {['All Roles', 'Student', 'Faculty', 'Org Admin', 'Super Admin'].map(r => (
+                <div key={r} onClick={() => { setRoleFilter(r); setActiveDropdown(null); }} style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', color: '#374151', borderBottom: '1px solid #F3F4F6' }}>{r}</div>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, position: 'relative' }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: '#6B7280' }}>Organization</label>
+          <div 
+            onClick={() => setActiveDropdown(activeDropdown === 'org' ? null : 'org')}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', border: '1px solid #E5E7EB', borderRadius: 8, background: '#F9FAFB', cursor: 'pointer', minWidth: 160 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#374151', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{orgFilter}</span>
+            <ChevronDown size={14} color="#9CA3AF" />
+          </div>
+          {activeDropdown === 'org' && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, background: '#FFF', border: '1px solid #E5E7EB', borderRadius: 8, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', zIndex: 50, minWidth: '100%', maxHeight: 200, overflowY: 'auto' }}>
+              {['All Organizations', ...(stats?.orgBreakdown.map((o: any) => o.name) || []), 'Unknown'].map(o => (
+                <div key={o} onClick={() => { setOrgFilter(o); setActiveDropdown(null); }} style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', color: '#374151', borderBottom: '1px solid #F3F4F6' }}>{o}</div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, position: 'relative' }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: '#6B7280' }}>Status</label>
+          <div 
+            onClick={() => setActiveDropdown(activeDropdown === 'status' ? null : 'status')}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', border: '1px solid #E5E7EB', borderRadius: 8, background: '#F9FAFB', cursor: 'pointer', minWidth: 120 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#374151', flex: 1 }}>{statusFilter}</span>
+            <ChevronDown size={14} color="#9CA3AF" />
+          </div>
+          {activeDropdown === 'status' && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, background: '#FFF', border: '1px solid #E5E7EB', borderRadius: 8, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', zIndex: 50, minWidth: '100%' }}>
+              {['All Statuses', 'Active Only', 'Suspended'].map(s => (
+                <div key={s} onClick={() => { setStatusFilter(s); setActiveDropdown(null); }} style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', color: '#374151', borderBottom: '1px solid #F3F4F6' }}>{s}</div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, position: 'relative' }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: '#6B7280' }}>Activity Period</label>
+          <div 
+            onClick={() => setActiveDropdown(activeDropdown === 'period' ? null : 'period')}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', border: '1px solid #E5E7EB', borderRadius: 8, background: '#F9FAFB', cursor: 'pointer', minWidth: 130 }}>
+            <Calendar size={14} color="#6B7280" />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#374151', flex: 1 }}>{periodFilter}</span>
+          </div>
+          {activeDropdown === 'period' && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, background: '#FFF', border: '1px solid #E5E7EB', borderRadius: 8, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', zIndex: 50, minWidth: '100%' }}>
+              {['All Time', 'Last 30 Days', 'Last 7 Days'].map(p => (
+                <div key={p} onClick={() => { setPeriodFilter(p); setActiveDropdown(null); }} style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', color: '#374151', borderBottom: '1px solid #F3F4F6' }}>{p}</div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        <button 
+          onClick={() => { setRoleFilter('All Roles'); setOrgFilter('All Organizations'); setStatusFilter('Active Only'); setPeriodFilter('Last 30 Days'); }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', color: '#D97706', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginTop: 18 }}>
+          <X size={14} /> Clear Filters
+        </button>
+      </Card>
 
       {/* Table */}
-      <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden mb-8">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-gray-50/80 text-gray-500 font-medium border-b border-gray-100">
-              <tr>
-                <th className="px-6 py-4">Name</th>
-                <th className="px-6 py-4">Role</th>
-                <th className="px-6 py-4">Institution</th>
-                <th className="px-6 py-4">Last Activity</th>
-                <th className="px-6 py-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                    <div className="flex flex-col items-center justify-center">
-                      <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
-                      Loading directory...
+      <Card padding="0" style={{ background: '#FFFFFF', borderRadius: 16, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #F3F4F6', background: '#F9FAFB' }}>
+              <th style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: '#6B7280' }}>Name</th>
+              <th style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: '#6B7280' }}>Role</th>
+              <th style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: '#6B7280' }}>Assigned Organization</th>
+              <th style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: '#6B7280' }}>Last Activity</th>
+              <th style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: '#6B7280', textAlign: 'right' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedUsers.map((u, idx) => {
+              const roleStyle = getRoleStyle(u.role, u.status);
+              return (
+                <tr key={u.id} style={{ borderBottom: idx === paginatedUsers.length - 1 ? 'none' : '1px solid #F3F4F6' }}>
+                  <td style={{ padding: '20px 24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 99, background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#111827' }}>
+                        {getInitials(u.firstName, u.lastName)}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 2 }}>{u.firstName} {u.lastName}</div>
+                        <div style={{ fontSize: 13, color: '#6B7280' }}>{u.email}</div>
+                      </div>
                     </div>
                   </td>
-                </tr>
-              ) : filteredUsers.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                    No users found matching your criteria.
+                  <td style={{ padding: '20px 24px' }}>
+                    <span style={{ 
+                      display: 'inline-block',
+                      padding: '4px 12px',
+                      background: roleStyle.bg,
+                      color: roleStyle.color,
+                      borderRadius: 99,
+                      fontSize: 12,
+                      fontWeight: 600
+                    }}>
+                      {roleStyle.label}
+                    </span>
+                  </td>
+                  <td style={{ padding: '20px 24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Building size={16} color="#D1D5DB" />
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#4B5563' }}>{u.institution}</span>
+                    </div>
+                  </td>
+                  <td style={{ padding: '20px 24px' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 2 }}>
+                      {u.lastActivity ? formatDistanceToNow(new Date(u.lastActivity), { addSuffix: true }) : 'Never'}
+                    </div>
+                    {/* Mocked activity string for visual parity */}
+                    <div style={{ fontSize: 12, color: '#9CA3AF' }}>System Login</div>
+                  </td>
+                  <td style={{ padding: '20px 24px', textAlign: 'right', position: 'relative' }}>
+                    <button 
+                      onClick={() => setActiveActionMenu(activeActionMenu === u.id ? null : u.id)}
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#9CA3AF' }}>
+                      <MoreVertical size={20} />
+                    </button>
+                    {activeActionMenu === u.id && (
+                      <div style={{ position: 'absolute', right: 24, top: '100%', marginTop: -10, background: '#FFF', border: '1px solid #E5E7EB', borderRadius: 8, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', zIndex: 10, width: 140, textAlign: 'left' }}>
+                        <div onClick={() => setActiveActionMenu(null)} style={{ padding: '10px 16px', fontSize: 13, cursor: 'pointer', color: '#374151', borderBottom: '1px solid #F3F4F6' }}>View Profile</div>
+                        <div onClick={() => setActiveActionMenu(null)} style={{ padding: '10px 16px', fontSize: 13, cursor: 'pointer', color: '#374151', borderBottom: '1px solid #F3F4F6' }}>Reset Password</div>
+                        <div onClick={() => setActiveActionMenu(null)} style={{ padding: '10px 16px', fontSize: 13, cursor: 'pointer', color: '#DC2626' }}>Suspend User</div>
+                      </div>
+                    )}
                   </td>
                 </tr>
-              ) : (
-                paginatedUsers.map((u) => (
-                  <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm border border-blue-100/50 shrink-0">
-                          {getInitials(u.firstName, u.lastName)}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-gray-900">{u.firstName} {u.lastName}</div>
-                          <div className="text-xs text-gray-500">{u.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 text-[11px] font-bold rounded-md tracking-wide ${
-                        u.role === 'FACULTY' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
-                      }`}>
-                        {u.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-medium text-gray-700">
-                      {u.institution || 'Unknown Institution'}
-                    </td>
-                    <td className="px-6 py-4 text-gray-500">
-                      {u.lastActivity}
-                    </td>
-                    <td className="px-6 py-4 text-right relative">
-                      <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => handleAction('reset', u)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors" title="Reset Password">
-                          <Key size={16} />
-                        </button>
-                        <div className="relative" onClick={(e) => e.stopPropagation()}>
-                          <button 
-                            title="More options"
-                            onClick={() => setActiveDropdownId(activeDropdownId === u.id ? null : u.id)}
-                            className="p-1.5 text-gray-400 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
-                          >
-                            <MoreVertical size={16} />
-                          </button>
-                          <div className={`absolute right-0 top-full mt-1 w-32 bg-white border border-gray-100 rounded-xl shadow-lg transition-all z-50 flex flex-col overflow-hidden ${activeDropdownId === u.id ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible -translate-y-2'}`}>
-                            <button onClick={() => { handleAction('manage', u); setActiveDropdownId(null); }} className="px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 font-medium">Manage Access</button>
-                            <button onClick={() => { handleAction('delete', u); setActiveDropdownId(null); }} className="px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 font-medium">Remove User</button>
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between text-sm text-gray-500">
-          <span>Showing {filteredUsers.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredUsers.length)} of {filteredUsers.length} results</span>
-          <div className="flex gap-2">
+              );
+            })}
+          </tbody>
+        </table>
+
+        {/* Pagination Footer */}
+        <div style={{ padding: '16px 24px', borderTop: '1px solid #F3F4F6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F9FAFB' }}>
+          <div style={{ fontSize: 13, color: '#6B7280', fontWeight: 500 }}>
+            Showing {(currentPage - 1) * itemsPerPage + 1} to Math.min(currentPage * itemsPerPage, filteredUsers.length) of {filteredUsers.length.toLocaleString()} users
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button 
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-white transition-colors disabled:opacity-50"
+              onClick={() => setCurrentPage(p => p - 1)}
+              style={{ padding: '6px 10px', background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 8, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
             >
-              Previous
+              {'<'}
             </button>
+            <button style={{ padding: '6px 12px', background: '#000000', color: '#FFFFFF', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>1</button>
+            <button style={{ padding: '6px 12px', background: 'transparent', color: '#4B5563', border: 'none', fontSize: 13, fontWeight: 600 }}>2</button>
+            <button style={{ padding: '6px 12px', background: 'transparent', color: '#4B5563', border: 'none', fontSize: 13, fontWeight: 600 }}>3</button>
+            <span style={{ color: '#9CA3AF' }}>...</span>
             <button 
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-white transition-colors bg-white shadow-sm font-medium text-gray-900 disabled:opacity-50"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(p => p + 1)}
+              style={{ padding: '6px 10px', background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 8, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
             >
-              Next
+              {'>'}
             </button>
           </div>
         </div>
+      </Card>
+
+      {/* Bottom Cards Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.5fr', gap: 24 }}>
+        
+        {/* Active vs Inactive Chart Card */}
+        <Card padding="24px" style={{ background: '#FFFFFF', borderRadius: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: '#374151' }}>Active vs. Inactive</h3>
+            <Zap size={16} color="#D97706" />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 120, marginBottom: 24 }}>
+            <div style={{ flex: 1, background: '#000000', borderRadius: '4px 4px 0 0', height: `${Math.max(activeHeight, 20)}%` }} />
+            <div style={{ flex: 1, background: '#E5E7EB', borderRadius: '4px 4px 0 0', height: `${Math.max(inactiveHeight, 10)}%` }} />
+            <div style={{ flex: 1, background: '#000000', borderRadius: '4px 4px 0 0', height: '60%' }} />
+            <div style={{ flex: 1, background: '#E5E7EB', borderRadius: '4px 4px 0 0', height: '30%' }} />
+            <div style={{ flex: 1, background: '#000000', borderRadius: '4px 4px 0 0', height: '90%' }} />
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#6B7280' }}>
+            Cross-Org Engagement: <span style={{ color: '#D97706', fontWeight: 800 }}>{stats.crossOrgEngagement}%</span>
+          </div>
+        </Card>
+
+        {/* Org Breakdown Card */}
+        <Card padding="24px" style={{ background: '#FFFFFF', borderRadius: 16, display: 'flex', flexDirection: 'column' }}>
+          <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 24px 0', color: '#374151' }}>Org Breakdown</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1 }}>
+            {stats.orgBreakdown.map((org, idx) => {
+              const maxCount = Math.max(...stats.orgBreakdown.map(o => o.count));
+              const width = Math.max((org.count / maxCount) * 100, 10);
+              return (
+                <div key={idx}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 8 }}>
+                    <span>{org.name}</span>
+                    <span>{org.count.toLocaleString()}</span>
+                  </div>
+                  <div style={{ width: '100%', height: 4, background: '#F3F4F6', borderRadius: 99 }}>
+                    <div style={{ width: `${width}%`, height: '100%', background: idx === 0 ? '#000000' : '#D97706', borderRadius: 99 }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <button style={{ alignSelf: 'flex-start', background: 'transparent', border: 'none', color: '#6B7280', fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 0, marginTop: 16 }}>
+            View full org audit →
+          </button>
+        </Card>
+
+        {/* AI Toolkit Notice */}
+        <Card padding="24px" style={{ background: '#FFF7ED', borderRadius: 16, border: '1px solid #FED7AA', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <Zap size={18} color="#D97706" />
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>AI Toolkit Notice</span>
+          </div>
+          <p style={{ fontSize: 14, color: '#4B5563', lineHeight: 1.6, margin: '0 0 24px 0', flex: 1 }}>
+            Automated anomaly detection found 3 user accounts with inconsistent permission hierarchies across Stanford and MIT organizations.
+          </p>
+          <button style={{ background: '#000000', color: '#FFFFFF', border: 'none', borderRadius: 8, padding: '12px', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <Zap size={16} color="#D97706" /> Resolve with AI Assistant
+          </button>
+        </Card>
+
       </div>
 
-      {/* Bottom Layout */}
-      {user?.role === 'SUPER_ADMIN' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Pending Requests */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-gray-900 mb-6">Pending Requests</h2>
-            
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50/50 border border-gray-100 rounded-2xl gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                    <UserPlus size={18} />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-gray-900">External Researcher Access</div>
-                    <div className="text-sm text-gray-500">Request from: Imperial College London</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => toast.success('Mock: Request rejected')} className="text-sm font-bold text-red-600 hover:text-red-700 transition-colors px-3 py-2">Reject</button>
-                  <button onClick={() => toast.success('Mock: Request approved')} className="px-4 py-2 bg-[#004EEB] hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm">Approve</button>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50/50 border border-gray-100 rounded-2xl gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-                    <UsersIcon size={18} />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-gray-900">Bulk Student Onboarding</div>
-                    <div className="text-sm text-gray-500">420 seats requested by University of Toronto</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => toast.success('Mock: Request rejected')} className="text-sm font-bold text-red-600 hover:text-red-700 transition-colors px-3 py-2">Reject</button>
-                  <button onClick={() => toast.success('Mock: Request approved')} className="px-4 py-2 bg-[#004EEB] hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm">Approve</button>
-                </div>
-              </div>
-            </div>
-
-            <button className="w-full mt-4 py-3 border border-dashed border-gray-300 rounded-xl text-sm font-semibold text-blue-600 hover:bg-blue-50/50 transition-colors">
-              View All (12 Pending)
-            </button>
-          </div>
-
-          {/* Global Security Status */}
-          <div className="bg-[#24272D] rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
+      {/* Bulk Import Modal */}
+      {isBulkImportOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#FFF', borderRadius: 16, width: '100%', maxWidth: 480, padding: 32, display: 'flex', flexDirection: 'column', gap: 24, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
             <div>
-              <div className="flex items-center gap-2 text-[#407BFF] font-medium text-sm mb-4">
-                <ShieldCheck size={18} />
-                Global Security Status
-              </div>
-              <h2 className="text-white text-xl font-bold mb-3">Access Control Integrity</h2>
-              <p className="text-gray-400 text-sm leading-relaxed mb-8">
-                Automated permission auditing is active. All institutional nodes are currently synced with Vidya's core protocol.
-              </p>
+              <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, marginBottom: 8, color: '#111827' }}>Bulk Import Users</h2>
+              <p style={{ fontSize: 14, color: '#6B7280', margin: 0 }}>Upload a CSV file to create multiple users at once.</p>
             </div>
             
+            <div style={{ border: '2px dashed #E5E7EB', borderRadius: 12, padding: 48, textAlign: 'center', background: '#F9FAFB' }}>
+              <Upload size={24} color="#9CA3AF" style={{ marginBottom: 12 }} />
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 4 }}>Click to upload or drag and drop</div>
+              <div style={{ fontSize: 12, color: '#6B7280' }}>CSV files only, max 5MB</div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 8 }}>
+              <button 
+                onClick={() => setIsBulkImportOpen(false)}
+                style={{ padding: '10px 16px', background: '#FFF', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#374151', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button 
+                onClick={() => setIsBulkImportOpen(false)}
+                style={{ padding: '10px 16px', background: '#000', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#FFF', cursor: 'pointer' }}>
+                Import Users
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New User Modal */}
+      {isNewUserOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#FFF', borderRadius: 16, width: '100%', maxWidth: 480, padding: 32, display: 'flex', flexDirection: 'column', gap: 24, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
             <div>
-              <div className="flex items-center justify-between text-xs text-gray-400 mb-2 font-medium">
-                <span>Audit Progress</span>
-                <span>94% Complete</span>
-              </div>
-              <div className="w-full bg-gray-700 rounded-full h-1.5 mb-6 overflow-hidden">
-                <div className="bg-[#407BFF] h-1.5 rounded-full w-[94%]"></div>
-              </div>
-              <button onClick={() => {
-                toast.loading('Running global permission audit...', { duration: 3000 });
-                setTimeout(() => toast.success('Audit complete. No anomalies detected.'), 3000);
-              }} className="w-full bg-white text-gray-900 font-bold py-3 rounded-xl hover:bg-gray-50 transition-colors shadow-sm">
-                Run Global Audit
-              </button>
+              <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, marginBottom: 8, color: '#111827' }}>Add New User</h2>
+              <p style={{ fontSize: 14, color: '#6B7280', margin: 0 }}>Create a new global identity across the network.</p>
             </div>
-          </div>
-
-        </div>
-      )}
-
-      {/* Add User Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900">Add New User</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600">
-                <XCircle size={24} />
-              </button>
-            </div>
-            <form onSubmit={handleAddSubmit} className="p-6 space-y-5">
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', gap: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>First Name</label>
+                  <input type="text" placeholder="John" style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Last Name</label>
+                  <input type="text" placeholder="Doe" style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none' }} />
+                </div>
+              </div>
               
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Role</label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="role" checked={modalRole === 'FACULTY'} onChange={() => setModalRole('FACULTY')} className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm font-medium text-gray-700">Faculty</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="role" checked={modalRole === 'STUDENT'} onChange={() => setModalRole('STUDENT')} className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm font-medium text-gray-700">Student</span>
-                  </label>
-                </div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Email Address</label>
+                <input type="email" placeholder="john@example.com" style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none' }} />
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">First Name</label>
-                  <input required type="text" value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Last Name</label>
-                  <input required type="text" value={lastName} onChange={e => setLastName(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Email Prefix</label>
-                <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl overflow-hidden focus-within:border-blue-500">
-                  <input required type="text" value={emailPrefix} onChange={e => setEmailPrefix(e.target.value)} className="flex-1 px-4 py-2.5 bg-transparent focus:outline-none" />
-                  <span className="px-4 py-2.5 text-gray-500 border-l border-gray-200 font-medium">@{emailDomain}</span>
-                </div>
-              </div>
-
-              {modalRole === 'FACULTY' ? (
-                <>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Department</label>
-                    <select value={departmentId} onChange={e => setDepartmentId(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none bg-white">
-                      <option value="">Select Department</option>
-                      {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                    </select>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">Class / Section</label>
-                      <select value={classId} onChange={e => setClassId(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none bg-white">
-                        <option value="">Select Class</option>
-                        {classes.map(c => <option key={c.id} value={c.id}>{c.grade} - {c.section}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">Roll No (Optional)</label>
-                      <input type="text" value={rollNo} onChange={e => setRollNo(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none" />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-100 transition-colors">Cancel</button>
-                <button type="submit" className="flex-1 py-2.5 bg-[#004EEB] hover:bg-blue-700 text-white rounded-xl font-semibold shadow-sm transition-colors">Add {modalRole === 'FACULTY' ? 'Faculty' : 'Student'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Bulk Upload Modal */}
-      {showBulkModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900">Bulk Upload Users</h3>
-              <button onClick={() => setShowBulkModal(false)} className="text-gray-400 hover:text-gray-600">
-                <XCircle size={24} />
-              </button>
-            </div>
-            <form onSubmit={handleBulkUpload} className="p-6 space-y-5">
               
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Import Target</label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="bulk_role" checked={modalRole === 'FACULTY'} onChange={() => setModalRole('FACULTY')} className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm font-medium text-gray-700">Faculty CSV</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="bulk_role" checked={modalRole === 'STUDENT'} onChange={() => setModalRole('STUDENT')} className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm font-medium text-gray-700">Students CSV</span>
-                  </label>
-                </div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Role</label>
+                <select style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none', backgroundColor: '#FFF' }}>
+                  <option>Student</option>
+                  <option>Faculty</option>
+                  <option>Org Admin</option>
+                  <option>Super Admin</option>
+                </select>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Select File</label>
-                <label className="border-2 border-dashed border-gray-200 bg-gray-50 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors">
-                  <Upload size={32} className="text-blue-500 mb-3" />
-                  <span className="text-sm font-medium text-gray-700 mb-1">Click to browse or drag and drop</span>
-                  <span className="text-xs text-gray-500">CSV format only</span>
-                  <input type="file" accept=".csv" className="hidden" onChange={e => {
-                    if (e.target.files && e.target.files[0]) {
-                      setCsvFile(e.target.files[0]);
-                    }
-                  }} />
-                </label>
-                {csvFile && (
-                  <div className="mt-3 text-sm text-green-600 font-medium flex items-center gap-2">
-                    <CheckCircle2 size={16} /> {csvFile.name}
-                  </div>
-                )}
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Organization</label>
+                <select style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none', backgroundColor: '#FFF' }}>
+                  {stats?.orgBreakdown.map((o: any) => (
+                    <option key={o.name}>{o.name}</option>
+                  ))}
+                  <option>Unknown</option>
+                </select>
               </div>
+            </div>
 
-              <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setShowBulkModal(false)} className="flex-1 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-100 transition-colors">Cancel</button>
-                <button type="submit" className="flex-1 py-2.5 bg-[#004EEB] hover:bg-blue-700 text-white rounded-xl font-semibold shadow-sm transition-colors disabled:opacity-50" disabled={!csvFile}>
-                  Upload & Import
-                </button>
-              </div>
-            </form>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 8 }}>
+              <button 
+                onClick={() => setIsNewUserOpen(false)}
+                style={{ padding: '10px 16px', background: '#FFF', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#374151', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button 
+                onClick={() => setIsNewUserOpen(false)}
+                style={{ padding: '10px 16px', background: '#000', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#FFF', cursor: 'pointer' }}>
+                Create User
+              </button>
+            </div>
           </div>
         </div>
       )}
-
     </div>
-  );
-}
-
-function ChevronDownIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="6 9 12 15 18 9"></polyline>
-    </svg>
   );
 }

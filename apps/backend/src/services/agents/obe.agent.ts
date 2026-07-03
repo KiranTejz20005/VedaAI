@@ -9,7 +9,7 @@ export class OBEAgent extends BaseAgent {
     return true; // Assume valid
   }
 
-  protected async buildRAGContext(query: string, context: AgentContext): Promise<string> {
+  protected async buildRAGContext(_query: string, _context: AgentContext): Promise<string> {
     console.log(`[${this.name}] Fetching Institutional Course Outcomes from Knowledge Graph...`);
     // Simulated RAG Fetch for Accreditation rules
     return 'CO1: Understand Data Structures. CO2: Implement Trees. PO1: Engineering Knowledge.';

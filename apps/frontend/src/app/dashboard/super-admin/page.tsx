@@ -1,108 +1,282 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { PageHeader } from '@/design-system/PageHeader';
-import { MetricCard } from '@/design-system/MetricCard';
-import { Card } from '@/design-system/Card';
-import { Users, Building, Activity, Server, Loader2 } from 'lucide-react';
+import {
+  Building2,
+  Users,
+  Monitor,
+  Database,
+  History,
+  Activity,
+  ChevronRight,
+  Plus
+} from 'lucide-react';
+import Link from 'next/link';
+import { LoadingState } from '@/design-system/LoadingState';
+import { ErrorState } from '@/design-system/ErrorState';
 
 interface SuperAdminStats {
   totalOrganizations: number;
   totalUsers: number;
   activeSessions: number;
-  apiUsage: number;
-  systemUptime: number;
-  securityAlerts: number;
+  systemUptime: number | null;
 }
 
 export default function SuperAdminDashboard() {
-  const [stats, setStats] = useState<SuperAdminStats | null>(null);
+  const [data, setData] = useState<SuperAdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        setLoading(true);
+  const loadData = useCallback(async () => {
+    try {
+      const res = await api.get('/super-admin/dashboard/stats');
+      if (res.data?.success) {
+        setData(res.data.data);
         setError(null);
-        const res = await api.get('/super-admin/dashboard/stats');
-        if (res.data?.success) {
-          setStats(res.data.data);
-        } else {
-          setError('Failed to load statistics');
-        }
-      } catch (err: any) {
-        setError(err?.message || 'Failed to load dashboard');
-        console.error(err);
-      } finally {
-        setLoading(false);
+      } else {
+        setError('Failed to load dashboard');
       }
-    };
-
-    fetchStats();
+    } catch {
+      setError('Failed to load dashboard');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#6b7280' }}>
-          <Loader2 size={20} className="animate-spin" />
-          <span>Loading dashboard...</span>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    loadData();
+    // Poll every 10 seconds for real-time updates
+    const interval = setInterval(loadData, 5000);
+    return () => clearInterval(interval);
+  }, [loadData]);
 
-  if (error) {
-    return (
-      <div style={{ padding: 20, background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 12, color: '#991b1b' }}>
-        <h3 style={{ fontWeight: 600, marginBottom: 8 }}>Error Loading Dashboard</h3>
-        <p>{error}</p>
-      </div>
-    );
-  }
+  if (loading && !data) return <LoadingState lines={8} />;
+  if (error && !data) return <ErrorState message={error} onRetry={() => { setLoading(true); setError(null); loadData(); }} />;
 
-  const data = stats || { totalOrganizations: 0, totalUsers: 0, activeSessions: 0, apiUsage: 0, systemUptime: 0, securityAlerts: 0 };
+  const stats = data || {
+    totalOrganizations: 0,
+    totalUsers: 0,
+    activeSessions: 0,
+    systemUptime: 99.9,
+  };
+
+  const uptime = stats.systemUptime ?? 99.9;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <PageHeader
-        title="Super Admin Dashboard"
-        subtitle="Global System Control & Monitoring."
-      />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 1200, margin: '0 auto', width: '100%' }}>
+      {/* Header */}
+      <div>
+        <h1 style={{ fontSize: 24, fontWeight: 800, color: '#111827', margin: 0, marginBottom: 4 }}>Super Admin Dashboard</h1>
+        <p style={{ fontSize: 14, color: '#6B7280', margin: 0 }}>Global System Control & Monitoring.</p>
+      </div>
 
+      {/* Top Metrics Row */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
         gap: 16,
       }}>
-        <MetricCard icon={<Building size={18} />} label="Total Organizations" value={data.totalOrganizations} />
-        <MetricCard icon={<Users size={18} />} label="Total Users" value={data.totalUsers} />
-        <MetricCard icon={<Activity size={18} />} label="Active Sessions" value={data.activeSessions} />
-        <MetricCard icon={<Server size={18} />} label="System Uptime" value={`${data.systemUptime}%`} />
+        <MetricCard
+          icon={<Building2 size={16} color="#9CA3AF" />}
+          label={'TOTAL\nORGANIZATIONS'}
+          value={stats.totalOrganizations}
+        />
+        <MetricCard
+          icon={<Users size={16} color="#9CA3AF" />}
+          label="TOTAL USERS"
+          value={stats.totalUsers}
+        />
+        <MetricCard
+          icon={<Monitor size={16} color="#9CA3AF" />}
+          label="ACTIVE SESSIONS"
+          value={stats.activeSessions}
+        />
+        <MetricCard
+          icon={<Database size={16} color="#9CA3AF" />}
+          label="SYSTEM UPTIME"
+          value={`${uptime}%`}
+        />
       </div>
 
+      {/* Action Cards Row */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
         gap: 16,
       }}>
-        <Card padding="clamp(16px, 2vw, 20px)">
-          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 16 }}>Audit Logs</h3>
-          <p style={{ color: 'var(--text-secondary)' }}>View global system audit logs...</p>
-        </Card>
-        
-        <Card padding="clamp(16px, 2vw, 20px)">
-          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 16 }}>Tenant Management</h3>
-          <p style={{ color: 'var(--text-secondary)' }}>Manage organizations and billing...</p>
-        </Card>
-        
-        <Card padding="clamp(16px, 2vw, 20px)">
-          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 16 }}>System Metrics</h3>
-          <p style={{ color: 'var(--text-secondary)' }}>Infrastructure health and performance...</p>
-        </Card>
+        <ActionPanel
+          icon={<History size={20} />}
+          title="Audit Logs"
+          description="View global system audit logs, track configuration changes, and monitor administrative actions across all tenants."
+          linkText="View Global Logs"
+          href="/dashboard/super-admin/audit"
+        />
+        <ActionPanel
+          icon={<Building2 size={20} />}
+          title="Tenant Management"
+          description="Manage organization profiles, handle complex billing cycles, and provision new AI-powered learning environments."
+          linkText="Manage Organizations"
+          href="/dashboard/super-admin/organizations"
+        />
+        <ActionPanel
+          icon={<Activity size={20} />}
+          title="System Metrics"
+          description="Real-time infrastructure health, API performance monitoring, and resource utilization analytics for the Vidya cluster."
+          linkText="Detailed Metrics"
+          href="/dashboard/super-admin/analytics"
+        />
       </div>
+
+      {/* Bottom Banner */}
+      <div style={{
+        background: '#000000',
+        borderRadius: 16,
+        overflow: 'hidden',
+        position: 'relative',
+        display: 'flex',
+        minHeight: 280,
+      }}>
+        <div style={{ padding: 48, zIndex: 10, maxWidth: '60%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start' }}>
+          <h2 style={{ fontSize: 28, fontWeight: 800, color: '#FFFFFF', margin: 0, marginBottom: 16, letterSpacing: '-0.02em' }}>
+            Intelligent Infrastructure
+          </h2>
+          <p style={{ fontSize: 14, color: '#D1D5DB', margin: 0, marginBottom: 32, lineHeight: 1.6 }}>
+            Vidya AI's core engine is distributed across multiple cloud providers to ensure 99.9% uptime and low-latency response for educators globally.
+          </p>
+          <button style={{
+            background: '#FFFFFF',
+            color: '#000000',
+            border: 'none',
+            padding: '12px 24px',
+            borderRadius: 9999,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: 'pointer',
+            fontFamily: 'inherit'
+          }}>
+            Deploy New Cluster
+          </button>
+        </div>
+        
+        {/* Network Image Background */}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: '40%',
+          backgroundImage: 'url(https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1200&auto=format&fit=crop)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          opacity: 0.5,
+          maskImage: 'linear-gradient(to right, transparent, black 40%)',
+          WebkitMaskImage: 'linear-gradient(to right, transparent, black 40%)'
+        }} />
+
+        {/* Floating Plus Button */}
+        <button style={{
+          position: 'absolute',
+          bottom: 24,
+          right: 24,
+          width: 48,
+          height: 48,
+          borderRadius: '50%',
+          background: '#000000',
+          color: '#FFFFFF',
+          border: '2px solid rgba(255,255,255,0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          zIndex: 20,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+        }}>
+          <Plus size={24} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Local Components ──
+
+function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
+  return (
+    <div style={{
+      background: '#FFFFFF',
+      borderRadius: 16,
+      padding: '24px',
+      border: '1px solid #F3F4F6',
+      boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 16,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.05em', whiteSpace: 'pre-line', lineHeight: 1.2 }}>
+          {label}
+        </span>
+        {icon}
+      </div>
+      <div style={{ fontSize: 42, fontWeight: 800, color: '#111827', lineHeight: 1, marginTop: 4 }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ActionPanel({ icon, title, description, linkText, href }: { icon: React.ReactNode; title: string; description: string; linkText: string; href: string }) {
+  return (
+    <div style={{
+      background: '#FFFFFF',
+      borderRadius: 16,
+      padding: '32px 24px',
+      border: '1px solid #F3F4F6',
+      boxShadow: '0 4px 6px rgba(0,0,0,0.02)',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 16,
+      height: '100%',
+      boxSizing: 'border-box'
+    }}>
+      <div style={{
+        width: 40,
+        height: 40,
+        borderRadius: 8,
+        background: '#F9FAFB',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#374151',
+        border: '1px solid #E5E7EB'
+      }}>
+        {icon}
+      </div>
+      <h3 style={{ fontSize: 16, fontWeight: 700, color: '#111827', margin: 0 }}>
+        {title}
+      </h3>
+      <p style={{ fontSize: 14, color: '#6B7280', margin: 0, lineHeight: 1.5, flex: 1 }}>
+        {description}
+      </p>
+      <Link href={href} style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '12px 16px',
+        border: '1px solid #E5E7EB',
+        borderRadius: 8,
+        color: '#111827',
+        fontSize: 13,
+        fontWeight: 600,
+        textDecoration: 'none',
+        marginTop: 8,
+        transition: 'background 0.2s',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+      }}>
+        {linkText}
+        <ChevronRight size={16} />
+      </Link>
     </div>
   );
 }

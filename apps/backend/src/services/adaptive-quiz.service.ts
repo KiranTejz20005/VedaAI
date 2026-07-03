@@ -20,8 +20,8 @@ export class AdaptiveQuizService {
     // Determine the next difficulty level based on the last question's result
     // In a real system, we'd also check if the student actually answered correctly.
     // For this demonstration, we'll assume a basic adaptive rule.
-    let nextDifficulty = session.difficulty;
-    let adaptiveDelta = 0;
+    const nextDifficulty = session.difficulty;
+    const adaptiveDelta = 0;
 
     // We can pull RAG context to ground the question
     const ragContext = await retrieveContext(session.topic, session.organizationId || '', 5);

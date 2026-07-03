@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { 
   CheckCircle2, Users, CalendarDays, 
-  ChevronLeft, ChevronRight, X, Info, Award
+  ChevronLeft, ChevronRight, X, Info
 } from 'lucide-react';
 
 interface AttendanceRecord {
@@ -35,6 +35,7 @@ interface LeaveApplication {
   subject: string;
   status: string;
   createdAt: string;
+  body?: string;
 }
 
 export default function AttendanceDashboardPage() {

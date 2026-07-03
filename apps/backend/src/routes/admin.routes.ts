@@ -30,6 +30,7 @@ router.post('/departments/transfer-faculty', asyncHandler(AdminController.transf
 
 // ── 3. User Management ──
 router.get('/users', asyncHandler(AdminController.getUsers));
+router.get('/users/global-directory', asyncHandler(AdminController.getGlobalDirectoryData));
 router.post('/users', asyncHandler(AdminController.createUser));
 router.put('/users/:id', asyncHandler(AdminController.updateUser));
 router.delete('/users/:id', asyncHandler(AdminController.deleteUser));
@@ -138,6 +139,9 @@ router.post('/approvals/:id/reject', asyncHandler(AdminController.rejectAssessme
 router.post('/approvals/:id/request-changes', asyncHandler(AdminController.requestChanges));
 router.post('/approvals/:id/publish', asyncHandler(AdminController.publishAssessment));
 
+// ── 18. Knowledge Base Stats ──
+router.get('/knowledge/stats', asyncHandler(AdminController.getKnowledgeStats));
+
 // ── 19. Organization Analytics Dashboard ──
 router.get('/analytics/dashboard', asyncHandler(AdminController.getOrgAnalyticsDashboard));
 
@@ -147,5 +151,11 @@ router.put('/organization/settings', asyncHandler(AdminController.updateOrganiza
 
 // ── 21. Dashboard Stats ──
 router.get('/dashboard/stats', asyncHandler(AdminController.getDashboardStats));
+
+// ── 22. System Health ──
+router.get('/health', asyncHandler(AdminController.getSystemHealth));
+
+// ── 23. AI Providers ──
+router.get('/providers', asyncHandler(AdminController.getProviders));
 
 export default router;

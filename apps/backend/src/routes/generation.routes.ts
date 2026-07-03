@@ -2,8 +2,6 @@ import { Router } from 'express';
 import { asyncHandler } from '../utils/async-handler';
 import { generateQuestion, generateQuestions, saveQuizSession, getQuizSessionById, updateQuizSession, getQuizHistory, clearQuizHistory, parseDocument, shareQuiz, getSharedQuiz } from '../controllers/generation.controller';
 import { authenticate } from '../middlewares/auth.middleware';
-import { requirePermission } from '../security/access-control';
-import { PERMISSIONS } from '../security/permissions';
 import { quizGenerationRateLimiter } from '../middlewares/rate-limit.middleware';
 import { checkQuizDailyLimit } from '../middlewares/daily-limit.middleware';
 import { uploadMiddleware } from '../middlewares/upload.middleware';

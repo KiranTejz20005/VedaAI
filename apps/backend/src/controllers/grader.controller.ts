@@ -132,7 +132,7 @@ export const listSubmissions = async (req: Request, res: Response): Promise<void
   try {
     const { assignmentId } = req.params;
     await assertCanGradeAssignment(req, assignmentId);
-    const orgId = requireRequestOrgId(req);
+    requireRequestOrgId(req);
 
     const submissions = await prisma.studentSubmission.findMany({
       where: { assignmentId },

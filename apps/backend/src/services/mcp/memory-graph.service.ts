@@ -30,7 +30,7 @@ export class MemoryGraphService {
     console.log(`[MemoryGraph] Injecting memory at level [${level}] for entity ${entityId}. Importance: ${importance}`);
     
     // Unmocked: Save memory node to Postgres (and potentially Vector DB in a real hybrid setup)
-    // @ts-ignore
+    // @ts-expect-error - Prisma mismatch
     const memory = await prisma.agentMemory.create({
       data: {
         level,
@@ -44,11 +44,11 @@ export class MemoryGraphService {
     return memory.id;
   }
 
-  public async retrieveContext(level: MemoryNodeLevel, entityId: string, query: string): Promise<string[]> {
+  public async retrieveContext(level: MemoryNodeLevel, entityId: string, _query: string): Promise<string[]> {
     console.log(`[MemoryGraph] Semantic search for past context at level [${level}] for entity ${entityId}...`);
     
     // Unmocked: Fetch high-importance memories for this entity
-    // @ts-ignore
+    // @ts-expect-error - Prisma mismatch
     const memories = await prisma.agentMemory.findMany({
       where: {
         level,
