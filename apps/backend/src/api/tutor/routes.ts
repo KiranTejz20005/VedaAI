@@ -18,6 +18,8 @@ import {
   deleteSession,
   getConfig,
   updateConfig,
+  generateFlashcards,
+  restartSession,
 } from './controller';
 
 const router = Router();
@@ -28,7 +30,9 @@ router.post('/sessions', validate(createSessionSchema), asyncHandler(createSessi
 router.get('/sessions', asyncHandler(listSessions));
 router.get('/sessions/:sessionId', validate(sessionIdParamSchema), asyncHandler(getSession));
 router.post('/sessions/:sessionId/chat', validate(sendMessageSchema), asyncHandler(sendMessage));
+router.get('/sessions/:sessionId/flashcards', validate(sessionIdParamSchema), asyncHandler(generateFlashcards));
 router.patch('/sessions/:sessionId/close', validate(sessionIdParamSchema), asyncHandler(closeSession));
+router.patch('/sessions/:sessionId/restart', validate(sessionIdParamSchema), asyncHandler(restartSession));
 router.delete('/sessions/:sessionId', validate(sessionIdParamSchema), asyncHandler(deleteSession));
 
 router.get('/config', asyncHandler(getConfig));

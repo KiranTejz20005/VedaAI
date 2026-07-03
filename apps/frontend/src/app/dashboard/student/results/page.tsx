@@ -56,8 +56,8 @@ export default function StudentResultsDashboard() {
   };
 
   // Analytics Calculations
-  const { currentGPA, gpaTrend } = useMemo(() => {
-    if (results.length === 0) return { currentGPA: 0, gpaTrend: 0 };
+  const { currentGPA, gpaTrend, chartData } = useMemo(() => {
+    if (results.length === 0) return { currentGPA: '0.00', gpaTrend: '0.0', chartData: [] };
     
     // Sort by submitted date desc
     const sorted = [...results].sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
@@ -78,15 +78,44 @@ export default function StudentResultsDashboard() {
       trend = recentAvg - olderAvg; // simple percentage difference
     }
 
+    // Chart Data Generation (Group by Month)
+    const monthlyData: Record<string, number[]> = {};
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    // Sort oldest to newest for chronological chart
+    const chronological = [...results].sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
+    
+    chronological.forEach(r => {
+      const date = new Date(r.submittedAt);
+      const monthStr = monthNames[date.getMonth()];
+      if (!monthlyData[monthStr]) monthlyData[monthStr] = [];
+      monthlyData[monthStr].push(r.percentage);
+    });
+
+    const cData = Object.keys(monthlyData).map(month => {
+      const scores = monthlyData[month];
+      const avg = scores.reduce((sum, s) => sum + s, 0) / scores.length;
+      return { month, score: avg };
+    });
+
+    let finalChartData = cData.slice(-6);
+    if (finalChartData.length === 0) {
+      finalChartData = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'].map(m => ({ month: m, score: 0 }));
+    } else if (finalChartData.length < 6) {
+      const needed = 6 - finalChartData.length;
+      const lastMonthIndex = monthNames.indexOf(finalChartData[0].month);
+      for (let i = 1; i <= needed; i++) {
+        const pIdx = (lastMonthIndex - i + 12) % 12;
+        finalChartData.unshift({ month: monthNames[pIdx], score: 0 });
+      }
+    }
+
     return { 
       currentGPA: current.toFixed(2), 
-      // Cap trend to a reasonable display value or just use a mock if data is too small
-      gpaTrend: trend !== 0 ? trend.toFixed(1) : 4.2 
+      gpaTrend: trend !== 0 ? trend.toFixed(1) : '0.0',
+      chartData: finalChartData
     };
   }, [results]);
-
-  // Mocking the chart axis from screenshot: Jan, Feb, Mar, Apr, May, Jun
-  const chartMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
 
   const getSubjectIcon = (subject: string) => {
     const s = subject.toLowerCase();
@@ -190,14 +219,28 @@ export default function StudentResultsDashboard() {
             </div>
           </div>
 
-          {/* Empty Chart Area Placeholder */}
+          {/* Dynamic Chart Area */}
           <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '0 16px', position: 'relative' }}>
-            {/* Faint grid line */}
-            <div style={{ position: 'absolute', bottom: 32, left: 0, width: '100%', borderTop: '1px dashed #E2E8F0' }} />
+            {/* Faint grid lines */}
+            <div style={{ position: 'absolute', bottom: '25%', left: 0, width: '100%', borderTop: '1px dashed #E2E8F0' }} />
+            <div style={{ position: 'absolute', bottom: '50%', left: 0, width: '100%', borderTop: '1px dashed #E2E8F0' }} />
+            <div style={{ position: 'absolute', bottom: '75%', left: 0, width: '100%', borderTop: '1px dashed #E2E8F0' }} />
             
-            {chartMonths.map((month) => (
-              <div key={month} style={{ fontSize: 12, fontWeight: 600, color: '#64748B', textAlign: 'center', width: 40, marginTop: 'auto' }}>
-                {month}
+            {chartData.map((data, i) => (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 10, width: 40 }}>
+                {/* Bar */}
+                <div style={{ 
+                  height: data.score > 0 ? `${Math.max(10, data.score)}%` : '4px',
+                  width: '100%', 
+                  background: data.score > 0 ? '#0F172A' : '#E2E8F0', 
+                  borderTopLeftRadius: 6, 
+                  borderTopRightRadius: 6,
+                  transition: 'height 0.5s ease-out'
+                }} />
+                {/* Month Label */}
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#64748B', textAlign: 'center', width: '100%', marginTop: 8 }}>
+                  {data.month}
+                </div>
               </div>
             ))}
           </div>

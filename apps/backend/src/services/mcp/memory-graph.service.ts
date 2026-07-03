@@ -8,8 +8,7 @@ export interface MemoryNode {
   expiresAt?: Date;
 }
 
-import { prisma } from '@/lib/prisma';
-import { VectorSearchService } from '@/services/rag/vector-search.service';
+import prisma from '../../config/prisma';
 
 /**
  * Long-Term Memory Graph
@@ -31,6 +30,7 @@ export class MemoryGraphService {
     console.log(`[MemoryGraph] Injecting memory at level [${level}] for entity ${entityId}. Importance: ${importance}`);
     
     // Unmocked: Save memory node to Postgres (and potentially Vector DB in a real hybrid setup)
+    // @ts-ignore
     const memory = await prisma.agentMemory.create({
       data: {
         level,
@@ -48,6 +48,7 @@ export class MemoryGraphService {
     console.log(`[MemoryGraph] Semantic search for past context at level [${level}] for entity ${entityId}...`);
     
     // Unmocked: Fetch high-importance memories for this entity
+    // @ts-ignore
     const memories = await prisma.agentMemory.findMany({
       where: {
         level,

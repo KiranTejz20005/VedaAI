@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { MessageSquare, Plus, Clock, ArrowRight } from 'lucide-react';
+import { MessageSquare, Plus, Clock, ArrowRight, RotateCcw, Lightbulb } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
 import { PageHeader } from '@/design-system/PageHeader';
@@ -14,8 +14,9 @@ import { ErrorState } from '@/design-system/ErrorState';
 import { Button } from '@/design-system/Button';
 import { Input } from '@/design-system/Input';
 import { Dialog } from '@/design-system/Dialog';
+import { FlashcardModal } from '@/components/ui/FlashcardModal';
 import type { TutorSession } from '@/types/tutor.types';
-import { createSession } from '@/services/tutor.service';
+import { createSession, listSessions, restartSession, generateFlashcards } from '@/services/tutor.service';
 
 export default function TutorSessionsPage() {
   const { user } = useAuthStore();
@@ -26,6 +27,7 @@ export default function TutorSessionsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newSubject, setNewSubject] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [flashcardSessionId, setFlashcardSessionId] = useState<string | null>(null);
 
   const fetchSessions = useCallback(async () => {
     if (!user) return;
@@ -59,8 +61,25 @@ export default function TutorSessionsPage() {
       router.push(`/student/tutor/${session.id}`);
     } catch (err: any) {
       toast.error(err.message || 'Failed to create session');
+    } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleRestartSession = async (e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation();
+    try {
+      await restartSession(sessionId);
+      toast.success('Session restarted successfully');
+      fetchSessions();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to restart session');
+    }
+  };
+
+  const openFlashcards = (e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation();
+    setFlashcardSessionId(sessionId);
   };
 
   if (loading) return <LoadingState lines={5} />;
@@ -79,7 +98,7 @@ export default function TutorSessionsPage() {
       </div>
 
       <Dialog 
-        isOpen={isModalOpen} 
+        open={isModalOpen} 
         onClose={() => !isSubmitting && setIsModalOpen(false)}
         title="Start a new Tutor Session"
       >
@@ -114,7 +133,11 @@ export default function TutorSessionsPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
           {sessions.map((session) => (
-            <Link key={session.id} href={`/student/tutor/${session.id}`} style={{ textDecoration: 'none' }}>
+            <div 
+              key={session.id} 
+              onClick={() => router.push(`/student/tutor/${session.id}`)}
+              style={{ textDecoration: 'none', display: 'block' }}
+            >
               <Card 
                 padding="20px" 
                 style={{ 
@@ -160,10 +183,39 @@ export default function TutorSessionsPage() {
                     {session.status === 'ACTIVE' ? 'Resume' : 'View'} <ArrowRight size={14} />
                   </span>
                 </div>
+
+                {session.status === 'CLOSED' && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-subtle)' }}>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={(e) => handleRestartSession(e, session.id)}
+                      style={{ flex: 1, fontSize: 12 }}
+                    >
+                      <RotateCcw size={14} style={{ marginRight: 6 }} /> Restart
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={(e) => openFlashcards(e, session.id)}
+                      style={{ flex: 1, fontSize: 12, color: '#F97316', borderColor: '#F97316' }}
+                    >
+                      <Lightbulb size={14} style={{ marginRight: 6 }} /> Flashcards
+                    </Button>
+                  </div>
+                )}
               </Card>
-            </Link>
+            </div>
           ))}
         </div>
+      )}
+
+      {flashcardSessionId && (
+        <FlashcardModal
+          open={!!flashcardSessionId}
+          onClose={() => setFlashcardSessionId(null)}
+          fetchFlashcards={() => generateFlashcards(flashcardSessionId)}
+        />
       )}
     </div>
   );

@@ -113,17 +113,59 @@ export const getStudentAttendance = async (req: Request, res: Response): Promise
     // Allow teacher to request specific student's attendance if query param provided
     const targetStudentId = req.query.studentId ? String(req.query.studentId) : studentId;
 
+    const monthStr = req.query.month as string;
+    const yearStr = req.query.year as string;
+    
+    let dateFilter = {};
+    let prevDateFilter = {};
+    
+    if (monthStr && yearStr) {
+      const year = parseInt(yearStr, 10);
+      const month = parseInt(monthStr, 10);
+      const startDate = new Date(year, month, 1);
+      const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
+      
+      dateFilter = {
+        date: {
+          gte: startDate,
+          lte: endDate,
+        }
+      };
+      
+      const prevStartDate = new Date(year, month - 1, 1);
+      const prevEndDate = new Date(year, month, 0, 23, 59, 59, 999);
+      
+      prevDateFilter = {
+        date: {
+          gte: prevStartDate,
+          lte: prevEndDate,
+        }
+      };
+    }
+
     const records = await prisma.attendanceRecord.findMany({
-      where: { studentId: targetStudentId, organizationId: orgId },
+      where: { studentId: targetStudentId, organizationId: orgId, ...dateFilter },
       include: {
         class: { select: { grade: true, section: true } },
       },
       orderBy: { date: 'desc' },
     });
 
+    let previousTotalClasses = 0;
+    
+    if (monthStr && yearStr) {
+      const prevRecords = await prisma.attendanceRecord.findMany({
+         where: { studentId: targetStudentId, organizationId: orgId, ...prevDateFilter },
+         select: { id: true }
+      });
+      previousTotalClasses = prevRecords.length;
+    }
+
     const totalClasses = records.length;
     const presentClasses = records.filter((r: any) => r.status === 'PRESENT').length;
     const percentage = totalClasses > 0 ? (presentClasses / totalClasses) * 100 : 0;
+    
+    const diffFromLastMonth = totalClasses - previousTotalClasses;
 
     // Group by subject
     const subjectStats: Record<string, { total: number, present: number }> = {};
@@ -143,16 +185,6 @@ export const getStudentAttendance = async (req: Request, res: Response): Promise
       percentage: Math.round((stats.present / stats.total) * 100)
     }));
 
-    // Mock "No data" if no subject stats exist, for UI display purposes
-    if (subjectAttendance.length === 0) {
-      subjectAttendance.push(
-        { subject: 'Mathematics', percentage: 0 },
-        { subject: 'Physics', percentage: 0 },
-        { subject: 'Computer Science', percentage: 0 },
-        { subject: 'English Literature', percentage: 0 }
-      );
-    }
-
     res.json({
       success: true,
       data: {
@@ -161,6 +193,7 @@ export const getStudentAttendance = async (req: Request, res: Response): Promise
           totalClasses,
           presentClasses,
           percentage: Number(percentage.toFixed(2)),
+          diffFromLastMonth,
           subjectAttendance
         }
       }
@@ -184,18 +217,17 @@ export const submitLeaveApplication = async (req: Request, res: Response): Promi
     const studentId = getRequestUserId(req);
     const parsed = leaveApplicationSchema.parse(req.body);
 
-    const application = {
-      id: `mock-${Date.now()}`,
-      studentId,
-      organizationId: orgId,
-      title: parsed.title,
-      subject: parsed.subject,
-      body: parsed.body,
-      duration: parsed.duration,
-      status: 'PENDING',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    const application = await prisma.leaveApplication.create({
+      data: {
+        studentId,
+        organizationId: orgId,
+        title: parsed.title,
+        subject: parsed.subject,
+        body: parsed.body,
+        duration: parsed.duration,
+        status: 'PENDING',
+      }
+    });
 
     res.json({ success: true, data: application });
   } catch (error: any) {
@@ -209,7 +241,14 @@ export const getLeaveApplications = async (req: Request, res: Response): Promise
     const orgId = requireRequestOrgId(req);
     const studentId = getRequestUserId(req);
 
-    const applications: any[] = []; // Mock empty list
+    const applications = await prisma.leaveApplication.findMany({
+      where: {
+        studentId,
+        organizationId: orgId
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5
+    });
 
     res.json({ success: true, data: applications });
   } catch (error: any) {

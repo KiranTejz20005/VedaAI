@@ -222,6 +222,23 @@ export const quizGenerationRateLimiter = async (
   }
 
 
+  // 2. User Rate Limit (2 questions / 30 seconds)
+  const userQuizKey = `limit:quiz:user:${userId}:30s`;
+  const userQuizCheck = await checkLimit(userQuizKey, 2, 30);
+  if (!userQuizCheck.allowed) {
+    logger.warn({
+      action: 'Rate Limit Triggered',
+      userId,
+      organizationId,
+      requestId,
+      ip,
+      limitType: 'USER_30S_QUIZ',
+      timestamp,
+    });
+    res.status(429).json({ success: false, error: 'You can only generate 2 questions per 30 seconds. Please wait.' });
+    return;
+  }
+
   // 4. Organization Daily Limit (500/day)
   if (organizationId && organizationId !== 'no-organization') {
     const orgDayKey = `limit:quiz:org:${organizationId}:day`;

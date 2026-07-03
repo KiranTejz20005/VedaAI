@@ -13,7 +13,11 @@ import {
   Smartphone,
   History,
   Sparkles,
-  GraduationCap
+  GraduationCap,
+  PieChart,
+  ClipboardCheck,
+  BookOpen,
+  FileCheck,
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
@@ -28,6 +32,9 @@ const NAV_ITEMS = [
   { href: '/dashboard/teacher/insights', label: 'Class Insights', icon: LayoutGrid },
   { href: '/ai-toolkit', label: 'AI Teacher\'s Toolkit', icon: Smartphone },
   { href: '/papers', label: 'My Library', icon: History },
+  { href: '/grader', label: 'Evaluations', icon: FileCheck },
+  { href: '/question-bank', label: 'Question Bank', icon: BookOpen },
+  { href: '/analytics', label: 'Analytics', icon: PieChart },
 ];
 
 export function TeacherSidebar() {

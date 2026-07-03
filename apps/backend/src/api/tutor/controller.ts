@@ -59,9 +59,9 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
   const { sessionId } = req.params;
   const userId = getRequestUserId(req);
   const orgId = getRequestOrgId(req);
-  const { message } = req.body;
+  const { message, mode } = req.body;
 
-  const result = await AITutorService.chat(sessionId, userId, orgId!, message);
+  const result = await AITutorService.chat(sessionId, userId, orgId!, message, mode);
 
   sendSuccess(res, { data: serializeChatResponse(result) });
 };
@@ -74,7 +74,76 @@ export const closeSession = async (req: Request, res: Response): Promise<void> =
     data: { status: 'CLOSED' },
   });
 
-  sendNoContent(res);
+  sendSuccess(res, { data: { success: true }, message: 'Session closed' });
+};
+
+export const restartSession = async (req: Request, res: Response): Promise<void> => {
+  const { sessionId } = req.params;
+
+  await prisma.tutorSession.update({
+    where: { id: sessionId },
+    data: { status: 'ACTIVE' },
+  });
+
+  sendSuccess(res, { data: { success: true }, message: 'Session restarted' });
+};
+
+export const generateFlashcards = async (req: Request, res: Response): Promise<void> => {
+  const { sessionId } = req.params;
+  const userId = getRequestUserId(req);
+
+  const session = await prisma.tutorSession.findUnique({
+    where: { id: sessionId },
+    include: { messages: { orderBy: { createdAt: 'desc' }, take: 10 } },
+  });
+
+  if (!session) {
+    sendNotFound(res, 'Session not found');
+    return;
+  }
+  if (session.studentId !== userId) {
+    sendForbidden(res, 'Not authorized to view this session');
+    return;
+  }
+
+  if (session.flashcards && Array.isArray(session.flashcards) && session.flashcards.length > 0) {
+    sendSuccess(res, { data: session.flashcards });
+    return;
+  }
+
+  const chatHistory = session.messages.reverse().map(m => `${m.role}: ${m.content}`).join('\n');
+  
+  const prompt = `
+Generate exactly 5 educational flashcards based on the following conversation and the subject: ${session.subject}.
+Conversation:
+${chatHistory}
+
+Output your response ONLY as a JSON object matching this schema:
+{
+  "flashcards": [
+    { "front": "Question or term", "back": "Answer or definition" }
+  ]
+}
+`;
+
+  const { AIOrchestrator } = require('../../services/ai/ai-orchestrator.service');
+  const result = await AIOrchestrator.generate({
+    intent: 'GenerateQuestionExplanation',
+    context: '',
+    taskInstructions: prompt,
+    responseFormat: { type: "json_object" }
+  });
+
+  const flashcards = result.flashcards || [];
+
+  if (flashcards.length > 0) {
+    await prisma.tutorSession.update({
+      where: { id: sessionId },
+      data: { flashcards: flashcards as any }
+    });
+  }
+
+  sendSuccess(res, { data: flashcards });
 };
 
 export const deleteSession = async (req: Request, res: Response): Promise<void> => {

@@ -10,7 +10,8 @@ export class AITutorService {
     sessionId: string,
     studentId: string,
     organizationId: string,
-    userMessage: string
+    userMessage: string,
+    modeOverride?: string
   ) {
     // 1. Validate Session & Retrieve Learning Profile
     const session = await prisma.tutorSession.findUnique({
@@ -43,19 +44,29 @@ export class AITutorService {
     // 3. Hybrid RAG Context Retrieval
     const ragContext = await retrieveContext(userMessage, organizationId, 5);
 
+    const activeMode = modeOverride?.toUpperCase() || session.tutorMode;
+    let modeInstructions = "";
+    if (activeMode === 'HINT') {
+      modeInstructions = "You MUST NOT provide the direct answer. Provide a subtle hint to help the student figure it out on their own. Be brief and encouraging.";
+    } else if (activeMode === 'SOCRATIC') {
+      modeInstructions = "You MUST use the Socratic method. Do not answer directly. Ask a leading question that guides the student to discover the answer themselves.";
+    } else {
+      modeInstructions = "You may explain the concept clearly and directly, but still follow up with a question to check understanding.";
+    }
+
     // 4. Construct Socratic Prompt
     const prompt = `
 You are an AI Education Tutor.
-Mode: ${session.tutorMode}
+Mode: ${activeMode}
 Student Weaknesses: ${weaknesses}
 Topic: ${session.subject}
 
 CRITICAL RULES:
 1. NEVER leave the education domain. Reject questions about medical, legal, or non-academic topics.
 2. Direct Answers Allowed: ${allowDirectAnswers}. If false, you MUST use Socratic questioning to guide the student.
-3. Use the provided RAG context to ground your explanation.
-4. Keep the explanation within a maximum conceptual depth of ${maxDepth}.
-5. Provide a follow-up question to check understanding.
+3. ${modeInstructions}
+4. Use the provided RAG context to ground your explanation.
+5. Keep the explanation within a maximum conceptual depth of ${maxDepth}.
 6. Output your response ONLY as a JSON object matching this schema:
 {
   "message": "string",

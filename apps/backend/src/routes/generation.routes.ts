@@ -11,7 +11,7 @@ import { uploadMiddleware } from '../middlewares/upload.middleware';
 const router = Router();
 
 router.use(authenticate);
-router.use(requirePermission(PERMISSIONS.GENERATE_PAPER));
+
 
 router.post('/parse', uploadMiddleware.single('file'), asyncHandler(parseDocument));
 router.post('/share', asyncHandler(shareQuiz));

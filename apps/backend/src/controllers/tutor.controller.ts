@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AITutorService } from '../services/ai-tutor.service';
 import { sendSuccess, sendError } from '../utils/api-response.util';
+import { getRequestUserId } from '../security/request-context';
 import prisma from '../config/prisma';
 
 /**
@@ -8,7 +9,8 @@ import prisma from '../config/prisma';
  * Creates a new AI Tutor session for the authenticated student.
  */
 export const createSession = async (req: Request, res: Response): Promise<void> => {
-  const { studentId, subject, tutorMode } = req.body;
+  const { subject, tutorMode } = req.body;
+  const studentId = getRequestUserId(req);
   const organizationId = req.user?.activeOrganizationId ?? req.user?.organizationId ?? '';
 
   if (!studentId || !subject) {
@@ -34,10 +36,10 @@ export const createSession = async (req: Request, res: Response): Promise<void> 
  * Lists all tutor sessions for a given studentId.
  */
 export const listSessions = async (req: Request, res: Response): Promise<void> => {
-  const { studentId } = req.query;
+  const studentId = getRequestUserId(req);
 
-  if (!studentId || typeof studentId !== 'string') {
-    sendError(res, 400, 'studentId query param is required', { errorCode: 'VALIDATION_ERROR' });
+  if (!studentId) {
+    sendError(res, 400, 'User ID is missing', { errorCode: 'VALIDATION_ERROR' });
     return;
   }
 
@@ -75,7 +77,8 @@ export const getSession = async (req: Request, res: Response): Promise<void> => 
  */
 export const chat = async (req: Request, res: Response): Promise<void> => {
   const { sessionId } = req.params;
-  const { studentId, message } = req.body;
+  const { message } = req.body;
+  const studentId = getRequestUserId(req);
   const organizationId = req.user?.activeOrganizationId ?? req.user?.organizationId ?? '';
 
   if (!studentId || !message) {

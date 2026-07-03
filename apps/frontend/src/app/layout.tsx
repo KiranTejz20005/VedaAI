@@ -26,12 +26,17 @@ export default function RootLayout({
       <head>
         {/*
           Inline synchronous script — runs BEFORE React hydration.
-          This intercepts setAttribute to block browser extensions (e.g. Built-in Browser)
-          from injecting `bis_skin_checked` and similar attrs that cause hydration mismatches.
+          This uses a MutationObserver to catch and remove `bis_skin_checked` and similar attrs
+          injected by browser extensions (e.g. Bitdefender) that cause hydration mismatches.
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var b=['bis_skin_checked','bis_status','bis_frame_id','bis_register'];var o=Element.prototype.setAttribute;Element.prototype.setAttribute=function(n,v){if(b.indexOf(n)!==-1)return;o.call(this,n,v);};})();`,
+            __html: `(function(){
+              var b=['bis_skin_checked','bis_status','bis_frame_id','bis_register'];
+              var o=Element.prototype.setAttribute;
+              Element.prototype.setAttribute=function(n,v){if(b.indexOf(n)!==-1)return;o.call(this,n,v);};
+              new MutationObserver(function(m){m.forEach(function(r){if(r.type==='attributes'&&b.indexOf(r.attributeName)!==-1){r.target.removeAttribute(r.attributeName);}})}).observe(document.documentElement,{attributes:true,subtree:true});
+            })();`,
           }}
         />
       </head>

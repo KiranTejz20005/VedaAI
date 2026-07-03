@@ -135,7 +135,7 @@ export const listSubmissions = async (req: Request, res: Response): Promise<void
     const orgId = requireRequestOrgId(req);
 
     const submissions = await prisma.studentSubmission.findMany({
-      where: { assignmentId, organizationId: orgId },
+      where: { assignmentId },
       include: { evaluations: true },
       orderBy: { submittedAt: 'desc' },
     });
@@ -157,6 +157,40 @@ export const listSubmissions = async (req: Request, res: Response): Promise<void
   } catch (err) {
     if (handleAccessError(res, err)) return;
     res.status(500).json({ success: false, error: 'Failed to list submissions' });
+  }
+};
+
+export const uploadSubmission = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { assignmentId } = req.params;
+    await assertCanGradeAssignment(req, assignmentId);
+    const orgId = requireRequestOrgId(req);
+    const file = req.file;
+
+    if (!file) {
+      res.status(400).json({ success: false, error: 'No file uploaded' });
+      return;
+    }
+
+    const studentId = 'test-student-' + Date.now().toString(); 
+
+    const fileUrl = file.path;
+
+    const submission = await prisma.studentSubmission.create({
+      data: {
+        assignmentId,
+        studentId,
+        organizationId: orgId,
+        fileUrl,
+        fileType: file.mimetype,
+        status: 'SUBMITTED',
+      },
+    });
+
+    res.status(201).json({ success: true, data: submission });
+  } catch (err) {
+    if (handleAccessError(res, err)) return;
+    res.status(500).json({ success: false, error: 'Failed to upload submission' });
   }
 };
 

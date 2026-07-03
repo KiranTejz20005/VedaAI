@@ -16,13 +16,22 @@ export async function getSession(sessionId: string): Promise<TutorSessionDetail>
   return res.data.data;
 }
 
-export async function sendChatMessage(sessionId: string, message: string): Promise<ChatResponse> {
-  const res = await api.post(`/tutor/sessions/${sessionId}/chat`, { message });
+export async function sendChatMessage(sessionId: string, message: string, mode?: string): Promise<ChatResponse> {
+  const res = await api.post(`/tutor/sessions/${sessionId}/chat`, { message, mode });
   return res.data.data;
 }
 
 export async function closeSession(sessionId: string): Promise<void> {
   await api.patch(`/tutor/sessions/${sessionId}/close`);
+}
+
+export async function restartSession(sessionId: string): Promise<void> {
+  await api.patch(`/tutor/sessions/${sessionId}/restart`);
+}
+
+export async function generateFlashcards(sessionId: string): Promise<{ front: string; back: string }[]> {
+  const res = await api.get(`/tutor/sessions/${sessionId}/flashcards`);
+  return res.data.data;
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {

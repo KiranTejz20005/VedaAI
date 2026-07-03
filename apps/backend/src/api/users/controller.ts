@@ -23,16 +23,32 @@ export const listUsers = async (req: Request, res: Response): Promise<void> => {
       ];
     }
 
+    const selectFields = {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      role: true,
+      phone: true,
+      organizationId: true,
+      departmentId: true,
+      status: true,
+      forcePasswordReset: true,
+      hasCompletedOnboarding: true,
+      avatar: true,
+      createdAt: true,
+      updatedAt: true,
+      organization: { select: { name: true } },
+      department: { select: { name: true } },
+    };
+
     const [users, total] = await Promise.all([
       prisma.user.findMany({
         where: where as any,
         orderBy: { [sort]: order },
         skip: (page - 1) * limit,
         take: limit,
-        include: {
-          organization: { select: { name: true } },
-          department: { select: { name: true } },
-        },
+        select: selectFields,
       }),
       prisma.user.count({ where: where as any }),
     ]);
@@ -50,12 +66,16 @@ export const listUsers = async (req: Request, res: Response): Promise<void> => {
 export const getUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const { params } = idParamSchema.parse({ params: req.params });
+    const selectFields = {
+      id: true, email: true, firstName: true, lastName: true, role: true, phone: true,
+      organizationId: true, departmentId: true, status: true, forcePasswordReset: true,
+      hasCompletedOnboarding: true, avatar: true, createdAt: true, updatedAt: true,
+      organization: { select: { name: true } }, department: { select: { name: true } },
+    };
+    
     const user = await prisma.user.findUnique({
       where: { id: params.id },
-      include: {
-        organization: { select: { name: true } },
-        department: { select: { name: true } },
-      },
+      select: selectFields,
     });
     if (!user || user.status === 'DELETED') {
       sendNotFound(res, 'User not found');

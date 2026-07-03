@@ -11,11 +11,13 @@ import {
   getSubmissionEvaluation,
   manualGradeOverride,
   listSubmissions,
+  uploadSubmission,
   createRubric,
   listRubrics,
   updateRubric,
   deleteRubric,
 } from '../controllers/grader.controller';
+import { uploadMiddleware } from '../middlewares/upload.middleware';
 
 const router = Router();
 
@@ -35,6 +37,7 @@ router.get('/assignments/:assignmentId/config', requireRole('TEACHER', 'FACULTY'
 
 // Faculty views submissions for grading
 router.get('/assignments/:assignmentId/submissions', requireRole('TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'), requirePermission(PERMISSIONS.GRADE_ASSESSMENT), asyncHandler(listSubmissions));
+router.post('/assignments/:assignmentId/submissions', requireRole('TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'), requirePermission(PERMISSIONS.GRADE_ASSESSMENT), uploadMiddleware.single('files'), asyncHandler(uploadSubmission));
 
 // AI evaluation & manual override
 router.post('/submissions/:submissionId/evaluate', requireRole('TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'), requirePermission(PERMISSIONS.GRADE_ASSESSMENT), asyncHandler(runAIEvaluation));

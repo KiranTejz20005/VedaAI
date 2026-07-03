@@ -13,6 +13,7 @@ export const sendMessageSchema = z.object({
   }),
   body: z.object({
     message: z.string().min(1).max(5000),
+    mode: z.string().optional(),
   }),
 });
 

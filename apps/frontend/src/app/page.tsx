@@ -54,7 +54,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fcfbf9] text-[#1e1e1a] selection:bg-[#e05934]/20 selection:text-[#e05934] overflow-x-hidden" id="home-view">
+    <div className="min-h-screen bg-[#fcfbf9] text-[#1e1e1a] selection:bg-[#e05934]/20 selection:text-[#e05934] overflow-x-hidden" id="home-view" suppressHydrationWarning>
       {/* Scroll indicator bar */}
       <motion.div
         style={{ scaleX }}

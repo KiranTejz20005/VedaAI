@@ -1504,6 +1504,7 @@ model TutorSession {
   tutorMode String         @default("SOCRATIC") // SOCRATIC, EXPLAIN, HINT, PRACTICE
   status    String         @default("ACTIVE")
   messages  TutorMessage[]
+  flashcards Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

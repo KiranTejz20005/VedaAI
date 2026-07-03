@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { Send, ArrowLeft, Loader2, Sparkles, AlertCircle, BrainCircuit, Lightbulb } from 'lucide-react';
+import { Send, ArrowLeft, Loader2, Sparkles, AlertCircle, BrainCircuit, Lightbulb, RotateCcw } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
@@ -12,7 +12,9 @@ import { Button } from '@/design-system/Button';
 import { LoadingState } from '@/design-system/LoadingState';
 import { ErrorState } from '@/design-system/ErrorState';
 import type { TutorSessionDetail, TutorMessage } from '@/types/tutor.types';
-import { getSession, sendChatMessage, closeSession } from '@/services/tutor.service';
+import { getSession, sendChatMessage, closeSession, generateFlashcards } from '@/services/tutor.service';
+import { ThinkingAnimation } from '@/components/ui/ThinkingAnimation';
+import { FlashcardModal } from '@/components/ui/FlashcardModal';
 
 export default function TutorChatPage() {
   const { id } = useParams() as { id: string };
@@ -26,6 +28,7 @@ export default function TutorChatPage() {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<'standard' | 'hint' | 'socratic'>('standard');
+  const [isFlashcardModalOpen, setIsFlashcardModalOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -62,10 +65,6 @@ export default function TutorChatPage() {
     const userMessageContent = inputValue.trim();
     setInputValue('');
 
-    let promptPrefix = '';
-    if (mode === 'hint') promptPrefix = '[Give me a hint, not the full answer] ';
-    if (mode === 'socratic') promptPrefix = '[Guide me using the Socratic method] ';
-
     // Optimistic update
     const optimisticUserMsg: TutorMessage = {
       id: Date.now().toString(),
@@ -79,7 +78,7 @@ export default function TutorChatPage() {
     setIsSending(true);
 
     try {
-      const response = await sendChatMessage(id, promptPrefix + userMessageContent);
+      const response = await sendChatMessage(id, userMessageContent, mode);
       
       const assistantMsg: TutorMessage = {
         id: response.messageId || (Date.now() + 1).toString(),
@@ -122,8 +121,7 @@ export default function TutorChatPage() {
 
   if (isLoading) return <LoadingState lines={8} />;
   if (error || !session) return <ErrorState message={error || 'Session not found'} onRetry={fetchSession} />;
-
-  return (
+  return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -136,14 +134,26 @@ export default function TutorChatPage() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
-          <Button variant="outline" size="sm" onClick={() => {
-            toast.success('Generating flashcards from this session...');
-            setTimeout(() => toast.success('Flashcards generated!'), 2000);
-          }}>
+          <Button variant="outline" size="sm" onClick={() => setIsFlashcardModalOpen(true)} style={{ color: '#F97316', borderColor: '#F97316' }}>
             <Lightbulb size={14} style={{ marginRight: 6 }} /> Flashcards
           </Button>
-          {session.status === 'ACTIVE' && (
-            <Button variant="outline" onClick={handleCloseSession} size="sm">End Session</Button>
+          {session.status === 'ACTIVE' ? (
+            <Button variant="outline" size="sm" onClick={handleCloseSession} style={{ color: 'var(--error)', borderColor: 'var(--error)' }}>
+              End Session
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" onClick={async () => {
+              try {
+                const { restartSession } = await import('@/services/tutor.service');
+                await restartSession(id);
+                toast.success('Session restarted');
+                fetchSession();
+              } catch (err) {
+                toast.error('Failed to restart session');
+              }
+            }}>
+              <RotateCcw size={14} style={{ marginRight: 6 }} /> Restart Session
+            </Button>
           )}
         </div>
       </div>
@@ -197,18 +207,21 @@ export default function TutorChatPage() {
             })
           )}
           {isSending && (
-            <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
-              <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', marginRight: 12, flexShrink: 0 }}>
-                <Sparkles size={16} />
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                <div style={{ 
+                  width: 32, height: 32, borderRadius: '50%', background: 'var(--primary-light)', 
+                  color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' 
+                }}>
+                  <BrainCircuit size={16} />
+                </div>
+                <div style={{
+                  background: 'var(--bg-card)', border: '1px solid var(--border)',
+                  padding: '12px 16px', borderRadius: 'var(--radius-lg)',
+                  borderTopLeftRadius: 4, display: 'flex', alignItems: 'center', minWidth: 80
+                }}>
+                  <ThinkingAnimation variant="brain" />
+                </div>
               </div>
-              <div style={{
-                background: 'white', padding: '12px 24px', borderRadius: 'var(--radius-lg)', borderBottomLeftRadius: 4,
-                boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 8
-              }}>
-                <Loader2 size={16} className="animate-spin" style={{ color: 'var(--brand)' }} />
-                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Thinking...</span>
-              </div>
-            </div>
           )}
           <div ref={messagesEndRef} />
         </div>
@@ -275,6 +288,13 @@ export default function TutorChatPage() {
           </div>
         )}
       </Card>
+
+      <FlashcardModal 
+        open={isFlashcardModalOpen} 
+        onClose={() => setIsFlashcardModalOpen(false)} 
+        fetchFlashcards={() => generateFlashcards(id)} 
+      />
     </div>
   );
 }
+// trigger rebuild

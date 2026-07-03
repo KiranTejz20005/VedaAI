@@ -25,6 +25,7 @@ interface AttendanceStats {
   totalClasses: number;
   presentClasses: number;
   percentage: number;
+  diffFromLastMonth?: number;
   subjectAttendance: SubjectStat[];
 }
 
@@ -51,12 +52,14 @@ export default function AttendanceDashboardPage() {
   });
   const [submittingLeave, setSubmittingLeave] = useState(false);
 
-  // Calendar State (Default to Oct 2023 for screenshot matching, or current date)
-  const [currentMonth, setCurrentMonth] = useState(new Date(2023, 9, 1)); // Oct 2023
+  // Calendar State (Default to current date)
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const fetchAttendance = useCallback(async () => {
     try {
-      const res = await api.get<{ success: boolean; data: { records: AttendanceRecord[], stats: AttendanceStats } }>('/attendance/student');
+      const month = currentMonth.getMonth();
+      const year = currentMonth.getFullYear();
+      const res = await api.get<{ success: boolean; data: { records: AttendanceRecord[], stats: AttendanceStats } }>(`/attendance/student?month=${month}&year=${year}`);
       setRecords(res.data.data.records);
       setStats(res.data.data.stats);
 
@@ -71,7 +74,7 @@ export default function AttendanceDashboardPage() {
 
   useEffect(() => {
     fetchAttendance();
-  }, [fetchAttendance]);
+  }, [fetchAttendance, currentMonth]);
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -119,22 +122,31 @@ export default function AttendanceDashboardPage() {
 
   const getDayStatus = (day: number) => {
     // Generate dates based on the currently viewed month
-    const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toISOString().split('T')[0];
+    // Use local time to avoid timezone offset issues making it the previous day
+    const dateObj = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
     
-    // Check if it's the 16th (Mocking "Today" from screenshot)
-    if (day === 16) return 'TODAY';
+    // Check if it's Today
+    const today = new Date();
+    if (
+      dateObj.getDate() === today.getDate() &&
+      dateObj.getMonth() === today.getMonth() &&
+      dateObj.getFullYear() === today.getFullYear()
+    ) {
+      return 'TODAY';
+    }
     
     // Check if it's a weekend (Sat/Sun)
-    const dateObj = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
     if (dateObj.getDay() === 0 || dateObj.getDay() === 6) return 'WEEKEND';
 
-    // Mock data based on screenshot if records are empty for this specific month
-    // In screenshot: 2,3,5,6,9,10,11,12,13 are present (green). 4 is absent (red).
-    if ([2, 3, 5, 6, 9, 10, 11, 12, 13].includes(day)) return 'PRESENT';
-    if (day === 4) return 'ABSENT';
-
     // Default real record check
-    const record = records.find(r => r.date.startsWith(dateStr));
+    const record = records.find(r => {
+      const rDate = new Date(r.date);
+      return rDate.getDate() === dateObj.getDate() &&
+             rDate.getMonth() === dateObj.getMonth() &&
+             rDate.getFullYear() === dateObj.getFullYear();
+    });
+    
     if (record) return record.status;
 
     return 'NONE';
@@ -169,7 +181,7 @@ export default function AttendanceDashboardPage() {
       <div 
         key={`${isCurrentMonth ? 'curr' : 'prev'}-${day}`}
         style={{
-          aspectRatio: '1.3',
+          aspectRatio: '1',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -211,10 +223,10 @@ export default function AttendanceDashboardPage() {
               Monthly Attendance
             </div>
             <div style={{ fontSize: 32, fontWeight: 800, color: '#1E293B', marginTop: 2, marginBottom: 8 }}>
-              {stats.percentage || 94.2}%
+              {stats.percentage ?? 0}%
             </div>
             <div style={{ width: '100%', height: 4, background: '#F1F5F9', borderRadius: 2 }}>
-              <div style={{ width: '94.2%', height: '100%', background: '#22C55E', borderRadius: 2 }} />
+              <div style={{ width: `${stats.percentage ?? 0}%`, height: '100%', background: '#22C55E', borderRadius: 2 }} />
             </div>
           </div>
         </div>
@@ -229,12 +241,18 @@ export default function AttendanceDashboardPage() {
               Total Classes
             </div>
             <div style={{ fontSize: 32, fontWeight: 800, color: '#1E293B', marginTop: 2, marginBottom: 4 }}>
-              {stats.totalClasses || 26}
+              {stats.totalClasses ?? 0}
             </div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#059669', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
-              +2 from last month
-            </div>
+            {stats.diffFromLastMonth !== undefined && (
+              <div style={{ fontSize: 12, fontWeight: 600, color: stats.diffFromLastMonth >= 0 ? '#059669' : '#DC2626', display: 'flex', alignItems: 'center', gap: 4 }}>
+                {stats.diffFromLastMonth >= 0 ? (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
+                ) : (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"></polyline><polyline points="16 17 22 17 22 11"></polyline></svg>
+                )}
+                {stats.diffFromLastMonth > 0 ? '+' : ''}{stats.diffFromLastMonth} from last month
+              </div>
+            )}
           </div>
         </div>
 
@@ -248,10 +266,10 @@ export default function AttendanceDashboardPage() {
               Days Present
             </div>
             <div style={{ fontSize: 32, fontWeight: 800, color: '#1E293B', marginTop: 2, marginBottom: 4 }}>
-              {stats.presentClasses || 24}
+              {stats.presentClasses ?? 0}
             </div>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#DC2626' }}>
-              2 Absences recorded
+              {(stats.totalClasses ?? 0) - (stats.presentClasses ?? 0)} Absences recorded
             </div>
           </div>
         </div>
@@ -285,7 +303,7 @@ export default function AttendanceDashboardPage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8, marginBottom: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(48px, 64px))', gap: 12, marginBottom: 8, justifyContent: 'center' }}>
             {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map(day => (
               <div key={day} style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#475569', paddingBottom: 8 }}>
                 {day}
@@ -327,12 +345,7 @@ export default function AttendanceDashboardPage() {
             <h3 style={{ fontSize: 14, fontWeight: 700, color: '#475569', marginBottom: 20 }}>Subject Attendance</h3>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {(stats.subjectAttendance.length > 0 ? stats.subjectAttendance : [
-                { subject: 'Mathematics', percentage: 98 },
-                { subject: 'Physics', percentage: 92 },
-                { subject: 'Computer Science', percentage: 100 },
-                { subject: 'English Literature', percentage: 88 },
-              ]).map((sub, i) => (
+              {stats.subjectAttendance.length > 0 ? stats.subjectAttendance.map((sub, i) => (
                 <div key={i}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#1E293B' }}>{sub.subject}</div>
@@ -342,7 +355,11 @@ export default function AttendanceDashboardPage() {
                     <div style={{ width: `${sub.percentage}%`, height: '100%', background: '#0F172A', borderRadius: 3 }} />
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div style={{ fontSize: 13, color: '#94A3B8', textAlign: 'center', padding: '20px 0' }}>
+                  No classes attended this month.
+                </div>
+              )}
             </div>
           </div>
 
@@ -352,28 +369,24 @@ export default function AttendanceDashboardPage() {
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               
-              <div style={{ background: '#F8FAFC', borderRadius: 16, padding: 16, display: 'flex', gap: 12 }}>
-                <Info size={20} color="#EF4444" style={{ flexShrink: 0, marginTop: 2 }} />
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#1E293B' }}>Absence - Oct 04</div>
-                  <div style={{ fontSize: 12, color: '#475569', marginTop: 2, marginBottom: 8 }}>
-                    Reason: Medical Appointment<br/>(Documents uploaded)
-                  </div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Verified by Admin
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ background: '#F0FDF4', borderRadius: 16, padding: 16, display: 'flex', gap: 12 }}>
-                <Award size={20} color="#10B981" style={{ flexShrink: 0, marginTop: 2 }} />
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#065F46' }}>Perfect Week!</div>
-                  <div style={{ fontSize: 12, color: '#047857', marginTop: 2, lineHeight: 1.4 }}>
-                    You maintained 100% attendance from Oct 09 to Oct 13.
+              {leaves.length > 0 ? leaves.map((leave, i) => (
+                <div key={i} style={{ background: '#F8FAFC', borderRadius: 16, padding: 16, display: 'flex', gap: 12 }}>
+                  <Info size={20} color="#3B82F6" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#1E293B' }}>{leave.title}</div>
+                    <div style={{ fontSize: 12, color: '#475569', marginTop: 2, marginBottom: 8 }}>
+                      Subject: {leave.subject}<br/>{leave.body}
+                    </div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Status: {leave.status}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )) : (
+                <div style={{ fontSize: 13, color: '#94A3B8', textAlign: 'center', padding: '20px 0' }}>
+                  No recent notes or leave applications.
+                </div>
+              )}
 
               <button 
                 onClick={() => setIsModalOpen(true)}

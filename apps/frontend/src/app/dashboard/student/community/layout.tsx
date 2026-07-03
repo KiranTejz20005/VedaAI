@@ -5,12 +5,11 @@ export default function CommunityLayout({ children }: { children: React.ReactNod
     <div
       style={{
         display: 'flex',
-        height: 'calc(100vh - 64px)',
-        width: 'calc(100% + 48px)',
-        marginLeft: -24,
-        marginRight: -24,
-        marginTop: -24,
-        marginBottom: -24,
+        position: 'fixed',
+        top: 64,
+        left: 260,
+        right: 0,
+        bottom: 0,
         background: '#f8f9fb',
         overflow: 'hidden',
         fontFamily: 'Inter, system-ui, sans-serif',

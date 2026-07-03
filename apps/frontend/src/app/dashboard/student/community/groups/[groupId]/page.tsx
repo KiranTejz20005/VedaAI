@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Send, Users, Loader2, UserPlus, X, Search, Sparkles } from 'lucide-react';
+import { ArrowLeft, Send, Users, Loader2, UserPlus, X, Search, Sparkles, MoreVertical, MessageSquare, Ban, UserCheck } from 'lucide-react';
 // We will rely on socket.io-client to connect
 import { io, Socket } from 'socket.io-client';
 
@@ -44,6 +44,7 @@ export default function GroupChatPage() {
   
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -410,14 +411,47 @@ export default function GroupChatPage() {
                       {m.role === 'OWNER' ? <span className="text-blue-600 font-bold">Owner</span> : 'Student'}
                     </div>
                   </div>
-                  {isOwner && m.user.id !== user?.id && (
-                    <button
-                      onClick={() => handleKick(m.user.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 text-xs text-red-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-all"
-                      title="Kick Member"
-                    >
-                      <X size={14} />
-                    </button>
+                  {m.user.id !== user?.id && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setOpenMenuId(openMenuId === m.user.id ? null : m.user.id)}
+                        className="opacity-0 group-hover:opacity-100 p-1.5 text-xs text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-lg transition-all"
+                        title="Member Options"
+                      >
+                        <MoreVertical size={14} />
+                      </button>
+                      
+                      {openMenuId === m.user.id && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)}></div>
+                          <div className="absolute right-0 top-8 w-48 bg-white rounded-xl shadow-lg border border-slate-100 py-1 z-50 overflow-hidden">
+                            <button className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-slate-600 hover:bg-slate-50 transition-colors text-left font-medium">
+                              <MessageSquare size={14} className="text-blue-500" />
+                              Message
+                            </button>
+                            <button className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-slate-600 hover:bg-slate-50 transition-colors text-left font-medium border-b border-slate-50">
+                              <UserCheck size={14} className="text-green-500" />
+                              Add Friend
+                            </button>
+                            {isOwner && (
+                              <>
+                                <button 
+                                  onClick={() => { handleKick(m.user.id); setOpenMenuId(null); }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-orange-600 hover:bg-orange-50 transition-colors text-left font-medium"
+                                >
+                                  <X size={14} />
+                                  Kick
+                                </button>
+                                <button className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-red-600 hover:bg-red-50 transition-colors text-left font-medium">
+                                  <Ban size={14} />
+                                  Ban
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
               ))}
@@ -449,14 +483,47 @@ export default function GroupChatPage() {
                       {m.role === 'OWNER' ? <span className="text-blue-500 font-bold">Owner</span> : 'Student'}
                     </div>
                   </div>
-                  {isOwner && m.user.id !== user?.id && (
-                    <button
-                      onClick={() => handleKick(m.user.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 text-xs text-red-400 hover:bg-red-50 hover:text-red-500 rounded-lg transition-all"
-                      title="Kick Member"
-                    >
-                      <X size={14} />
-                    </button>
+                  {m.user.id !== user?.id && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setOpenMenuId(openMenuId === m.user.id ? null : m.user.id)}
+                        className="opacity-0 group-hover:opacity-100 p-1.5 text-xs text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-lg transition-all"
+                        title="Member Options"
+                      >
+                        <MoreVertical size={14} />
+                      </button>
+                      
+                      {openMenuId === m.user.id && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)}></div>
+                          <div className="absolute right-0 top-8 w-48 bg-white rounded-xl shadow-lg border border-slate-100 py-1 z-50 overflow-hidden">
+                            <button className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-slate-600 hover:bg-slate-50 transition-colors text-left font-medium">
+                              <MessageSquare size={14} className="text-blue-500" />
+                              Message
+                            </button>
+                            <button className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-slate-600 hover:bg-slate-50 transition-colors text-left font-medium border-b border-slate-50">
+                              <UserCheck size={14} className="text-green-500" />
+                              Add Friend
+                            </button>
+                            {isOwner && (
+                              <>
+                                <button 
+                                  onClick={() => { handleKick(m.user.id); setOpenMenuId(null); }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-orange-600 hover:bg-orange-50 transition-colors text-left font-medium"
+                                >
+                                  <X size={14} />
+                                  Kick
+                                </button>
+                                <button className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-red-600 hover:bg-red-50 transition-colors text-left font-medium">
+                                  <Ban size={14} />
+                                  Ban
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
               ))}
