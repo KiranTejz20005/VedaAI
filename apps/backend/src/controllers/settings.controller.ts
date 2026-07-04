@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { logger } from '../utils/logger';
-import { env } from '../config/env';
 
 // Fetch global system settings
 export const getSettings = async (_req: Request, res: Response): Promise<void> => {

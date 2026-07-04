@@ -2140,7 +2140,7 @@ export class AdminController {
         where: { createdAt: { gte: oneDayAgo } },
       });
 
-      const aiLatency = [];
+      const aiLatency: { providerName: string; modelName: string; latencyMs: number; apiKey: string }[] = [];
       const addProvider = (name: string, model: string, key?: string) => {
         if (!key) return;
         const ex = executions.find(e => e.providerName === name);

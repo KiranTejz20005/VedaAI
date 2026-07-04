@@ -9,8 +9,6 @@ import {
   MoreVertical, 
   RefreshCw,
   Plus,
-  ShieldCheck,
-  AlertTriangle,
   ChevronDown,
   ArrowUpRight,
   ArrowRight

@@ -19,6 +19,9 @@ export function useUserFilters(users: UnifiedUser[]) {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  
+  // Use state to capture the time once to keep render pure
+  const [now] = useState(() => Date.now());
 
   // Debounce search query
   useEffect(() => {
@@ -65,7 +68,6 @@ export function useUserFilters(users: UnifiedUser[]) {
       // 4. Period Filter
       if (periodFilter !== 'All Time' && u.lastActivity) {
         const activityDate = new Date(u.lastActivity).getTime();
-        const now = Date.now();
         const daysDiff = (now - activityDate) / (1000 * 60 * 60 * 24);
         
         if (periodFilter === 'Last 30 Days' && daysDiff > 30) return false;
@@ -87,7 +89,7 @@ export function useUserFilters(users: UnifiedUser[]) {
 
       return true;
     });
-  }, [users, roleFilter, orgFilter, statusFilter, periodFilter, debouncedSearch]);
+  }, [users, roleFilter, orgFilter, statusFilter, periodFilter, debouncedSearch, now]);
 
   return {
     roleFilter,

@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Cloud, Server, Database, Zap, Sparkles, Activity, Clock, ShieldAlert, ArrowUpRight, ArrowDownRight, ChevronRight, Play } from 'lucide-react';
-import { PageHeader } from '@/design-system/PageHeader';
+import { Cloud, Zap, Sparkles, Activity, ArrowUpRight, Play } from 'lucide-react';
 import { Card } from '@/design-system/Card';
 import { LoadingState } from '@/design-system/LoadingState';
 import { ErrorState } from '@/design-system/ErrorState';
