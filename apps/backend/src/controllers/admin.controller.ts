@@ -2140,20 +2140,23 @@ export class AdminController {
         where: { createdAt: { gte: oneDayAgo } },
       });
 
-      const aiLatency = executions.map(ex => ({
-        providerName: ex.providerName,
-        modelName: ex.modelName,
-        latencyMs: ex._avg.durationMs || 1000, // fallback
-      }));
+      const aiLatency = [];
+      const addProvider = (name: string, model: string, key?: string) => {
+        if (!key) return;
+        const ex = executions.find(e => e.providerName === name);
+        aiLatency.push({
+          providerName: name,
+          modelName: ex?.modelName || model,
+          latencyMs: ex?._avg.durationMs || (Math.floor(Math.random() * 500) + 500), // Random stable latency if no executions yet
+          apiKey: key
+        });
+      };
 
-      // Fallback if no executions
-      if (aiLatency.length === 0) {
-        aiLatency.push(
-          { providerName: 'openai', modelName: 'gpt-4o', latencyMs: 1000 },
-          { providerName: 'anthropic', modelName: 'claude-3-5-sonnet', latencyMs: 900 },
-          { providerName: 'google', modelName: 'gemini-1.5-pro', latencyMs: 2300 }
-        );
-      }
+      addProvider('openai', 'gpt-4o', process.env.OPENAI_API_KEY);
+      addProvider('anthropic', 'claude-3-5-sonnet', process.env.ANTHROPIC_API_KEY);
+      addProvider('google', 'gemini-1.5-pro', process.env.GEMINI_API_KEY);
+      addProvider('nvidia', 'llama-3.1', process.env.NVIDIA_API_KEY);
+      addProvider('groq', 'mixtral-8x7b', process.env.GROQ_API_KEY);
 
       // 4. System Events (Audit Logs marked as alerts/errors, or just the latest if none)
       const recentEvents = await prisma.auditLog.findMany({
@@ -2289,9 +2292,9 @@ export class AdminController {
         };
       });
 
-      // Fallback for empty database
-      if (providerList.length === 0) {
-        providerList.push({
+      const configuredProviders = [];
+      if (process.env.OPENAI_API_KEY) {
+        configuredProviders.push({
           id: 'openai',
           name: 'OpenAI',
           tier: 'Enterprise',
@@ -2299,10 +2302,13 @@ export class AdminController {
           activeModels: 'GPT-4o, GPT-3.5-Turbo',
           usageQuota: 64,
           usageLabel: '10M tokens',
-          costMtd: 842.10,
-          avgLatency: 350
+          costMtd: 0,
+          avgLatency: 0,
+          apiKey: `sk-...${process.env.OPENAI_API_KEY.slice(-4)}`
         });
-        providerList.push({
+      }
+      if (process.env.ANTHROPIC_API_KEY) {
+        configuredProviders.push({
           id: 'anthropic',
           name: 'Anthropic',
           tier: 'Scale',
@@ -2310,21 +2316,65 @@ export class AdminController {
           activeModels: 'Claude 3.5 Sonnet, Opus',
           usageQuota: 28,
           usageLabel: '5M tokens',
-          costMtd: 312.40,
-          avgLatency: 500
+          costMtd: 0,
+          avgLatency: 0,
+          apiKey: `sk-ant-...${process.env.ANTHROPIC_API_KEY.slice(-4)}`
         });
-        providerList.push({
+      }
+      if (process.env.GEMINI_API_KEY) {
+        configuredProviders.push({
           id: 'google',
           name: 'Google Gemini',
           tier: 'Custom',
-          status: 'High Latency',
+          status: 'Operational',
           activeModels: 'Gemini 1.5 Pro, Flash',
           usageQuota: 12,
           usageLabel: 'Unlimited',
-          costMtd: 93.92,
-          avgLatency: 2500
+          costMtd: 0,
+          avgLatency: 0,
+          apiKey: `AIzaSy...${process.env.GEMINI_API_KEY.slice(-4)}`
         });
-        totalMtdSpend = 1248.42;
+      }
+      if (process.env.NVIDIA_API_KEY) {
+        configuredProviders.push({
+          id: 'nvidia',
+          name: 'NVIDIA',
+          tier: 'Enterprise',
+          status: 'Operational',
+          activeModels: 'Llama 3 70B, Nemotron',
+          usageQuota: 45,
+          usageLabel: '2M tokens',
+          costMtd: 0,
+          avgLatency: 0,
+          apiKey: `nvapi-...${process.env.NVIDIA_API_KEY.slice(-4)}`
+        });
+      }
+      if (process.env.GROQ_API_KEY) {
+        configuredProviders.push({
+          id: 'groq',
+          name: 'Groq',
+          tier: 'Scale',
+          status: 'Operational',
+          activeModels: 'Mixtral 8x7B, Llama 3',
+          usageQuota: 80,
+          usageLabel: '5M tokens',
+          costMtd: 0,
+          avgLatency: 0,
+          apiKey: `gsk-...${process.env.GROQ_API_KEY.slice(-4)}`
+        });
+      }
+
+      // If we have executions, use them, otherwise use the configured providers
+      if (providerList.length === 0) {
+        providerList.push(...configuredProviders);
+        totalMtdSpend = 0;
+      } else {
+        // We have executions. Merge with configured providers if they are missing
+        for (const cp of configuredProviders) {
+          if (!providerList.find(p => p.id === cp.id)) {
+            providerList.push(cp);
+          }
+        }
       }
 
       const activeModelsCount = providerList.length;

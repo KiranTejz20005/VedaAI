@@ -9,7 +9,8 @@ import {
   Users,
   Activity,
   Zap,
-  BookOpen
+  BookOpen,
+  Building2
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/admin/providers', label: 'AI Providers', icon: Zap },
   { href: '/dashboard/admin/knowledge', label: 'Knowledge Base', icon: BookOpen },
   { href: '/dashboard/admin/users', label: 'Users', icon: Users },
+  { href: '/super-admin/organizations', label: "Manage Org's", icon: Building2 },
   { href: '/super-admin/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -71,7 +73,14 @@ export function AdminSidebar() {
           })}
         </nav>
 
-
+        {availableOrganizations && (
+          <div style={{ marginTop: 'auto', padding: '16px', borderTop: '1px solid #E5E7EB' }}>
+            <div style={{ fontSize: '10px', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Active Organization</div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {availableOrganizations.find(org => org.id === activeOrganizationId)?.name || user?.organizationName || 'Not Selected'}
+            </div>
+          </div>
+        )}
       </aside>
     </>
   );

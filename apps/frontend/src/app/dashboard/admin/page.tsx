@@ -117,9 +117,9 @@ export default function AdminDashboard() {
   };
   const activity = data?.recentActivity || [];
   const summary = { 
-    publishedAssessments: data?.totalAssessments || 0, 
+    publishedAssessments: data?.assessmentsByStatus?.['PUBLISHED'] || 0, 
     activeLessons: data?.totalLessons || 0, 
-    submissionRate: data?.totalSubmissions ? Math.min(100, Math.round((data.totalSubmissions / (data.totalStudents || 1)) * 100)) : 0 
+    submissionRate: data?.totalSubmissions && data?.totalStudents ? Math.min(100, Math.round((data.totalSubmissions / (data.totalStudents || 1)) * 100)) : 0 
   };
 
   return (
@@ -280,7 +280,11 @@ export default function AdminDashboard() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <strong style={{ fontSize: 'var(--text-xs)', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Insights</strong>
               <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                Submission rate is currently stable but needs improvement in Science modules.
+                {summary.submissionRate > 80 
+                  ? "Submission rate is excellent and stable."
+                  : summary.submissionRate > 50 
+                    ? "Submission rate is currently stable but needs improvement."
+                    : "Submission rate is low and requires attention."}
               </span>
             </div>
           </div>

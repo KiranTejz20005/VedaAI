@@ -260,7 +260,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {TopbarComponent}
           <main suppressHydrationWarning style={{ flex: 1, padding: '24px', maxWidth: '1600px', margin: '0 auto', width: '100%', overflowX: 'hidden' }}>
             <ClientOnly fallback={<div className="page-content-placeholder" aria-hidden="true" />}>
-              {children}
+              <div key={user?.activeOrganizationId || 'default'}>
+                {children}
+              </div>
             </ClientOnly>
           </main>
         </div>

@@ -21,6 +21,7 @@ interface SystemHealthData {
     providerName: string;
     modelName: string;
     latencyMs: number;
+    apiKey?: string;
   }[];
   events: {
     id: string;
@@ -206,6 +207,11 @@ export default function SystemHealthPage() {
                        provider.providerName}
                     </div>
                     <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Model: {provider.modelName}</div>
+                    {provider.apiKey && (
+                      <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4, fontFamily: 'monospace' }}>
+                        Key: {provider.apiKey.substring(0, 8)}...{provider.apiKey.substring(provider.apiKey.length - 4)}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>

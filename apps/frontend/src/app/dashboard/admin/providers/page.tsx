@@ -36,6 +36,7 @@ interface ProviderData {
   usageQuota: number;
   usageLabel: string;
   costMtd: number;
+  apiKey?: string;
 }
 
 interface ProvidersResponse {
@@ -202,6 +203,11 @@ export default function ProvidersPage() {
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{p.name}</div>
                       <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Tier: {p.tier}</div>
+                      {p.apiKey && (
+                        <div style={{ fontSize: 11, color: '#4B5563', marginTop: 4, fontFamily: 'monospace', background: '#F3F4F6', padding: '2px 6px', borderRadius: 4, display: 'inline-block' }}>
+                          {p.apiKey}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </td>

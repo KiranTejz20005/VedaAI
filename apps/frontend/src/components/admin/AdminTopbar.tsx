@@ -11,17 +11,41 @@ import Link from 'next/link';
 export function AdminTopbar() {
   const { toggle } = useSidebarStore();
   const { user, logout } = useAuthStore();
-  const { isImpersonating, exitImpersonation } = useAdminAuthStore();
+  const { isImpersonating, exitImpersonation, availableOrganizations, activeOrganizationId, fetchAvailableOrganizations } = useAdminAuthStore();
   const pathname = usePathname();
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isOrgSwitcherOpen, setIsOrgSwitcherOpen] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
+
+  const handleSwitchOrg = async (orgId: string) => {
+    if (isSwitching) return;
+    setIsSwitching(true);
+    const success = await useAdminAuthStore.getState().switchOrganization(orgId);
+    setIsSwitching(false);
+    setIsOrgSwitcherOpen(false);
+    if (success) {
+      router.refresh();
+    }
+  };
+
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   useEffect(() => {
-    if (!isDropdownOpen) return;
-    const handleClose = () => setIsDropdownOpen(false);
+    if (user?.role === 'SUPER_ADMIN') {
+      fetchAvailableOrganizations();
+    }
+  }, [user?.role, fetchAvailableOrganizations]);
+
+  useEffect(() => {
+    if (!isDropdownOpen && !isOrgSwitcherOpen) return;
+    const handleClose = () => {
+      setIsDropdownOpen(false);
+      setIsOrgSwitcherOpen(false);
+    };
     window.addEventListener('click', handleClose);
     return () => window.removeEventListener('click', handleClose);
-  }, [isDropdownOpen]);
+  }, [isDropdownOpen, isOrgSwitcherOpen]);
 
   // Create human-readable breadcrumbs from the pathname
   const paths = pathname.split('/').filter(Boolean);
@@ -93,6 +117,93 @@ export function AdminTopbar() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
+          {isSuperAdmin && (
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setIsOrgSwitcherOpen(!isOrgSwitcherOpen); }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 12px',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-hover)',
+                  cursor: 'pointer',
+                  fontSize: 'var(--text-sm)',
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <span>
+                  {availableOrganizations.find(org => org.id === activeOrganizationId)?.name || user?.organizationName || 'Select Organization'}
+                </span>
+                <ChevronRight size={12} color="var(--text-muted)" style={{ transform: isOrgSwitcherOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+              </button>
+
+              {isOrgSwitcherOpen && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: '100%',
+                    marginTop: 8,
+                    minWidth: 200,
+                    background: 'white',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-lg)',
+                    boxShadow: 'var(--shadow-lg)',
+                    padding: 6,
+                    zIndex: 100,
+                  }}
+                >
+                  <div style={{ padding: '6px 10px', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Switch Organization
+                  </div>
+                  {availableOrganizations.length === 0 ? (
+                    <div style={{ padding: '8px 10px', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+                      No organizations found
+                    </div>
+                  ) : (
+                    availableOrganizations.map((org) => (
+                      <button
+                        key={org.id}
+                        type="button"
+                        disabled={isSwitching || org.id === activeOrganizationId}
+                        onClick={() => handleSwitchOrg(org.id)}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '8px 10px',
+                          border: 'none',
+                          background: org.id === activeOrganizationId ? 'var(--bg-hover)' : 'transparent',
+                          borderRadius: 'var(--radius-sm)',
+                          cursor: org.id === activeOrganizationId ? 'default' : 'pointer',
+                          fontSize: 'var(--text-sm)',
+                          fontWeight: org.id === activeOrganizationId ? 600 : 500,
+                          color: 'var(--text-primary)',
+                          fontFamily: 'inherit',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                        }}
+                        onMouseEnter={(e) => { if (org.id !== activeOrganizationId) e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                        onMouseLeave={(e) => { if (org.id !== activeOrganizationId) e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <span style={{ flex: 1 }}>{org.name}</span>
+                        {org.id === activeOrganizationId && (
+                          <span style={{ fontSize: 10, color: '#EA580C', fontWeight: 600 }}>Active</span>
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>
               {user ? `${user.firstName} ${user.lastName}` : 'Administrator'}

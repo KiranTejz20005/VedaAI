@@ -96,7 +96,7 @@ export function Topbar() {
     setIsSwitching(false);
     setIsOrgSwitcherOpen(false);
     if (success) {
-      window.location.reload();
+      router.refresh();
     }
   };
 

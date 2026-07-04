@@ -131,8 +131,12 @@ export class OrganizationService {
   }
 
   static async deleteOrganization(id: string) {
-    return prisma.organization.delete({
-      where: { id },
+    return prisma.$transaction(async (tx) => {
+      // Delete associated users to prevent foreign key constraint errors
+      await tx.user.deleteMany({ where: { organizationId: id } });
+      return tx.organization.delete({
+        where: { id },
+      });
     });
   }
 

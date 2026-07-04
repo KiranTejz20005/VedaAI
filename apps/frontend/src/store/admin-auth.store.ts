@@ -44,8 +44,17 @@ export const useAdminAuthStore = create<AdminAuthStore>((set, get) => ({
     if (typeof window === 'undefined') return;
     const originalAdminToken = window.sessionStorage.getItem('original_admin_token');
     
-    // We get the activeOrganizationId from the auth.store which tracks the user's DB state
     const { useAuthStore } = await import('./auth.store');
+    
+    // Subscribe to auth store to keep activeOrganizationId in sync when user is loaded/updated
+    useAuthStore.subscribe((state) => {
+      const user = state.user;
+      const activeOrgId = (user as any)?.activeOrganizationId || user?.organizationId || null;
+      if (useAdminAuthStore.getState().activeOrganizationId !== activeOrgId) {
+        useAdminAuthStore.setState({ activeOrganizationId: activeOrgId });
+      }
+    });
+
     const user = useAuthStore.getState().user;
     const activeOrganizationId = (user as any)?.activeOrganizationId || user?.organizationId || null;
     
