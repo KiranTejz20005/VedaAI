@@ -93,7 +93,7 @@ export default function SuperAdminSubscriptions() {
                   <tr key={sub.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="py-3 font-bold text-gray-800 flex items-center gap-1.5">
                       <Building2 size={14} className="text-blue-600" />
-                      <Link href={`/super-admin/organizations/${sub.organizationId}`} className="hover:text-blue-600">{sub.organizationName}</Link>
+                      <Link href={`/dashboard/super-admin/organizations/${sub.organizationId}`} className="hover:text-blue-600">{sub.organizationName}</Link>
                     </td>
                     <td className="py-3 text-gray-500">{sub.organizationCode}</td>
                     <td className="py-3">

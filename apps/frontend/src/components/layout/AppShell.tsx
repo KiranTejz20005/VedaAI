@@ -6,7 +6,8 @@ import { Toaster } from 'react-hot-toast';
 import { ClientOnly } from '@/components/ui/ClientOnly';
 import { useAuthStore } from '@/store/auth.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
-import { AdminSidebar } from './AdminSidebar';
+import { SuperAdminSidebar } from './SuperAdminSidebar';
+import { getDashboardRoute, validateRouteAccess } from '@/utils/navigation';
 import { OrgAdminSidebar } from './OrgAdminSidebar';
 import { FacultySidebar } from './FacultySidebar';
 import { StudentSidebar } from './StudentSidebar';
@@ -148,16 +149,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       const isSuperAdminOrAdmin = userRole === 'SUPER_ADMIN' || userRole === 'ADMIN';
       const isOnboarded = isSuperAdminOrAdmin || user?.hasCompletedOnboarding === true || (user?.organizationId && user?.departmentId);
       
-      const rolePath = userRole ? userRole.toLowerCase().replace('_', '-') : 'student';
-      
       if (isOnboarded) {
+        const dashboardRoute = getDashboardRoute(userRole);
         if (isAuthPage) {
-          router.push(`/dashboard/${rolePath}`);
+          router.push(dashboardRoute);
         } else {
           const hasAccess = canAccessRoute(userRole, pathname);
 
           if (!hasAccess) {
-            router.push(`/dashboard/${rolePath}`);
+            router.push(dashboardRoute);
+          } else {
+            validateRouteAccess(userRole, pathname);
           }
         }
       } else {
@@ -224,7 +226,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   let TopbarComponent = <Topbar />;
   
   if (role === 'SUPER_ADMIN') {
-    SidebarComponent = <AdminSidebar />;
+    SidebarComponent = <SuperAdminSidebar />;
     TopbarComponent = <AdminTopbar />;
   } else if (role === 'ADMIN' || role === 'ORG_ADMIN') {
     SidebarComponent = <OrgAdminSidebar />;

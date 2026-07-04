@@ -10,27 +10,32 @@ import {
   Activity,
   Zap,
   BookOpen,
-  Building2
+  Building2,
+  History,
+  BarChart3
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
 import { useSystemStore } from '@/store/system.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
+import { ROUTES } from '@/config/routes';
 
 const NAV_ITEMS = [
-  { href: '/dashboard/admin', label: 'Admin Overview', icon: LayoutGrid, exact: true },
-  { href: '/dashboard/admin/system-health', label: 'System Health', icon: Activity },
-  { href: '/dashboard/admin/providers', label: 'AI Providers', icon: Zap },
-  { href: '/dashboard/admin/knowledge', label: 'Knowledge Base', icon: BookOpen },
-  { href: '/dashboard/admin/users', label: 'Users', icon: Users },
-  { href: '/super-admin/organizations', label: "Manage Org's", icon: Building2 },
-  { href: '/super-admin/settings', label: 'Settings', icon: Settings },
+  { href: ROUTES.SUPER_ADMIN.DASHBOARD, label: 'Super Admin Overview', icon: LayoutGrid, exact: true },
+  { href: ROUTES.SUPER_ADMIN.SYSTEM_HEALTH, label: 'System Health', icon: Activity },
+  { href: ROUTES.SUPER_ADMIN.PROVIDERS, label: 'AI Providers', icon: Zap },
+  { href: ROUTES.SUPER_ADMIN.KNOWLEDGE_BASE, label: 'Knowledge Base', icon: BookOpen },
+  { href: ROUTES.SUPER_ADMIN.USERS, label: 'Global Users', icon: Users },
+  { href: ROUTES.SUPER_ADMIN.ORGANIZATIONS, label: "Manage Org's", icon: Building2 },
+  { href: ROUTES.SUPER_ADMIN.ANALYTICS, label: 'Analytics', icon: BarChart3 },
+  { href: ROUTES.SUPER_ADMIN.AUDIT, label: 'Audit Logs', icon: History },
+  { href: ROUTES.SUPER_ADMIN.SETTINGS, label: 'Settings', icon: Settings },
 ];
 
-export function AdminSidebar() {
+export function SuperAdminSidebar() {
   const pathname = usePathname();
   const { isOpen, close } = useSidebarStore();
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
   const { settings } = useSystemStore();
   const { availableOrganizations, activeOrganizationId } = useAdminAuthStore();
 

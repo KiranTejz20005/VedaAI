@@ -16,13 +16,15 @@ import { useAuthStore } from '@/store/auth.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
 import { useSystemStore } from '@/store/system.store';
 
+import { ROUTES } from '@/config/routes';
+
 const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/dashboard/admin/users', label: 'Faculty and Students', icon: Users },
-  { href: '/dashboard/admin/classes', label: 'Classes', icon: BookOpen },
-  { href: '/dashboard/admin/approvals', label: 'Approvals', icon: ClipboardCheck },
-  { href: '/dashboard/admin/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/dashboard/admin/settings', label: 'Settings', icon: Settings },
+  { href: ROUTES.ORG_ADMIN.DASHBOARD, label: 'Dashboard', icon: LayoutGrid, exact: true },
+  { href: ROUTES.ORG_ADMIN.USERS, label: 'Faculty and Students', icon: Users },
+  { href: ROUTES.ORG_ADMIN.CLASSES, label: 'Classes', icon: BookOpen },
+  { href: ROUTES.ORG_ADMIN.APPROVALS, label: 'Approvals', icon: ClipboardCheck },
+  { href: ROUTES.ORG_ADMIN.ANALYTICS, label: 'Analytics', icon: BarChart3 },
+  { href: ROUTES.ORG_ADMIN.SETTINGS, label: 'Settings', icon: Settings },
 ];
 
 export function OrgAdminSidebar() {

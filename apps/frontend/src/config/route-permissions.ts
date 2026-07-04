@@ -2,41 +2,27 @@
 export const ROUTE_PERMISSIONS = {
   SUPER_ADMIN: [
     '/dashboard/super-admin',
-    '/dashboard/admin',
-    '/dashboard/faculty',
-    '/dashboard/teacher',
-    '/dashboard/student',
-    // Fallback routes
-    '/dashboard', '/assignments', '/assignments/create', '/settings', '/admin', '/generate', '/ai-toolkit', '/grader', '/my-classes', '/papers', '/profile', '/student',
+    '/dashboard', '/settings', '/profile'
   ],
   ADMIN: [
     '/dashboard/admin',
-    '/dashboard/faculty',
-    '/dashboard/teacher',
-    '/dashboard/student',
-    '/dashboard', '/assignments', '/assignments/create', '/settings', '/generate', '/ai-toolkit', '/grader', '/my-classes', '/papers', '/profile', '/admin',
+    '/dashboard', '/settings', '/profile'
   ],
   ORG_ADMIN: [
     '/dashboard/admin',
-    '/dashboard/faculty',
-    '/dashboard/teacher',
-    '/dashboard/student',
-    '/dashboard', '/assignments', '/assignments/create', '/settings', '/generate', '/ai-toolkit', '/grader', '/my-classes', '/papers', '/profile', '/admin',
+    '/dashboard', '/settings', '/profile'
   ],
   FACULTY: [
     '/dashboard/faculty',
-    '/dashboard/teacher',
-    '/dashboard/student',
-    '/assignments', '/assignments/create', '/settings', '/generate', '/ai-toolkit', '/grader', '/my-classes', '/papers', '/profile',
+    '/dashboard', '/assignments', '/assignments/create', '/settings', '/generate', '/ai-toolkit', '/grader', '/my-classes', '/papers', '/profile'
   ],
   TEACHER: [
     '/dashboard/teacher',
-    '/dashboard/student',
-    '/assignments', '/assignments/create', '/settings', '/generate', '/ai-toolkit', '/grader', '/my-classes', '/papers', '/profile',
+    '/dashboard', '/assignments', '/assignments/create', '/settings', '/generate', '/ai-toolkit', '/grader', '/my-classes', '/papers', '/profile'
   ],
   STUDENT: [
     '/dashboard/student',
-    '/settings', '/student', '/profile',
+    '/dashboard', '/settings', '/profile', '/student'
   ],
 };
 

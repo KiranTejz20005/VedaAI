@@ -295,7 +295,7 @@ export default function KnowledgePage() {
 
           <div style={{ padding: '16px', textAlign: 'center', borderTop: '1px solid #F3F4F6', background: '#F9FAFB' }}>
             <button 
-              onClick={() => router.push('/dashboard/admin/system-health')}
+              onClick={() => router.push('/dashboard/super-admin/system-health')}
               style={{ background: 'transparent', border: 'none', fontSize: 13, fontWeight: 600, color: '#6B7280', cursor: 'pointer' }}>
               See full activity log
             </button>

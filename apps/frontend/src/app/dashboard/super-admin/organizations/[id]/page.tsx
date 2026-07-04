@@ -115,7 +115,7 @@ export default function OrganizationDetail() {
     if (!confirm(`Permanently delete ${org.name} and all its data?`)) return;
     try {
       const res = await api.delete(`/super-admin/organizations/${id}`);
-      if (res.data?.success) { toast.success('Organization deleted'); router.push('/super-admin/organizations'); }
+      if (res.data?.success) { toast.success('Organization deleted'); router.push('/dashboard/super-admin/organizations'); }
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Delete failed'); }
   };
 
@@ -166,7 +166,7 @@ export default function OrganizationDetail() {
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs text-gray-500">
-        <Link href="/super-admin/organizations" className="hover:text-blue-600 font-semibold flex items-center gap-1">
+        <Link href="/dashboard/super-admin/organizations" className="hover:text-blue-600 font-semibold flex items-center gap-1">
           <ChevronLeft size={14} /> Organizations
         </Link>
         <span>/</span>
