@@ -3,6 +3,7 @@ import { AITutorService } from '../services/ai-tutor.service';
 import { sendSuccess, sendError } from '../utils/api-response.util';
 import { getRequestUserId } from '../security/request-context';
 import prisma from '../config/prisma';
+import { StreakService } from '../services/streak.service';
 
 /**
  * POST /v1/tutor/sessions
@@ -23,6 +24,7 @@ export const createSession = async (req: Request, res: Response): Promise<void> 
       studentId,
       organizationId: organizationId || null,
       subject,
+      title: 'New Chat',
       tutorMode: tutorMode ?? 'SOCRATIC',
       status: 'ACTIVE',
     },
@@ -45,7 +47,7 @@ export const listSessions = async (req: Request, res: Response): Promise<void> =
 
   const sessions = await prisma.tutorSession.findMany({
     where: { studentId },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { updatedAt: 'desc' },
   });
 
   sendSuccess(res, sessions, { message: 'Sessions retrieved' });
@@ -87,6 +89,20 @@ export const chat = async (req: Request, res: Response): Promise<void> => {
   }
 
   const reply = await AITutorService.chat(sessionId, studentId, organizationId, message);
+
+  // Update streak!
+  if (studentId !== 'demo-faculty-id') {
+    await StreakService.recordActivity(studentId);
+  }
+
+  // If this was the first user message and title is "New Chat", we should really generate one...
+  // but for now, we just rely on rename APIs.
+  // We'll update the updatedAt timestamp on the session
+  await prisma.tutorSession.update({
+    where: { id: sessionId },
+    data: { updatedAt: new Date() },
+  });
+
   sendSuccess(res, reply, { message: 'Tutor replied' });
 };
 
@@ -103,4 +119,53 @@ export const closeSession = async (req: Request, res: Response): Promise<void> =
   });
 
   sendSuccess(res, updated, { message: 'Session closed' });
+};
+
+/**
+ * PATCH /v1/tutor/sessions/:sessionId/title
+ * Renames a tutor session.
+ */
+export const renameSession = async (req: Request, res: Response): Promise<void> => {
+  const { sessionId } = req.params;
+  const { title } = req.body;
+  const studentId = getRequestUserId(req);
+
+  if (!title || title.trim().length === 0) {
+    sendError(res, 400, 'Title is required', { errorCode: 'VALIDATION_ERROR' });
+    return;
+  }
+
+  const session = await prisma.tutorSession.findUnique({ where: { id: sessionId } });
+  if (!session || session.studentId !== studentId) {
+    sendError(res, 404, 'Session not found', { errorCode: 'NOT_FOUND' });
+    return;
+  }
+
+  const updated = await prisma.tutorSession.update({
+    where: { id: sessionId },
+    data: { title: title.trim() },
+  });
+
+  sendSuccess(res, updated, { message: 'Session renamed' });
+};
+
+/**
+ * DELETE /v1/tutor/sessions/:sessionId
+ * Deletes a tutor session and its messages.
+ */
+export const deleteSession = async (req: Request, res: Response): Promise<void> => {
+  const { sessionId } = req.params;
+  const studentId = getRequestUserId(req);
+
+  const session = await prisma.tutorSession.findUnique({ where: { id: sessionId } });
+  if (!session || session.studentId !== studentId) {
+    sendError(res, 404, 'Session not found', { errorCode: 'NOT_FOUND' });
+    return;
+  }
+
+  await prisma.tutorSession.delete({
+    where: { id: sessionId },
+  });
+
+  sendSuccess(res, null, { message: 'Session deleted' });
 };

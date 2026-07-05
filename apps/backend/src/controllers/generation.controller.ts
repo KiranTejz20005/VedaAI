@@ -5,6 +5,7 @@ import { logger } from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import pdfParse from 'pdf-parse';
+import { StreakService } from '../services/streak.service';
 
 
 export const generateQuestion = async (req: Request, res: Response): Promise<void> => {
@@ -72,6 +73,27 @@ export const generateQuestions = async (req: Request, res: Response): Promise<vo
 
     const numQuestions = Number(count) || 5;
 
+    const userId = (req as any).user?.id;
+    if (userId) {
+      // 5 attempt daily limit for generating practice questions
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const attemptsToday = await prisma.quizSession.count({
+        where: {
+          userId,
+          createdAt: {
+            gte: today,
+          },
+        },
+      });
+
+      if (attemptsToday >= 5) {
+        res.status(403).json({ success: false, error: 'Maximum daily attempt limit reached (5/5). Please try again tomorrow.' });
+        return;
+      }
+    }
+
     const questions = await generateMultipleQuestions({
       topic,
       subject,
@@ -82,7 +104,6 @@ export const generateQuestions = async (req: Request, res: Response): Promise<vo
     });
 
     // Persist to DB so questions survive localStorage clears
-    const userId = (req as any).user?.id;
     if (userId) {
       await Promise.all(
         questions.map(async (question) => {
@@ -183,6 +204,11 @@ export const saveQuizSession = async (req: Request, res: Response): Promise<void
       quizId: session.id,
       timestamp: new Date().toISOString()
     }, 'Quiz Created');
+
+    // Update Streak!
+    if (userId !== 'demo-faculty-id') {
+      await StreakService.recordActivity(userId);
+    }
 
     res.status(201).json({ success: true, data: session });
   } catch (error) {

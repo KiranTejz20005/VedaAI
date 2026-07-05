@@ -262,6 +262,14 @@ model StudentLearningProfile {
   // One-to-one with predictions
   predictiveAnalytics PredictiveAnalytics?
 
+  // Streak System Engine
+  currentStreak   Int       @default(0)
+  longestStreak   Int       @default(0)
+  lastActiveDate  DateTime?
+  totalActiveDays Int       @default(0)
+  weeklyActivity  Json?
+  monthlyActivity Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -1505,6 +1513,7 @@ model TutorSession {
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   subject   String
+  title     String         @default("New Chat")
   tutorMode String         @default("SOCRATIC") // SOCRATIC, EXPLAIN, HINT, PRACTICE
   status    String         @default("ACTIVE")
   messages  TutorMessage[]

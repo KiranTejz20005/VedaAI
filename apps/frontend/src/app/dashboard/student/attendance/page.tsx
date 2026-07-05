@@ -77,20 +77,11 @@ export default function AttendanceDashboardPage() {
     fetchAttendance();
   }, [fetchAttendance, currentMonth]);
 
-  // Lock body scroll when modal is open
   useEffect(() => {
     if (isModalOpen) {
       document.body.style.overflow = 'hidden';
-      // Prevent keyboard scrolling
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (['ArrowUp', 'ArrowDown', 'Space', 'PageUp', 'PageDown'].includes(e.code)) {
-          e.preventDefault();
-        }
-      };
-      window.addEventListener('keydown', handleKeyDown, { passive: false });
       return () => {
         document.body.style.overflow = 'auto';
-        window.removeEventListener('keydown', handleKeyDown);
       };
     } else {
       document.body.style.overflow = 'auto';
