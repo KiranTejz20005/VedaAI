@@ -32,28 +32,14 @@ interface AnalyticsData {
   totalFaculty: number;
   activeExams: number;
   attendance: number;
+  paperApprovals?: number;
+  avgAssessmentScore?: number;
+  facultyEngagement?: number;
+  chartData: any[];
+  departmentHealth: any[];
+  recentActivity: any[];
+  topContributors: any[];
 }
-
-const mockChartData = [
-  { month: 'Sept', Enrollment: 65, Completion: 45 },
-  { month: 'Oct', Enrollment: 85, Completion: 55 },
-  { month: 'Nov', Enrollment: 60, Completion: 65 },
-  { month: 'Dec', Enrollment: 100, Completion: 75 },
-  { month: 'Jan', Enrollment: 70, Completion: 65 },
-  { month: 'Feb', Enrollment: 85, Completion: 60 },
-];
-
-const mockActivity = [
-  { id: 1, event: 'Adv. Calculus Midterm Approved', dept: 'Mathematics', initiator: 'Prof. Alan Turing', time: '10:12 AM Today', status: 'Published' },
-  { id: 2, event: 'Anatomy Quiz Draft Flagged', dept: 'Medical Sciences', initiator: 'Dr. Elena Rodriguez', time: '09:15 AM Today', status: 'Review Request' },
-  { id: 3, event: 'Ethics Final Question Bank', dept: 'Philosophy', initiator: 'James Wilson', time: 'Yesterday', status: 'Published' },
-];
-
-const mockContributors = [
-  { id: 1, name: 'Dr. Robert Chen', sub: 'Quantum Physics • 42 Papers Created', score: '95.4%' },
-  { id: 2, name: 'Sarah Miller', sub: 'Modern Literature • 38 Papers Created', score: '94.2%' },
-  { id: 3, name: 'Prof. Marcus Thorne', sub: 'Cybersecurity • 27 Papers Created', score: '92.8%' },
-];
 
 export default function AnalyticsPage() {
   const { user } = useAuthStore();
@@ -77,6 +63,10 @@ export default function AnalyticsPage() {
             attendance: apiData.users && apiData.activeUsers 
                 ? Math.round((apiData.activeUsers / apiData.users) * 100) 
                 : (apiData.attendance || 0),
+            chartData: res.data.data.chartData || [],
+            departmentHealth: res.data.data.departmentPerformance || [],
+            recentActivity: res.data.data.recentActivity || [],
+            topContributors: res.data.data.topContributors || []
           });
         }
       } catch (err) {
@@ -135,7 +125,7 @@ export default function AnalyticsPage() {
           </div>
           <div>
             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Student Growth</div>
-            <div className="text-3xl font-extrabold text-gray-900">{data?.totalStudents ? (data.totalStudents + 12000).toLocaleString() : '14,282'}</div>
+            <div className="text-3xl font-extrabold text-gray-900">{data?.totalStudents ? data.totalStudents.toLocaleString() : '0'}</div>
             <div className="h-1 w-full bg-gray-100 rounded-full mt-3 overflow-hidden">
                <div className="h-full bg-black rounded-full" style={{ width: '65%' }} />
             </div>
@@ -148,13 +138,13 @@ export default function AnalyticsPage() {
             <div className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center">
               <ClipboardCheck size={18} className="text-gray-600" />
             </div>
-            <span className="text-[11px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded-md">+5.4%</span>
+            <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-md">Real Data</span>
           </div>
           <div>
             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Avg. Assessment Score</div>
-            <div className="text-3xl font-extrabold text-gray-900">84.2%</div>
+            <div className="text-3xl font-extrabold text-gray-900">{data?.avgAssessmentScore || 0}%</div>
             <div className="h-1 w-full bg-gray-100 rounded-full mt-3 overflow-hidden">
-               <div className="h-full bg-[#F97316] rounded-full" style={{ width: '84%' }} />
+               <div className="h-full bg-[#F97316] rounded-full" style={{ width: `${data?.avgAssessmentScore || 0}%` }} />
             </div>
           </div>
         </div>
@@ -165,13 +155,13 @@ export default function AnalyticsPage() {
             <div className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center">
               <Users size={18} className="text-gray-600" />
             </div>
-            <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-md">Stable</span>
+            <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-md">Real Data</span>
           </div>
           <div>
             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Faculty Engagement</div>
-            <div className="text-3xl font-extrabold text-gray-900">92.0%</div>
+            <div className="text-3xl font-extrabold text-gray-900">{data?.facultyEngagement || 0}%</div>
             <div className="h-1 w-full bg-gray-100 rounded-full mt-3 overflow-hidden">
-               <div className="h-full bg-black rounded-full" style={{ width: '92%' }} />
+               <div className="h-full bg-black rounded-full" style={{ width: `${data?.facultyEngagement || 0}%` }} />
             </div>
           </div>
         </div>
@@ -186,9 +176,9 @@ export default function AnalyticsPage() {
           </div>
           <div>
             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Paper Approvals</div>
-            <div className="text-3xl font-extrabold text-gray-900">{data?.activeExams ? (data.activeExams + 1300).toLocaleString() : '1,405'}</div>
+            <div className="text-3xl font-extrabold text-gray-900">{data?.paperApprovals ? data.paperApprovals.toLocaleString() : '0'}</div>
             <div className="h-1 w-full bg-gray-100 rounded-full mt-3 overflow-hidden">
-               <div className="h-full bg-[#F97316] rounded-full" style={{ width: '45%' }} />
+               <div className="h-full bg-[#F97316] rounded-full" style={{ width: '100%' }} />
             </div>
           </div>
         </div>
@@ -216,7 +206,7 @@ export default function AnalyticsPage() {
           </div>
           <div className="h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={mockChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barGap={6}>
+              <BarChart data={data?.chartData || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barGap={6}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 12, fontWeight: 500 }} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 12, fontWeight: 500 }} />
@@ -237,22 +227,21 @@ export default function AnalyticsPage() {
             </p>
 
             <div className="mt-8 space-y-6">
-              {[
-                { name: 'Engineering & Tech', score: 88 },
-                { name: 'Medicine & Biosciences', score: 82 },
-                { name: 'Arts & Humanities', score: 76 },
-                { name: 'Business Administration', score: 81 }
-              ].map((dept, i) => (
+              {(data?.departmentHealth && data.departmentHealth.length > 0) ? data.departmentHealth.map((dept: any, i: number) => (
                 <div key={i}>
                   <div className="flex justify-between items-end mb-2">
                     <span className="text-[13px] font-semibold text-gray-200">{dept.name}</span>
-                    <span className="text-xs font-bold">{dept.score}%</span>
+                    <span className="text-xs font-bold">{dept.averageScore}%</span>
                   </div>
                   <div className="w-full bg-gray-800 rounded-full h-1.5">
-                    <div className="bg-[#F97316] h-1.5 rounded-full" style={{ width: `${dept.score}%` }}></div>
+                    <div className="bg-[#F97316] h-1.5 rounded-full" style={{ width: `${dept.averageScore}%` }}></div>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="text-center py-8">
+                  <p className="text-sm text-gray-400 font-medium">No department data available.</p>
+                </div>
+              )}
             </div>
           </div>
           
@@ -287,12 +276,12 @@ export default function AnalyticsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {mockActivity.map((act) => (
+              {(data?.recentActivity || []).map((act: any) => (
                 <tr key={act.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="py-4 px-2">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center shrink-0">
-                        {act.status === 'Published' ? (
+                        {act.status === 'PUBLISHED' ? (
                           <ClipboardCheck size={16} className="text-blue-600" />
                         ) : (
                           <AlertIcon />
@@ -313,17 +302,17 @@ export default function AnalyticsPage() {
                     </div>
                   </td>
                   <td className="py-4 px-2">
-                    <div className="text-sm text-gray-900">{act.time.split(' ')[0]} {act.time.split(' ')[1]}</div>
-                    <div className="text-[11px] text-gray-500">{act.time.split(' ')[2] || act.time}</div>
+                    <div className="text-sm text-gray-900">{new Date(act.time).toLocaleDateString()}</div>
+                    <div className="text-[11px] text-gray-500">{new Date(act.time).toLocaleTimeString()}</div>
                   </td>
                   <td className="py-4 px-2">
-                    {act.status === 'Published' ? (
+                    {act.status === 'PUBLISHED' ? (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-green-50 text-green-700">
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div> Published
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-orange-50 text-orange-700">
-                        <div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div> Review Request
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-50 text-red-700">
+                        <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div> Rejected
                       </span>
                     )}
                   </td>
@@ -340,12 +329,12 @@ export default function AnalyticsPage() {
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
           <h2 className="text-lg font-bold text-gray-900 tracking-tight mb-6">Top Contributors</h2>
           <div className="space-y-6">
-            {mockContributors.map((c) => (
+            {(data?.topContributors || []).map((c: any, idx: number) => (
               <div key={c.id} className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden relative">
                     <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${c.name}`} alt="avatar" />
-                    {c.id === 1 && (
+                    {idx === 0 && (
                       <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-[#F97316] rounded-full border-2 border-white flex items-center justify-center">
                         <span className="text-[8px] font-bold text-white">1</span>
                       </div>
@@ -353,7 +342,7 @@ export default function AnalyticsPage() {
                   </div>
                   <div>
                     <div className="text-sm font-bold text-gray-900">{c.name}</div>
-                    <div className="text-[11px] text-gray-500">{c.sub}</div>
+                    <div className="text-[11px] text-gray-500">{c.count} Papers Created</div>
                   </div>
                 </div>
                 <div className="text-right">

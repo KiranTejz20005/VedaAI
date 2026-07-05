@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Plus, Search, Edit3, Trash2, Users, Loader2, X, Layers } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAdminAuthStore } from '@/store/admin-auth.store';
 
 interface ClassRecord {
   id: string;
@@ -39,12 +40,15 @@ export default function ClassesManagement() {
   
   const [analytics, setAnalytics] = useState<any>(null);
 
+  const { activeOrganizationId } = useAdminAuthStore();
+
   const loadData = async (isInitial = false) => {
     try {
       setLoading(true);
+      const queryParams = activeOrganizationId ? `?organizationId=${activeOrganizationId}` : '';
       const [res, analyticsRes] = await Promise.all([
-        api.get('/admin/classrooms'),
-        api.get('/admin/analytics/dashboard').catch(() => null)
+        api.get(`/admin/classrooms${queryParams}`),
+        api.get(`/admin/analytics/dashboard${queryParams}`).catch(() => null)
       ]);
       
       if (res.data?.success) {
@@ -86,16 +90,25 @@ export default function ClassesManagement() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this class? All associated students will lose their class assignment.')) return;
+    // Optimistic update - remove immediately from UI
+    setList(prev => prev.filter(c => c.id !== id));
+    const toastId = toast.loading('Deleting class...');
     try {
       const res = await api.delete(`/admin/classrooms/${id}`);
       if (res.data?.success) {
-        toast.success('Class deleted successfully');
-        loadData();
+        toast.success('Class deleted successfully', { id: toastId });
+        loadData(); // re-sync in background
+      } else {
+        toast.error('Failed to delete class', { id: toastId });
+        loadData(); // revert
       }
     } catch (err: any) {
-      toast.error(err.message || 'Failed to delete class');
+      toast.error(err?.response?.data?.message || err.message || 'Failed to delete class', { id: toastId });
+      loadData(); // revert optimistic update
     }
   };
+
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,25 +118,30 @@ export default function ClassesManagement() {
     }
 
     const payload = { grade, section, academicYear };
-
+    setSubmitting(true);
+    const toastId = toast.loading(modalType === 'create' ? 'Creating class...' : 'Updating class...');
     try {
       if (modalType === 'create') {
         const res = await api.post('/admin/classrooms', payload);
         if (res.data?.success) {
-          toast.success('Class created successfully');
+          toast.success('Class created successfully!', { id: toastId });
           setShowModal(false);
           loadData();
         }
       } else if (selectedClass) {
         const res = await api.put(`/admin/classrooms/${selectedClass.id}`, payload);
         if (res.data?.success) {
-          toast.success('Class updated successfully');
+          // Optimistic update in list immediately
+          setList(prev => prev.map(c => c.id === selectedClass.id ? { ...c, grade, section, academicYear } : c));
+          toast.success('Class updated successfully!', { id: toastId });
           setShowModal(false);
           loadData();
         }
       }
     } catch (err: any) {
-      toast.error(err.message || 'Operation failed');
+      toast.error(err?.response?.data?.message || err.message || 'Operation failed', { id: toastId });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -287,14 +305,14 @@ export default function ClassesManagement() {
           <div className="text-center py-16 text-gray-500 text-sm">No classes found.</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {sortedList.map((c, i) => {
-              // Mock Progress for UI
-              const progress = [85, 70, 92, 45, 60, 88, 75, 95, 50, 80, 68, 40][i % 12];
-              let statusText = 'TRENDING_';
-              let statusBg = 'bg-orange-50';
-              let statusColor = 'text-orange-600';
-              if (progress >= 80) { statusText = 'Top Tier'; }
-              else if (progress <= 50) { statusText = 'Needs Review'; statusBg = 'bg-red-50'; statusColor = 'text-red-600'; }
+            {sortedList.map((c) => {
+              // Real progress could be tracked from analytics or class properties. Defaulting to empty/neutral state if unavailable.
+              const progress = c.progress || 0; // assuming progress can be injected from backend, else 0
+              let statusText = 'Active';
+              let statusBg = 'bg-blue-50';
+              let statusColor = 'text-blue-600';
+              if (progress >= 80) { statusText = 'Top Tier'; statusBg = 'bg-green-50'; statusColor = 'text-green-600'; }
+              else if (progress > 0 && progress <= 50) { statusText = 'Needs Review'; statusBg = 'bg-red-50'; statusColor = 'text-red-600'; }
 
               return (
                 <div key={c.id} onClick={() => handleViewStudents(c)} className="bg-white border border-gray-200 rounded-2xl p-5 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between min-h-[220px]">
@@ -318,16 +336,6 @@ export default function ClassesManagement() {
                         {statusText === 'Needs Review' && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>}
                         {statusText}
                       </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-center text-xs font-semibold text-gray-900 mb-2">
-                      <span>Curriculum Progress</span>
-                      <span>{progress}%</span>
-                    </div>
-                    <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                      <div className="bg-gray-900 h-1.5 rounded-full" style={{ width: `${progress}%` }}></div>
                     </div>
                   </div>
                 </div>
@@ -362,9 +370,10 @@ export default function ClassesManagement() {
                 <input type="text" value={academicYear} onChange={(e) => setAcademicYear(e.target.value)}
                   className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="e.g., 2024" />
               </div>
-              <button type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-all shadow-sm text-sm mt-2">
-                {modalType === 'create' ? 'Create Class' : 'Save Changes'}
+              <button type="submit" disabled={submitting}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-70 text-white font-semibold py-2.5 rounded-lg transition-all shadow-sm text-sm mt-2 flex items-center justify-center gap-2">
+                {submitting && <Loader2 size={16} className="animate-spin" />}
+                {submitting ? 'Saving...' : (modalType === 'create' ? 'Create Class' : 'Save Changes')}
               </button>
             </form>
           </div>

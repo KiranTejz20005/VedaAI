@@ -33,7 +33,7 @@ export default function SettingsPage() {
       setLoading(true);
       if (isSuperAdmin) {
         // Load Global Settings
-        const res = await api.get('/super-admin/settings');
+        const res = await api.get('/admin/settings');
         if (res.data?.success) {
           const s = res.data.data;
           setInstitutionName(s.platformName || 'Vidya AI Education');

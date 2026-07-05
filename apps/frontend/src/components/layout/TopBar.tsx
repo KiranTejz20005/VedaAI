@@ -98,9 +98,9 @@ export function Topbar() {
     if (success) {
       const state = useAuthStore.getState();
       if (state.user?.role === 'SUPER_ADMIN') {
-        window.location.href = '/dashboard/super-admin';
+        router.push('/dashboard/super-admin');
       } else {
-        window.location.href = '/dashboard';
+        router.push('/dashboard');
       }
     }
   };

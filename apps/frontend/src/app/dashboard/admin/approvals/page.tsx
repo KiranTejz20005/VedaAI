@@ -25,12 +25,17 @@ interface PendingApproval {
   title: string;
   subject: string;
   typeBreakdown: string | null;
+  status: string;
   createdAt: string;
+  approvedAt?: string;
+  rejectedAt?: string;
   createdBy?: {
     firstName: string;
     lastName: string;
     email: string;
   };
+  approvedBy?: { firstName: string; lastName: string };
+  rejectedBy?: { firstName: string; lastName: string };
 }
 
 export default function ApprovalsOverview() {
@@ -47,7 +52,8 @@ export default function ApprovalsOverview() {
   const fetchApprovals = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/admin/approvals');
+      const queryParams = activeOrganizationId ? `?organizationId=${activeOrganizationId}` : '';
+      const res = await api.get(`/admin/approvals${queryParams}`);
       if (res.data?.success) {
         setApprovals(res.data.data);
       }
@@ -69,7 +75,7 @@ export default function ApprovalsOverview() {
     try {
       await api.post(`/admin/approvals/${id}/approve`);
       toast.success('Approved successfully');
-      setApprovals(prev => prev.filter(a => a.id !== id));
+      setApprovals(prev => prev.map(a => a.id === id ? { ...a, status: 'PUBLISHED', approvedAt: new Date().toISOString() } : a));
     } catch (err) {
       toast.error('Failed to approve');
     }
@@ -79,14 +85,15 @@ export default function ApprovalsOverview() {
     try {
       await api.post(`/admin/approvals/${id}/reject`, { reviewComments: 'Rejected by admin' });
       toast.success('Rejected successfully');
-      setApprovals(prev => prev.filter(a => a.id !== id));
+      setApprovals(prev => prev.map(a => a.id === id ? { ...a, status: 'REJECTED', rejectedAt: new Date().toISOString() } : a));
     } catch (err) {
       toast.error('Failed to reject');
     }
   };
 
-  const paginatedApprovals = approvals.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  const totalPages = Math.ceil(approvals.length / itemsPerPage);
+  const pendingApprovals = approvals.filter(a => a.status === 'PENDING_APPROVAL');
+  const paginatedApprovals = pendingApprovals.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(pendingApprovals.length / itemsPerPage);
 
   return (
     <div className="space-y-6 pb-12">
@@ -95,7 +102,7 @@ export default function ApprovalsOverview() {
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between h-[120px]">
           <div className="text-[11px] font-bold text-gray-500 tracking-wider uppercase">Pending Tasks</div>
           <div>
-            <div className="text-4xl font-extrabold text-gray-900">{approvals.length}</div>
+            <div className="text-4xl font-extrabold text-gray-900">{pendingApprovals.length}</div>
             <div className="text-xs text-orange-600 font-medium mt-1 flex items-center gap-1">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
               +12% from yesterday
@@ -106,9 +113,9 @@ export default function ApprovalsOverview() {
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between h-[120px]">
           <div className="text-[11px] font-bold text-gray-500 tracking-wider uppercase">Faculty Pending</div>
           <div>
-            <div className="text-4xl font-extrabold text-gray-900">08</div>
+            <div className="text-4xl font-extrabold text-gray-900">0</div>
             <div className="w-full bg-gray-200 rounded-full h-1 mt-3">
-              <div className="bg-gray-900 h-1 rounded-full" style={{ width: '25%' }}></div>
+              <div className="bg-gray-900 h-1 rounded-full" style={{ width: '0%' }}></div>
             </div>
           </div>
         </div>
@@ -116,9 +123,9 @@ export default function ApprovalsOverview() {
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between h-[120px]">
           <div className="text-[11px] font-bold text-gray-500 tracking-wider uppercase">Student Apps</div>
           <div>
-            <div className="text-4xl font-extrabold text-gray-900">24</div>
+            <div className="text-4xl font-extrabold text-gray-900">0</div>
             <div className="w-full bg-gray-200 rounded-full h-1 mt-3">
-              <div className="bg-gray-900 h-1 rounded-full" style={{ width: '65%' }}></div>
+              <div className="bg-gray-900 h-1 rounded-full" style={{ width: '0%' }}></div>
             </div>
           </div>
         </div>
@@ -148,7 +155,7 @@ export default function ApprovalsOverview() {
                 <span className="text-gray-500 text-sm">Loading approvals...</span>
              </div>
           </div>
-        ) : approvals.length === 0 ? (
+        ) : pendingApprovals.length === 0 ? (
           <div className="p-12">
             <EmptyState
               icon={<CheckCircle2 size={40} />}
@@ -202,21 +209,25 @@ export default function ApprovalsOverview() {
                          <div className="text-xs text-gray-500 mt-0.5">{format(new Date(item.createdAt), 'hh:mm a')}</div>
                       </td>
                       <td className="py-4 px-6">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-orange-100 text-orange-800">
-                          PENDING
-                        </span>
+                        {item.status === 'PENDING_APPROVAL' && <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-orange-100 text-orange-800">PENDING</span>}
+                        {item.status === 'PUBLISHED' && <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-green-100 text-green-800">APPROVED</span>}
+                        {item.status === 'REJECTED' && <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-100 text-red-800">REJECTED</span>}
                       </td>
                       <td className="py-4 px-6 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button onClick={() => window.open(`/assignments/${item.id}`, '_blank')} className="p-2 text-gray-400 hover:text-gray-900 transition-colors" title="View Details">
                             <Eye size={18} />
                           </button>
-                          <button onClick={() => handleApprove(item.id)} className="px-4 py-1.5 bg-black text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition-colors">
-                            Approve
-                          </button>
-                          <button onClick={() => handleReject(item.id)} className="px-4 py-1.5 bg-white text-red-600 border border-red-200 text-xs font-bold rounded-lg hover:bg-red-50 transition-colors">
-                            Reject
-                          </button>
+                          {item.status === 'PENDING_APPROVAL' && (
+                            <>
+                              <button onClick={() => handleApprove(item.id)} className="px-4 py-1.5 bg-black text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition-colors">
+                                Approve
+                              </button>
+                              <button onClick={() => handleReject(item.id)} className="px-4 py-1.5 bg-white text-red-600 border border-red-200 text-xs font-bold rounded-lg hover:bg-red-50 transition-colors">
+                                Reject
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -226,10 +237,10 @@ export default function ApprovalsOverview() {
             </table>
             
             {/* Pagination */}
-            {approvals.length > 0 && (
+            {pendingApprovals.length > 0 && (
               <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
                 <div className="text-sm text-gray-500">
-                  Showing {Math.min(itemsPerPage, approvals.length - (currentPage - 1) * itemsPerPage)} of {approvals.length} pending requests
+                  Showing {Math.min(itemsPerPage, pendingApprovals.length - (currentPage - 1) * itemsPerPage)} of {pendingApprovals.length} pending requests
                 </div>
                 <div className="flex items-center gap-1">
                   <button 
@@ -281,28 +292,34 @@ export default function ApprovalsOverview() {
              <h3 className="font-bold text-gray-900 text-[15px]">Recent Activity</h3>
              <History size={16} className="text-gray-400" />
            </div>
-           <div className="space-y-4">
-              <div className="flex gap-3 items-start">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-500 mt-2 shrink-0"></div>
-                <div>
-                  <div className="text-[13px] text-gray-900"><span className="font-bold">You</span> approved Student Bulk Upload</div>
-                  <div className="text-[11px] text-gray-500 mt-0.5">2 mins ago</div>
-                </div>
-              </div>
-              <div className="flex gap-3 items-start">
-                <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-2 shrink-0"></div>
-                <div>
-                  <div className="text-[13px] text-gray-900"><span className="font-bold">You</span> rejected External Faculty App</div>
-                  <div className="text-[11px] text-gray-500 mt-0.5">15 mins ago</div>
-                </div>
-              </div>
-              <div className="flex gap-3 items-start">
-                <div className="w-1.5 h-1.5 rounded-full bg-black mt-2 shrink-0"></div>
-                <div>
-                  <div className="text-[13px] text-gray-900"><span className="font-bold">Dr. Jenkins</span> signed off on analytics</div>
-                  <div className="text-[11px] text-gray-500 mt-0.5">1 hour ago</div>
-                </div>
-              </div>
+            <div className="space-y-4">
+              {(() => {
+                const recentApprovals = approvals.filter(a => a.status === 'PUBLISHED' || a.status === 'REJECTED')
+                  .sort((a, b) => {
+                    const dateA = a.approvedAt || a.rejectedAt || a.createdAt;
+                    const dateB = b.approvedAt || b.rejectedAt || b.createdAt;
+                    return new Date(dateB).getTime() - new Date(dateA).getTime();
+                  }).slice(0, 5);
+
+                if (recentApprovals.length === 0) return <div className="text-sm text-gray-500">No recent activity found.</div>;
+
+                return recentApprovals.map(log => {
+                  const isRejected = log.status === 'REJECTED';
+                  const timestamp = log.approvedAt || log.rejectedAt || log.createdAt;
+                  const actor = isRejected ? log.rejectedBy : log.approvedBy;
+                  return (
+                    <div key={log.id} className="flex gap-3 items-start">
+                      <div className={`w-1.5 h-1.5 rounded-full mt-2 shrink-0 ${isRejected ? 'bg-red-500' : 'bg-green-500'}`}></div>
+                      <div>
+                        <div className="text-[13px] text-gray-900">
+                          <span className="font-bold">{actor?.firstName || 'Admin'}</span> {isRejected ? 'rejected' : 'approved'} {log.subject || log.title}
+                        </div>
+                        <div className="text-[11px] text-gray-500 mt-0.5">{format(new Date(timestamp), 'MMM dd, hh:mm a')}</div>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
            </div>
         </div>
       </div>

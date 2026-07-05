@@ -41,7 +41,12 @@ export const useSystemStore = create<SystemStore>((set, get) => ({
       let res;
       try {
         if (user?.role === 'SUPER_ADMIN') {
-          res = await api.get('/super-admin/settings');
+          const { activeOrganizationId } = useAdminAuthStore.getState();
+          if (activeOrganizationId) {
+            res = await api.get('/admin/organization/settings');
+          } else {
+            res = await api.get('/super-admin/settings');
+          }
         } else if (user?.role === 'ADMIN' || user?.role === 'ORG_ADMIN') {
           res = await api.get('/admin/organization/settings');
         } else {

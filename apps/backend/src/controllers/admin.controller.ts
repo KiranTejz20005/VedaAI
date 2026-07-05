@@ -442,7 +442,7 @@ export class AdminController {
 
   static async deleteUser(req: Request, res: Response) {
     try {
-      const orgId = getAdminOrgId(req);
+      const orgId = getAdminOrgIdOptional(req);
       if (req.user) {
         const allowed = await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
         if (!allowed) {
@@ -1432,7 +1432,7 @@ export class AdminController {
       const faculty = await prisma.user.findMany({
         where: { organizationId: orgId, role: 'TEACHER', status: { not: 'DELETED' } },
         orderBy: { createdAt: 'desc' },
-        include: { department: { select: { name: true } }, organization: { select: { name: true } } },
+        include: { department: { select: { name: true } }, organization: true },
       });
       res.json({ success: true, data: faculty });
     } catch (err: any) {
@@ -1490,6 +1490,12 @@ export class AdminController {
   static async updateFaculty(req: Request, res: Response) {
     try {
       if (req.user) await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+      const orgId = getAdminOrgId(req);
+      const targetUser = await prisma.user.findUnique({ where: { id: req.params.id } });
+      if (targetUser && targetUser.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: User belongs to another organization.' });
+        return;
+      }
       const { firstName, lastName, email, departmentId } = req.body;
       const data: any = {};
       if (firstName) data.firstName = firstName;
@@ -1507,6 +1513,12 @@ export class AdminController {
   static async deactivateFaculty(req: Request, res: Response) {
     try {
       if (req.user) await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+      const orgId = getAdminOrgId(req);
+      const targetUser = await prisma.user.findUnique({ where: { id: req.params.id } });
+      if (targetUser && targetUser.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: User belongs to another organization.' });
+        return;
+      }
       const { status } = req.body;
       if (!['ACTIVE', 'SUSPENDED'].includes(status)) {
         res.status(400).json({ success: false, error: 'Status must be ACTIVE or SUSPENDED' }); return;
@@ -1599,6 +1611,7 @@ export class AdminController {
       const students = await prisma.user.findMany({
         where: { organizationId: orgId, role: 'STUDENT', status: { not: 'DELETED' } },
         orderBy: { createdAt: 'desc' },
+        include: { organization: true },
       });
       const classes = await prisma.class.findMany({
         where: { organizationId: orgId }
@@ -1686,6 +1699,13 @@ export class AdminController {
 
   static async updateStudent(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const existingUser = await prisma.user.findUnique({ where: { id: req.params.id } });
+      if (existingUser && existingUser.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: User belongs to another organization.' });
+        return;
+      }
+      
       const { firstName, lastName, email, phone } = req.body;
       const data: any = {};
       if (firstName) data.firstName = firstName;
@@ -1693,7 +1713,6 @@ export class AdminController {
       if (email) data.email = email;
       if (phone !== undefined) data.phone = phone || null;
       
-      const existingUser = await prisma.user.findUnique({ where: { id: req.params.id } });
       const preferences = { 
         ...(existingUser?.preferences as any || {}),
         ...(req.body.rollNo !== undefined && { rollNo: req.body.rollNo }),
@@ -1705,14 +1724,14 @@ export class AdminController {
       const user = await prisma.user.update({ where: { id: req.params.id }, data });
 
       // Sync to ClassStudent
-      if (existingUser?.email) {
+      if (existingUser?.email && req.body.classId !== undefined) {
         // Find existing ClassStudent by email
         const existingClassStudent = await prisma.classStudent.findFirst({
           where: { email: existingUser.email }
         });
         
         if (existingClassStudent) {
-          if (req.body.classId) {
+          if (req.body.classId !== null) {
             await prisma.classStudent.update({
               where: { id: existingClassStudent.id },
               data: {
@@ -1726,7 +1745,7 @@ export class AdminController {
             // Unassigned from class
             await prisma.classStudent.delete({ where: { id: existingClassStudent.id } });
           }
-        } else if (req.body.classId) {
+        } else if (req.body.classId !== null) {
           // Assigned to class for the first time
           await prisma.classStudent.create({
             data: {
@@ -1758,6 +1777,12 @@ export class AdminController {
 
   static async deactivateStudent(req: Request, res: Response) {
     try {
+      const orgId = getAdminOrgId(req);
+      const targetUser = await prisma.user.findUnique({ where: { id: req.params.id } });
+      if (targetUser && targetUser.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, error: 'Access denied: User belongs to another organization.' });
+        return;
+      }
       const { status } = req.body;
       if (!['ACTIVE', 'SUSPENDED'].includes(status)) {
         res.status(400).json({ success: false, error: 'Status must be ACTIVE or SUSPENDED' }); return;
@@ -1820,7 +1845,7 @@ export class AdminController {
       logger.debug({ userId: req.user?.id, role: req.user?.role, orgId }, '[Admin:getPendingApprovals] fetching');
       if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
       const pending = await prisma.assignment.findMany({
-        where: { organizationId: orgId, status: 'PENDING_APPROVAL' },
+        where: { organizationId: orgId, status: { in: ['PENDING_APPROVAL', 'PUBLISHED', 'REJECTED'] } },
         orderBy: { createdAt: 'desc' },
         include: {
           _count: { select: { generatedPapers: true } },

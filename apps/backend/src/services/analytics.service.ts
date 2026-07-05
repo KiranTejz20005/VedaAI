@@ -326,12 +326,145 @@ export class AnalyticsService {
       select: { id: true, name: true },
     });
 
-    const departmentPerformance = departments.map(d => ({
-      departmentId: d.id,
-      name: d.name,
-      papersCount: Math.floor(Math.random() * 24) + 6,
-      averageScore: Math.floor(Math.random() * 15) + 75,
+    // Real department performance: aggregate assignment counts and average scores
+    const deptIds = departments.map(d => d.id);
+    const facultyInDepts = await prisma.user.findMany({
+      where: { departmentId: { in: deptIds }, role: 'TEACHER' },
+      select: { id: true, departmentId: true }
+    });
+    const facultyToDept = new Map<string, string>();
+    facultyInDepts.forEach(f => {
+      if (f.departmentId) facultyToDept.set(f.id, f.departmentId);
+    });
+
+    const allAssignments = await prisma.assignment.findMany({
+      where: organizationId ? { organizationId } : {},
+      include: {
+        submissions: {
+          include: { evaluations: true }
+        },
+        createdBy: true
+      }
+    });
+
+    const deptStats: Record<string, { papers: number, totalScore: number, scoreCount: number }> = {};
+    departments.forEach(d => deptStats[d.id] = { papers: 0, totalScore: 0, scoreCount: 0 });
+
+    const recentActivityRaw = await prisma.assignment.findMany({
+      where: {
+        organizationId: organizationId ? organizationId : undefined,
+        status: { in: ['PUBLISHED', 'REJECTED'] }
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 5,
+      include: { createdBy: { include: { department: true } } }
+    });
+
+    const recentActivity = recentActivityRaw.map(a => ({
+      id: a.id,
+      event: a.title,
+      dept: a.createdBy?.department?.name || 'General',
+      initiator: a.createdBy ? `${a.createdBy.firstName} ${a.createdBy.lastName}` : 'System',
+      time: a.updatedAt.toISOString(),
+      status: a.status
     }));
+
+    const authorCounts: Record<string, { count: number, name: string }> = {};
+    
+    // Group logic for department performance and contributors
+    allAssignments.forEach(a => {
+      if (a.createdById) {
+        // Contributors
+        if (!authorCounts[a.createdById]) {
+          authorCounts[a.createdById] = { count: 0, name: a.createdBy ? `${a.createdBy.firstName} ${a.createdBy.lastName}` : 'Unknown' };
+        }
+        authorCounts[a.createdById].count += 1;
+
+        // Dept stats
+        const dId = facultyToDept.get(a.createdById);
+        if (dId && deptStats[dId]) {
+          deptStats[dId].papers += 1;
+        }
+      }
+      
+      // Calculate submission scores for dept
+      if (a.createdById) {
+        const dId = facultyToDept.get(a.createdById);
+        if (dId && deptStats[dId]) {
+          a.submissions.forEach(sub => {
+            if (sub.evaluations && sub.evaluations[0]) {
+              const evalObj = sub.evaluations[0];
+              const pct = (evalObj.score / (evalObj.totalMarks || 100)) * 100;
+              deptStats[dId].totalScore += pct;
+              deptStats[dId].scoreCount += 1;
+            }
+          });
+        }
+      }
+    });
+
+    const departmentPerformance = departments.map(d => {
+      const stats = deptStats[d.id];
+      return {
+        departmentId: d.id,
+        name: d.name,
+        papersCount: stats.papers,
+        averageScore: stats.scoreCount > 0 ? Math.round(stats.totalScore / stats.scoreCount) : 0
+      };
+    });
+
+    // Chart Data (Real data over the last 6 months)
+    const chartData = [];
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      const start = new Date(date.getFullYear(), date.getMonth(), 1);
+      const end = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
+
+      const enrollments = await prisma.user.count({
+        where: {
+          role: 'STUDENT',
+          createdAt: { gte: start, lte: end },
+          organizationId: organizationId ? organizationId : undefined
+        }
+      });
+
+      let completions = 0;
+      allAssignments.forEach(a => {
+        a.submissions.forEach(sub => {
+          if (new Date(sub.createdAt) >= start && new Date(sub.createdAt) <= end) {
+             completions++;
+          }
+        });
+      });
+
+      chartData.push({
+        month: start.toLocaleString('default', { month: 'short' }),
+        Enrollment: enrollments,
+        Completion: completions
+      });
+    }
+
+    const paperApprovalsCount = await prisma.assignment.count({
+      where: organizationId ? { organizationId, status: 'PUBLISHED' } : { status: 'PUBLISHED' },
+    });
+
+    let globalTotalScore = 0;
+    let globalScoreCount = 0;
+    Object.values(deptStats).forEach(s => {
+      globalTotalScore += s.totalScore;
+      globalScoreCount += s.scoreCount;
+    });
+    const avgAssessmentScore = globalScoreCount > 0 ? Math.round(globalTotalScore / globalScoreCount) : 0;
+
+    const facultyEngagedCount = Object.keys(authorCounts).length;
+    const facultyEngagement = totalTeachers > 0 ? Math.round((facultyEngagedCount / totalTeachers) * 100) : 0;
+
+    const maxPapers = Math.max(...Object.values(authorCounts).map(a => a.count), 1);
+    const topContributors = Object.entries(authorCounts)
+      .map(([id, data]) => ({ id, name: data.name, count: data.count, score: Math.round((data.count / maxPapers) * 100) + '%' }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
 
     return {
       totals: {
@@ -339,20 +472,22 @@ export class AnalyticsService {
         teachers: totalTeachers,
         students: totalStudents,
         pendingInvites: pendingInvites,
-        activeUsers: activeUsers || Math.floor(totalUsers * 0.4) + 1, // Fallback realistic ratio
+        activeUsers: activeUsers || 0, // removed fallback
         papersGenerated,
         assignmentsCreated,
+        paperApprovals: paperApprovalsCount,
+        avgAssessmentScore,
+        facultyEngagement
       },
       aiAnalytics: {
         totalTokens,
         totalCost,
         providerUsage,
       },
-      departmentPerformance: departmentPerformance.length > 0 ? departmentPerformance : [
-        { departmentId: '1', name: 'Computer Science', papersCount: 42, averageScore: 82.5 },
-        { departmentId: '2', name: 'Electrical Engineering', papersCount: 28, averageScore: 76.4 },
-        { departmentId: '3', name: 'Mechanical Engineering', papersCount: 19, averageScore: 71.8 },
-      ],
+      departmentPerformance,
+      recentActivity,
+      topContributors,
+      chartData,
     };
   }
 }

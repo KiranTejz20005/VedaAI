@@ -122,14 +122,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthenticated, isLoading, initialize } = useAuthStore();
-  const { initializeFromStorage } = useAdminAuthStore();
+  const { initializeFromStorage, activeOrganizationId } = useAdminAuthStore();
   const { settings, fetchSettings, initialized } = useSystemStore();
 
   useEffect(() => {
     initialize();
     initializeFromStorage();
+  }, [initialize, initializeFromStorage]);
+
+  useEffect(() => {
     fetchSettings();
-  }, [initialize, initializeFromStorage, fetchSettings]);
+  }, [fetchSettings, activeOrganizationId, user?.role]);
 
   useEffect(() => {
     if (isLoading) return;

@@ -220,7 +220,7 @@ export default function AdminDashboard() {
             <ActionCard
               icon={<UserPlus size={18} />}
               label="Create Faculty"
-              href="/admin/users"
+              href="/dashboard/admin/users"
               variant="admin-primary"
             />
             <ActionCard
@@ -232,12 +232,12 @@ export default function AdminDashboard() {
             <ActionCard
               icon={<Plus size={18} />}
               label="Create Class"
-              href="/admin/classes"
+              href="/dashboard/admin/classes"
             />
             <ActionCard
               icon={<CheckCircle size={18} />}
               label="View Approvals"
-              href="/admin/approvals"
+              href="/dashboard/admin/approvals"
               variant="admin-warning"
             />
           </div>
