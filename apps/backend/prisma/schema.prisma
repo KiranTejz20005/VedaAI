@@ -264,6 +264,14 @@ model StudentLearningProfile {
   // One-to-one with predictions
   predictiveAnalytics PredictiveAnalytics?
 
+  // Streak System Engine
+  currentStreak   Int       @default(0)
+  longestStreak   Int       @default(0)
+  lastActiveDate  DateTime?
+  totalActiveDays Int       @default(0)
+  weeklyActivity  Json?
+  monthlyActivity Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -1405,8 +1413,12 @@ model LeaveApplication {
   title          String
   subject        String
   body           String
+  startDate      DateTime     @default(now())
+  endDate        DateTime     @default(now())
   duration       String
+  attachmentUrl  String?
   status         String       @default("PENDING") // PENDING, APPROVED, REJECTED
+  remarks        String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -1511,10 +1523,11 @@ model TutorSession {
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  subject    String
-  tutorMode  String         @default("SOCRATIC") // SOCRATIC, EXPLAIN, HINT, PRACTICE
-  status     String         @default("ACTIVE")
-  messages   TutorMessage[]
+  subject   String
+  title     String         @default("New Chat")
+  tutorMode String         @default("SOCRATIC") // SOCRATIC, EXPLAIN, HINT, PRACTICE
+  status    String         @default("ACTIVE")
+  messages  TutorMessage[]
   flashcards Json?
 
   createdAt DateTime @default(now())
@@ -1637,6 +1650,7 @@ model ThesisProposal {
   @@index([supervisorId])
 }
 
+
 model LibraryResource {
   id             String       @id @default(uuid())
   title          String
@@ -1656,3 +1670,55 @@ model LibraryResource {
   @@index([uploadedById])
   @@index([organizationId])
 }
+
+// ── Added Models for Student Dashboard ──
+
+model RescheduleRequest {
+  id             String       @id @default(uuid())
+  studentId      String
+  teacherId      String
+  courseId       String?
+  originalDate   DateTime
+  preferredDate  DateTime
+  preferredTime  String?
+  reason         String       @db.Text
+  remarks        String?      @db.Text
+  status         String       @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED
+  organizationId String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([studentId])
+  @@index([teacherId])
+  @@index([organizationId])
+}
+
+model Streak {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  currentStreak    Int      @default(0)
+  longestStreak    Int      @default(0)
+  lastActivityDate DateTime?
+  milestones       Json?    @default("[]") // Array of earned badges/milestones
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model PracticeAttempt {
+  id             String   @id @default(uuid())
+  studentId      String
+  quizId         String?
+  score          Int
+  correct        Int
+  wrong          Int
+  skipped        Int
+  timeTaken      Int      // in seconds
+  questions      Json?
+  difficulty     String?
+  createdAt      DateTime @default(now())
+
+  @@index([studentId])
+  @@index([quizId])
+}
+
+

@@ -38,6 +38,10 @@ export async function deleteSession(sessionId: string): Promise<void> {
   await api.delete(`/tutor/sessions/${sessionId}`);
 }
 
+export async function renameSession(sessionId: string, title: string): Promise<void> {
+  await api.patch(`/tutor/sessions/${sessionId}/title`, { title });
+}
+
 export async function getTutorConfig(): Promise<TutorConfig> {
   const res = await api.get('/tutor/config');
   return res.data.data;

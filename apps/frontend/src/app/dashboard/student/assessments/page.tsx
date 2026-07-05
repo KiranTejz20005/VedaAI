@@ -8,6 +8,7 @@ import {
   AlertCircle, Filter, Plus, Zap, Calendar, BarChart3, Mail, MoreHorizontal, Timer
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { RescheduleModal } from '@/components/student/RescheduleModal';
 
 type DashboardCategory = 'UPCOMING' | 'COMPLETED' | 'MISSED' | 'LIVE NOW';
 
@@ -23,12 +24,14 @@ interface StudentAssessment {
   submittedAt?: string;
   score?: number;
   evaluatedMarks?: number;
+  teacherId?: string;
 }
 
 export default function StudentAssessmentsPage() {
   const router = useRouter();
   const [assessments, setAssessments] = useState<StudentAssessment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rescheduleItem, setRescheduleItem] = useState<StudentAssessment | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const fetchAssessments = useCallback(async () => {
@@ -239,7 +242,7 @@ export default function StudentAssessmentsPage() {
                 )}
                 {isMissed && (
                   <>
-                    <button style={{ flex: 1, padding: '12px', background: '#111827', color: '#fff', borderRadius: '12px', border: 'none', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}>Request Reschedule</button>
+                    <button onClick={() => setRescheduleItem(a)} style={{ flex: 1, padding: '12px', background: '#111827', color: '#fff', borderRadius: '12px', border: 'none', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}>Request Reschedule</button>
                     <button style={{ padding: '12px', background: '#fff', color: '#374151', borderRadius: '12px', border: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                       <Mail size={20} />
                     </button>
@@ -251,7 +254,7 @@ export default function StudentAssessmentsPage() {
         })}
 
         {/* Create New Test Card */}
-        <div onClick={() => router.push('/student/practice')} style={{ 
+        <div onClick={() => router.push('/dashboard/student/practice')} style={{ 
           background: '#F9FAFB', borderRadius: '20px', padding: '24px', 
           border: '2px dashed #D1D5DB', display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center', textAlign: 'center', cursor: 'pointer',
@@ -270,6 +273,17 @@ export default function StudentAssessmentsPage() {
         </div>
 
       </div>
+
+      {rescheduleItem && (
+        <RescheduleModal
+          isOpen={!!rescheduleItem}
+          onClose={() => setRescheduleItem(null)}
+          assessmentId={rescheduleItem.id}
+          courseTitle={rescheduleItem.title}
+          originalDate={rescheduleItem.dueDate}
+          teacherId={rescheduleItem.teacherId || ''}
+        />
+      )}
     </div>
   );
 }

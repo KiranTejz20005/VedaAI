@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { MessageSquare, Plus, Clock, ArrowRight, RotateCcw, Lightbulb } from 'lucide-react';
+import { MessageSquare, Plus, Clock, ArrowRight, RotateCcw, Lightbulb, MoreVertical, Edit2, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
 import { PageHeader } from '@/design-system/PageHeader';
@@ -15,7 +15,7 @@ import { Input } from '@/design-system/Input';
 import { Dialog } from '@/design-system/Dialog';
 import { FlashcardModal } from '@/components/ui/FlashcardModal';
 import type { TutorSession } from '@/types/tutor.types';
-import { createSession, restartSession, generateFlashcards } from '@/services/tutor.service';
+import { createSession, restartSession, generateFlashcards, renameSession, deleteSession } from '@/services/tutor.service';
 
 export default function TutorSessionsPage() {
   const { user } = useAuthStore();
@@ -27,6 +27,10 @@ export default function TutorSessionsPage() {
   const [newSubject, setNewSubject] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [flashcardSessionId, setFlashcardSessionId] = useState<string | null>(null);
+
+  // For Rename/Delete
+  const [editingSession, setEditingSession] = useState<{ id: string; title: string } | null>(null);
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
 
   const fetchSessions = useCallback(async () => {
     if (!user) return;
@@ -79,6 +83,37 @@ export default function TutorSessionsPage() {
   const openFlashcards = (e: React.MouseEvent, sessionId: string) => {
     e.stopPropagation();
     setFlashcardSessionId(sessionId);
+  };
+
+  const handleRenameSession = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSession || !editingSession.title.trim()) return;
+    setIsSubmitting(true);
+    try {
+      await renameSession(editingSession.id, editingSession.title);
+      toast.success('Session renamed');
+      setEditingSession(null);
+      fetchSessions();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to rename');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteSession = async () => {
+    if (!deletingSessionId) return;
+    setIsSubmitting(true);
+    try {
+      await deleteSession(deletingSessionId);
+      toast.success('Session deleted');
+      setDeletingSessionId(null);
+      fetchSessions();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (loading) return <LoadingState lines={5} />;
@@ -157,19 +192,45 @@ export default function TutorSessionsPage() {
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 600, color: 'var(--text-primary)', margin: 0, flex: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {session.subject}
-                  </h3>
-                  <div style={{ 
-                    padding: '2px 8px', 
-                    borderRadius: 12, 
-                    fontSize: '11px', 
-                    fontWeight: 600,
-                    background: session.status === 'ACTIVE' ? '#D1FAE5' : '#F3F4F6',
-                    color: session.status === 'ACTIVE' ? '#065F46' : '#4B5563',
-                    marginLeft: 12
-                  }}>
-                    {session.status}
+                  <div style={{ flex: 1, paddingRight: 16 }}>
+                    <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 600, color: 'var(--text-primary)', margin: 0, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {(session as any).title || session.subject}
+                    </h3>
+                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', margin: 0, marginTop: 4, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {session.subject}
+                    </p>
+                  </div>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={(e) => { e.stopPropagation(); setEditingSession({ id: session.id, title: (session as any).title || session.subject }); }}
+                        style={{ padding: 4, height: 'auto', minWidth: 'auto', color: 'var(--text-muted)' }}
+                      >
+                        <Edit2 size={16} />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={(e) => { e.stopPropagation(); setDeletingSessionId(session.id); }}
+                        style={{ padding: 4, height: 'auto', minWidth: 'auto', color: '#EF4444' }}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
+
+                    <div style={{ 
+                      padding: '2px 8px', 
+                      borderRadius: 12, 
+                      fontSize: '11px', 
+                      fontWeight: 600,
+                      background: session.status === 'ACTIVE' ? '#D1FAE5' : '#F3F4F6',
+                      color: session.status === 'ACTIVE' ? '#065F46' : '#4B5563',
+                    }}>
+                      {session.status}
+                    </div>
                   </div>
                 </div>
                 
@@ -214,6 +275,51 @@ export default function TutorSessionsPage() {
           fetchFlashcards={() => generateFlashcards(flashcardSessionId)}
         />
       )}
+
+      {/* Rename Modal */}
+      <Dialog 
+        open={!!editingSession} 
+        onClose={() => !isSubmitting && setEditingSession(null)}
+        title="Rename Session"
+      >
+        <form onSubmit={handleRenameSession} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <Input
+            label="Title"
+            value={editingSession?.title || ''}
+            onChange={(e) => setEditingSession(prev => prev ? { ...prev, title: e.target.value } : null)}
+            disabled={isSubmitting}
+            required
+            autoFocus
+          />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
+            <Button type="button" variant="ghost" onClick={() => setEditingSession(null)} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" loading={isSubmitting}>
+              Save
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog 
+        open={!!deletingSessionId} 
+        onClose={() => !isSubmitting && setDeletingSessionId(null)}
+        title="Delete Session"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <p style={{ color: 'var(--text-secondary)' }}>Are you sure you want to delete this AI Tutor session? This action cannot be undone.</p>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
+            <Button type="button" variant="ghost" onClick={() => setDeletingSessionId(null)} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button type="button" variant="primary" style={{ background: '#EF4444' }} onClick={handleDeleteSession} loading={isSubmitting}>
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

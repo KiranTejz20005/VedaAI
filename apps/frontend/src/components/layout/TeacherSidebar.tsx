@@ -25,6 +25,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/teacher/groups', label: 'My Groups', icon: Users },
   { href: '/dashboard/teacher/assessments', label: 'Assignments', icon: FileText },
   { href: '/dashboard/teacher/attendance', label: 'Attendance', icon: GraduationCap },
+  { href: '/dashboard/teacher/leave', label: 'Leave Requests', icon: FileCheck },
   { href: '/dashboard/teacher/copilot', label: 'AI Copilot', icon: Sparkles },
   { href: '/dashboard/teacher/insights', label: 'Class Insights', icon: LayoutGrid },
   { href: '/ai-toolkit', label: 'AI Teacher\'s Toolkit', icon: Smartphone },

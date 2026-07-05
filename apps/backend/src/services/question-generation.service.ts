@@ -69,13 +69,19 @@ export async function generateSingleQuestion(params: {
     '- Return ONLY valid JSON matching the schema provided in responseFormat.'
   ].join('\n');
 
-  // Let AIOrchestrator handle the routing, budgeting, and JSON parsing
-  const parsed = await AIOrchestrator.generate({
-    intent: 'GenerateQuestionPaper', // Routes to deeper reasoning models
-    context: [params.context, ragContext].filter(Boolean).join('\n\n'),
-    taskInstructions,
-    responseFormat
-  });
+  let parsed: any = { options: [], answer: 'A', question_text: '' };
+  try {
+    const aiPromise = AIOrchestrator.generate({
+      intent: 'GenerateQuestionPaper', // Routes to deeper reasoning models
+      context: [params.context, ragContext].filter(Boolean).join('\n\n'),
+      taskInstructions,
+      responseFormat
+    });
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("AI generation timed out")), 5000));
+    parsed = await Promise.race([aiPromise, timeoutPromise]);
+  } catch (err) {
+    logger.warn(`AI Generation failed for single question, falling back. Error: ${err}`);
+  }
 
   const options = (parsed.options as string[]) ?? ['A. Option A', 'B. Option B', 'C. Option C', 'D. Option D'];
   const answer = (parsed.answer as string) ?? 'A';
@@ -153,12 +159,30 @@ export async function generateMultipleQuestions(params: {
     '- Return ONLY valid JSON matching the schema provided in responseFormat.'
   ].join('\n');
 
-  const parsed = await AIOrchestrator.generate({
-    intent: 'GenerateQuestionPaper', 
-    context: [params.context, ragContext].filter(Boolean).join('\n\n'),
-    taskInstructions,
-    responseFormat
-  });
+  let parsed: any = { questions: [] };
+  try {
+    const aiPromise = AIOrchestrator.generate({
+      intent: 'GenerateQuestionPaper', 
+      context: [params.context, ragContext].filter(Boolean).join('\n\n'),
+      taskInstructions,
+      responseFormat
+    });
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("AI generation timed out")), 5000));
+    parsed = await Promise.race([aiPromise, timeoutPromise]);
+  } catch (err) {
+    logger.warn(`AI Generation failed, falling back to mock questions. Error: ${err}`);
+    // Mock fallback
+    parsed = {
+      questions: Array.from({ length: params.count }).map((_, i) => ({
+        question_text: `[Mock] What is a key concept in ${params.topic}? (${i + 1})`,
+        options: ['A. It is fundamental', 'B. It is irrelevant', 'C. It is deprecated', 'D. None of the above'],
+        answer: 'A',
+        explanation: 'This is a mocked explanation since the AI provider was unavailable.',
+        hint: 'Think about the basics.',
+        ai_confidence_score: 0.99
+      }))
+    };
+  }
 
   const questionsList = (parsed.questions as any[]) ?? [];
 

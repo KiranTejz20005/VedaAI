@@ -190,7 +190,7 @@ export default function StudentResultsDashboard() {
           
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 40 }}>
             <span style={{ fontSize: 48, fontWeight: 900, color: '#0F172A', letterSpacing: '-0.04em', lineHeight: 1 }}>
-              {currentGPA === '0.00' ? '3.82' : currentGPA}
+              {currentGPA}
             </span>
             <span style={{ fontSize: 14, fontWeight: 700, color: '#94A3B8' }}>/ 4.0</span>
           </div>

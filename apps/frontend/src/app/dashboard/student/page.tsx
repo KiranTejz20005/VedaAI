@@ -16,6 +16,7 @@ interface DashboardData {
   activeAssignments: any[];
   upcomingTests: any[];
   aiInsight: any;
+  currentStreak: number;
 }
 
 export default function StudentDashboard() {
@@ -71,7 +72,8 @@ export default function StudentDashboard() {
     globalRank: { current: 0, total: 0 },
     activeAssignments: [],
     upcomingTests: [],
-    aiInsight: null
+    aiInsight: null,
+    currentStreak: 0
   };
 
   return (
@@ -87,13 +89,7 @@ export default function StudentDashboard() {
             {dash.nextTest && <span> Your next test, <strong style={{ color: '#111827' }}>{dash.nextTest.title}</strong>, is in {dash.nextTest.daysLeft} days.</span>}
           </p>
         </div>
-        <button style={{ 
-          background: '#111827', color: '#fff', padding: '12px 24px', borderRadius: '9999px', 
-          display: 'flex', alignItems: 'center', gap: '8px', border: 'none', cursor: 'pointer',
-          fontWeight: 600, fontSize: '14px', transition: 'opacity 0.2s'
-        }}>
-          <PlayCircle size={18} fill="#fff" color="#111827" /> Resume Learning
-        </button>
+
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '24px' }}>
@@ -130,7 +126,7 @@ export default function StudentDashboard() {
           <Card padding="24px" style={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#111827' }}>Active Assignments</h2>
-              <Link href="/assignments" style={{ color: '#6B7280', fontSize: '14px', textDecoration: 'none', fontWeight: 500 }}>View All</Link>
+              <Link href="/dashboard/student/assessments" style={{ color: '#6B7280', fontSize: '14px', textDecoration: 'none', fontWeight: 500 }}>View All</Link>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               {dash.activeAssignments.length > 0 ? dash.activeAssignments.slice(0, 2).map((assignment, idx) => (
@@ -173,7 +169,7 @@ export default function StudentDashboard() {
           <Card padding="24px" style={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
             <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 20px 0', color: '#111827' }}>Quick Access</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-              <Link href="/student/practice" style={{ textDecoration: 'none' }}>
+              <Link href="/dashboard/student/practice" style={{ textDecoration: 'none' }}>
                 <div style={{ border: '1px solid #E5E7EB', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', transition: 'background 0.2s', cursor: 'pointer' }}>
                   <div style={{ background: '#F3F4F6', padding: '12px', borderRadius: '12px' }}>
                     <BookOpen size={20} color="#374151" />
@@ -181,7 +177,7 @@ export default function StudentDashboard() {
                   <span style={{ color: '#374151', fontSize: '14px', fontWeight: 500 }}>Practice Quiz</span>
                 </div>
               </Link>
-              <Link href="/student/community" style={{ textDecoration: 'none' }}>
+              <Link href="/dashboard/student/community" style={{ textDecoration: 'none' }}>
                 <div style={{ border: '1px solid #E5E7EB', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', transition: 'background 0.2s', cursor: 'pointer' }}>
                   <div style={{ background: '#F3F4F6', padding: '12px', borderRadius: '12px' }}>
                     <Users size={20} color="#374151" />
@@ -189,7 +185,7 @@ export default function StudentDashboard() {
                   <span style={{ color: '#374151', fontSize: '14px', fontWeight: 500 }}>Community</span>
                 </div>
               </Link>
-              <Link href="/student/results" style={{ textDecoration: 'none' }}>
+              <Link href="/dashboard/student/results" style={{ textDecoration: 'none' }}>
                 <div style={{ border: '1px solid #E5E7EB', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', transition: 'background 0.2s', cursor: 'pointer' }}>
                   <div style={{ background: '#F3F4F6', padding: '12px', borderRadius: '12px' }}>
                     <TrendingUp size={20} color="#374151" />
