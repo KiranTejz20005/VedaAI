@@ -162,7 +162,7 @@ export const getStudentAttendance = async (req: Request, res: Response): Promise
     }
 
     const totalClasses = records.length;
-    const presentClasses = records.filter((r: any) => r.status === 'PRESENT').length;
+    const presentClasses = records.filter((r: any) => ['PRESENT', 'LATE', 'EXCUSED'].includes(r.status)).length;
     const percentage = totalClasses > 0 ? (presentClasses / totalClasses) * 100 : 0;
     
     const diffFromLastMonth = totalClasses - previousTotalClasses;
@@ -175,7 +175,7 @@ export const getStudentAttendance = async (req: Request, res: Response): Promise
         subjectStats[subject] = { total: 0, present: 0 };
       }
       subjectStats[subject].total++;
-      if (r.status === 'PRESENT') {
+      if (['PRESENT', 'LATE', 'EXCUSED'].includes(r.status)) {
         subjectStats[subject].present++;
       }
     });
@@ -256,3 +256,4 @@ export const getLeaveApplications = async (req: Request, res: Response): Promise
     res.status(500).json({ success: false, error: error.message || 'Failed to fetch leave applications' });
   }
 };
+

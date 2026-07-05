@@ -14,7 +14,6 @@ import { getKnowledgeOpenApiPaths } from './knowledge/openapi';
 import { getRagOpenApiPaths } from './rag/openapi';
 import gradingPaths from './grading/openapi';
 import rubricPaths from './rubrics/openapi';
-import questionBankPaths from './question-bank/openapi';
 import questionPaperPaths from './question-paper/openapi';
 import quizPaths from './quizzes/openapi';
 import { tutorPaths } from './tutor/openapi';
@@ -40,7 +39,6 @@ function buildFullSpec() {
     ...getRagOpenApiPaths(),
     ...gradingPaths,
     ...rubricPaths,
-    ...questionBankPaths,
     ...questionPaperPaths,
     ...quizPaths,
     ...tutorPaths,

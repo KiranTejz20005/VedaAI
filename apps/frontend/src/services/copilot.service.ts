@@ -28,6 +28,11 @@ export const copilotService = {
     return response.data;
   },
 
+  updateLessonPlan: async (id: string, data: any) => {
+    const response = await api.put(`/copilot/lesson-plan/${id}`, data);
+    return response.data;
+  },
+
   executeWorkflow: async (data: CopilotWorkflowRequest) => {
     const response = await api.post('/copilot/workflow', data);
     return response.data.data;

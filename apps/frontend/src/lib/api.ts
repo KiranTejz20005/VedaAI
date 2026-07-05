@@ -122,7 +122,11 @@ api.interceptors.response.use(
       const backendMessage =
         (error.response?.data as { error?: string; message?: string } | undefined)?.error ??
         (error.response?.data as { error?: string; message?: string } | undefined)?.message;
-      const message = backendMessage ?? error.message ?? 'An unexpected error occurred';
+      let message = backendMessage ?? error.message ?? 'An unexpected error occurred';
+
+      if (error.code === 'ERR_NETWORK' || message === 'Network Error') {
+        message = 'Server unavailable. Please check your internet connection or try again later.';
+      }
 
       if (isApiDebugEnabled) {
         // Suppress expected 401 errors for auth/refresh (when user is simply not logged in)

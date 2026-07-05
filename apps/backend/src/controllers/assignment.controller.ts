@@ -461,3 +461,33 @@ export async function getAssignmentHistoryHandler(req: Request, res: Response): 
     throw err;
   }
 }
+
+export async function updateAssignmentHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const assignment = await loadAssignmentForRequest(req, req.params.id);
+    assertFacultyOwnsAssignment(req, assignment);
+    
+    // Check if we can edit this assignment (e.g., shouldn't be generating or published)
+    if (['GENERATING', 'GENERATED', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED'].includes(assignment.status)) {
+      sendError(res, 'Cannot update assignment in this state', 409);
+      return;
+    }
+
+    const { title, description, subject, dueDate } = req.body;
+    
+    const updated = await prisma.assignment.update({
+      where: { id: req.params.id },
+      data: {
+        title: title ?? undefined,
+        description: description ?? undefined,
+        subject: subject ?? undefined,
+        dueDate: dueDate ? new Date(dueDate) : undefined
+      }
+    });
+
+    sendSuccess(res, { assignment: updated });
+  } catch (err) {
+    if (handleAccessError(res, err)) return;
+    throw err;
+  }
+}

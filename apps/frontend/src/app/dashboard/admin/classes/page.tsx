@@ -307,7 +307,7 @@ export default function ClassesManagement() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {sortedList.map((c) => {
               // Real progress could be tracked from analytics or class properties. Defaulting to empty/neutral state if unavailable.
-              const progress = c.progress || 0; // assuming progress can be injected from backend, else 0
+              const progress = (c as any).progress || 0; // assuming progress can be injected from backend, else 0
               let statusText = 'Active';
               let statusBg = 'bg-blue-50';
               let statusColor = 'text-blue-600';

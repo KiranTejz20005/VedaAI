@@ -7,7 +7,8 @@ import {
   generatePlan, 
   getPlans, 
   getPlan, 
-  removePlan 
+  removePlan,
+  updatePlan
 } from '../controllers/lessons.controller';
 
 const router = Router();
@@ -17,6 +18,7 @@ router.use(authenticate);
 router.post('/', requirePermission(PERMISSIONS.MANAGE_SYLLABUS), asyncHandler(generatePlan));
 router.get('/', asyncHandler(getPlans));
 router.get('/:id', asyncHandler(getPlan));
+router.put('/:id', requirePermission(PERMISSIONS.MANAGE_SYLLABUS), asyncHandler(updatePlan));
 router.delete('/:id', requirePermission(PERMISSIONS.MANAGE_SYLLABUS), asyncHandler(removePlan));
 
 export default router;

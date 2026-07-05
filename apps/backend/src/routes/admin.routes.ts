@@ -73,13 +73,6 @@ router.post('/papers/:id/regenerate', asyncHandler(AdminController.regeneratePap
 router.post('/papers/:id/reassign', asyncHandler(AdminController.reassignPaper));
 router.get('/papers/analytics/stats', asyncHandler(AdminController.getPaperAnalytics));
 
-// ── 8. Question Bank Management ──
-router.get('/question-bank', asyncHandler(AdminController.getQuestionBank));
-router.put('/question-bank/:id', asyncHandler(AdminController.editQuestion));
-router.delete('/question-bank/:id', asyncHandler(AdminController.deleteQuestion));
-router.post('/question-bank/bulk-import', asyncHandler(AdminController.bulkImportQuestions));
-router.post('/question-bank/:id/tag', asyncHandler(AdminController.tagQuestion));
-
 // ── 9. Assignment Management ──
 router.get('/assignments', asyncHandler(AdminController.getAssignments));
 router.post('/assignments/:id/reassign', asyncHandler(AdminController.reassignAssignment));

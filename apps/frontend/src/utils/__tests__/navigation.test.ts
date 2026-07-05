@@ -35,12 +35,12 @@ describe('Navigation Utils', () => {
     let consoleErrorSpy: jest.SpyInstance;
 
     beforeAll(() => {
-      process.env.NODE_ENV = 'development';
+      (process.env as any).NODE_ENV = 'development';
       consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     });
 
     afterAll(() => {
-      process.env.NODE_ENV = originalEnv;
+      (process.env as any).NODE_ENV = originalEnv;
       consoleErrorSpy.mockRestore();
     });
 

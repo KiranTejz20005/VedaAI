@@ -101,6 +101,7 @@ model Organization {
   departments        Department[]
   classes            Class[]
   groups             Group[]
+  libraryResources   LibraryResource[]
   subscription       Subscription?
   assignments        Assignment[]
   generatedPapers    GeneratedPaper[]
@@ -200,6 +201,7 @@ model User {
   savedPosts          SavedPost[]            @relation("SavedPosts")
   leaveApplications   LeaveApplication[]     @relation("LeaveApplications")
   tutorSessions       TutorSession[]
+  libraryResources    LibraryResource[]
 
   @@index([organizationId])
   @@index([departmentId])
@@ -1129,20 +1131,22 @@ model Class {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   attendanceRecords AttendanceRecord[]
+  groups            Group[]
 
   @@index([organizationId])
   @@index([facultyId])
 }
 
 model ClassStudent {
-  id       String   @id @default(uuid())
-  classId  String
-  class    Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
-  name     String
-  rollNo   String
-  email    String
-  isActive Boolean  @default(true)
-  joinedAt DateTime @default(now())
+  id            String         @id @default(uuid())
+  classId       String
+  class         Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  name          String
+  rollNo        String
+  email         String
+  isActive      Boolean        @default(true)
+  joinedAt      DateTime       @default(now())
+  groupStudents GroupStudent[]
 
   @@index([classId])
 }
@@ -1150,7 +1154,10 @@ model ClassStudent {
 model Group {
   id             String         @id @default(uuid())
   name           String
+  description    String?
   subject        String         @default("General")
+  classId        String?
+  class          Class?         @relation(fields: [classId], references: [id], onDelete: SetNull)
   organizationId String
   organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   facultyId      String?
@@ -1161,19 +1168,23 @@ model Group {
 
   @@index([organizationId])
   @@index([facultyId])
+  @@index([classId])
 }
 
 model GroupStudent {
-  id       String   @id @default(uuid())
-  groupId  String
-  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  name     String
-  rollNo   String
-  email    String
-  isActive Boolean  @default(true)
-  joinedAt DateTime @default(now())
+  id             String        @id @default(uuid())
+  groupId        String
+  group          Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  classStudentId String?
+  classStudent   ClassStudent? @relation(fields: [classStudentId], references: [id], onDelete: Cascade)
+  name           String
+  rollNo         String
+  email          String
+  isActive       Boolean       @default(true)
+  joinedAt       DateTime      @default(now())
 
   @@index([groupId])
+  @@index([classStudentId])
 }
 
 // â”€â”€ Notifications â”€â”€
@@ -1500,10 +1511,10 @@ model TutorSession {
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  subject   String
-  tutorMode String         @default("SOCRATIC") // SOCRATIC, EXPLAIN, HINT, PRACTICE
-  status    String         @default("ACTIVE")
-  messages  TutorMessage[]
+  subject    String
+  tutorMode  String         @default("SOCRATIC") // SOCRATIC, EXPLAIN, HINT, PRACTICE
+  status     String         @default("ACTIVE")
+  messages   TutorMessage[]
   flashcards Json?
 
   createdAt DateTime @default(now())
@@ -1624,4 +1635,24 @@ model ThesisProposal {
 
   @@index([studentId])
   @@index([supervisorId])
+}
+
+model LibraryResource {
+  id             String       @id @default(uuid())
+  title          String
+  description    String?      @db.Text
+  resourceType   String       // e.g. "PDF", "Video", "Document"
+  subject        String?
+  className      String?
+  fileUrl        String
+  fileSize       Int?         // in bytes
+  uploadedById   String
+  uploadedBy     User         @relation(fields: [uploadedById], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([uploadedById])
+  @@index([organizationId])
 }

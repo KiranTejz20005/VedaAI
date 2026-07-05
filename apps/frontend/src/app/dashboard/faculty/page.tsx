@@ -75,19 +75,28 @@ export default function FacultyDashboard() {
         gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
         gap: 16,
       }}>
-        <Card padding="clamp(16px, 2vw, 20px)">
-          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 16 }}>Teacher Performance</h3>
-          <p style={{ color: 'var(--text-secondary)' }}>View teacher performance metrics...</p>
+        <Card padding="clamp(16px, 2vw, 20px)" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', minHeight: 200 }}>
+          <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <Users size={24} color="var(--text-muted)" />
+          </div>
+          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 8 }}>Teacher Performance</h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>Performance metrics will be available at the end of the academic term.</p>
         </Card>
         
-        <Card padding="clamp(16px, 2vw, 20px)">
-          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 16 }}>Class Reports</h3>
-          <p style={{ color: 'var(--text-secondary)' }}>Class performance charts and analytics...</p>
+        <Card padding="clamp(16px, 2vw, 20px)" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', minHeight: 200 }}>
+          <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <Building2 size={24} color="var(--text-muted)" />
+          </div>
+          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 8 }}>Class Reports</h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>No recent class analytics found. Reports generate after mid-terms.</p>
         </Card>
         
-        <Card padding="clamp(16px, 2vw, 20px)">
-          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 16 }}>Exam Overview</h3>
-          <p style={{ color: 'var(--text-secondary)' }}>Ongoing and upcoming exams...</p>
+        <Card padding="clamp(16px, 2vw, 20px)" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', minHeight: 200 }}>
+          <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <Clock size={24} color="var(--text-muted)" />
+          </div>
+          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 8 }}>Exam Overview</h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>There are no upcoming exams scheduled for this week.</p>
         </Card>
       </div>
     </div>

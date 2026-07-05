@@ -18,8 +18,8 @@ import { useAdminAuthStore } from '@/store/admin-auth.store';
 const NAV_ITEMS = [
   { href: '/dashboard/faculty', label: 'Dashboard', icon: LayoutGrid, exact: true },
   { href: '/dashboard/teacher', label: 'Teachers', icon: Users },
-  { href: '/assignments', label: 'Assignments', icon: FileText },
-  { href: '/my-classes', label: 'My Classes', icon: BookOpen },
+  { href: '/dashboard/teacher/assessments', label: 'Assignments', icon: FileText },
+  { href: '/dashboard/teacher/groups', label: 'My Classes', icon: BookOpen },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 

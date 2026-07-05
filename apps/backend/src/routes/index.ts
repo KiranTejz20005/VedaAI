@@ -14,7 +14,6 @@ import groupRoutes from './group.routes';
 import generationRoutes from './generation.routes';
 import syllabusRoutes from './syllabus.routes';
 import graderRoutes from './grader.routes';
-import questionBankRoutes from './question-bank.routes';
 import lessonRoutes from './lessons.routes';
 import worksheetRoutes from './worksheets.routes';
 import tutorRoutes from './tutor.routes';
@@ -32,6 +31,8 @@ import moderationRoutes from './moderation.routes';
 import meetingRoutes from './meeting.routes';
 import attendanceRoutes from './attendance.routes';
 import copilotRoutes from './copilot.routes';
+import libraryRoutes from './library.routes';
+import classInsightRoutes from './class-insight.routes';
 
 // ── New API Gateway ──
 import apiGateway from '../api/index';
@@ -89,7 +90,6 @@ apiRouter.use('/v1/groups', groupRoutes);
 apiRouter.use('/v1/generate', generationRoutes);
 apiRouter.use('/v1/syllabus', syllabusRoutes);
 apiRouter.use('/v1/grader', graderRoutes);
-apiRouter.use('/v1/question-bank', questionBankRoutes);
 apiRouter.use('/v1/lessons', lessonRoutes);
 apiRouter.use('/v1/worksheets', worksheetRoutes);
 apiRouter.use('/v1/tutor', tutorRoutes);
@@ -101,6 +101,8 @@ apiRouter.use('/v1/faculty', facultyRoutes);
 apiRouter.use('/v1/notifications', notificationRoutes);
 apiRouter.use('/v1/student', studentRoutes);
 apiRouter.use('/v1/attendance', attendanceRoutes);
+apiRouter.use('/v1/library', libraryRoutes);
+apiRouter.use('/v1/insights', classInsightRoutes);
 
 // Copilot
 apiRouter.use('/v1/copilot', copilotRoutes);

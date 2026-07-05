@@ -14,8 +14,6 @@ import {
   History,
   Sparkles,
   GraduationCap,
-  PieChart,
-  BookOpen,
   FileCheck,
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
@@ -24,16 +22,14 @@ import { useAdminAuthStore } from '@/store/admin-auth.store';
 
 const NAV_ITEMS = [
   { href: '/dashboard/teacher', label: 'Home', icon: LayoutGrid, exact: true },
-  { href: '/my-classes', label: 'My Groups', icon: Users },
-  { href: '/assignments', label: 'Assignments', icon: FileText },
+  { href: '/dashboard/teacher/groups', label: 'My Groups', icon: Users },
+  { href: '/dashboard/teacher/assessments', label: 'Assignments', icon: FileText },
   { href: '/dashboard/teacher/attendance', label: 'Attendance', icon: GraduationCap },
   { href: '/dashboard/teacher/copilot', label: 'AI Copilot', icon: Sparkles },
   { href: '/dashboard/teacher/insights', label: 'Class Insights', icon: LayoutGrid },
   { href: '/ai-toolkit', label: 'AI Teacher\'s Toolkit', icon: Smartphone },
-  { href: '/papers', label: 'My Library', icon: History },
-  { href: '/grader', label: 'Evaluations', icon: FileCheck },
-  { href: '/question-bank', label: 'Question Bank', icon: BookOpen },
-  { href: '/analytics', label: 'Analytics', icon: PieChart },
+  { href: '/dashboard/teacher/library', label: 'My Library', icon: History },
+  { href: '/dashboard/teacher/assessments', label: 'Evaluations', icon: FileCheck },
 ];
 
 export function TeacherSidebar() {

@@ -6,6 +6,7 @@ import {
   getLessonPlanDetails, 
   deleteLessonPlan 
 } from '../services/lessons.service';
+import prisma from '../config/prisma';
 
 export const generatePlan = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -66,5 +67,30 @@ export const removePlan = async (req: Request, res: Response): Promise<void> => 
   } catch (error) {
     logger.error(`[removePlan] ${error}`);
     res.status(500).json({ success: false, error: 'Failed to delete lesson plan' });
+  }
+};
+
+export const updatePlan = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { title, subject, grade, duration, objectives, content } = req.body;
+    
+    // In a real app we'd check ownership here via userId from req.user
+    const updated = await prisma.lessonPlan.update({
+      where: { id },
+      data: {
+        title: title ?? undefined,
+        subject: subject ?? undefined,
+        grade: grade ?? undefined,
+        duration: duration ?? undefined,
+        objectives: objectives ?? undefined,
+        content: content ?? undefined
+      }
+    });
+    
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    logger.error(`[updatePlan] ${error}`);
+    res.status(500).json({ success: false, error: 'Failed to update lesson plan' });
   }
 };

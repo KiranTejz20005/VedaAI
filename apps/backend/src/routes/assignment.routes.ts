@@ -15,6 +15,7 @@ import {
   rejectAssignment,
   publishAssignment,
   getAssignmentHistoryHandler,
+  updateAssignmentHandler,
 } from '../controllers/assignment.controller';
 import { requirePermission } from '../security/access-control';
 
@@ -66,6 +67,9 @@ router.get('/:id', requirePermission('VIEW_ASSIGNMENT'), requireOwnership('Assig
 
 // GET /api/assignments/:id/history
 router.get('/:id/history', requirePermission('VIEW_ASSIGNMENT'), requireOwnership('Assignment'), asyncHandler(getAssignmentHistoryHandler));
+
+// PUT /api/assignments/:id
+router.put('/:id', requirePermission('CREATE_ASSIGNMENT'), requireOwnership('Assignment'), asyncHandler(updateAssignmentHandler));
 
 // DELETE /api/assignments/:id
 router.delete('/:id', requirePermission('DELETE_ASSIGNMENT'), requireOwnership('Assignment'), asyncHandler(deleteAssignmentHandler));

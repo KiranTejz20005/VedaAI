@@ -247,9 +247,22 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     } catch (redisErr) {
       logger.warn({ redisErr }, '[login] Redis brute-force check unavailable — proceeding');
     }
-    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    const user = await prisma.user.findUnique({ 
+      where: { email: normalizedEmail },
+      include: { organization: true }
+    });
     if (!user) {
       res.status(401).json({ success: false, error: 'Invalid email or password' });
+      return;
+    }
+
+    if (user.status !== 'ACTIVE') {
+      res.status(403).json({ success: false, error: 'Account disabled' });
+      return;
+    }
+
+    if (user.organization && user.organization.status !== 'ACTIVE') {
+      res.status(403).json({ success: false, error: 'Organization is not active' });
       return;
     }
 

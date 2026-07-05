@@ -118,13 +118,24 @@ export const authorize = (allowedRoles: string[]) => {
       return next();
     }
 
-    const normalizedAllowedRoles = allowedRoles.map(r => r.toUpperCase());
+    const normalizedAllowedRoles = allowedRoles.map(r => {
+      let norm = r.toUpperCase();
+      if (norm === 'ORG_ADMIN') norm = 'ADMIN';
+      if (norm === 'FACULTY') norm = 'TEACHER';
+      return norm;
+    });
+
     if (normalizedAllowedRoles.includes(role)) {
       return next();
     }
 
     // Role is not authorized
     logger.warn({ userId: req.user.id, role: req.user.role, normalizedRole: role, allowedRoles: normalizedAllowedRoles, url: req.originalUrl }, '[Authorize] Insufficient privileges');
-    return res.status(403).json({ success: false, error: 'Forbidden: Insufficient privileges' });
+    
+    const errorMsg = process.env.NODE_ENV !== 'production' 
+      ? `Forbidden: Insufficient privileges (User role '${req.user.role}' does not match required roles: ${allowedRoles.join(', ')})`
+      : 'Forbidden: Insufficient privileges';
+      
+    return res.status(403).json({ success: false, error: errorMsg });
   };
 };

@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { api } from '@/lib/api';
+import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
 import { Button } from '@/design-system/Button';
-import { FileText, Clock, CheckCircle2, Users, BookOpen, Sparkles } from 'lucide-react';
+import { FileText, Clock, CheckCircle2, Users, BookOpen, Sparkles, Edit2, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Homework {
@@ -18,19 +20,80 @@ interface Homework {
   status: 'ACTIVE' | 'DRAFT' | 'COMPLETED';
 }
 
-const MOCK_HOMEWORK: Homework[] = [
-  { id: '1', title: 'Chapter 4: Neural Networks', course: 'Computer Science 101', dueDate: 'Tomorrow', totalStudents: 30, submitted: 25, graded: 20, status: 'ACTIVE' },
-  { id: '2', title: 'Midterm Essay Draft', course: 'History 202', dueDate: 'In 3 days', totalStudents: 25, submitted: 5, graded: 0, status: 'ACTIVE' },
-  { id: '3', title: 'Calculus Worksheet 2', course: 'Advanced Mathematics', dueDate: 'Last Week', totalStudents: 20, submitted: 20, graded: 20, status: 'COMPLETED' },
-];
-
 export default function HomeworkHubPage() {
-  const [homeworks] = useState<Homework[]>(MOCK_HOMEWORK);
+  const [homeworks, setHomeworks] = useState<Homework[]>([]);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
-  const handleBulkGrade = (id: string) => {
+  useEffect(() => {
+    const fetchAssignments = async () => {
+      try {
+        setLoading(true);
+        // The GET /assignments endpoint correctly filters by user's assigned scope
+        const res = await api.get('/assignments');
+        if (res.data?.success) {
+          const formatted = res.data.data.map((a: any) => ({
+            id: a.id,
+            title: a.title,
+            course: a.subject,
+            dueDate: new Date(a.dueDate).toLocaleDateString(),
+            totalStudents: a._count?.submissions || 0, // Using aggregated count if available
+            submitted: a.submissions?.length || 0,
+            graded: a.submissions?.filter((s: any) => s.status === 'GRADED').length || 0,
+            status: a.status
+          }));
+          setHomeworks(formatted);
+        }
+      } catch (err) {
+        toast.error('Failed to load assignments');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAssignments();
+  }, []);
+
+  const handleBulkGrade = async (id: string) => {
     toast.success('Initiating Bulk AI Grading...');
-    setTimeout(() => toast.success('5 assignments graded successfully!'), 2000);
+    try {
+      const res = await api.post(`/grader/assignments/${id}/bulk-evaluate`);
+      if (res.data?.success) {
+        toast.success(res.data.message || 'Assignments graded successfully!');
+        // Refresh the page
+        window.location.reload();
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Bulk grading failed');
+    }
   };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this assignment?')) return;
+    try {
+      const res = await api.delete(`/assignments/${id}`);
+      if (res.data?.success) {
+        setHomeworks(prev => prev.filter(hw => hw.id !== id));
+        toast.success('Assignment deleted successfully');
+      }
+    } catch (err) {
+      toast.error('Failed to delete assignment');
+    }
+  };
+
+  if (loading) {
+    return <div style={{ padding: 20 }}>Loading assessments...</div>;
+  }
+
+  if (homeworks.length === 0) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center', background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)' }}>
+        <BookOpen size={48} color="var(--text-muted)" style={{ margin: '0 auto 16px' }} />
+        <h3 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>No Assignments Yet</h3>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: 24 }}>You haven't created any assignments for your classes.</p>
+        <Button variant="primary" onClick={() => router.push('/dashboard/teacher/assessments/create')}>Create Assignment</Button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -39,7 +102,7 @@ export default function HomeworkHubPage() {
           title="Homework Management Hub"
           subtitle="Track submissions, late policies, and bulk grading."
         />
-        <Button variant="primary">Create Assignment</Button>
+        <Button variant="primary" onClick={() => router.push('/dashboard/teacher/assessments/create')}>Create Assignment</Button>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -52,8 +115,16 @@ export default function HomeworkHubPage() {
                 </h3>
                 <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>{hw.course} &middot; Due: <span style={{ color: hw.status === 'COMPLETED' ? 'inherit' : '#EF4444', fontWeight: 600 }}>{hw.dueDate}</span></span>
               </div>
-              <div style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: 16, fontSize: 'var(--text-xs)', fontWeight: 600, background: hw.status === 'ACTIVE' ? '#DBEAFE' : '#F3F4F6', color: hw.status === 'ACTIVE' ? '#1D4ED8' : '#4B5563' }}>
-                {hw.status}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: 16, fontSize: 'var(--text-xs)', fontWeight: 600, background: hw.status === 'ACTIVE' ? '#DBEAFE' : '#F3F4F6', color: hw.status === 'ACTIVE' ? '#1D4ED8' : '#4B5563' }}>
+                  {hw.status}
+                </div>
+                <button onClick={() => router.push(`/dashboard/teacher/assessments/${hw.id}/edit`)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4 }}>
+                  <Edit2 size={16} />
+                </button>
+                <button onClick={() => handleDelete(hw.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--destructive)', padding: 4 }}>
+                  <Trash2 size={16} />
+                </button>
               </div>
             </div>
 
@@ -83,7 +154,7 @@ export default function HomeworkHubPage() {
                   Bulk AI Grade ({hw.submitted - hw.graded})
                 </Button>
               )}
-              <Button variant="outline">View Submissions</Button>
+              <Button variant="outline" onClick={() => router.push(`/dashboard/teacher/assessments/${hw.id}/submissions`)}>View Submissions</Button>
             </div>
           </Card>
         ))}

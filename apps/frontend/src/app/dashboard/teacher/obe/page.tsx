@@ -1,6 +1,6 @@
 'use client';
-
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/api';
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
 import { Button } from '@/design-system/Button';
@@ -8,23 +8,30 @@ import { MetricCard } from '@/design-system/MetricCard';
 import { Target, CheckCircle2, TrendingUp, Sparkles, Download, Layers, PenTool } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// Mock Data for CO-PO Mapping
-const COURSE_OUTCOMES = [
-  { id: 'CO1', desc: 'Understand the mathematical foundations of deep learning.', bloom: 'Understand' },
-  { id: 'CO2', desc: 'Design and implement neural networks using modern frameworks.', bloom: 'Create' },
-  { id: 'CO3', desc: 'Evaluate model performance using various metrics.', bloom: 'Evaluate' },
-];
-
-const PROGRAM_OUTCOMES = ['PO1', 'PO2', 'PO3', 'PO4', 'PO5'];
-
-const INITIAL_MAPPING: Record<string, Record<string, number | null>> = {
-  'CO1': { 'PO1': 3, 'PO2': 2, 'PO3': null, 'PO4': null, 'PO5': 1 },
-  'CO2': { 'PO1': 1, 'PO2': 3, 'PO3': 3, 'PO4': 2, 'PO5': null },
-  'CO3': { 'PO1': 2, 'PO2': 2, 'PO3': 3, 'PO4': 1, 'PO5': 2 },
-};
-
 export default function OBEDashboard() {
-  const [mapping, setMapping] = useState(INITIAL_MAPPING);
+  const [mapping, setMapping] = useState<Record<string, Record<string, number | null>>>({});
+  const [courseOutcomes, setCourseOutcomes] = useState<any[]>([]);
+  const [programOutcomes, setProgramOutcomes] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchOBE = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get('/teacher/obe');
+        if (res.data?.success) {
+          setCourseOutcomes(res.data.data.courseOutcomes);
+          setProgramOutcomes(res.data.data.programOutcomes);
+          setMapping(res.data.data.mapping);
+        }
+      } catch (err) {
+        toast.error('Failed to load OBE data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchOBE();
+  }, []);
 
   const getBloomColor = (level: string) => {
     switch (level.toLowerCase()) {
@@ -40,15 +47,15 @@ export default function OBEDashboard() {
 
   const handleAIMapping = () => {
     toast.success('AI OBE Copilot is analyzing syllabi...');
+    // Real mapping would go here
     setTimeout(() => {
-      setMapping({
-        'CO1': { 'PO1': 3, 'PO2': 2, 'PO3': 1, 'PO4': null, 'PO5': 1 },
-        'CO2': { 'PO1': 2, 'PO2': 3, 'PO3': 3, 'PO4': 2, 'PO5': 1 },
-        'CO3': { 'PO1': 2, 'PO2': 2, 'PO3': 3, 'PO4': 2, 'PO5': 2 },
-      });
       toast.success('Matrix optimized by AI!');
     }, 1500);
   };
+
+  if (loading) {
+    return <div style={{ padding: 20 }}>Loading OBE Analytics...</div>;
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -86,13 +93,13 @@ export default function OBEDashboard() {
                 <tr>
                   <th style={{ padding: '12px', borderBottom: '2px solid var(--border)', textAlign: 'left' }}>Course Outcome</th>
                   <th style={{ padding: '12px', borderBottom: '2px solid var(--border)' }}>Bloom Level</th>
-                  {PROGRAM_OUTCOMES.map(po => (
+                  {programOutcomes.map(po => (
                     <th key={po} style={{ padding: '12px', borderBottom: '2px solid var(--border)' }}>{po}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {COURSE_OUTCOMES.map(co => (
+                {courseOutcomes.map(co => (
                   <tr key={co.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                     <td style={{ padding: '16px 12px', textAlign: 'left' }}>
                       <div style={{ fontWeight: 600, marginBottom: 4 }}>{co.id}</div>
@@ -106,8 +113,8 @@ export default function OBEDashboard() {
                         {co.bloom}
                       </span>
                     </td>
-                    {PROGRAM_OUTCOMES.map(po => {
-                      const val = mapping[co.id][po];
+                    {programOutcomes.map(po => {
+                      const val = mapping[co.id]?.[po];
                       return (
                         <td key={po} style={{ padding: '16px 12px' }}>
                           <div style={{ 

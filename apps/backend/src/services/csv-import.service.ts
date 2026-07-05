@@ -12,7 +12,7 @@ export interface CsvImportReport {
   errors: Array<{ row: number; email: string; error: string }>;
 }
 
-export const processCsvImport = async (filePath: string, organizationId: string, createdById: string): Promise<CsvImportReport> => {
+export const processCsvImport = async (filePath: string, organizationId: string, _createdById: string): Promise<CsvImportReport> => {
   const report: CsvImportReport = {
     created: 0,
     skipped: 0,

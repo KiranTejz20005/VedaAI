@@ -61,6 +61,46 @@ export const runAIEvaluation = async (req: Request, res: Response): Promise<void
   }
 };
 
+export const bulkAIEvaluation = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { assignmentId } = req.params;
+    await assertCanGradeAssignment(req, assignmentId);
+
+    // Find all un-graded submissions
+    const submissions = await prisma.studentSubmission.findMany({
+      where: { assignmentId, status: { not: 'GRADED' } },
+    });
+
+    if (submissions.length === 0) {
+      res.json({ success: true, message: 'No ungraded submissions found.' });
+      return;
+    }
+
+    const results = [];
+    let successes = 0;
+    
+    // Evaluate sequentially to avoid API rate limits
+    for (const sub of submissions) {
+      try {
+        const evalResult = await evaluateSubmission(sub.id);
+        results.push({ submissionId: sub.id, success: true, score: evalResult.score });
+        successes++;
+      } catch (e: any) {
+        results.push({ submissionId: sub.id, success: false, error: e.message });
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      message: `Successfully graded ${successes}/${submissions.length} submissions.`,
+      data: results 
+    });
+  } catch (err) {
+    if (handleAccessError(res, err)) return;
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Bulk evaluation failed' });
+  }
+};
+
 export const getSubmissionEvaluation = async (req: Request, res: Response): Promise<void> => {
   try {
     const submission = await loadSubmissionScoped(req, req.params.submissionId);

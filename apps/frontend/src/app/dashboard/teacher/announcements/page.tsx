@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/api';
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
 import { Button } from '@/design-system/Button';
-import { Megaphone, Users, Clock, Paperclip, Send } from 'lucide-react';
+import { Megaphone, Users, Clock, Paperclip, Send, Edit2, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Announcement {
@@ -15,36 +16,93 @@ interface Announcement {
   date: string;
 }
 
-const MOCK_ANNOUNCEMENTS: Announcement[] = [
-  { id: '1', title: 'Mid-term Exam Schedule', message: 'The mid-term exams will begin next Monday. Please review the syllabus.', audience: 'Computer Science 101', date: new Date().toISOString() },
-  { id: '2', title: 'Assignment 3 Deadline Extended', message: 'Due to the server outage, the deadline for Assignment 3 has been extended by 48 hours.', audience: 'All Enrolled Students', date: new Date(Date.now() - 86400000).toISOString() },
-];
-
 export default function AnnouncementsPage() {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [audience, setAudience] = useState('All Enrolled Students');
-  const [announcements, setAnnouncements] = useState<Announcement[]>(MOCK_ANNOUNCEMENTS);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const handlePublish = (e: React.FormEvent) => {
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get('/teacher/announcements');
+        if (res.data?.success) {
+          setAnnouncements(res.data.data);
+        }
+      } catch (err) {
+        toast.error('Failed to load announcements');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAnnouncements();
+  }, []);
+
+  const handlePublish = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !message.trim()) {
       toast.error('Please fill in both title and message.');
       return;
     }
 
-    const newAnnouncement: Announcement = {
-      id: Date.now().toString(),
-      title,
-      message,
-      audience,
-      date: new Date().toISOString()
-    };
+    try {
+      if (editingId) {
+        const res = await api.put(`/teacher/announcements/${editingId}`, { title, message, audience });
+        if (res.data?.success) {
+          setAnnouncements(prev => prev.map(a => a.id === editingId ? { ...a, title, message, audience } : a));
+          setEditingId(null);
+          setTitle('');
+          setMessage('');
+          toast.success('Announcement updated successfully!');
+        }
+      } else {
+        const res = await api.post('/teacher/announcements', { title, message, audience });
+        if (res.data?.success) {
+          const newAnnouncement: Announcement = {
+            id: res.data.data.id,
+            title: res.data.data.title || '',
+            message: res.data.data.content,
+            audience,
+            date: res.data.data.createdAt
+          };
+          setAnnouncements(prev => [newAnnouncement, ...prev]);
+          setTitle('');
+          setMessage('');
+          toast.success('Announcement published successfully!');
+        }
+      }
+    } catch (err) {
+      toast.error(editingId ? 'Failed to update announcement' : 'Failed to publish announcement');
+    }
+  };
 
-    setAnnouncements(prev => [newAnnouncement, ...prev]);
-    setTitle('');
-    setMessage('');
-    toast.success('Announcement published successfully!');
+  const handleEdit = (item: Announcement) => {
+    setEditingId(item.id);
+    setTitle(item.title);
+    setMessage(item.message);
+    setAudience(item.audience);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this announcement?')) return;
+    try {
+      const res = await api.delete(`/teacher/announcements/${id}`);
+      if (res.data?.success) {
+        setAnnouncements(prev => prev.filter(a => a.id !== id));
+        if (editingId === id) {
+          setEditingId(null);
+          setTitle('');
+          setMessage('');
+        }
+        toast.success('Announcement deleted');
+      }
+    } catch (err) {
+      toast.error('Failed to delete announcement');
+    }
   };
 
   return (
@@ -55,10 +113,10 @@ export default function AnnouncementsPage() {
       />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-        {/* Create Announcement */}
+        {/* Create / Edit Announcement */}
         <Card padding="24px">
           <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Megaphone size={20} color="var(--brand)" /> New Announcement
+            <Megaphone size={20} color="var(--brand)" /> {editingId ? 'Edit Announcement' : 'New Announcement'}
           </h3>
           <form onSubmit={handlePublish} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
@@ -97,11 +155,18 @@ export default function AnnouncementsPage() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-              <Button type="button" variant="outline" size="sm" style={{ color: 'var(--text-secondary)' }}>
-                <Paperclip size={16} style={{ marginRight: 6 }} /> Attach File
-              </Button>
+              <div>
+                {editingId && (
+                  <Button type="button" variant="outline" size="sm" onClick={() => { setEditingId(null); setTitle(''); setMessage(''); }} style={{ color: 'var(--text-secondary)', marginRight: 12 }}>
+                    Cancel Edit
+                  </Button>
+                )}
+                <Button type="button" variant="outline" size="sm" style={{ color: 'var(--text-secondary)' }}>
+                  <Paperclip size={16} style={{ marginRight: 6 }} /> Attach File
+                </Button>
+              </div>
               <Button type="submit" variant="primary">
-                <Send size={16} style={{ marginRight: 8 }} /> Publish Now
+                <Send size={16} style={{ marginRight: 8 }} /> {editingId ? 'Save Changes' : 'Publish Now'}
               </Button>
             </div>
           </form>
@@ -115,9 +180,19 @@ export default function AnnouncementsPage() {
             {announcements.map((item) => (
               <Card key={item.id} padding="20px">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                  <h4 style={{ fontSize: 'var(--text-base)', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>{item.title}</h4>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>
-                    <Clock size={12} /> {new Date(item.date).toLocaleDateString()}
+                  <div>
+                    <h4 style={{ fontSize: 'var(--text-base)', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>{item.title}</h4>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)', fontSize: 'var(--text-xs)', marginTop: 4 }}>
+                      <Clock size={12} /> {new Date(item.date).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button onClick={() => handleEdit(item)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4 }}>
+                      <Edit2 size={14} />
+                    </button>
+                    <button onClick={() => handleDelete(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--destructive)', padding: 4 }}>
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </div>
                 <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 16px 0', whiteSpace: 'pre-wrap' }}>

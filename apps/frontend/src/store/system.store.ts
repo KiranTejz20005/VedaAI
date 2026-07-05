@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { api } from '@/lib/api';
 import { useAuthStore } from './auth.store';
+import { useAdminAuthStore } from './admin-auth.store';
 
 export interface SystemSettings {
   platformName: string;

@@ -62,7 +62,12 @@ export class AIOrchestrator {
       // If it fails, we log it and throw.
       if (modelConfig.supportsJSON) {
         try {
-          return JSON.parse(result);
+          // Some models wrap JSON in markdown blocks even when instructed not to
+          let cleanResult = result;
+          if (typeof result === 'string') {
+            cleanResult = result.replace(/```json/gi, '').replace(/```/g, '').trim();
+          }
+          return JSON.parse(cleanResult);
         } catch (e) {
           logger.error({ result }, 'Failed to parse AI response as JSON');
           throw new Error('AI Response Validation Failed: Invalid JSON');

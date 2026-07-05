@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import { PageHeader } from '@/design-system/PageHeader';
 import { MetricCard } from '@/design-system/MetricCard';
 import { Card } from '@/design-system/Card';
-import { Users, UserCheck, UserX, FileText, UploadCloud, Percent, ClipboardList, Loader2 } from 'lucide-react';
+import { Users, UserCheck, UserX, FileText, UploadCloud, Percent, ClipboardList, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 
 interface TeacherStats {
   totalStudents: number;
@@ -27,6 +27,7 @@ export default function TeacherDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showGroupModal, setShowGroupModal] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -142,31 +143,39 @@ export default function TeacherDashboard() {
         </Card>
         
         <Card padding="clamp(16px, 2vw, 20px)">
-          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 16 }}>Teacher Command Center</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+          <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 16 }}>Quick Actions</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
             <button
-              onClick={() => router.push('/dashboard/teacher/generate-quiz')}
+              onClick={() => router.push('/dashboard/teacher/assessments')}
               style={{ padding: '12px 16px', background: 'var(--brand)', color: 'white', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, border: 'none', cursor: 'pointer', transition: 'opacity 0.2s', justifyContent: 'center' }}
               onMouseOver={e => e.currentTarget.style.opacity = '0.9'}
               onMouseOut={e => e.currentTarget.style.opacity = '1'}
             >
-              <FileText size={18} /> Quick Generate Quiz
+              <FileText size={18} /> Create Assignment
             </button>
             <button
-              onClick={() => router.push('/dashboard/teacher/grade')}
+              onClick={() => router.push('/dashboard/teacher/attendance')}
               style={{ padding: '12px 16px', background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 0.2s', justifyContent: 'center' }}
               onMouseOver={e => e.currentTarget.style.background = 'var(--bg-muted)'}
               onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
             >
-              <ClipboardList size={18} /> Grade Pending Assignments
+              <UserCheck size={18} /> Take Attendance
             </button>
             <button
-              onClick={() => router.push('/dashboard/teacher/insights?filter=at-risk')}
+              onClick={() => router.push('/dashboard/teacher/copilot')}
               style={{ padding: '12px 16px', background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 0.2s', justifyContent: 'center' }}
               onMouseOver={e => e.currentTarget.style.background = 'var(--bg-muted)'}
               onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
             >
-              <UserX size={18} color="#ef4444" /> Review At-Risk Students
+              <Sparkles size={18} color="var(--brand)" /> Create Lesson Plan
+            </button>
+            <button
+              onClick={() => router.push('/dashboard/teacher/groups/create')}
+              style={{ padding: '12px 16px', background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 0.2s', justifyContent: 'center' }}
+              onMouseOver={e => e.currentTarget.style.background = 'var(--bg-muted)'}
+              onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
+            >
+              <Users size={18} /> Create Group
             </button>
             <button
               onClick={() => setShowUploadModal(true)}
@@ -174,7 +183,31 @@ export default function TeacherDashboard() {
               onMouseOver={e => e.currentTarget.style.background = 'var(--bg-muted)'}
               onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
             >
-              <UploadCloud size={18} /> Upload Class Material
+              <UploadCloud size={18} /> Upload Resource
+            </button>
+            <button
+              onClick={() => router.push('/dashboard/teacher/attendance')}
+              style={{ padding: '12px 16px', background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 0.2s', justifyContent: 'center' }}
+              onMouseOver={e => e.currentTarget.style.background = 'var(--bg-muted)'}
+              onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
+            >
+              <Users size={18} /> View Classes
+            </button>
+            <button
+              onClick={() => router.push('/dashboard/teacher/assessments')}
+              style={{ padding: '12px 16px', background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 0.2s', justifyContent: 'center' }}
+              onMouseOver={e => e.currentTarget.style.background = 'var(--bg-muted)'}
+              onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
+            >
+              <ClipboardList size={18} /> Grade Assignments
+            </button>
+            <button
+              onClick={() => router.push('/dashboard/teacher/insights')}
+              style={{ padding: '12px 16px', background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 0.2s', justifyContent: 'center' }}
+              onMouseOver={e => e.currentTarget.style.background = 'var(--bg-muted)'}
+              onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
+            >
+              <Sparkles size={18} /> AI Teacher Toolkit
             </button>
           </div>
         </Card>
@@ -228,6 +261,26 @@ export default function TeacherDashboard() {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Group Coming Soon Modal */}
+      {showGroupModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--surface)', padding: 24, borderRadius: 16, width: '90%', maxWidth: 400, textAlign: 'center' }}>
+            <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#FEF3C7', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <AlertCircle size={24} />
+            </div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Under Construction</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: 24, fontSize: 14 }}>
+              The Group Creation feature is currently in development. It will be available in an upcoming update!
+            </p>
+            <button 
+              onClick={() => setShowGroupModal(false)}
+              style={{ padding: '10px 24px', background: 'var(--brand)', color: 'white', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer', width: '100%' }}
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

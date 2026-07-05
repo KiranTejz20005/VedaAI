@@ -1,4 +1,4 @@
-import { prisma } from '../lib/prisma';
+import prisma from '../config/prisma';
 import * as argon2 from 'argon2';
 
 const API_URL = 'http://localhost:3001/api/v1';
@@ -27,7 +27,7 @@ async function request(endpoint: string, options: any = {}) {
     }
   }
   
-  let data;
+  let data: any;
   try { data = await res.json(); } catch(e) { data = null; }
   
   return { status: res.status, data };
@@ -39,11 +39,11 @@ function log(msg: string) {
 
 function assert(condition: boolean, message: string, responseData: any = null) {
   if (!condition) {
-    log(`â Œ FAILED: ${message}`);
+    log(`❌ FAILED: ${message}`);
     if (responseData) log(`   Response: ${JSON.stringify(responseData)}`);
     throw new Error(`Assertion failed: ${message}`);
   }
-  log(`âœ… PASSED: ${message}`);
+  log(`✅ PASSED: ${message}`);
 }
 
 async function runQA() {
@@ -72,7 +72,7 @@ async function runQA() {
       body: JSON.stringify({ email: 'qa-superadmin@example.com', password: 'Admin@123' })
     });
     assert(res.status === 200, "Super Admin login succeeds", res.data);
-    const superAdminToken = res.data.data.accessToken;
+    const superAdminToken = (res.data as any).data.accessToken;
     const authHeaders = { Authorization: `Bearer ${superAdminToken}` };
     
     log("\n--- 2. Multi-Tenant: Org Creation ---");
@@ -85,7 +85,7 @@ async function runQA() {
       })
     });
     assert(res.status === 201, "Super Admin can create Org A", res.data);
-    const orgA = res.data.data;
+    const orgA = (res.data as any).data;
     
     log("\n--- 3. Role-Based Access: Create Org Admin ---");
     res = await request('/admin/users', {
@@ -96,8 +96,8 @@ async function runQA() {
       })
     });
     assert(res.status === 201, "Super Admin can create Org Admin A", res.data);
-    const orgAdminACreds = { email: res.data.data.email, password: 'Password@123' };
-    const orgAdminAId = res.data.data.id;
+    const orgAdminACreds = { email: (res.data as any).data.email, password: 'Password@123' };
+    const orgAdminAId = (res.data as any).data.id;
 
     res = await request('/admin/organizations', {
       method: 'POST',
@@ -106,7 +106,7 @@ async function runQA() {
         name: `QA Org B ${suffix}`, code: `QAB${suffix}`, email: `qab${suffix}@example.com`, address: '456 QA St', phone: '1234567890' 
       })
     });
-    const orgB = res.data.data;
+    const orgB = (res.data as any).data;
     res = await request('/admin/users', {
       method: 'POST',
       headers: authHeaders,
@@ -114,7 +114,7 @@ async function runQA() {
         firstName: 'Admin', lastName: 'B', email: `adminb${suffix}@example.com`, role: 'ADMIN', organizationId: orgB.id, password: 'Password@123'
       })
     });
-    const orgAdminBCreds = { email: res.data.data.email, password: 'Password@123' };
+    const orgAdminBCreds = { email: (res.data as any).data.email, password: 'Password@123' };
 
     log("\n--- 4. Authentication (Org Admin A) ---");
     res = await request('/auth/login', {
@@ -122,7 +122,7 @@ async function runQA() {
       body: JSON.stringify(orgAdminACreds)
     });
     assert(res.status === 200, "Org Admin A login succeeds", res.data);
-    const orgAdminAToken = res.data.data.accessToken;
+    const orgAdminAToken = (res.data as any).data.accessToken;
     const orgAdminAHeaders = { Authorization: `Bearer ${orgAdminAToken}` };
 
     log("\n--- 5. Org Admin A CRUD Operations ---");
@@ -134,7 +134,7 @@ async function runQA() {
       })
     });
     assert(res.status === 201, "Org Admin A can create Student A", res.data);
-    const studentA = res.data.data;
+    const studentA = (res.data as any).data;
 
     res = await request('/admin/faculty', {
       method: 'POST',
@@ -150,7 +150,7 @@ async function runQA() {
       method: 'POST',
       body: JSON.stringify(orgAdminBCreds)
     });
-    const orgAdminBToken = res.data.data.accessToken;
+    const orgAdminBToken = (res.data as any).data.accessToken;
     const orgAdminBHeaders = { Authorization: `Bearer ${orgAdminBToken}` };
 
     res = await request(`/admin/students/${studentA.id}`, {
@@ -165,7 +165,7 @@ async function runQA() {
       headers: orgAdminBHeaders
     });
     assert(res.status === 200, "Org Admin B can access their own dashboard", res.data);
-    assert(res.data.data.totalStudents === 0, "Org Admin B does NOT see Org Admin A's students in analytics");
+    assert((res.data as any).data.totalStudents === 0, "Org Admin B does NOT see Org Admin A's students in analytics");
 
     res = await request(`/admin/users/${orgAdminAId}`, {
       method: 'PUT',
@@ -178,10 +178,10 @@ async function runQA() {
       log("Warning: Escalate test returned " + res.status);
     }
 
-    log("\nâœ¨ All API E2E Integration Tests Completed Successfully! âœ¨");
+    log("\n✨ All API E2E Integration Tests Completed Successfully! ✨");
 
-  } catch(e) {
-    log(`\nâ Œ FATAL ERROR during testing: ${e.message}`);
+  } catch(e: any) {
+    log(`\n❌ FATAL ERROR during testing: ${e.message}`);
   } finally {
     await prisma.$disconnect();
   }

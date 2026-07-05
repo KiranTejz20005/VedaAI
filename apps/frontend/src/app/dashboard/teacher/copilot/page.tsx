@@ -1,319 +1,383 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Bot, Sparkles, BookOpen, Layers, CheckCircle2, Loader2, X, Eye, Trash2 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { useState, useRef } from 'react';
+import { Bot, Sparkles, BookOpen, Layers, CheckCircle2, Loader2, Eye, Trash2, Printer, ArrowLeft, History, FileText, FileSignature } from 'lucide-react';
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
 import { Button } from '@/design-system/Button';
 import { Input } from '@/design-system/Input';
-import { copilotService } from '@/services/copilot.service';
+import { useLessonPlanner } from '@/hooks/useLessonPlanner';
+import { useReactToPrint } from 'react-to-print';
 
 export default function CopilotPage() {
+  const { 
+    plans, 
+    loading, 
+    isGenerating, 
+    activePlan, 
+    setActivePlan, 
+    generatePlan, 
+    updatePlan, 
+    deletePlan 
+  } = useLessonPlanner();
+
+  // Form State
   const [subject, setSubject] = useState('');
   const [topic, setTopic] = useState('');
   const [duration, setDuration] = useState('60');
   const [outcomes, setOutcomes] = useState('');
+
+  // UI State
+  const [view, setView] = useState<'GENERATOR' | 'HISTORY' | 'EDITOR'>('GENERATOR');
+  const [editMode, setEditMode] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
   
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [lessonPlan, setLessonPlan] = useState<any | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  
-  const [savedPlans, setSavedPlans] = useState<any[]>([]);
-  const [isViewingSaved, setIsViewingSaved] = useState(false);
-  const [planToDelete, setPlanToDelete] = useState<any | null>(null);
+  // Printing Reference
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: activePlan?.title || 'Lesson_Plan',
+  });
 
-  const fetchPlans = async () => {
+  // Extract structured content safely
+  const parseContent = (contentStr: string) => {
     try {
-      const plans = await copilotService.getLessonPlans();
-      setSavedPlans(plans);
-    } catch (e) {
-      console.error('Failed to fetch lesson plans', e);
-    }
-  };
-
-  useEffect(() => {
-    fetchPlans();
-  }, []);
-
-  const handleExportPDF = async () => {
-    try {
-      const element = document.getElementById('lesson-plan-content');
-      if (!element) return;
-      const html2pdf = (await import('html2pdf.js')).default;
-      const opt = {
-        margin:       1,
-        filename:     `${topic.replace(/\s+/g, '_') || 'Lesson'}_Plan.pdf`,
-        image:        { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' as const }
-      };
-      html2pdf().set(opt).from(element).save();
-      toast.success('Exporting PDF...');
-    } catch (e) {
-      toast.error('Failed to export PDF');
-    }
-  };
-
-  const handleSaveToLibrary = () => {
-    setShowModal(false);
-    fetchPlans();
-    toast.success('Saved to Library');
-  };
-
-  const handleCancel = () => {
-    setShowModal(false);
-    if (!isViewingSaved) {
-      setLessonPlan(null);
+      return JSON.parse(contentStr);
+    } catch {
+      return {};
     }
   };
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!subject || !topic || !duration) {
-      toast.error('Please fill all required fields');
-      return;
-    }
-    
-    setIsGenerating(true);
-    setLessonPlan(null);
-    setIsViewingSaved(false);
-    try {
-      const plan = await copilotService.generateLessonPlan({
-        subject,
-        topic,
-        duration: parseInt(duration, 10),
-        learningOutcomes: outcomes ? outcomes.split('\n').filter(Boolean) : [],
-      });
-      setLessonPlan(plan);
-      setShowModal(true);
-      toast.success('Lesson plan generated successfully');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to generate lesson plan');
-    } finally {
-      setIsGenerating(false);
+    const plan = await generatePlan(subject, topic, duration, outcomes);
+    if (plan) {
+      setView('EDITOR');
     }
   };
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <PageHeader
-        title="Teacher AI Copilot"
-        subtitle="Your intelligent assistant for lesson planning and academic workflows."
-      />
+  const saveFieldEdit = async (field: string, value: any) => {
+    if (!activePlan) return;
+    
+    // Determine if the field is a top-level schema field or inside "content"
+    const isTopLevel = ['title', 'subject', 'duration', 'objectives', 'activities', 'assessments'].includes(field);
+    
+    const updates: any = {};
+    if (isTopLevel) {
+      updates[field] = value;
+    } else {
+      const currentContent = parseContent(activePlan.content);
+      currentContent[field] = value;
+      updates.content = JSON.stringify(currentContent);
+    }
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24, alignItems: 'start' }}>
-        <Card padding="24px" style={{ position: 'sticky', top: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(234, 88, 12, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EA580C' }}>
-              <Bot size={18} />
-            </div>
-            <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, margin: 0 }}>Plan a Lesson</h2>
+    await updatePlan(activePlan.id, updates);
+    setEditMode(null);
+  };
+
+  const renderSection = (title: string, field: string, data: any, icon: any, isList: boolean = true) => {
+    const isEditing = editMode === field;
+
+    const startEditing = () => {
+      setEditValue(isList ? (Array.isArray(data) ? data.join('\n') : String(data || '')) : String(data || ''));
+      setEditMode(field);
+    };
+
+    const handleSave = () => {
+      const finalValue = isList ? editValue.split('\n').filter(Boolean) : editValue;
+      saveFieldEdit(field, finalValue);
+    };
+
+    return (
+      <div className="mb-8 p-6 bg-white border border-slate-200 rounded-xl hover:border-slate-300 transition-colors group print:border-none print:p-0 print:mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            {icon}
+            {title}
+          </h3>
+          <div className="print:hidden">
+            {!isEditing && (
+              <Button variant="outline" size="sm" onClick={startEditing} className="opacity-0 group-hover:opacity-100 transition-opacity">
+                Edit
+              </Button>
+            )}
           </div>
+        </div>
+
+        {isEditing ? (
+          <div className="space-y-4">
+            <textarea 
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              className="w-full min-h-[150px] p-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              placeholder="Enter content (one item per line for lists)"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setEditMode(null)}>Cancel</Button>
+              <Button variant="primary" size="sm" onClick={handleSave}>Save</Button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-slate-600 text-sm leading-relaxed">
+            {isList ? (
+              <ul className="space-y-2 list-disc pl-5 marker:text-indigo-500">
+                {Array.isArray(data) && data.length > 0 ? (
+                  data.map((item: string, i: number) => (
+                    <li key={i} className="pl-1">{item}</li>
+                  ))
+                ) : (
+                  <p className="italic text-slate-400">No content generated.</p>
+                )}
+              </ul>
+            ) : (
+              <p className="whitespace-pre-wrap">{data || <span className="italic text-slate-400">No content generated.</span>}</p>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderHistory = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-slate-800">Saved Lesson Plans</h2>
+        <Button variant="primary" onClick={() => setView('GENERATOR')}>
+          + Generate New
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-indigo-500" /></div>
+      ) : plans.length === 0 ? (
+        <Card className="p-12 text-center text-slate-500">
+          <History className="w-12 h-12 mx-auto mb-4 opacity-20" />
+          <p>No lesson plans found in history.</p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {plans.map(plan => (
+            <Card key={plan.id} className="p-6 flex flex-col hover:border-indigo-300 transition-colors">
+              <div className="flex-1">
+                <div className="text-xs font-semibold text-indigo-600 mb-2 uppercase tracking-wider">{plan.subject}</div>
+                <h3 className="text-lg font-bold text-slate-800 mb-2">{plan.title.replace(`${plan.subject} - `, '')}</h3>
+                <p className="text-sm text-slate-500 line-clamp-2">{plan.objectives}</p>
+              </div>
+              <div className="mt-6 flex items-center justify-between pt-4 border-t border-slate-100">
+                <span className="text-xs text-slate-400">{new Date(plan.createdAt).toLocaleDateString()}</span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => { setActivePlan(plan); setView('EDITOR'); }}>
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => deletePlan(plan.id)}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderEditor = () => {
+    if (!activePlan) return null;
+    const content = parseContent(activePlan.content);
+
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center justify-between mb-6 print:hidden">
+          <Button variant="outline" onClick={() => setView('HISTORY')}>
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Library
+          </Button>
+          <div className="flex items-center gap-3">
+            <Button variant="primary" onClick={() => handlePrint()}>
+              <Printer className="w-4 h-4 mr-2" /> Export PDF
+            </Button>
+          </div>
+        </div>
+
+        {/* Printable Area */}
+        <div ref={printRef} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 md:p-12 print:shadow-none print:border-none print:p-0">
+          {/* Header */}
+          <div className="border-b-2 border-slate-800 pb-8 mb-8">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h1 className="text-3xl font-extrabold text-slate-900 mb-2">{activePlan.title}</h1>
+                <p className="text-lg text-slate-600 font-medium">{activePlan.subject} • {activePlan.duration} Mins</p>
+              </div>
+              <div className="text-right text-sm text-slate-500 space-y-1">
+                <p className="font-semibold text-slate-800">VidyaAI LMS</p>
+                <p>Generated: {new Date(activePlan.createdAt).toLocaleDateString()}</p>
+                <p>Status: Approved</p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-bold border border-indigo-100">AI Generated</span>
+              <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-100">Classroom Ready</span>
+            </div>
+          </div>
+
+          {/* Sections */}
+          {renderSection('Learning Objectives', 'objectives', activePlan.objectives?.split('\n') || [], <CheckCircle2 className="w-5 h-5 text-emerald-500" />)}
+          {renderSection('Prerequisites', 'prerequisites', content.prerequisites, <Layers className="w-5 h-5 text-indigo-500" />)}
+          {renderSection('Teaching Materials', 'materials', content.materials, <BookOpen className="w-5 h-5 text-amber-500" />)}
+          {renderSection('Introduction', 'introduction', content.introduction, <Sparkles className="w-5 h-5 text-blue-500" />, false)}
+          {renderSection('Core Concepts', 'coreConcepts', content.coreConcepts, <FileText className="w-5 h-5 text-purple-500" />)}
+          {renderSection('Teaching Activities', 'activities', activePlan.activities, <Bot className="w-5 h-5 text-rose-500" />)}
+          {renderSection('Classroom Interaction', 'interaction', content.interaction, <Sparkles className="w-5 h-5 text-cyan-500" />, false)}
+          {renderSection('Practical Exercises', 'practicalExercises', content.practicalExercises, <Layers className="w-5 h-5 text-teal-500" />)}
+          {renderSection('Assessment Strategy', 'assessments', activePlan.assessments, <FileSignature className="w-5 h-5 text-orange-500" />)}
+          {renderSection('Homework / Assignments', 'homework', content.homework, <BookOpen className="w-5 h-5 text-slate-500" />)}
+          {renderSection('Expected Outcomes', 'outcomes', content.outcomes, <CheckCircle2 className="w-5 h-5 text-emerald-600" />)}
+          {renderSection('Teacher Notes', 'teacherNotes', content.teacherNotes, <FileText className="w-5 h-5 text-slate-600" />, false)}
           
-          <form onSubmit={handleGenerate} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <Input
-              label="Subject"
-              placeholder="e.g. Computer Science"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              required
-            />
-            <Input
-              label="Topic"
-              placeholder="e.g. Introduction to Data Structures"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              required
-            />
-            <Input
-              label="Duration (minutes)"
-              type="number"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              required
-            />
-            <div className="input-group" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-primary)' }}>Learning Outcomes (one per line)</label>
-              <textarea
-                value={outcomes}
-                onChange={(e) => setOutcomes(e.target.value)}
-                placeholder="Understand basic data types..."
-                rows={4}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-base)',
-                  fontSize: 'var(--text-sm)',
-                  fontFamily: 'inherit',
-                  resize: 'vertical',
-                }}
+          <div className="mt-16 pt-8 border-t border-slate-200 text-center text-xs text-slate-400 hidden print:block">
+            Generated securely by VidyaAI Faculty Copilot • Page 1
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderGenerator = () => (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Configuration Panel */}
+      <div className="lg:col-span-1">
+        <Card className="p-6 sticky top-24 border-indigo-100 shadow-indigo-900/5">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30">
+              <Bot className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">AI Config</h2>
+              <p className="text-xs text-slate-500 font-medium">Hybrid RAG Engine</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleGenerate} className="space-y-5">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Subject</label>
+              <Input 
+                placeholder="e.g., Physics, Data Structures" 
+                value={subject}
+                onChange={e => setSubject(e.target.value)}
+                required
               />
             </div>
-            <Button type="submit" variant="primary" loading={isGenerating} style={{ marginTop: 8 }}>
-              {isGenerating ? 'Generating...' : 'Generate Lesson Plan'}
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Topic</label>
+              <Input 
+                placeholder="e.g., Quantum Mechanics, Trees" 
+                value={topic}
+                onChange={e => setTopic(e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Duration (mins)</label>
+              <Input 
+                type="number"
+                placeholder="60" 
+                value={duration}
+                onChange={e => setDuration(e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Learning Outcomes (Optional)</label>
+              <textarea 
+                className="w-full h-32 p-3 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm resize-none"
+                placeholder="What should students know by the end?&#10;- Understand wave duality&#10;- Solve equations"
+                value={outcomes}
+                onChange={e => setOutcomes(e.target.value)}
+              />
+            </div>
+
+            <Button 
+              type="submit" 
+              variant="primary" 
+              className="w-full justify-center h-12 text-base font-bold shadow-lg shadow-indigo-500/30"
+              disabled={isGenerating || !subject || !topic}
+            >
+              {isGenerating ? (
+                <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Generating Plan...</>
+              ) : (
+                <><Sparkles className="w-5 h-5 mr-2" /> Generate Lesson Plan</>
+              )}
+            </Button>
+            
+            <Button 
+              type="button" 
+              variant="outline" 
+              className="w-full justify-center mt-3"
+              onClick={() => setView('HISTORY')}
+            >
+              <History className="w-4 h-4 mr-2" /> View History
             </Button>
           </form>
         </Card>
-
-        <Card padding="24px" style={{ minHeight: 600, display: 'flex', flexDirection: 'column' }}>
-          {isGenerating ? (
-            <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <Loader2 size={40} className="animate-spin" style={{ margin: '0 auto 16px', color: 'var(--brand)' }} />
-              <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>Drafting your lesson plan...</h3>
-              <p>Consulting the knowledge base and pedagogical guidelines.</p>
-            </div>
-          ) : savedPlans.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>Saved Lesson Plans</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-                {savedPlans.map((plan: any) => (
-                  <div key={plan.id} style={{ padding: 16, border: '1px solid var(--border-subtle)', borderRadius: 12, background: 'var(--bg-hover)', display: 'flex', flexDirection: 'column', gap: 16, justifyContent: 'space-between' }}>
-                    <div>
-                      <h4 style={{ fontSize: 'var(--text-base)', fontWeight: 600, margin: '0 0 4px 0', color: 'var(--text-primary)' }}>{plan.title || plan.topic}</h4>
-                      <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>{plan.subject} &middot; {plan.duration} mins</p>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <Button variant="outline" size="sm" onClick={() => {
-                        setLessonPlan(plan);
-                        setIsViewingSaved(true);
-                        setShowModal(true);
-                        setTopic(plan.title || plan.topic || '');
-                        setSubject(plan.subject || '');
-                        setDuration(plan.duration?.toString() || '');
-                      }} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Eye size={16} /> View Plan
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => {
-                        setPlanToDelete(plan);
-                      }} style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#EF4444', borderColor: '#FCA5A5' }}>
-                        <Trash2 size={16} /> Delete
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <Sparkles size={40} style={{ margin: '0 auto 16px', opacity: 0.5, color: 'var(--brand)' }} />
-              <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>AI Lesson Planner</h3>
-              <p style={{ maxWidth: 400, margin: '0 auto' }}>Fill out the details on the left to generate a personalized, RAG-grounded lesson plan instantly.</p>
-            </div>
-          )}
-        </Card>
       </div>
-      
-      {showModal && lessonPlan && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: '80%', maxWidth: 900, maxHeight: '90vh', overflowY: 'auto', backgroundColor: '#fff', borderRadius: 12, padding: 32, position: 'relative', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
-            <div id="lesson-plan-content">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 16 }}>
-                <div>
-                  <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, margin: '0 0 4px 0', color: 'var(--text-primary)' }}>{topic}</h2>
-                  <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>{subject} &middot; {duration} mins</p>
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <Button variant="outline" size="sm" onClick={handleExportPDF}>Export PDF</Button>
-                  {!isViewingSaved && (
-                    <Button variant="primary" size="sm" onClick={handleSaveToLibrary}>Save to Library</Button>
-                  )}
-                  <button onClick={handleCancel} style={{ marginLeft: 8, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 4, borderRadius: '50%' }} aria-label="Cancel">
-                    <X size={20} color="var(--text-secondary)" />
-                  </button>
-                </div>
+
+      {/* Guide / Empty State */}
+      <div className="lg:col-span-2">
+        {isGenerating ? (
+          <div className="h-full min-h-[500px] flex flex-col items-center justify-center bg-white rounded-2xl border border-slate-200">
+            <div className="relative">
+              <div className="w-20 h-20 border-4 border-indigo-100 rounded-full animate-pulse" />
+              <div className="w-20 h-20 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin absolute inset-0" />
+              <Bot className="w-8 h-8 text-indigo-600 absolute inset-0 m-auto" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-800 mt-6">Analyzing Institutional Knowledge...</h3>
+            <p className="text-slate-500 mt-2 text-center max-w-sm">
+              The AI is gathering context from the syllabus and generating a structured lesson plan.
+            </p>
+          </div>
+        ) : (
+          <div className="h-full bg-slate-50 rounded-2xl border border-slate-200 p-12 flex flex-col items-center justify-center text-center">
+            <div className="w-24 h-24 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mb-6">
+              <Sparkles className="w-10 h-10" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-800 mb-4">AI-Powered Lesson Planning</h2>
+            <p className="text-slate-600 max-w-lg mb-8 leading-relaxed">
+              Generate comprehensive, classroom-ready lesson plans instantly. Our Hybrid RAG engine aligns the content with your organization's curriculum and generates structured PDFs with a single click.
+            </p>
+            <div className="grid grid-cols-2 gap-4 text-left max-w-lg w-full">
+              <div className="bg-white p-4 rounded-xl border border-slate-200">
+                <Layers className="w-5 h-5 text-indigo-500 mb-2" />
+                <h4 className="font-bold text-slate-800 text-sm">Highly Structured</h4>
+                <p className="text-xs text-slate-500 mt-1">10+ explicit sections generated.</p>
               </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                <section>
-                  <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                    <CheckCircle2 size={16} color="var(--brand)" /> Objectives
-                  </h3>
-                  <div style={{ paddingLeft: 20, margin: 0, color: 'var(--text-secondary)' }}>
-                    {typeof lessonPlan.objectives === 'string' ? (
-                      <p>{lessonPlan.objectives}</p>
-                    ) : (
-                      <ul style={{ paddingLeft: 20, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {(lessonPlan.objectives || []).map((obj: string, i: number) => (
-                          <li key={i}>{obj}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </section>
-
-                <section>
-                  <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                    <Layers size={16} color="var(--brand)" /> Structure
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {Array.isArray(lessonPlan.activities) && lessonPlan.activities.map((activity: any, i: number) => (
-                      <div key={i} style={{ padding: 12, background: 'var(--bg-hover)', borderRadius: 8 }}>
-                        {typeof activity === 'string' ? (
-                          <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>{activity}</p>
-                        ) : (
-                          <>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                              <strong style={{ fontSize: 'var(--text-sm)' }}>{activity.phase || `Activity ${i + 1}`}</strong>
-                              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 600 }}>{activity.time || ''}</span>
-                            </div>
-                            <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>{activity.activity || activity.description || ''}</p>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </section>
-                
-                {lessonPlan.ragContext && lessonPlan.ragContext.length > 0 && (
-                  <section>
-                    <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                      <BookOpen size={16} color="var(--brand)" /> Source Material
-                    </h3>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', padding: 12, background: '#F9FAFB', border: '1px solid var(--border-subtle)', borderRadius: 8 }}>
-                      This lesson plan was grounded using institutional documents.
-                    </div>
-                  </section>
-                )}
+              <div className="bg-white p-4 rounded-xl border border-slate-200">
+                <Printer className="w-5 h-5 text-indigo-500 mb-2" />
+                <h4 className="font-bold text-slate-800 text-sm">Flawless PDF Export</h4>
+                <p className="text-xs text-slate-500 mt-1">Beautiful layouts, zero overlap.</p>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+    </div>
+  );
 
-      {planToDelete && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: '100%', maxWidth: 400, backgroundColor: '#fff', borderRadius: 12, padding: 24, position: 'relative', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
-            <button onClick={() => setPlanToDelete(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 4, borderRadius: '50%' }} aria-label="Cancel">
-              <X size={20} color="var(--text-secondary)" />
-            </button>
-            
-            <div style={{ textAlign: 'center', marginBottom: 24 }}>
-              <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#FEE2E2', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                <Trash2 size={24} />
-              </div>
-              <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>Delete Lesson Plan</h3>
-              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
-                Are you sure you want to delete "{planToDelete.title || planToDelete.topic}"? This action cannot be undone.
-              </p>
-            </div>
-            
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-              <Button variant="outline" onClick={() => setPlanToDelete(null)} style={{ flex: 1 }}>Cancel</Button>
-              <Button variant="primary" style={{ flex: 1, backgroundColor: '#EF4444', borderColor: '#EF4444' }} onClick={async () => {
-                try {
-                  await copilotService.deleteLessonPlan(planToDelete.id);
-                  toast.success('Lesson plan deleted');
-                  setPlanToDelete(null);
-                  fetchPlans();
-                } catch (e) {
-                  toast.error('Failed to delete lesson plan');
-                }
-              }}>Delete</Button>
-            </div>
-          </div>
-        </div>
-      )}
+  return (
+    <div className="space-y-6 print:space-y-0 print:m-0 print:bg-white min-h-screen">
+      <div className="print:hidden">
+        <PageHeader 
+          title="Teacher AI Copilot" 
+          subtitle="Generate, edit, and export structured lesson plans instantly."
+        />
+      </div>
+
+      <div className="print:m-0">
+        {view === 'GENERATOR' && renderGenerator()}
+        {view === 'HISTORY' && renderHistory()}
+        {view === 'EDITOR' && renderEditor()}
+      </div>
     </div>
   );
 }

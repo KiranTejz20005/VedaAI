@@ -277,7 +277,7 @@ export default function UsersManagement() {
                       <span className="flex items-center gap-1"><Mail size={14} /> {u.email}</span>
                     </td>
                     <td className="px-4 py-3 text-gray-700">
-                      <span className="flex items-center gap-1"><Building2 size={14} /> {u.organization?.code || '—'}</span>
+                      <span className="flex items-center gap-1"><Building2 size={14} /> {(u.organization as any)?.code || '—'}</span>
                     </td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-1 rounded bg-blue-50 text-blue-700 text-xs font-medium border border-blue-200">

@@ -78,6 +78,47 @@ export const deleteLessonPlan = async (req: Request, res: Response): Promise<voi
 };
 
 /**
+ * Updates a generated lesson plan.
+ */
+export const updateLessonPlan = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const userId = req.user?.id ?? 'demo-faculty-id';
+  
+  if (!id) {
+    sendError(res, 400, 'Lesson plan ID is required', { errorCode: 'VALIDATION_ERROR' });
+    return;
+  }
+
+  const plan = await prisma.lessonPlan.findUnique({ where: { id } });
+  
+  if (!plan) {
+    sendError(res, 404, 'Lesson plan not found', { errorCode: 'NOT_FOUND' });
+    return;
+  }
+
+  if (plan.userId !== userId && req.user?.role !== 'ADMIN') {
+    sendError(res, 403, 'Unauthorized to edit this lesson plan', { errorCode: 'UNAUTHORIZED' });
+    return;
+  }
+
+  const { title, subject, grade, duration, objectives, content } = req.body;
+
+  const updated = await prisma.lessonPlan.update({
+    where: { id },
+    data: {
+      title: title ?? undefined,
+      subject: subject ?? undefined,
+      grade: grade ?? undefined,
+      duration: duration ?? undefined,
+      objectives: objectives ?? undefined,
+      content: content ?? undefined
+    }
+  });
+
+  sendSuccess(res, updated, { message: 'Lesson plan updated successfully' });
+};
+
+/**
  * POST /v1/copilot/workflow
  * Initiates a multi-step automation workflow.
  */
@@ -139,3 +180,4 @@ export const analyzeOBE = async (req: Request, res: Response): Promise<void> => 
 
   sendSuccess(res, { report: mockReport }, { message: 'OBE Analysis Complete' });
 };
+

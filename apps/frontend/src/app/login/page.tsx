@@ -36,11 +36,22 @@ export default function LoginPage() {
           toast.success(`Successfully logged in with ${event.data.provider || 'SSO'}!`);
           const user = useAuthStore.getState().user;
           const isOnboarded = user?.hasCompletedOnboarding === true || (user?.organizationId && user?.departmentId);
-          const rolePath = user?.role ? user.role.toLowerCase().replace('_', '-') : 'student';
-          
-          let dashboardPath = `/dashboard/${rolePath}`;
-          if (user?.role === 'ADMIN' || user?.role === 'ORG_ADMIN') {
-            dashboardPath = '/dashboard';
+          let dashboardPath = '/dashboard/student';
+          switch(user?.role) {
+            case 'SUPER_ADMIN':
+              dashboardPath = '/dashboard/super-admin';
+              break;
+            case 'ADMIN':
+            case 'ORG_ADMIN':
+              dashboardPath = '/dashboard/admin';
+              break;
+            case 'TEACHER':
+            case 'FACULTY':
+              dashboardPath = '/dashboard/faculty';
+              break;
+            case 'STUDENT':
+              dashboardPath = '/dashboard/student';
+              break;
           }
           
           router.replace(isOnboarded ? dashboardPath : '/onboarding');
@@ -374,11 +385,22 @@ export default function LoginPage() {
       toast.success('Successfully logged in!');
       const user = useAuthStore.getState().user;
       const isOnboarded = user?.hasCompletedOnboarding === true || (user?.organizationId && user?.departmentId);
-      const rolePath = user?.role ? user.role.toLowerCase().replace('_', '-') : 'student';
-      
-      let dashboardPath = `/dashboard/${rolePath}`;
-      if (user?.role === 'ADMIN' || user?.role === 'ORG_ADMIN') {
-        dashboardPath = '/dashboard';
+      let dashboardPath = '/dashboard/student';
+      switch(user?.role) {
+        case 'SUPER_ADMIN':
+          dashboardPath = '/dashboard/super-admin';
+          break;
+        case 'ADMIN':
+        case 'ORG_ADMIN':
+          dashboardPath = '/dashboard/admin';
+          break;
+        case 'TEACHER':
+        case 'FACULTY':
+          dashboardPath = '/dashboard/faculty';
+          break;
+        case 'STUDENT':
+          dashboardPath = '/dashboard/student';
+          break;
       }
       
       router.replace(isOnboarded ? dashboardPath : '/onboarding');

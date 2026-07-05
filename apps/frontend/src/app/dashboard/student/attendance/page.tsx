@@ -12,7 +12,7 @@ import {
 interface AttendanceRecord {
   id: string;
   date: string;
-  status: 'PRESENT' | 'ABSENT';
+  status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
   subject?: string;
 }
 
@@ -168,6 +168,12 @@ export default function AttendanceDashboardPage() {
       } else if (status === 'ABSENT') {
         bgColor = '#FEF2F2'; // Light red
         dotColor = '#EF4444';
+      } else if (status === 'LATE') {
+        bgColor = '#FEF3C7'; // Light amber/yellow
+        dotColor = '#F59E0B';
+      } else if (status === 'EXCUSED') {
+        bgColor = '#EFF6FF'; // Light blue
+        dotColor = '#3B82F6';
       } else if (status === 'WEEKEND') {
         bgColor = '#F1F5F9'; // Light grey
         textColor = '#64748B';
@@ -322,12 +328,18 @@ export default function AttendanceDashboardPage() {
             )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginTop: 40, borderTop: '1px solid #F1F5F9', paddingTop: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginTop: 40, borderTop: '1px solid #F1F5F9', paddingTop: 24, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#64748B' }}>
               <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#22C55E' }} /> Present
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#64748B' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#EF4444' }}>
               <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#EF4444' }} /> Absent
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#F59E0B' }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#F59E0B' }} /> Late
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#3B82F6' }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#3B82F6' }} /> Excused
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#64748B' }}>
               <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#E2E8F0' }} /> Weekend / Holiday
