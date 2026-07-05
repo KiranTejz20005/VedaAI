@@ -27,5 +27,6 @@ router.post(
 );
 router.get('/results', asyncHandler(StudentController.getMyResults));
 router.get('/results/:id', asyncHandler(StudentController.getResultDetail));
+router.post('/reschedule', asyncHandler(StudentController.requestReschedule));
 
 export default router;

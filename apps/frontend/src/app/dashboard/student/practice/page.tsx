@@ -220,6 +220,7 @@ export default function PracticeDashboard() {
     try {
       const res = await apiClient.get<{ success: boolean; data: ApiQuizSession[] }>('/generate/history');
       const mapped = res.data.data.map(mapSessionToHistory);
+      mapped.sort((a, b) => b.timestamp - a.timestamp);
       setHistory(mapped);
       calculateStats(mapped);
     } catch {
@@ -424,33 +425,42 @@ export default function PracticeDashboard() {
         </div>
       </div>
 
-      {/* Bottom Banner */}
-      <div style={{ background: '#E2E8F0', borderRadius: 24, padding: 32, marginTop: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 24, overflow: 'hidden', position: 'relative' }}>
-        <div style={{ maxWidth: 500, zIndex: 2 }}>
-          <div style={{ display: 'inline-block', background: '#B45309', color: '#FFFFFF', padding: '4px 10px', borderRadius: 12, fontSize: 10, fontWeight: 800, letterSpacing: 0.5, marginBottom: 16 }}>
-            NEW MODULE
+      {/* Recent Practice History */}
+      <div style={{ marginTop: 32 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Recent Practice History</h2>
+        {history.length === 0 ? (
+          <div style={{ padding: 32, textAlign: 'center', background: '#FFFFFF', borderRadius: 24, color: '#94A3B8', fontSize: 14 }}>
+            No practice history found. Generate a quiz to start practicing!
           </div>
-          <h2 style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.1, marginBottom: 16, letterSpacing: '-0.02em', color: '#0F172A' }}>
-            Quantum Physics Basics:<br/>Visual Concept Quiz
-          </h2>
-          <p style={{ fontSize: 14, color: '#475569', lineHeight: 1.5, marginBottom: 24 }}>
-            Experience our new interactive quiz module with 3D models and real-time AI explanations for complex phenomena.
-          </p>
-          <button style={{ background: '#0F172A', color: '#FFFFFF', border: 'none', borderRadius: 24, padding: '12px 24px', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-            Explore Module <ChevronRight size={16} />
-          </button>
-        </div>
-        
-        {/* Abstract Placeholder for the image */}
-        <div style={{ width: 300, height: 180, background: '#0F172A', borderRadius: 16, position: 'relative', overflow: 'hidden', zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <svg width="100%" height="100%" viewBox="0 0 280 160" preserveAspectRatio="none">
-            <path d="M0 80 Q 70 20 140 80 T 280 80" fill="none" stroke="#38BDF8" strokeWidth="2" opacity="0.5" />
-            <path d="M0 80 Q 70 140 140 80 T 280 80" fill="none" stroke="#818CF8" strokeWidth="2" opacity="0.5" />
-            <path d="M0 80 Q 70 50 140 80 T 280 80" fill="none" stroke="#C084FC" strokeWidth="2" opacity="0.5" />
-            <circle cx="140" cy="80" r="4" fill="#FFFFFF" />
-          </svg>
-        </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+            {history.slice(0, 6).map((session) => {
+              const pct = session.questions.length > 0 ? Math.round((session.score / session.questions.length) * 100) : 0;
+              return (
+                <div 
+                  key={session.id} 
+                  onClick={() => router.push(`/dashboard/student/practice/attempt?sessionId=${session.id}`)}
+                  style={{ background: '#FFFFFF', borderRadius: 16, padding: 20, boxShadow: '0 2px 4px rgba(0,0,0,0.02)', border: '1px solid #F1F5F9', cursor: 'pointer', transition: 'all 0.2s ease' }}
+                  onMouseOver={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                  onMouseOut={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#0F172A' }}>{session.topic}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: pct >= 80 ? '#10B981' : pct >= 50 ? '#F59E0B' : '#EF4444', background: pct >= 80 ? '#ECFDF5' : pct >= 50 ? '#FEF3C7' : '#FEF2F2', padding: '4px 8px', borderRadius: 12 }}>
+                      {pct}%
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748B', fontSize: 12 }}>
+                    <span>{new Date(session.timestamp).toLocaleDateString()}</span>
+                    <span>{session.questions.length} Questions</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
+
 
       {/* View Templates Modal (Strict overlay) */}
       <AnimatePresence>

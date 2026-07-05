@@ -1394,8 +1394,12 @@ model LeaveApplication {
   title          String
   subject        String
   body           String
+  startDate      DateTime     @default(now())
+  endDate        DateTime     @default(now())
   duration       String
+  attachmentUrl  String?
   status         String       @default("PENDING") // PENDING, APPROVED, REJECTED
+  remarks        String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -1625,3 +1629,54 @@ model ThesisProposal {
   @@index([studentId])
   @@index([supervisorId])
 }
+
+// ── Added Models for Student Dashboard ──
+
+model RescheduleRequest {
+  id             String       @id @default(uuid())
+  studentId      String
+  teacherId      String
+  courseId       String?
+  originalDate   DateTime
+  preferredDate  DateTime
+  preferredTime  String?
+  reason         String       @db.Text
+  remarks        String?      @db.Text
+  status         String       @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED
+  organizationId String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([studentId])
+  @@index([teacherId])
+  @@index([organizationId])
+}
+
+model Streak {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  currentStreak    Int      @default(0)
+  longestStreak    Int      @default(0)
+  lastActivityDate DateTime?
+  milestones       Json?    @default("[]") // Array of earned badges/milestones
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model PracticeAttempt {
+  id             String   @id @default(uuid())
+  studentId      String
+  quizId         String?
+  score          Int
+  correct        Int
+  wrong          Int
+  skipped        Int
+  timeTaken      Int      // in seconds
+  questions      Json?
+  difficulty     String?
+  createdAt      DateTime @default(now())
+
+  @@index([studentId])
+  @@index([quizId])
+}
+
