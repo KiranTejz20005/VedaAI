@@ -69,7 +69,8 @@ function getAdminOrgId(req: Request): string {
 
 function getAdminOrgIdOptional(req: Request): string | undefined {
   if (req.user?.role === 'SUPER_ADMIN') {
-    return (req.query.organizationId as string) || (req.body.organizationId as string) || undefined;
+    const orgId = (req.query.organizationId as string) || (req.body.organizationId as string);
+    if (orgId) return orgId;
   }
   return req.user?.activeOrganizationId || req.user?.organizationId || undefined;
 }
@@ -334,15 +335,16 @@ export class AdminController {
     }
   }
 
-  static async checkSuperAdminProtection(targetUserId: string, currentUserRole: string) {
-    if (currentUserRole === 'SUPER_ADMIN') return;
+  static async checkSuperAdminProtection(targetUserId: string, currentUserRole: string): Promise<boolean> {
+    if (currentUserRole === 'SUPER_ADMIN') return true;
     const targetUser = await prisma.user.findUnique({
       where: { id: targetUserId },
       select: { role: true }
     });
     if (targetUser?.role === 'SUPER_ADMIN') {
-      throw new Error('Access denied: Cannot modify SUPER_ADMIN users.');
+      return false; // Access denied
     }
+    return true;
   }
 
   static async createUser(req: Request, res: Response) {
@@ -353,7 +355,18 @@ export class AdminController {
         return;
       }
       
-      const organizationId = getAdminOrgId(req);
+      let organizationId: string | undefined;
+      
+      if (role === 'SUPER_ADMIN') {
+        organizationId = undefined; // Super Admins don't need an organization
+      } else {
+        try {
+          organizationId = getAdminOrgId(req);
+        } catch (e) {
+          res.status(400).json({ success: false, error: 'Organization is required for this role.' });
+          return;
+        }
+      }
       
       const payload = {
         ...req.body,
@@ -379,7 +392,11 @@ export class AdminController {
     try {
       const orgId = getAdminOrgId(req);
       if (req.user) {
-        await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+        const allowed = await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+        if (!allowed) {
+          res.status(403).json({ success: false, error: 'Access denied: Cannot modify SUPER_ADMIN users.' });
+          return;
+        }
       }
       const targetUser = await prisma.user.findUnique({ where: { id: req.params.id } });
       if (targetUser && targetUser.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
@@ -403,7 +420,11 @@ export class AdminController {
     try {
       const orgId = getAdminOrgId(req);
       if (req.user) {
-        await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+        const allowed = await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+        if (!allowed) {
+          res.status(403).json({ success: false, error: 'Access denied: Cannot modify SUPER_ADMIN users.' });
+          return;
+        }
       }
       const targetUser = await prisma.user.findUnique({ where: { id: req.params.id } });
       if (targetUser && targetUser.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
@@ -423,7 +444,11 @@ export class AdminController {
     try {
       const orgId = getAdminOrgId(req);
       if (req.user) {
-        await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+        const allowed = await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+        if (!allowed) {
+          res.status(403).json({ success: false, error: 'Access denied: Cannot modify SUPER_ADMIN users.' });
+          return;
+        }
       }
       const targetUser = await prisma.user.findUnique({ where: { id: req.params.id } });
       if (targetUser && targetUser.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
@@ -442,7 +467,11 @@ export class AdminController {
     try {
       const orgId = getAdminOrgId(req);
       if (req.user) {
-        await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+        const allowed = await AdminController.checkSuperAdminProtection(req.params.id, req.user.role);
+        if (!allowed) {
+          res.status(403).json({ success: false, error: 'Access denied: Cannot modify SUPER_ADMIN users.' });
+          return;
+        }
       }
       const targetUser = await prisma.user.findUnique({ where: { id: req.params.id } });
       if (targetUser && targetUser.organizationId !== orgId && req.user?.role !== 'SUPER_ADMIN') {
@@ -2518,7 +2547,7 @@ export class AdminController {
       // Fetch all users
       const users = await prisma.user.findMany({
         include: {
-          organization: { select: { id: true, name: true } },
+          organization: { select: { id: true, name: true, code: true } },
           department: { select: { id: true, name: true } }
         },
         orderBy: { updatedAt: 'desc' }
@@ -2531,14 +2560,19 @@ export class AdminController {
       const crossOrgEngagement = totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0;
 
       // Org Breakdown
-      const orgCounts: Record<string, number> = {};
+      const orgCounts: Record<string, { count: number, id: string | null, code: string }> = {};
       users.forEach((u: any) => {
         const orgName = u.organization?.name || 'No Organization';
-        orgCounts[orgName] = (orgCounts[orgName] || 0) + 1;
+        const orgId = u.organization?.id || null;
+        const orgCode = u.organization?.code || '';
+        if (!orgCounts[orgName]) {
+          orgCounts[orgName] = { count: 0, id: orgId, code: orgCode };
+        }
+        orgCounts[orgName].count += 1;
       });
       
       const orgBreakdown = Object.entries(orgCounts)
-        .map(([name, count]) => ({ name, count }))
+        .map(([name, data]) => ({ name, count: data.count, id: data.id, code: data.code }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 5); // Top 5 orgs
 
@@ -2551,6 +2585,7 @@ export class AdminController {
         role: u.role,
         status: u.status,
         institution: u.organization?.name || 'Unknown',
+        institutionId: u.organization?.id || null,
         lastActivity: u.updatedAt
       }));
 

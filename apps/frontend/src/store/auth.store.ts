@@ -10,6 +10,7 @@ export interface User {
   organizationId: string | null;
   activeOrganizationId?: string | null;
   organizationName: string | null;
+  organizationCode?: string | null;
   departmentName: string | null;
   departmentId: string | null;
   forcePasswordReset?: boolean;

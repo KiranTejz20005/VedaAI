@@ -414,6 +414,19 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    let activeOrgName = user.organization?.name || null;
+    let activeOrgCode = user.organization?.code || null;
+    if (user.activeOrganizationId && user.activeOrganizationId !== user.organizationId) {
+      const activeOrg = await prisma.organization.findUnique({
+        where: { id: user.activeOrganizationId },
+        select: { name: true, code: true }
+      });
+      if (activeOrg) {
+        activeOrgName = activeOrg.name;
+        activeOrgCode = activeOrg.code;
+      }
+    }
+
     res.json({
       success: true,
       data: {
@@ -424,7 +437,8 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
         lastName: user.lastName,
         organizationId: user.organizationId,
         activeOrganizationId: user.activeOrganizationId,
-        organizationName: user.organization?.name || null,
+        organizationName: activeOrgName,
+        organizationCode: activeOrgCode,
         departmentName: user.department?.name || null,
         preferences: user.preferences || {},
         hasCompletedOnboarding: user.hasCompletedOnboarding,

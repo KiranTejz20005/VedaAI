@@ -20,6 +20,9 @@ export function useUserFilters(users: UnifiedUser[]) {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   
+  const [sortField, setSortField] = useState<'name' | 'role' | 'organization' | 'lastActivity'>('lastActivity');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  
   // Use state to capture the time once to keep render pure
   const [now] = useState(() => Date.now());
 
@@ -38,10 +41,12 @@ export function useUserFilters(users: UnifiedUser[]) {
     setPeriodFilter('All Time');
     setSearchQuery('');
     setDebouncedSearch('');
+    setSortField('lastActivity');
+    setSortOrder('desc');
   };
 
   const filteredUsers = useMemo(() => {
-    return users.filter(u => {
+    const filtered = users.filter(u => {
       // 1. Role Filter
       if (roleFilter !== 'All Roles') {
         const matchesRole = 
@@ -89,7 +94,26 @@ export function useUserFilters(users: UnifiedUser[]) {
 
       return true;
     });
-  }, [users, roleFilter, orgFilter, statusFilter, periodFilter, debouncedSearch, now]);
+
+    return filtered.sort((a, b) => {
+      let comparison = 0;
+      switch (sortField) {
+        case 'name':
+          comparison = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+          break;
+        case 'role':
+          comparison = a.role.localeCompare(b.role);
+          break;
+        case 'organization':
+          comparison = (a.institution || '').localeCompare(b.institution || '');
+          break;
+        case 'lastActivity':
+          comparison = new Date(a.lastActivity || 0).getTime() - new Date(b.lastActivity || 0).getTime();
+          break;
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [users, roleFilter, orgFilter, statusFilter, periodFilter, debouncedSearch, sortField, sortOrder, now]);
 
   return {
     roleFilter,
@@ -102,6 +126,10 @@ export function useUserFilters(users: UnifiedUser[]) {
     setPeriodFilter,
     searchQuery,
     setSearchQuery,
+    sortField,
+    setSortField,
+    sortOrder,
+    setSortOrder,
     clearFilters,
     filteredUsers
   };

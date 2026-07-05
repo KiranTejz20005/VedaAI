@@ -79,10 +79,44 @@ export function SuperAdminSidebar() {
         </nav>
 
         {availableOrganizations && (
-          <div style={{ marginTop: 'auto', padding: '16px', borderTop: '1px solid #E5E7EB' }}>
-            <div style={{ fontSize: '10px', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Active Organization</div>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {availableOrganizations.find(org => org.id === activeOrganizationId)?.name || user?.organizationName || 'Not Selected'}
+          <div style={{ 
+            marginTop: 'auto', 
+            padding: '16px', 
+            borderTop: '1px solid #E5E7EB',
+            background: 'linear-gradient(to top, #F9FAFB, #ffffff)' 
+          }}>
+            <div style={{ 
+              background: '#FFFFFF',
+              border: '1px solid #E5E7EB',
+              borderRadius: 'var(--radius-md)',
+              padding: '12px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+            }}>
+              <div style={{ 
+                fontSize: '10px', 
+                color: '#6B7280', 
+                textTransform: 'uppercase', 
+                letterSpacing: '0.05em', 
+                marginBottom: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontWeight: 600
+              }}>
+                <Building2 size={12} color="#9CA3AF" />
+                Active Organization
+              </div>
+              <div style={{ 
+                fontSize: '13px', 
+                fontWeight: 600, 
+                color: '#111827', 
+                whiteSpace: 'nowrap', 
+                overflow: 'hidden', 
+                textOverflow: 'ellipsis',
+                lineHeight: 1.4
+              }} title={availableOrganizations.find(org => org.id === activeOrganizationId)?.code || user?.organizationCode || 'Not Selected'}>
+                {availableOrganizations.find(org => org.id === activeOrganizationId)?.code || user?.organizationCode || 'Not Selected'}
+              </div>
             </div>
           </div>
         )}

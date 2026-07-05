@@ -100,7 +100,6 @@ export const useAdminAuthStore = create<AdminAuthStore>((set, get) => ({
       const res = await api.post('/auth/me/switch-organization', { organizationId: orgId });
       if (res.data?.success) {
         set({ activeOrganizationId: orgId });
-        await useAuthStore.getState().initialize();
         return true;
       }
       return false;

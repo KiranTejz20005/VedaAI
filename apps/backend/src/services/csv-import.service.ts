@@ -1,7 +1,8 @@
-import { createInvitation } from './invitation.service';
+import * as xlsx from 'xlsx';
 import prisma from '../config/prisma';
 import { logger } from '../utils/logger';
 import { SystemRole } from '@prisma/client';
+import * as argon2 from 'argon2';
 
 export interface CsvImportReport {
   created: number;
@@ -11,8 +12,7 @@ export interface CsvImportReport {
   errors: Array<{ row: number; email: string; error: string }>;
 }
 
-export const processCsvImport = async (csvData: string, organizationId: string, createdById: string): Promise<CsvImportReport> => {
-  const lines = csvData.split('\n').filter(line => line.trim() !== '');
+export const processCsvImport = async (filePath: string, organizationId: string, createdById: string): Promise<CsvImportReport> => {
   const report: CsvImportReport = {
     created: 0,
     skipped: 0,
@@ -21,64 +21,112 @@ export const processCsvImport = async (csvData: string, organizationId: string, 
     errors: []
   };
 
-  if (lines.length < 2) return report; // No data rows
+  try {
+    const workbook = xlsx.readFile(filePath);
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = xlsx.utils.sheet_to_json<any>(sheet, { defval: '' });
 
-  const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
-  const emailIdx = headers.indexOf('email');
-  const roleIdx = headers.indexOf('role');
+    if (rows.length === 0) return report;
 
-  if (emailIdx === -1 || roleIdx === -1) {
-    throw new Error('CSV must contain "email" and "role" columns.');
-  }
+    // Pre-fetch existing emails
+    const existingUsers = await prisma.user.findMany({ select: { email: true } });
+    const existingEmails = new Set(existingUsers.map(u => u.email.toLowerCase()));
 
-  // Pre-fetch existing emails to quickly check duplicates
-  const existingUsers = await prisma.user.findMany({ select: { email: true } });
-  const existingEmails = new Set(existingUsers.map(u => u.email.toLowerCase()));
+    const usersToCreate: any[] = [];
+    const validRoles = ['STUDENT', 'TEACHER', 'FACULTY', 'ADMIN', 'ORG_ADMIN', 'SUPER_ADMIN'];
+    
+    // Default passwords
+    const passwordHash = await argon2.hash('Welcome@123');
 
-  const pendingInvitations = await prisma.invitation.findMany({ where: { status: 'PENDING' }, select: { email: true } });
-  const pendingEmails = new Set(pendingInvitations.map(i => i.email.toLowerCase()));
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      
+      const getVal = (keyMatch: string) => {
+        const key = Object.keys(row).find(k => k.toLowerCase().includes(keyMatch.toLowerCase()));
+        return key ? String(row[key]).trim() : '';
+      };
 
-  for (let i = 1; i < lines.length; i++) {
-    const columns = lines[i].split(',').map(col => col.trim());
-    if (columns.length < headers.length) continue;
+      const email = getVal('email').toLowerCase();
+      let roleStr = getVal('role').toUpperCase();
+      const firstName = getVal('first') || 'Imported';
+      const lastName = getVal('last') || 'User';
 
-    const email = columns[emailIdx].toLowerCase();
-    const roleStr = columns[roleIdx].toUpperCase();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        report.invalidEmails++;
+        report.errors.push({ row: i + 2, email: email || 'missing', error: 'Invalid email format' });
+        continue;
+      }
 
-    // Basic email validation
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      report.invalidEmails++;
-      report.errors.push({ row: i, email, error: 'Invalid email format' });
-      continue;
-    }
+      if (existingEmails.has(email)) {
+        report.duplicates++;
+        report.errors.push({ row: i + 2, email, error: 'User already exists' });
+        continue;
+      }
+      
+      if (roleStr === 'FACULTY') roleStr = 'TEACHER'; // Map FACULTY to TEACHER
 
-    if (existingEmails.has(email)) {
-      report.duplicates++;
-      report.errors.push({ row: i, email, error: 'User already exists' });
-      continue;
-    }
+      if (!validRoles.includes(roleStr)) {
+        report.skipped++;
+        report.errors.push({ row: i + 2, email, error: `Invalid role: ${roleStr}` });
+        continue;
+      }
 
-    if (!['TEACHER', 'STUDENT', 'ADMIN'].includes(roleStr)) {
-      report.skipped++;
-      report.errors.push({ row: i, email, error: `Invalid role: ${roleStr}` });
-      continue;
-    }
-
-    try {
-      await createInvitation({
+      usersToCreate.push({
         email,
+        passwordHash,
+        firstName,
+        lastName,
         role: roleStr as SystemRole,
-        organizationId,
-        createdById
+        organizationId: organizationId || null,
+        forcePasswordReset: true,
       });
-      report.created++;
-      pendingEmails.add(email);
-    } catch (err: any) {
-      report.skipped++;
-      report.errors.push({ row: i, email, error: err.message });
-      logger.error(`[CSV Import] Error creating invite for ${email}: ${err.message}`);
+      existingEmails.add(email); // Prevent duplicates within the same file
     }
-  }
 
-  return report;
+    if (usersToCreate.length > 0) {
+      // Chunking for performance
+      const chunkSize = 1000;
+      for (let i = 0; i < usersToCreate.length; i += chunkSize) {
+        const chunk = usersToCreate.slice(i, i + chunkSize);
+        
+        await prisma.$transaction(async (tx) => {
+          await tx.user.createMany({
+            data: chunk,
+            skipDuplicates: true
+          });
+          
+          const createdUsers = await tx.user.findMany({
+            where: { email: { in: chunk.map(u => u.email) } },
+            select: { id: true, role: true }
+          });
+          
+          const roles = await tx.role.findMany();
+          const roleMap = new Map(roles.map(r => [r.name, r.id]));
+          
+          const userRoles = createdUsers.map(u => {
+            const roleId = roleMap.get(u.role);
+            if (roleId) {
+              return { userId: u.id, roleId };
+            }
+            return null;
+          }).filter(Boolean) as { userId: string, roleId: string }[];
+          
+          if (userRoles.length > 0) {
+            await tx.userRole.createMany({
+              data: userRoles,
+              skipDuplicates: true
+            });
+          }
+        });
+        
+        report.created += chunk.length;
+      }
+    }
+
+    return report;
+  } catch (error: any) {
+    logger.error(`[CSV Import] Error processing file: ${error.message}`);
+    throw error;
+  }
 };

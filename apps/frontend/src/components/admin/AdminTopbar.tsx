@@ -25,7 +25,12 @@ export function AdminTopbar() {
     setIsSwitching(false);
     setIsOrgSwitcherOpen(false);
     if (success) {
-      router.refresh();
+      const state = useAuthStore.getState();
+      if (state.user?.role === 'SUPER_ADMIN') {
+        window.location.href = '/dashboard/super-admin';
+      } else {
+        window.location.href = '/dashboard';
+      }
     }
   };
 
@@ -125,22 +130,65 @@ export function AdminTopbar() {
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: 6,
-                  padding: '6px 12px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg-hover)',
+                  gap: 8,
+                  padding: '6px 16px',
+                  borderRadius: '9999px',
+                  border: '1px solid rgba(0, 0, 0, 0.08)',
+                  background: 'linear-gradient(145deg, #ffffff, #f9fafb)',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.02), inset 0 1px 0 rgba(255,255,255,0.8)',
                   cursor: 'pointer',
-                  fontSize: 'var(--text-sm)',
+                  fontSize: '13px',
                   fontWeight: 600,
-                  color: 'var(--text-primary)',
+                  color: '#374151',
                   fontFamily: 'inherit',
+                  transition: 'all 0.2s ease-in-out',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,1)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02), inset 0 1px 0 rgba(255,255,255,0.8)';
                 }}
               >
-                <span>
-                  {availableOrganizations.find(org => org.id === activeOrganizationId)?.name || user?.organizationName || 'Select Organization'}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 24,
+                  height: 24,
+                  borderRadius: '50%',
+                  background: '#F3F4F6',
+                  color: '#4B5563'
+                }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+                    <path d="M9 22v-4h6v4"></path>
+                    <path d="M8 6h.01"></path>
+                    <path d="M16 6h.01"></path>
+                    <path d="M12 6h.01"></path>
+                    <path d="M12 10h.01"></path>
+                    <path d="M12 14h.01"></path>
+                    <path d="M16 10h.01"></path>
+                    <path d="M16 14h.01"></path>
+                    <path d="M8 10h.01"></path>
+                    <path d="M8 14h.01"></path>
+                  </svg>
+                </div>
+                <span style={{ 
+                  maxWidth: '120px', 
+                  whiteSpace: 'nowrap', 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis',
+                  letterSpacing: '-0.01em'
+                }}>
+                  {availableOrganizations.find(org => org.id === activeOrganizationId)?.code || user?.organizationCode || 'Select Org'}
                 </span>
-                <ChevronRight size={12} color="var(--text-muted)" style={{ transform: isOrgSwitcherOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+                <ChevronRight size={14} color="#9CA3AF" style={{ 
+                  transition: 'transform 0.2s', 
+                  transform: isOrgSwitcherOpen ? 'rotate(90deg)' : 'rotate(0)' 
+                }} />
               </button>
 
               {isOrgSwitcherOpen && (

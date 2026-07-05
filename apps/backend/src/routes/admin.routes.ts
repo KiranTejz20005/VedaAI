@@ -3,6 +3,7 @@ import { asyncHandler } from '../utils/async-handler';
 import { AdminController } from '../controllers/admin.controller';
 import { authenticate, authorize } from '../middlewares/auth.middleware';
 import { requirePermission } from '../security/access-control';
+import { uploadMiddleware } from '../middlewares/upload.middleware';
 
 const router = Router();
 
@@ -39,7 +40,7 @@ router.post('/users/:id/reset-password', asyncHandler(AdminController.resetPassw
 router.post('/users/:id/impersonate', asyncHandler(AdminController.impersonateUser));
 router.post('/users/self/reset-password-force', asyncHandler(AdminController.forceResetOwnPassword));
 router.post('/users/invite', asyncHandler(AdminController.inviteUser));
-router.post('/users/import', asyncHandler(AdminController.importUsersCsv));
+router.post('/users/import', uploadMiddleware.single('file'), asyncHandler(AdminController.importUsersCsv));
 
 // ── 4. Role & Permission Management ──
 router.get('/roles', asyncHandler(AdminController.getRoles));

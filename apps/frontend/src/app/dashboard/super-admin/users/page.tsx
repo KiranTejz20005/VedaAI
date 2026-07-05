@@ -36,7 +36,7 @@ interface DirectoryData {
     activeUsers: number;
     inactiveUsers: number;
     crossOrgEngagement: number;
-    orgBreakdown: { name: string; count: number }[];
+    orgBreakdown: { name: string; count: number; id: string | null; code: string }[];
   }
 }
 
@@ -51,6 +51,24 @@ export default function GlobalUsersDirectory() {
   const [activeActionMenu, setActiveActionMenu] = useState<string | null>(null);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
+  // New User Form State
+  const [newUserForm, setNewUserForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    role: 'STUDENT',
+    organizationId: '',
+  });
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [createUserError, setCreateUserError] = useState<string | null>(null);
+
+  // Bulk Import State
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [isEmailManuallyEdited, setIsEmailManuallyEdited] = useState(false);
+
   // Filters
   const {
     roleFilter, setRoleFilter,
@@ -58,12 +76,19 @@ export default function GlobalUsersDirectory() {
     statusFilter, setStatusFilter,
     periodFilter, setPeriodFilter,
     searchQuery, setSearchQuery,
+    sortField, setSortField,
+    sortOrder, setSortOrder,
     clearFilters,
     filteredUsers
   } = useUserFilters(data?.users || []);
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  // Reset to page 1 when filters or sort change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [roleFilter, orgFilter, statusFilter, periodFilter, searchQuery, sortField, sortOrder]);
 
   const fetchDirectoryData = useCallback(async () => {
     try {
@@ -82,6 +107,79 @@ export default function GlobalUsersDirectory() {
     const interval = setInterval(fetchDirectoryData, 10000); // Polling every 10s
     return () => clearInterval(interval);
   }, [fetchDirectoryData]);
+
+  const handleCreateUser = async () => {
+    try {
+      setIsCreatingUser(true);
+      setCreateUserError(null);
+      await api.post('/admin/users', newUserForm);
+      setIsNewUserOpen(false);
+      setNewUserForm({ firstName: '', lastName: '', email: '', role: 'STUDENT', organizationId: '' });
+      setIsEmailManuallyEdited(false);
+      fetchDirectoryData(); // Refresh list
+    } catch (err: any) {
+      setCreateUserError(err.message || 'Failed to create user');
+    } finally {
+      setIsCreatingUser(false);
+    }
+  };
+
+  const handleBulkImport = async () => {
+    if (!importFile) {
+      setImportError('Please select a file to import.');
+      return;
+    }
+    try {
+      setIsImporting(true);
+      setImportError(null);
+      
+      const formData = new FormData();
+      formData.append('file', importFile);
+      
+      // Need to post as multipart/form-data
+      const res = await api.post('/admin/users/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      setImportResult(res.data || res);
+      fetchDirectoryData();
+    } catch (err: any) {
+      setImportError(err.message || 'Import failed');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isEmailManuallyEdited) return;
+    if (!newUserForm.firstName && !newUserForm.lastName) {
+      setNewUserForm(prev => ({ ...prev, email: '' }));
+      return;
+    }
+    
+    let domain = 'vidya.ai'; // default domain
+    
+    if (newUserForm.organizationId && data?.stats?.orgBreakdown) {
+      const org = data.stats.orgBreakdown.find(o => o.id === newUserForm.organizationId);
+      if (org && org.code) {
+        domain = org.code.toLowerCase() + '.com';
+      } else if (org && org.name) {
+        domain = org.name.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com';
+      }
+    }
+    
+    const first = newUserForm.firstName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const last = newUserForm.lastName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    
+    let emailPrefix = '';
+    if (first && last) emailPrefix = `${first}${last}`;
+    else if (first) emailPrefix = first;
+    else if (last) emailPrefix = last;
+    
+    if (emailPrefix) {
+      setNewUserForm(prev => ({ ...prev, email: `${emailPrefix}@${domain}` }));
+    }
+  }, [newUserForm.firstName, newUserForm.lastName, newUserForm.organizationId, data?.stats?.orgBreakdown, isEmailManuallyEdited]);
 
   const paginatedUsers = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -246,10 +344,30 @@ export default function GlobalUsersDirectory() {
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #F3F4F6', background: '#F9FAFB' }}>
-              <th style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: '#6B7280' }}>Name</th>
-              <th style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: '#6B7280' }}>Role</th>
-              <th style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: '#6B7280' }}>Assigned Organization</th>
-              <th style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: '#6B7280' }}>Last Activity</th>
+              <th 
+                style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: '#6B7280', cursor: 'pointer' }}
+                onClick={() => { setSortOrder(sortField === 'name' && sortOrder === 'asc' ? 'desc' : 'asc'); setSortField('name'); }}
+              >
+                Name {sortField === 'name' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
+              </th>
+              <th 
+                style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: '#6B7280', cursor: 'pointer' }}
+                onClick={() => { setSortOrder(sortField === 'role' && sortOrder === 'asc' ? 'desc' : 'asc'); setSortField('role'); }}
+              >
+                Role {sortField === 'role' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
+              </th>
+              <th 
+                style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: '#6B7280', cursor: 'pointer' }}
+                onClick={() => { setSortOrder(sortField === 'organization' && sortOrder === 'asc' ? 'desc' : 'asc'); setSortField('organization'); }}
+              >
+                Assigned Organization {sortField === 'organization' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
+              </th>
+              <th 
+                style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: '#6B7280', cursor: 'pointer' }}
+                onClick={() => { setSortOrder(sortField === 'lastActivity' && sortOrder === 'asc' ? 'desc' : 'asc'); setSortField('lastActivity'); }}
+              >
+                Last Activity {sortField === 'lastActivity' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
+              </th>
               <th style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: '#6B7280', textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
@@ -437,22 +555,59 @@ export default function GlobalUsersDirectory() {
               <p style={{ fontSize: 14, color: '#6B7280', margin: 0 }}>Upload a CSV file to create multiple users at once.</p>
             </div>
             
-            <div style={{ border: '2px dashed #E5E7EB', borderRadius: 12, padding: 48, textAlign: 'center', background: '#F9FAFB' }}>
+            <div style={{ position: 'relative', border: '2px dashed #E5E7EB', borderRadius: 12, padding: 48, textAlign: 'center', background: '#F9FAFB', cursor: 'pointer' }}>
+              <input 
+                type="file" 
+                accept=".csv,.xlsx" 
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    setImportFile(e.target.files[0]);
+                    setImportError(null);
+                    setImportResult(null);
+                  }
+                }}
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
+              />
               <Upload size={24} color="#9CA3AF" style={{ marginBottom: 12 }} />
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 4 }}>Click to upload or drag and drop</div>
-              <div style={{ fontSize: 12, color: '#6B7280' }}>CSV files only, max 5MB</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
+                {importFile ? importFile.name : 'Click to upload or drag and drop'}
+              </div>
+              <div style={{ fontSize: 12, color: '#6B7280' }}>CSV or XLSX files only, max 5MB</div>
             </div>
+
+            {importError && (
+              <div style={{ padding: 12, background: '#FEE2E2', color: '#DC2626', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
+                {importError}
+              </div>
+            )}
+            
+            {importResult && (
+              <div style={{ padding: 16, background: '#ECFDF5', color: '#065F46', borderRadius: 8, fontSize: 13 }}>
+                <div style={{ fontWeight: 700, marginBottom: 8 }}>Import Successful</div>
+                <div>Created: {importResult.created || 0}</div>
+                <div>Skipped: {importResult.skipped || 0}</div>
+                <div>Duplicates: {importResult.duplicates || 0}</div>
+                <div>Invalid Emails: {importResult.invalidEmails || 0}</div>
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 8 }}>
               <button 
-                onClick={() => setIsBulkImportOpen(false)}
-                style={{ padding: '10px 16px', background: '#FFF', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#374151', cursor: 'pointer' }}>
+                onClick={() => {
+                  setIsBulkImportOpen(false);
+                  setImportFile(null);
+                  setImportResult(null);
+                  setImportError(null);
+                }}
+                disabled={isImporting}
+                style={{ padding: '10px 16px', background: '#FFF', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#374151', cursor: 'pointer', opacity: isImporting ? 0.5 : 1 }}>
                 Cancel
               </button>
               <button 
-                onClick={() => setIsBulkImportOpen(false)}
-                style={{ padding: '10px 16px', background: '#000', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#FFF', cursor: 'pointer' }}>
-                Import Users
+                onClick={handleBulkImport}
+                disabled={!importFile || isImporting}
+                style={{ padding: '10px 16px', background: '#000', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#FFF', cursor: 'pointer', opacity: (!importFile || isImporting) ? 0.5 : 1 }}>
+                {isImporting ? 'Importing...' : 'Import Users'}
               </button>
             </div>
           </div>
@@ -469,53 +624,94 @@ export default function GlobalUsersDirectory() {
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {createUserError && (
+                <div style={{ padding: 12, background: '#FEE2E2', color: '#DC2626', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
+                  {createUserError}
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 16 }}>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>First Name</label>
-                  <input type="text" placeholder="John" style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none' }} />
+                  <input 
+                    type="text" 
+                    placeholder="John" 
+                    value={newUserForm.firstName}
+                    onChange={(e) => setNewUserForm(prev => ({ ...prev, firstName: e.target.value }))}
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none' }} 
+                  />
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Last Name</label>
-                  <input type="text" placeholder="Doe" style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none' }} />
+                  <input 
+                    type="text" 
+                    placeholder="Doe" 
+                    value={newUserForm.lastName}
+                    onChange={(e) => setNewUserForm(prev => ({ ...prev, lastName: e.target.value }))}
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none' }} 
+                  />
                 </div>
               </div>
               
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Email Address</label>
-                <input type="email" placeholder="john@example.com" style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none' }} />
+                <input 
+                  type="email" 
+                  placeholder="john@example.com" 
+                  value={newUserForm.email}
+                  onChange={(e) => {
+                    setIsEmailManuallyEdited(true);
+                    setNewUserForm(prev => ({ ...prev, email: e.target.value }));
+                  }}
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none' }} 
+                />
               </div>
               
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Role</label>
-                <select style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none', backgroundColor: '#FFF' }}>
-                  <option>Student</option>
-                  <option>Faculty</option>
-                  <option>Org Admin</option>
-                  <option>Super Admin</option>
+                <select 
+                  value={newUserForm.role}
+                  onChange={(e) => setNewUserForm(prev => ({ ...prev, role: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none', backgroundColor: '#FFF' }}
+                >
+                  <option value="STUDENT">Student</option>
+                  <option value="TEACHER">Faculty</option>
+                  <option value="ORG_ADMIN">Org Admin</option>
+                  <option value="SUPER_ADMIN">Super Admin</option>
                 </select>
               </div>
 
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Organization</label>
-                <select style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none', backgroundColor: '#FFF' }}>
-                  {stats?.orgBreakdown.map((o: any) => (
-                    <option key={o.name}>{o.name}</option>
+                <select 
+                  value={newUserForm.organizationId}
+                  onChange={(e) => setNewUserForm(prev => ({ ...prev, organizationId: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none', backgroundColor: '#FFF' }}
+                >
+                  <option value="">Select Organization (Optional for Super Admin)</option>
+                  {stats?.orgBreakdown.filter(o => o.id).map((o: any) => (
+                    <option key={o.id} value={o.id}>{o.name}</option>
                   ))}
-                  <option>Unknown</option>
                 </select>
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 8 }}>
               <button 
-                onClick={() => setIsNewUserOpen(false)}
-                style={{ padding: '10px 16px', background: '#FFF', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#374151', cursor: 'pointer' }}>
+                onClick={() => {
+                  setIsNewUserOpen(false);
+                  setCreateUserError(null);
+                }}
+                disabled={isCreatingUser}
+                style={{ padding: '10px 16px', background: '#FFF', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#374151', cursor: 'pointer', opacity: isCreatingUser ? 0.5 : 1 }}
+              >
                 Cancel
               </button>
               <button 
-                onClick={() => setIsNewUserOpen(false)}
-                style={{ padding: '10px 16px', background: '#000', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#FFF', cursor: 'pointer' }}>
-                Create User
+                onClick={handleCreateUser}
+                disabled={isCreatingUser}
+                style={{ padding: '10px 16px', background: '#000', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#FFF', cursor: 'pointer', opacity: isCreatingUser ? 0.5 : 1 }}
+              >
+                {isCreatingUser ? 'Creating...' : 'Create User'}
               </button>
             </div>
           </div>
