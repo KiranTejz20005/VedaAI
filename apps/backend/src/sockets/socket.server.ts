@@ -4,18 +4,22 @@ import type { ServerToClientEvents, ClientToServerEvents } from '../types/socket
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
 
+// Managers
+import { ConnectionManager } from './managers/ConnectionManager';
+import { RoomManager } from './managers/RoomManager';
+import { PresenceManager } from './managers/PresenceManager';
+import { MessageManager } from './managers/MessageManager';
+
 let io: SocketIOServer<ClientToServerEvents, ServerToClientEvents> | null = null;
+let connectionManager: ConnectionManager | null = null;
+let roomManager: RoomManager | null = null;
+let presenceManager: PresenceManager | null = null;
+let messageManager: MessageManager | null = null;
+
 const ASSIGNMENT_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SUBSCRIBE_WINDOW_MS = 10_000;
 const MAX_SUBSCRIBES_PER_WINDOW = 30;
 const MAX_ROOMS_PER_SOCKET = 50;
-
-// Track online users globally: userId -> number of active connections
-const onlineUsers = new Map<string, number>();
-
-export function getOnlineUsers(): string[] {
-  return Array.from(onlineUsers.keys());
-}
 
 function isValidAssignmentId(value: unknown): value is string {
   return typeof value === 'string' && ASSIGNMENT_ID_RE.test(value.trim());
@@ -66,15 +70,11 @@ export function initializeSocketServer(
       methods: ['GET', 'POST'],
       credentials: true,
     },
-    // Production-safe settings:
-    // websocket first for lower latency, polling fallback for restricted networks
     transports: ['websocket', 'polling'],
     pingTimeout: 30000,
     pingInterval: 12000,
     maxHttpBufferSize: 1e6,
-    // Allow upgrades from polling to websocket
     allowUpgrades: true,
-    // Cookie settings for sticky sessions
     cookie: {
       name: 'vidyaai-socket',
       httpOnly: true,
@@ -83,8 +83,16 @@ export function initializeSocketServer(
     },
   });
 
+  // Initialize Managers
+  connectionManager = new ConnectionManager(io);
+  roomManager = new RoomManager(io);
+  presenceManager = new PresenceManager(io);
+  messageManager = new MessageManager(io);
+
   io.on('connection', (socket) => {
     logger.debug(`Socket connected: ${socket.id} (transport: ${socket.conn.transport.name})`);
+    
+    // Rate Limiting Logic for assignments
     let subscribeCount = 0;
     let windowStart = Date.now();
 
@@ -113,63 +121,58 @@ export function initializeSocketServer(
         socket.disconnect(true);
         return;
       }
-      const normalized = assignmentId.trim();
-      socket.join(`assignment:${normalized}`);
-      logger.debug(`Socket ${socket.id} subscribed to assignment:${normalized}`);
+      socket.join(`assignment:${assignmentId.trim()}`);
     });
 
     socket.on('unsubscribe:assignment', ({ assignmentId }) => {
       if (!isValidAssignmentId(assignmentId)) return;
-      const normalized = assignmentId.trim();
-      socket.leave(`assignment:${normalized}`);
-      logger.debug(`Socket ${socket.id} unsubscribed from assignment:${normalized}`);
+      socket.leave(`assignment:${assignmentId.trim()}`);
     });
 
     // --- Real-time Group Chat & Presence ---
     
-    socket.on('authenticate', ({ userId }: { userId: string }) => {
+    socket.on('authenticate', ({ userId }) => {
       if (!userId) return;
-      socket.data.userId = userId;
-      const count = onlineUsers.get(userId) || 0;
-      onlineUsers.set(userId, count + 1);
+      const wasAlreadyConnected = connectionManager!.isUserConnected(userId);
       
-      // If this is their first connection, broadcast to everyone that they are online
-      if (count === 0) {
-        io?.emit('presence:online', { userId });
+      connectionManager!.handleConnection(socket, userId);
+      
+      // If it's a completely new connection for this user across all tabs
+      if (!wasAlreadyConnected) {
+        presenceManager!.markOnline(userId);
       }
     });
 
-    socket.on('join:group', ({ groupId }: { groupId: string }) => {
-      if (!groupId) return;
-      socket.join(`group:${groupId}`);
+    socket.on('join:group', ({ groupId }) => {
+      roomManager!.joinRoom(socket, groupId);
+      // Let the newly joined socket know who else is online in this room right now
+      // (Optimization: In a massive scale app, we'd query Redis. Here, we just query RoomManager + ConnectionManager)
+      const userIdsInRoom = roomManager!.getUsersInRoom(groupId);
+      const onlineUserIds = userIdsInRoom.filter(id => connectionManager!.isUserConnected(id));
       
-      // Reply with the list of ALL currently online users (not just in this group, frontend filters)
-      socket.emit('presence:sync', { onlineUserIds: Array.from(onlineUsers.keys()) });
+      socket.emit('presence:sync', { onlineUserIds });
     });
 
-    socket.on('leave:group', ({ groupId }: { groupId: string }) => {
-      if (!groupId) return;
-      socket.leave(`group:${groupId}`);
+    socket.on('leave:group', ({ groupId }) => {
+      roomManager!.leaveRoom(socket, groupId);
     });
 
-    socket.on('typing', ({ groupId, isTyping }: { groupId: string, isTyping: boolean }) => {
-      if (!groupId || !socket.data.userId) return;
-      // Broadcast to others in the room
-      socket.to(`group:${groupId}`).emit('chat:typing', {
-        userId: socket.data.userId,
-        isTyping,
-      });
+    socket.on('chat:send_message', (payload) => {
+      messageManager!.handleSendMessage(socket, payload);
+    });
+
+    socket.on('typing', (payload) => {
+      messageManager!.handleTyping(socket, payload);
     });
 
     socket.on('disconnect', (reason) => {
       const userId = socket.data.userId;
       if (userId) {
-        const count = (onlineUsers.get(userId) || 0) - 1;
-        if (count <= 0) {
-          onlineUsers.delete(userId);
-          io?.emit('presence:offline', { userId });
-        } else {
-          onlineUsers.set(userId, count);
+        connectionManager!.handleDisconnect(socket);
+        
+        // If this was the last active socket for this user, they are truly offline
+        if (!connectionManager!.isUserConnected(userId)) {
+          presenceManager!.markOffline(userId);
         }
       }
       logger.debug(`Socket disconnected: ${socket.id} (${reason})`);

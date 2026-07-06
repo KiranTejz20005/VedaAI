@@ -30,7 +30,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/teacher/insights', label: 'Class Insights', icon: LayoutGrid },
   { href: '/ai-toolkit', label: 'AI Teacher\'s Toolkit', icon: Smartphone },
   { href: '/dashboard/teacher/library', label: 'My Library', icon: History },
-  { href: '/dashboard/teacher/assessments', label: 'Evaluations', icon: FileCheck },
+  { href: '/grader', label: 'Evaluations', icon: FileCheck },
 ];
 
 export function TeacherSidebar() {

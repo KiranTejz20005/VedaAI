@@ -22,3 +22,4 @@ export { ActionCard } from './ActionCard';
 export { ActivityCard } from './ActivityCard';
 export { Avatar } from './Avatar';
 export { Tabs } from './Tabs';
+export { DatePicker } from './DatePicker';

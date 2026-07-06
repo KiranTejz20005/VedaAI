@@ -56,20 +56,31 @@ export class AITutorService {
 
     // 4. Construct Socratic Prompt
     const prompt = `
-You are an AI Education Tutor.
+${require('fs').readFileSync(require('path').join(process.cwd(), 'tutor_master_prompt.txt'), 'utf8')}
+
+--- DYNAMIC CONTEXT ---
 Mode: ${activeMode}
 Student Weaknesses: ${weaknesses}
 Topic: ${session.subject}
 
 CRITICAL RULES:
-1. NEVER leave the education domain. Reject questions about medical, legal, or non-academic topics.
-2. Direct Answers Allowed: ${allowDirectAnswers}. If false, you MUST use Socratic questioning to guide the student.
-3. ${modeInstructions}
-4. Use the provided RAG context to ground your explanation.
-5. Keep the explanation within a maximum conceptual depth of ${maxDepth}.
+1. Direct Answers Allowed: ${allowDirectAnswers}. If false, you MUST use Socratic questioning to guide the student.
+2. ${modeInstructions}
+3. Use the provided RAG context to ground your explanation.
+4. Keep the explanation within a maximum conceptual depth of ${maxDepth}.
+5. MULTI-QUESTION HANDLING:
+   - If the student's message contains multiple questions (e.g., numbered, bulleted, paragraph-separated, or mixed format), you MUST answer EVERY question.
+   - Do NOT stop after the first question.
+   - If there are multiple questions, begin your response exactly with: "I found X questions in your message. I'll answer each one separately."
+   - Format your response clearly separating each answer like this:
+     Question 1
+     [Answer]
+     ----------------
+     Question 2
+     [Answer]
 6. Output your response ONLY as a JSON object matching this schema:
 {
-  "message": "string",
+  "message": "string (The formatted markdown response)",
   "suggestedFollowUp": "string",
   "confidenceScore": "number",
   "isDomainViolation": "boolean"

@@ -130,8 +130,6 @@ export async function listAssignments(
   const filter: Record<string, unknown> = {};
   if (status) {
     filter.status = status;
-  } else {
-    filter.status = { not: 'FAILED' };
   }
   if (organizationId) filter.organizationId = organizationId;
   if (createdById) filter.createdById = createdById;

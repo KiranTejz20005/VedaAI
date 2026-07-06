@@ -50,18 +50,23 @@ export default function StudentAssessmentsPage() {
 
   useEffect(() => { fetchAssessments(); }, [fetchAssessments]);
 
-  const handleStart = async (id: string) => {
+  const handleStart = async (id: string, isStarted: boolean) => {
+    if (isStarted) {
+      router.push(`/assignments/${id}`);
+      return;
+    }
+    
     try {
       await api.post(`/student/assessments/${id}/start`);
       toast.success('Assessment started');
-      await fetchAssessments();
+      router.push(`/assignments/${id}`);
     } catch (err: any) {
       toast.error(err.message || 'Failed to start assessment');
     }
   };
 
   const handleViewResult = (assessment: StudentAssessment) => {
-    router.push(`/student/results?id=${assessment.id}`);
+    router.push(`/dashboard/student/results?id=${assessment.id}`);
   };
 
   if (loading) {
@@ -157,11 +162,11 @@ export default function StudentAssessmentsPage() {
                     <div style={{ width: '50%', height: '100%', background: '#C2410C', borderRadius: '9999px' }} />
                   </div>
                   
-                  <button onClick={() => handleStart(a.id)} style={{ 
+                  <button onClick={() => handleStart(a.id, a.attemptStatus === 'STARTED')} style={{ 
                     width: '100%', padding: '14px', background: '#C2410C', color: '#fff', 
                     borderRadius: '12px', border: 'none', fontWeight: 700, fontSize: '14px', cursor: 'pointer'
                   }}>
-                    {a.attemptStatus === 'STARTED' ? 'Start Test' : 'Resume Test'}
+                    {a.attemptStatus === 'STARTED' ? 'Resume Test' : 'Start Test'}
                   </button>
                 </div>
               </div>

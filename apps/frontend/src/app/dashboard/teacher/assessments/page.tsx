@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
 import { Button } from '@/design-system/Button';
-import { FileText, Clock, CheckCircle2, Users, BookOpen, Sparkles, Edit2, Trash2 } from 'lucide-react';
+import { FileText, Clock, CheckCircle2, Users, BookOpen, Sparkles, Edit2, Trash2, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Homework {
@@ -23,13 +23,15 @@ interface Homework {
 export default function HomeworkHubPage() {
   const [homeworks, setHomeworks] = useState<Homework[]>([]);
   const [loading, setLoading] = useState(true);
+  const [recentlyCompleted, setRecentlyCompleted] = useState<string[]>([]);
   const router = useRouter();
 
   useEffect(() => {
-    const fetchAssignments = async () => {
+    let currentHomeworks: Homework[] = [];
+    
+    const fetchAssignments = async (isPolling = false) => {
       try {
-        setLoading(true);
-        // The GET /assignments endpoint correctly filters by user's assigned scope
+        if (!isPolling) setLoading(true);
         const res = await api.get('/assignments');
         if (res.data?.success) {
           const formatted = res.data.data.map((a: any) => ({
@@ -37,20 +39,46 @@ export default function HomeworkHubPage() {
             title: a.title,
             course: a.subject,
             dueDate: new Date(a.dueDate).toLocaleDateString(),
-            totalStudents: a._count?.submissions || 0, // Using aggregated count if available
+            totalStudents: a._count?.submissions || 0,
             submitted: a.submissions?.length || 0,
             graded: a.submissions?.filter((s: any) => s.status === 'GRADED').length || 0,
             status: a.status
           }));
+          
+          if (isPolling) {
+            const newlyCompleted = formatted.filter((newHw: Homework) => 
+              ['COMPLETED', 'PENDING_APPROVAL', 'DRAFT'].includes(newHw.status) && 
+              currentHomeworks.some(oldHw => oldHw.id === newHw.id && ['GENERATING', 'QUEUED'].includes(oldHw.status))
+            );
+            if (newlyCompleted.length > 0) {
+              setRecentlyCompleted(r => [...r, ...newlyCompleted.map((n: Homework) => n.id)]);
+              newlyCompleted.forEach((n: Homework) => {
+                setTimeout(() => {
+                  setRecentlyCompleted(r => r.filter(id => id !== n.id));
+                }, 2000);
+              });
+            }
+          }
+          
+          currentHomeworks = formatted;
           setHomeworks(formatted);
         }
       } catch (err) {
-        toast.error('Failed to load assignments');
+        if (!isPolling) toast.error('Failed to load assignments');
       } finally {
-        setLoading(false);
+        if (!isPolling) setLoading(false);
       }
     };
+    
     fetchAssignments();
+
+    const interval = setInterval(() => {
+      if (currentHomeworks.some(hw => ['GENERATING', 'QUEUED'].includes(hw.status))) {
+        fetchAssignments(true);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleBulkGrade = async (id: string) => {
@@ -116,7 +144,12 @@ export default function HomeworkHubPage() {
                 <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>{hw.course} &middot; Due: <span style={{ color: hw.status === 'COMPLETED' ? 'inherit' : '#EF4444', fontWeight: 600 }}>{hw.dueDate}</span></span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: 16, fontSize: 'var(--text-xs)', fontWeight: 600, background: hw.status === 'ACTIVE' ? '#DBEAFE' : '#F3F4F6', color: hw.status === 'ACTIVE' ? '#1D4ED8' : '#4B5563' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 16, fontSize: 'var(--text-xs)', fontWeight: 600, background: hw.status === 'ACTIVE' ? '#DBEAFE' : '#F3F4F6', color: hw.status === 'ACTIVE' ? '#1D4ED8' : '#4B5563' }}>
+                  {recentlyCompleted.includes(hw.id) ? (
+                    <CheckCircle2 size={14} color="#10B981" style={{ animation: 'zoomIn 0.3s ease-out' }} />
+                  ) : ['GENERATING', 'QUEUED'].includes(hw.status) ? (
+                    <Loader2 size={14} color="#F97316" className="animate-spin" />
+                  ) : null}
                   {hw.status}
                 </div>
                 <button onClick={() => router.push(`/dashboard/teacher/assessments/${hw.id}/edit`)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4 }}>

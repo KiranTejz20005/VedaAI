@@ -53,12 +53,6 @@ export const ThinkingAnimation: React.FC<ThinkingAnimationProps> = ({ variant = 
   if (variant === 'brain') {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--primary)' }}>
-        <motion.div
-          animate={{ rotate: [0, -10, 10, -10, 10, 0], scale: [1, 1.1, 1] }}
-          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-        >
-          <BrainCircuit size={18} />
-        </motion.div>
         <motion.span
           animate={{ opacity: [0.4, 1, 0.4] }}
           transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}

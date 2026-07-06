@@ -109,6 +109,25 @@ export const createGroup = async (req: Request, res: Response): Promise<void> =>
       },
     });
 
+    const communityGroup = await prisma.communityGroup.create({
+      data: {
+        id: group.id,
+        name,
+        description,
+        ownerId: userId,
+        type: 'PRIVATE',
+        organizationId: orgId,
+      }
+    });
+
+    await prisma.groupMember.create({
+      data: {
+        groupId: communityGroup.id,
+        userId: userId,
+        role: 'OWNER'
+      }
+    });
+
     // Bulk add students if provided
     if (students && Array.isArray(students) && students.length > 0) {
       await prisma.groupStudent.createMany({
@@ -121,10 +140,23 @@ export const createGroup = async (req: Request, res: Response): Promise<void> =>
         })),
         skipDuplicates: true,
       });
+
+      const validStudents = students.filter((s: any) => s.userId);
+      if (validStudents.length > 0) {
+        await prisma.groupMember.createMany({
+          data: validStudents.map((s: any) => ({
+            groupId: communityGroup.id,
+            userId: s.userId,
+            role: 'MEMBER'
+          })),
+          skipDuplicates: true,
+        });
+      }
     }
 
     const count = await prisma.group.count({ where: { facultyId: userId } });
     const colorIdx = (count - 1) % GROUP_COLORS.length;
+    const safeColorIdx = colorIdx < 0 ? 0 : colorIdx;
 
     res.status(201).json({
       success: true,
@@ -134,8 +166,8 @@ export const createGroup = async (req: Request, res: Response): Promise<void> =>
         subject: group.subject,
         students: students ? students.length : 0,
         assignments: 0,
-        color: GROUP_COLORS[colorIdx].bg,
-        iconColor: GROUP_COLORS[colorIdx].color,
+        color: GROUP_COLORS[safeColorIdx].bg,
+        iconColor: GROUP_COLORS[safeColorIdx].color,
       },
       message: 'Group created successfully',
     });
@@ -220,6 +252,8 @@ export const getEligibleStudents = async (req: Request, res: Response): Promise<
       const cs = classStudentsRaw.find(c => c.email === u.email);
       return {
         id: u.id,
+        userId: u.id,
+        classStudentId: cs ? cs.id : null,
         name: `${u.firstName} ${u.lastName}`,
         email: u.email,
         rollNo: cs ? cs.rollNo : 'N/A',

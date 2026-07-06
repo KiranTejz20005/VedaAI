@@ -134,7 +134,7 @@ export default function MessagesPage() {
     return { id: activeId, name: `${r.firstName} ${r.lastName}`, isDM: true, recipientId: r.id, role: r.role, lastMessage: '' };
   }, [activeId, conversations, uid, orgUsers]);
 
-  const filteredConvos = conversations.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()));
+  const filteredConvos = conversations.filter((c) => c.isDM && c.name.toLowerCase().includes(query.toLowerCase()));
   const filteredUsers = orgUsers.filter((u) => `${u.firstName} ${u.lastName} ${u.email}`.toLowerCase().includes(composeQuery.toLowerCase()));
 
   const sendMessage = async (e: FormEvent) => {

@@ -87,24 +87,12 @@ export class ChatService {
    * List all conversations (chats) that the current user has interacted in
    */
   static async getConversations(userId: string) {
-    // 1. Get all group IDs the user belongs to
-    const memberships = await prisma.groupMember.findMany({
-      where: { userId },
-      select: { groupId: true }
-    });
-    const groupIds = memberships.map(m => m.groupId);
-
-    // 2. Find unique conversationIds where user is participating
+    // Find unique conversationIds where user is participating (DMs only)
     const messages = await prisma.message.findMany({
       where: {
-        OR: [
-          { conversationId: { in: groupIds } },
-          {
-            AND: [
-              { conversationId: { startsWith: 'dm_' } },
-              { conversationId: { contains: userId } }
-            ]
-          }
+        AND: [
+          { conversationId: { startsWith: 'dm_' } },
+          { conversationId: { contains: userId } }
         ]
       },
       orderBy: { createdAt: 'desc' },
@@ -121,35 +109,27 @@ export class ChatService {
       }
     });
 
-    // 3. Populate details for each conversation (recipient name/avatar for DMs, group names for Groups)
+    // Populate details for each conversation (recipient name/avatar for DMs)
     const conversations = await Promise.all(messages.map(async (msg) => {
-      const isDM = msg.conversationId.startsWith('dm_');
+      const isDM = true;
       let name = '';
       let recipientId = '';
       let role = '';
 
-      if (isDM) {
-        const ids = msg.conversationId.replace('dm_', '').split('_');
-        const otherId = ids.find(id => id !== userId) || '';
-        recipientId = otherId;
+      const ids = msg.conversationId.replace('dm_', '').split('_');
+      const otherId = ids.find(id => id !== userId) || '';
+      recipientId = otherId;
 
-        const otherUser = await prisma.user.findUnique({
-          where: { id: otherId },
-          select: { firstName: true, lastName: true, role: true }
-        });
+      const otherUser = await prisma.user.findUnique({
+        where: { id: otherId },
+        select: { firstName: true, lastName: true, role: true }
+      });
 
-        if (otherUser) {
-          name = `${otherUser.firstName} ${otherUser.lastName}`;
-          role = otherUser.role;
-        } else {
-          name = 'Unknown Builder';
-        }
+      if (otherUser) {
+        name = `${otherUser.firstName} ${otherUser.lastName}`;
+        role = otherUser.role;
       } else {
-        const group = await prisma.communityGroup.findUnique({
-          where: { id: msg.conversationId },
-          select: { name: true }
-        });
-        name = group?.name || 'Unknown Group';
+        name = 'Unknown Builder';
       }
 
       return {

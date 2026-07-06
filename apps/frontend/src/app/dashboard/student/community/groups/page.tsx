@@ -233,7 +233,7 @@ export default function GroupsPage() {
             <p style={{ fontSize: 13, color: '#64748b', margin: '8px 0 0' }}>Create the first group for your community.</p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: 20 }}>
             {filtered.map((group, idx) => {
               const Icon = groupIcon(idx);
               const cat  = groupCat(idx);
@@ -261,11 +261,11 @@ export default function GroupsPage() {
                           <Settings size={14} /> Manage
                         </button>
                       )}
-                      {(group.type === 'INVITE_ONLY' || group.type === 'PRIVATE') && !group.isMember ? (
+                      {(group.type === 'INVITE_ONLY' || group.type === 'PRIVATE') && !group.isMember && cat !== 'Academic' ? (
                         <button disabled style={{ height: 36, borderRadius: 10, border: 'none', background: '#f1f5f9', color: '#94a3b8', fontSize: 12, fontWeight: 700, padding: '0 18px' }}>
                           Invite Only
                         </button>
-                      ) : group.isMember ? (
+                      ) : (group.isMember || cat === 'Academic') ? (
                         <button onClick={() => router.push(`/dashboard/student/community/groups/${group.id}`)} style={{ height: 36, borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '0 18px', transition: 'all .15s' }}>
                           Open Chat
                         </button>

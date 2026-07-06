@@ -57,14 +57,21 @@ export default function TutorChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = async (e?: React.FormEvent) => {
-    e?.preventDefault();
+    const handleSend = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     if (!inputValue.trim() || isSending || session?.status === 'CLOSED') return;
 
     const userMessageContent = inputValue.trim();
+    
+    // 1. Immediately clear input synchronously
     setInputValue('');
+    setIsSending(true);
 
-    // Optimistic update
+    // 2. Optimistic update
     const optimisticUserMsg: TutorMessage = {
       id: Date.now().toString(),
       sessionId: id,
@@ -74,9 +81,9 @@ export default function TutorChatPage() {
     };
 
     setMessages((prev) => [...prev, optimisticUserMsg]);
-    setIsSending(true);
 
     try {
+      // 3. Send API request
       const response = await sendChatMessage(id, userMessageContent, mode);
       
       const assistantMsg: TutorMessage = {
@@ -88,22 +95,32 @@ export default function TutorChatPage() {
         confidence: (response as any).confidenceScore,
       };
 
+      // 4. Render AI response
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (err: any) {
       toast.error(err.message || 'Failed to send message');
       // Rollback optimistic update on error
       setMessages((prev) => prev.filter((m) => m.id !== optimisticUserMsg.id));
-      setInputValue(userMessageContent); // restore input
+      // Only restore input if user hasn't typed a new message
+      setInputValue((prev) => prev === '' ? userMessageContent : prev);
     } finally {
+      // 5. Enable input
       setIsSending(false);
-      inputRef.current?.focus();
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 0);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      e.stopPropagation();
+      
+      // Explicitly check disabled state again for keyboard events
+      if (!isSending && inputValue.trim()) {
+        handleSend();
+      }
     }
   };
 

@@ -22,7 +22,7 @@ type GroupMember = {
 export default function GroupChatPage() {
   const router = useRouter();
   const params = useParams();
-  const groupId = params.groupId as string;
+  const groupId = params.id as string;
   const { user } = useAuthStore();
 
   const [loading, setLoading] = useState(true);

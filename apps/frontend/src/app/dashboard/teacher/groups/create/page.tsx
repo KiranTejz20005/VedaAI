@@ -36,6 +36,8 @@ export default function CreateGroupPage() {
       const res = await api.get('/groups/eligible-students');
       const studentsData = res.data.data.map((s: any) => ({
         id: s.id,
+        userId: s.userId || s.id,
+        classStudentId: s.classStudentId,
         name: s.name,
         rollNo: s.rollNo,
         email: s.email,
@@ -78,7 +80,8 @@ export default function CreateGroupPage() {
         subject: formData.subject,
         classId: formData.classId || undefined,
         students: selectedStudents.map(s => ({
-          classStudentId: s.id,
+          userId: (s as any).userId || s.id,
+          classStudentId: (s as any).classStudentId || undefined,
           name: s.name,
           rollNo: s.rollNo,
           email: s.email,

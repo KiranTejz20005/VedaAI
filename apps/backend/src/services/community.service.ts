@@ -6,6 +6,14 @@ export class CommunityService {
    * List community groups visible to the current user.
    */
   static async getGroups(organizationId: string | undefined, userId: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const userEmail = user?.email || '';
+
+    const groupStudents = await prisma.groupStudent.findMany({
+      where: { email: userEmail }
+    });
+    const academicGroupIds = groupStudents.map(gs => gs.groupId);
+
     const groups = await prisma.communityGroup.findMany({
       where: {
         OR: [
@@ -18,6 +26,10 @@ export class CommunityService {
           {
             type: 'PRIVATE',
             members: { some: { userId } }
+          },
+          // Academic groups where the user is a GroupStudent
+          {
+            id: { in: academicGroupIds }
           }
         ],
       },
@@ -43,7 +55,7 @@ export class CommunityService {
       organizationId: group.organizationId,
       createdAt: group.createdAt,
       memberCount: group._count.members,
-      isMember: group.members.some((member) => member.userId === userId),
+      isMember: group.members.some((member) => member.userId === userId) || academicGroupIds.includes(group.id),
     }));
   }
 
@@ -234,17 +246,43 @@ export class CommunityService {
     });
   }
 
-  /**
-   * Get all members of a group
-   */
   static async getGroupMembers(groupId: string, _userId?: string) {
-    return prisma.groupMember.findMany({
+    const members = await prisma.groupMember.findMany({
       where: { groupId },
       include: {
         user: { select: { id: true, firstName: true, lastName: true, avatar: true } }
       },
       orderBy: { role: 'asc' } // OWNER first
     });
+
+    const groupStudents = await prisma.groupStudent.findMany({
+      where: { groupId }
+    });
+
+    if (groupStudents.length > 0) {
+      const emails = groupStudents.map(s => s.email).filter(Boolean);
+      const matchingUsers = await prisma.user.findMany({
+        where: { email: { in: emails } },
+        select: { id: true, firstName: true, lastName: true, avatar: true }
+      });
+
+      const existingUserIds = new Set(members.map(m => m.userId));
+
+      for (const u of matchingUsers) {
+        if (!existingUserIds.has(u.id)) {
+          members.push({
+            groupId,
+            userId: u.id,
+            role: 'MEMBER',
+            joinedAt: new Date(),
+            user: u
+          } as any);
+          existingUserIds.add(u.id);
+        }
+      }
+    }
+
+    return members;
   }
 
   static async kickMember(groupId: string, requesterId: string, memberId: string) {
@@ -354,17 +392,35 @@ export class CommunityService {
 
   // --- New Methods for Group Chat ---
 
-  static async getGroupMessages(groupId: string, userId: string, limit = 50, cursor?: string) {
+  private static async checkGroupAccess(groupId: string, userId: string) {
     // Validate if the user is a member of the group
     const membership = await prisma.groupMember.findUnique({
       where: { groupId_userId: { groupId, userId } }
     });
-    if (!membership) {
-      const group = await prisma.communityGroup.findUnique({ where: { id: groupId } });
-      if (!group || (group.type === 'PRIVATE' && group.ownerId !== userId)) {
-        throw new Error('Unauthorized');
+    if (membership) return true;
+
+    const group = await prisma.communityGroup.findUnique({ where: { id: groupId } });
+    if (group && (group.type !== 'PRIVATE' || group.ownerId === userId)) return true;
+
+    // Check if it's an academic group and user is faculty or student
+    const academicGroup = await prisma.group.findUnique({ where: { id: groupId } });
+    if (academicGroup) {
+      if (academicGroup.facultyId === userId) return true;
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (user) {
+        const student = await prisma.groupStudent.findFirst({
+          where: { groupId, email: user.email }
+        });
+        if (student) return true;
       }
     }
+
+    return false;
+  }
+
+  static async getGroupMessages(groupId: string, userId: string, limit = 50, cursor?: string) {
+    const hasAccess = await this.checkGroupAccess(groupId, userId);
+    if (!hasAccess) throw new Error('Unauthorized');
 
     const messages = await prisma.message.findMany({
       where: { conversationId: groupId },
@@ -380,16 +436,8 @@ export class CommunityService {
   }
 
   static async sendGroupMessage(groupId: string, userId: string, content: string, attachments: any[] = []) {
-    // Validate membership
-    const membership = await prisma.groupMember.findUnique({
-      where: { groupId_userId: { groupId, userId } }
-    });
-    if (!membership) {
-      const group = await prisma.communityGroup.findUnique({ where: { id: groupId } });
-      if (!group || (group.type === 'PRIVATE' && group.ownerId !== userId)) {
-        throw new Error('Unauthorized');
-      }
-    }
+    const hasAccess = await this.checkGroupAccess(groupId, userId);
+    if (!hasAccess) throw new Error('Unauthorized');
 
     const message = await prisma.message.create({
       data: {

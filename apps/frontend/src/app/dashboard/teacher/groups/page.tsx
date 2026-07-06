@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
-import { Users, Plus, Search, Edit2, Trash2 } from 'lucide-react';
+import { Users, Plus, Search, Settings, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 
@@ -58,7 +58,7 @@ export default function GroupsListingPage() {
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 40, width: '100%', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '40px 32px 80px', width: '100%', maxWidth: 1600, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
         <PageHeader 
           title="Group Management" 
@@ -89,7 +89,7 @@ export default function GroupsListingPage() {
         />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: 24 }}>
         {loading ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)', gridColumn: '1 / -1' }}>Loading groups...</div>
         ) : filteredGroups.length === 0 ? (
@@ -115,49 +115,55 @@ export default function GroupsListingPage() {
           </Card>
         ) : (
           filteredGroups.map((group) => (
-            <Card key={group.id} padding="24px" style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+            <Card key={group.id} padding="24px" style={{ position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 260 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                 <div style={{ 
-                  width: 48, height: 48, borderRadius: 12, 
+                  width: 48, height: 48, borderRadius: 14, 
                   background: group.color || '#F3F4F6', 
-                  display: 'flex', alignItems: 'center', justifyContent: 'center' 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 
                 }}>
-                  <Users size={24} color={group.iconColor || '#6B7280'} />
+                  <Users size={22} color={group.iconColor || '#6B7280'} />
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button 
-                    onClick={() => router.push(`/dashboard/teacher/groups/${group.id}/edit`)}
-                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text-tertiary)' }}
-                  >
-                    <Edit2 size={18} />
-                  </button>
+                
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ background: 'var(--surface-hover)', border: '1px solid var(--border)', borderRadius: 100, padding: '3px 10px', fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                    {group.subject || 'GENERAL'}
+                  </span>
                   <button 
                     onClick={() => handleDelete(group.id)}
-                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--error)' }}
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--error)', display: 'flex', alignItems: 'center' }}
+                    title="Delete Group"
                   >
-                    <Trash2 size={18} />
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
               
-              <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>
-                {group.name}
-              </h3>
-              {group.className && (
-                <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 4, fontWeight: 600 }}>
-                  {group.className}
+              <div style={{ marginTop: 16, flex: 1 }}>
+                <h2 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.2 }}>{group.name}</h2>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500, lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 62 }}>
+                  {group.description || 'No description added yet.'}
                 </p>
-              )}
-              {group.description && (
-                <p style={{ color: 'var(--text-tertiary)', fontSize: 13, marginBottom: 20, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {group.description}
-                </p>
-              )}
+              </div>
               
-              <div style={{ display: 'flex', gap: 16, marginTop: 'auto', paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Students</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>{group.students}</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  <Users size={14} style={{ color: 'var(--text-tertiary)' }} />
+                  <span>{group.students} Members</span>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button 
+                    onClick={() => router.push(`/dashboard/teacher/groups/${group.id}/edit`)}
+                    style={{ height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '0 12px', display: 'flex', alignItems: 'center', gap: 6, transition: 'all .15s' }}
+                  >
+                    <Settings size={14} /> Manage
+                  </button>
+                  <button
+                    onClick={() => router.push(`/dashboard/teacher/groups/${group.id}/discussion`)}
+                    style={{ height: 36, borderRadius: 10, border: 'none', background: 'var(--brand)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '0 18px', transition: 'all .15s' }}
+                  >
+                    Open Chat
+                  </button>
                 </div>
               </div>
             </Card>
