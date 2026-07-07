@@ -16,10 +16,10 @@ import { useAuthStore } from '@/store/auth.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
 
 const NAV_ITEMS = [
-  { href: '/dashboard/faculty', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/dashboard/teacher', label: 'Teachers', icon: Users },
-  { href: '/dashboard/teacher/assessments', label: 'Assignments', icon: FileText },
-  { href: '/dashboard/teacher/groups', label: 'My Classes', icon: BookOpen },
+  { href: '/faculty', label: 'Dashboard', icon: LayoutGrid, exact: true },
+  { href: '/teacher', label: 'Teachers', icon: Users },
+  { href: '/teacher/assessments', label: 'Assignments', icon: FileText },
+  { href: '/teacher/groups', label: 'My Classes', icon: BookOpen },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 

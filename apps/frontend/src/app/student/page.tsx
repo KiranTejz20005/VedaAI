@@ -1,238 +1,266 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
-import toast from 'react-hot-toast';
-import {
-  BookOpen, FileText, Clock, CheckCircle2, ArrowRight, Library, ClipboardCheck, BarChart3, Zap, Award
-} from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { useAuthStore } from '@/store/auth.store';
-import { PageHeader } from '@/design-system/PageHeader';
-import { MetricCard } from '@/design-system/MetricCard';
-import { ActionCard } from '@/design-system/ActionCard';
 import { Card } from '@/design-system/Card';
-import { LoadingState } from '@/design-system/LoadingState';
-import { ErrorState } from '@/design-system/ErrorState';
-import { learningService } from '@/services/learning.service';
+import { PlayCircle, Calendar, Trophy, Zap, Calculator, BookOpen, Users, TrendingUp, Sparkles, Plus } from 'lucide-react';
+import Link from 'next/link';
 
-interface StudentStats {
-  enrolledClasses: number;
-  availableAssessments: number;
-  pendingSubmissions: number;
-  completed: number;
-  streakDays: number;
-  badges: number;
+interface DashboardData {
+  user: { firstName: string };
+  weeklyGoalProgress: number;
+  nextTest: { title: string; daysLeft: number } | null;
+  monthlyAttendance: number;
+  attendanceTrend: string;
+  globalRank: { current: number; total: number };
+  activeAssignments: any[];
+  upcomingTests: any[];
+  aiInsight: any;
+  currentStreak: number;
 }
-
-interface UpcomingAssessment {
-  id: string;
-  title: string;
-  subject: string;
-  dueDate: string;
-  totalMarks: number;
-}
-
-interface RecentResult {
-  id: string;
-  title: string;
-  subject: string;
-  score: number;
-  totalMarks: number;
-  percentage: number;
-  grade: string;
-  submittedAt: string;
-}
-
-const quickLinks = [
-  { href: '/student/study-plan', label: 'Study Plan', description: 'Your personalized AI study tasks', icon: BookOpen },
-  { href: '/student/mastery', label: 'Mastery Profile', description: 'Visualize your learning progress', icon: BarChart3 },
-  { href: '/student/assessments', label: 'My Assessments', description: 'Start or resume assessments', icon: ClipboardCheck },
-  { href: '/student/lessons', label: 'My Lessons', description: 'Browse your assigned lessons', icon: Library },
-];
 
 export default function StudentDashboard() {
-  const { user } = useAuthStore();
-  const [stats, setStats] = useState<StudentStats | null>(null);
-  const [upcoming, setUpcoming] = useState<UpcomingAssessment[]>([]);
-  const [recentResults, setRecentResults] = useState<RecentResult[]>([]);
-  const [profile, setProfile] = useState<any | null>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [statsRes, upcomingRes, resultsRes, profileData] = await Promise.all([
-        api.get<{ success: boolean; data: StudentStats }>('/student/stats').catch(() => ({ data: { data: null } })),
-        api.get<{ success: boolean; data: UpcomingAssessment[] }>('/student/assessments/upcoming').catch(() => ({ data: { data: [] } })),
-        api.get<{ success: boolean; data: RecentResult[] }>('/student/results').catch(() => ({ data: { data: [] } })),
-        user ? learningService.getStudentProfile(user.id).catch(() => null) : Promise.resolve(null)
-      ]);
-      setStats(statsRes.data.data ?? { enrolledClasses: 0, availableAssessments: 0, pendingSubmissions: 0, completed: 0, streakDays: 3, badges: 2 });
-      setUpcoming(upcomingRes.data.data ?? []);
-      setRecentResults(resultsRes.data.data ?? []);
-      setProfile(profileData);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load dashboard');
-      toast.error('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const dashRes = await api.get('/student/dashboard');
+        
+        if (dashRes.data?.success) setData(dashRes.data.data);
+      } catch (err: any) {
+        setError(err?.message || 'Failed to load dashboard');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboard();
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#6b7280' }}>
+          <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-gray-900"></div>
+          <span>Loading dashboard...</span>
+        </div>
+      </div>
+    );
+  }
 
-  if (loading) return <LoadingState lines={8} />;
-  if (error) return <ErrorState message={error} onRetry={fetchData} />;
+  if (error) {
+    return (
+      <div style={{ padding: 20, background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 12, color: '#991b1b' }}>
+        <h3 style={{ fontWeight: 600, marginBottom: 8 }}>Error Loading Dashboard</h3>
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  const dash = data || {
+    user: { firstName: 'Student' },
+    weeklyGoalProgress: 0,
+    nextTest: null,
+    monthlyAttendance: 0,
+    attendanceTrend: '',
+    globalRank: { current: 0, total: 0 },
+    activeAssignments: [],
+    upcomingTests: [],
+    aiInsight: null,
+    currentStreak: 0
+  };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <PageHeader
-        title={`Welcome back, ${user?.firstName || 'Student'}`}
-        subtitle="Track your learning progress and upcoming assessments."
-      />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '24px', background: '#F8F9FA', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      {/* Header section */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1 style={{ fontSize: '28px', fontWeight: 700, color: '#111827', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            Good morning, {dash.user.firstName}!
+          </h1>
+          <p style={{ color: '#4B5563', margin: 0, fontSize: '15px' }}>
+            You've completed {dash.weeklyGoalProgress}% of your weekly goals. 
+            {dash.nextTest && <span> Your next test, <strong style={{ color: '#111827' }}>{dash.nextTest.title}</strong>, is in {dash.nextTest.daysLeft} days.</span>}
+          </p>
+        </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-        gap: 12,
-      }}>
-        <MetricCard
-          icon={<BookOpen size={18} />}
-          label="Enrolled Classes"
-          value={stats?.enrolledClasses ?? 0}
-        />
-        <MetricCard
-          icon={<FileText size={18} />}
-          label="Available Assessments"
-          value={stats?.availableAssessments ?? 0}
-        />
-        <MetricCard
-          icon={<Clock size={18} />}
-          label="Pending Submissions"
-          value={stats?.pendingSubmissions ?? 0}
-        />
-        <MetricCard
-          icon={<CheckCircle2 size={18} />}
-          label="Overall Mastery"
-          value={profile?.overallMasteryScore ? `${profile.overallMasteryScore}%` : 'N/A'}
-        />
-        <MetricCard
-          icon={<Zap size={18} color="#F59E0B" />}
-          label="Learning Streak"
-          value={`${stats?.streakDays || 0} Days`}
-        />
-        <MetricCard
-          icon={<Award size={18} color="#8B5CF6" />}
-          label="Badges Earned"
-          value={stats?.badges || 0}
-        />
       </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: 16,
-      }}>
-        <Card padding="clamp(16px, 2vw, 20px)">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Clock size={18} color="var(--brand)" />
-              <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 700, color: 'var(--text-primary)' }}>Upcoming Assessments</h3>
-            </div>
-            <Link href="/student/assessments" style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--brand)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-              View all <ArrowRight size={12} />
-            </Link>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '24px' }}>
+        
+        {/* Left Column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          {/* Top Row: Attendance and Rank */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+            <Card padding="24px" style={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6B7280', fontSize: '14px', marginBottom: '16px' }}>
+                <Calendar size={16} /> Monthly Attendance
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+                <span style={{ fontSize: '42px', fontWeight: 800, color: '#111827', lineHeight: 1 }}>{dash.monthlyAttendance}%</span>
+                <span style={{ color: '#D97706', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                   <TrendingUp size={14} /> {dash.attendanceTrend}
+                </span>
+              </div>
+            </Card>
+
+            <Card padding="24px" style={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6B7280', fontSize: '14px', marginBottom: '16px' }}>
+                <Trophy size={16} /> Global Rank
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                <span style={{ fontSize: '42px', fontWeight: 800, color: '#111827', lineHeight: 1 }}>#{dash.globalRank.current}</span>
+                <span style={{ color: '#6B7280', fontSize: '14px', fontWeight: 500 }}>Out of {dash.globalRank.total}</span>
+              </div>
+            </Card>
           </div>
-          {upcoming.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '24px 16px', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
-              No upcoming assessments
+
+          {/* Active Assignments */}
+          <Card padding="24px" style={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#111827' }}>Active Assignments</h2>
+              <Link href="/student/assessments" style={{ color: '#6B7280', fontSize: '14px', textDecoration: 'none', fontWeight: 500 }}>View All</Link>
             </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {upcoming.slice(0, 5).map((a) => (
-                <Link key={a.id} href="/student/assessments" style={{ textDecoration: 'none' }}>
-                  <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '10px 12px', background: 'var(--bg-hover)', borderRadius: 'var(--radius-md)',
-                    transition: 'all 0.15s',
-                  }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--brand-light)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--bg-hover)'; }}>
-                    <div>
-                      <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-primary)' }}>{a.title}</div>
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 2 }}>{a.subject} &middot; {a.totalMarks} marks</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {dash.activeAssignments.length > 0 ? dash.activeAssignments.slice(0, 2).map((assignment, idx) => (
+                <div key={assignment.id} style={{ border: '1px solid #E5E7EB', borderRadius: '16px', padding: '20px', position: 'relative' }}>
+                  <div style={{ 
+                    position: 'absolute', top: '20px', right: '20px', 
+                    background: assignment.dueDateStatus === 'DUE TODAY' ? '#FEE2E2' : '#F3F4F6', 
+                    color: assignment.dueDateStatus === 'DUE TODAY' ? '#EF4444' : '#6B7280',
+                    padding: '4px 10px', borderRadius: '9999px', fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em'
+                  }}>
+                    {assignment.dueDateStatus}
+                  </div>
+                  <div style={{ 
+                    width: '40px', height: '40px', background: '#F3F4F6', borderRadius: '12px', 
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px'
+                  }}>
+                    {idx === 0 ? <Zap size={20} color="#374151" /> : <Calculator size={20} color="#374151" />}
+                  </div>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600, margin: '0 0 8px 0', color: '#111827' }}>{assignment.title}</h3>
+                  <p style={{ color: '#6B7280', fontSize: '13px', margin: '0 0 24px 0', fontWeight: 500 }}>
+                    {assignment.subject} • {assignment.chapter} • {assignment.teacher}
+                  </p>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>
+                      <span>Progress</span>
+                      <span>{assignment.progress}%</span>
                     </div>
-                    <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: '#D97706', whiteSpace: 'nowrap' }}>
-                      Due: {new Date(a.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    <div style={{ height: '6px', background: '#E5E7EB', borderRadius: '9999px', overflow: 'hidden' }}>
+                      <div style={{ width: `${assignment.progress}%`, height: '100%', background: '#111827', borderRadius: '9999px' }} />
                     </div>
                   </div>
-                </Link>
-              ))}
+                </div>
+              )) : (
+                <div style={{ gridColumn: 'span 2', textAlign: 'center', padding: '32px', color: '#6B7280', fontSize: '14px' }}>No active assignments found.</div>
+              )}
             </div>
-          )}
-        </Card>
+          </Card>
 
-        <Card padding="clamp(16px, 2vw, 20px)">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <BarChart3 size={18} color="var(--brand)" />
-              <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 700, color: 'var(--text-primary)' }}>Recent Results</h3>
-            </div>
-            <Link href="/student/results" style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--brand)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-              View all <ArrowRight size={12} />
-            </Link>
-          </div>
-          {recentResults.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '24px 16px', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
-              No results yet
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {recentResults.slice(0, 5).map((r) => (
-                <Link key={r.id} href="/student/results" style={{ textDecoration: 'none' }}>
-                  <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '10px 12px', background: 'var(--bg-hover)', borderRadius: 'var(--radius-md)',
-                    transition: 'all 0.15s',
-                  }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--brand-light)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--bg-hover)'; }}>
-                    <div>
-                      <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-primary)' }}>{r.title}</div>
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 2 }}>{r.subject}</div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 'var(--text-base)', fontWeight: 800, color: r.percentage >= 40 ? '#10B981' : '#EF4444' }}>
-                        {r.score}/{r.totalMarks}
-                      </div>
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{r.percentage}% &middot; {r.grade}</div>
-                    </div>
+          {/* Quick Access */}
+          <Card padding="24px" style={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 20px 0', color: '#111827' }}>Quick Access</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+              <Link href="/student/practice" style={{ textDecoration: 'none' }}>
+                <div style={{ border: '1px solid #E5E7EB', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', transition: 'background 0.2s', cursor: 'pointer' }}>
+                  <div style={{ background: '#F3F4F6', padding: '12px', borderRadius: '12px' }}>
+                    <BookOpen size={20} color="#374151" />
                   </div>
-                </Link>
-              ))}
+                  <span style={{ color: '#374151', fontSize: '14px', fontWeight: 500 }}>Practice Quiz</span>
+                </div>
+              </Link>
+              <Link href="/student/community" style={{ textDecoration: 'none' }}>
+                <div style={{ border: '1px solid #E5E7EB', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', transition: 'background 0.2s', cursor: 'pointer' }}>
+                  <div style={{ background: '#F3F4F6', padding: '12px', borderRadius: '12px' }}>
+                    <Users size={20} color="#374151" />
+                  </div>
+                  <span style={{ color: '#374151', fontSize: '14px', fontWeight: 500 }}>Community</span>
+                </div>
+              </Link>
+              <Link href="/student/results" style={{ textDecoration: 'none' }}>
+                <div style={{ border: '1px solid #E5E7EB', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', transition: 'background 0.2s', cursor: 'pointer' }}>
+                  <div style={{ background: '#F3F4F6', padding: '12px', borderRadius: '12px' }}>
+                    <TrendingUp size={20} color="#374151" />
+                  </div>
+                  <span style={{ color: '#374151', fontSize: '14px', fontWeight: 500 }}>Results</span>
+                </div>
+              </Link>
             </div>
-          )}
-        </Card>
-      </div>
+          </Card>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-        gap: 12,
-      }}>
-        {quickLinks.map(({ href, label, description, icon: Icon }) => (
-          <ActionCard
-            key={href}
-            icon={<Icon size={18} />}
-            label={label}
-            description={description}
-            href={href}
-            variant="primary"
-          />
-        ))}
+        </div>
+
+        {/* Right Column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          {/* Upcoming Tests */}
+          <Card padding="24px" style={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+            <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 24px 0', color: '#111827' }}>Upcoming Tests</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '32px' }}>
+              {dash.upcomingTests.length > 0 ? dash.upcomingTests.map((test) => (
+                <div key={test.id} style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                  <div style={{ 
+                    width: '48px', height: '48px', borderRadius: '50%', border: '1px solid #E5E7EB', 
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 
+                  }}>
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: '#111827', lineHeight: 1.2 }}>{test.dateStr.split('\n')[0]}</span>
+                    <span style={{ fontSize: '16px', fontWeight: 800, color: '#111827', lineHeight: 1.2 }}>{test.dateStr.split('\n')[1]}</span>
+                  </div>
+                  <div>
+                    <h4 style={{ fontSize: '15px', fontWeight: 600, margin: '0 0 4px 0', color: '#111827' }}>{test.title}</h4>
+                    <p style={{ margin: 0, fontSize: '13px', color: '#6B7280', fontWeight: 500 }}>
+                      {test.location} • {test.time}
+                    </p>
+                  </div>
+                </div>
+              )) : (
+                <div style={{ color: '#6B7280', fontSize: '14px' }}>No upcoming tests scheduled.</div>
+              )}
+            </div>
+            <button style={{ 
+              width: '100%', padding: '12px', background: 'transparent', border: '1px solid #E5E7EB', 
+              borderRadius: '9999px', color: '#374151', fontSize: '14px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s'
+            }}>
+              View Schedule
+            </button>
+          </Card>
+
+          {/* AI Insight */}
+          <Card padding="24px" style={{ 
+            borderRadius: '16px', border: 'none', background: '#0A0A0A', color: '#fff', position: 'relative', overflow: 'hidden' 
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#F59E0B', fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '16px' }}>
+              <Sparkles size={14} fill="#F59E0B" /> AI INSIGHT
+            </div>
+            <p style={{ fontSize: '15px', lineHeight: 1.6, margin: '0 0 24px 0', fontWeight: 400, color: '#F3F4F6' }}>
+              Based on your recent {dash.aiInsight?.performanceArea || 'course'} performance, I suggest reviewing <strong style={{ color: '#fff', borderBottom: '2px solid #D97706', fontWeight: 600 }}>{dash.aiInsight?.recommendedTopic || 'the core materials'}</strong> before {dash.aiInsight?.testDay || 'your next'}'s test.
+            </p>
+            <button style={{ 
+              background: 'rgba(255, 255, 255, 0.1)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.2)', 
+              padding: '10px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 500, cursor: 'pointer',
+              display: 'inline-block', transition: 'background 0.2s'
+            }}>
+              Start Recommended Lesson
+            </button>
+            <button style={{
+              position: 'absolute', bottom: '24px', right: '24px',
+              width: '40px', height: '40px', borderRadius: '50%', background: '#B45309', color: '#fff',
+              border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+              boxShadow: '0 4px 6px -1px rgba(180, 83, 9, 0.4)'
+            }}>
+              <Plus size={20} />
+            </button>
+          </Card>
+
+        </div>
       </div>
     </div>
   );

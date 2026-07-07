@@ -55,7 +55,7 @@ export function PaywallGate({ featureKey, requiredTier, children }: PaywallGateP
       </div>
 
       <div style={{ marginTop: 8 }}>
-        <Button variant="primary" onClick={() => router.push('/dashboard/admin/billing')}>
+        <Button variant="primary" onClick={() => router.push('/admin/billing')}>
           <ArrowUpRight size={16} style={{ marginRight: 8 }} /> View Upgrade Options
         </Button>
       </div>

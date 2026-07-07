@@ -25,23 +25,23 @@ import { useAuthStore } from '@/store/auth.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
 
 const NAV_ITEMS = [
-  { href: '/dashboard/student', label: 'Dashboard', icon: LayoutGrid, exact: true },
-  { href: '/dashboard/student/assessments', label: 'Tests', icon: ClipboardCheck },
-  { href: '/dashboard/student/attendance', label: 'Attendance', icon: User },
-  { href: '/dashboard/student/results', label: 'Results', icon: TrendingUp },
-  { href: '/dashboard/student/practice', label: 'Practice Quiz', icon: BookOpen },
+  { href: '/student', label: 'Dashboard', icon: LayoutGrid, exact: true },
+  { href: '/student/assessments', label: 'Tests', icon: ClipboardCheck },
+  { href: '/student/attendance', label: 'Attendance', icon: User },
+  { href: '/student/results', label: 'Results', icon: TrendingUp },
+  { href: '/student/practice', label: 'Practice Quiz', icon: BookOpen },
   { href: '/student/tutor', label: 'AI Tutor', icon: MessageSquare },
-  { href: '/dashboard/student/community', label: 'Community', icon: Users },
+  { href: '/student/community', label: 'Community', icon: Users },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 const COMMUNITY_SUB_ITEMS = [
-  { href: '/dashboard/student/community/discussions', label: 'Discussions', icon: MessageSquare },
-  { href: '/dashboard/student/community/groups', label: 'Groups', icon: Users },
-  { href: '/dashboard/student/community/voice', label: 'Voice Rooms', icon: Volume2 },
-  { href: '/dashboard/student/community/meetings', label: 'Meetings', icon: Video },
-  { href: '/dashboard/student/community/messages', label: 'Direct Messages', icon: MessageCircle },
-  { href: '/dashboard/student/community/discover', label: 'Discover', icon: Compass },
+  { href: '/student/community/discussions', label: 'Discussions', icon: MessageSquare },
+  { href: '/student/community/groups', label: 'Groups', icon: Users },
+  { href: '/student/community/voice', label: 'Voice Rooms', icon: Volume2 },
+  { href: '/student/community/meetings', label: 'Meetings', icon: Video },
+  { href: '/student/community/messages', label: 'Direct Messages', icon: MessageCircle },
+  { href: '/student/community/discover', label: 'Discover', icon: Compass },
 ];
 
 export function StudentSidebar() {
@@ -50,12 +50,12 @@ export function StudentSidebar() {
   const { user } = useAuthStore();
   const { availableOrganizations, activeOrganizationId } = useAdminAuthStore();
 
-  const [communityExpanded, setCommunityExpanded] = useState(() => pathname.startsWith('/dashboard/student/community'));
+  const [communityExpanded, setCommunityExpanded] = useState(() => pathname.startsWith('/student/community'));
   const [prevPathname, setPrevPathname] = useState(pathname);
 
   if (pathname !== prevPathname) {
     setPrevPathname(pathname);
-    if (pathname.startsWith('/dashboard/student/community')) {
+    if (pathname.startsWith('/student/community')) {
       setCommunityExpanded(true);
     }
   }

@@ -1,43 +1,45 @@
 /** Routes explicitly allowed per role. Sub-path access uses prefix matching except where denied. */
 export const ROUTE_PERMISSIONS = {
   SUPER_ADMIN: [
-    '/dashboard/super-admin',
+    '/super-admin',
     '/dashboard', '/settings', '/profile'
   ],
   ADMIN: [
-    '/dashboard/admin',
+    '/admin',
     '/dashboard', '/settings', '/profile'
   ],
   ORG_ADMIN: [
-    '/dashboard/admin',
+    '/admin',
     '/dashboard', '/settings', '/profile'
   ],
   FACULTY: [
-    '/dashboard/faculty',
+    '/faculty',
     '/dashboard', '/assignments', '/assignments/create', '/settings', '/generate', '/ai-toolkit', '/grader', '/my-classes', '/papers', '/profile'
   ],
   TEACHER: [
-    '/dashboard/teacher',
+    '/teacher',
     '/dashboard', '/assignments', '/assignments/create', '/settings', '/generate', '/ai-toolkit', '/grader', '/my-classes', '/papers', '/profile'
   ],
   STUDENT: [
-    '/dashboard/student',
-    '/dashboard', '/settings', '/profile', '/student'
+    '/student',
+    '/dashboard', '/settings', '/profile'
   ],
 };
 
 const STUDENT_DENIED_PREFIXES = [
+  '/teacher',
+  '/faculty',
+  '/admin',
+  '/super-admin',
   '/dashboard/teacher',
   '/dashboard/faculty',
   '/dashboard/admin',
-  '/dashboard/super-admin',
+  '/super-admin',
   '/assignments/create',
   '/assessments/create',
   '/grader',
   '/generate',
   '/papers',
-  '/admin',
-
 ];
 
 export const canAccessRoute = (role: string, path: string): boolean => {
@@ -46,7 +48,7 @@ export const canAccessRoute = (role: string, path: string): boolean => {
 
   if (normalizedRole === 'SUPER_ADMIN') return true;
 
-  const isSuperAdminRoute = path === '/super-admin' || path.startsWith('/super-admin/') || path === '/dashboard/super-admin' || path.startsWith('/dashboard/super-admin/');
+  const isSuperAdminRoute = path === '/super-admin' || path.startsWith('/super-admin/') || path === '/super-admin' || path.startsWith('/super-admin/');
   if (isSuperAdminRoute) {
     return false; // Already checked for SUPER_ADMIN above
   }

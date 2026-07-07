@@ -98,7 +98,7 @@ export function Topbar() {
     if (success) {
       const state = useAuthStore.getState();
       if (state.user?.role === 'SUPER_ADMIN') {
-        router.push('/dashboard/super-admin');
+        router.push('/super-admin');
       } else {
         router.push('/dashboard');
       }

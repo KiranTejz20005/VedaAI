@@ -39,7 +39,7 @@ export default function LoginPage() {
           let dashboardPath = '/dashboard/student';
           switch(user?.role) {
             case 'SUPER_ADMIN':
-              dashboardPath = '/dashboard/super-admin';
+              dashboardPath = '/super-admin';
               break;
             case 'ADMIN':
             case 'ORG_ADMIN':
@@ -388,7 +388,7 @@ export default function LoginPage() {
       let dashboardPath = '/dashboard/student';
       switch(user?.role) {
         case 'SUPER_ADMIN':
-          dashboardPath = '/dashboard/super-admin';
+          dashboardPath = '/super-admin';
           break;
         case 'ADMIN':
         case 'ORG_ADMIN':

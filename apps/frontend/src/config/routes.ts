@@ -9,31 +9,31 @@ export enum UserRole {
 
 export const ROUTES = {
   SUPER_ADMIN: {
-    DASHBOARD: '/dashboard/super-admin',
-    SYSTEM_HEALTH: '/dashboard/super-admin/system-health',
-    PROVIDERS: '/dashboard/super-admin/providers',
-    KNOWLEDGE_BASE: '/dashboard/super-admin/knowledge',
-    USERS: '/dashboard/super-admin/users',
-    ORGANIZATIONS: '/dashboard/super-admin/organizations',
-    SETTINGS: '/dashboard/super-admin/settings',
-    AUDIT: '/dashboard/super-admin/audit',
-    ANALYTICS: '/dashboard/super-admin/analytics'
+    DASHBOARD: '/super-admin',
+    SYSTEM_HEALTH: '/super-admin/system-health',
+    PROVIDERS: '/super-admin/providers',
+    KNOWLEDGE_BASE: '/super-admin/knowledge',
+    USERS: '/super-admin/users',
+    ORGANIZATIONS: '/super-admin/organizations',
+    SETTINGS: '/super-admin/settings',
+    AUDIT: '/super-admin/audit',
+    ANALYTICS: '/super-admin/analytics'
   },
   ORG_ADMIN: {
-    DASHBOARD: '/dashboard/admin',
-    USERS: '/dashboard/admin/users',
-    CLASSES: '/dashboard/admin/classes',
-    APPROVALS: '/dashboard/admin/approvals',
-    ANALYTICS: '/dashboard/admin/analytics',
-    SETTINGS: '/dashboard/admin/settings'
+    DASHBOARD: '/admin',
+    USERS: '/admin/users',
+    CLASSES: '/admin/classes',
+    APPROVALS: '/admin/approvals',
+    ANALYTICS: '/admin/analytics',
+    SETTINGS: '/admin/settings'
   },
   FACULTY: {
-    DASHBOARD: '/dashboard/faculty'
+    DASHBOARD: '/faculty'
   },
   TEACHER: {
-    DASHBOARD: '/dashboard/teacher'
+    DASHBOARD: '/teacher'
   },
   STUDENT: {
-    DASHBOARD: '/dashboard/student'
+    DASHBOARD: '/student'
   }
 } as const;

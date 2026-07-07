@@ -28,7 +28,7 @@ export function AdminTopbar() {
       const state = useAuthStore.getState();
       if (state.user?.role === 'SUPER_ADMIN') {
         // eslint-disable-next-line react-hooks/immutability
-        window.location.href = '/dashboard/super-admin';
+        window.location.href = '/super-admin';
       } else {
         // eslint-disable-next-line react-hooks/immutability
         window.location.href = '/dashboard';

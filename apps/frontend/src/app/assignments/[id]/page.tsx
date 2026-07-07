@@ -160,7 +160,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
       });
       toast.success('Assignment submitted successfully!');
       setSubmissionFile(null);
-      router.push('/dashboard/student/assessments');
+      router.push('/student/assessments');
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed to submit assignment');
     } finally {
