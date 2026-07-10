@@ -1,4 +1,6 @@
 'use client';
+import { NativeSelect } from '@/components/ui/native-select';
+
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Brain, Code2, Compass, Filter, Leaf, Loader2, Plus, Sparkles, Users, X, Settings } from 'lucide-react';
@@ -69,7 +71,7 @@ function CreateGroupModal({ onClose, onCreated }: { onClose: () => void; onCreat
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', color: '#64748b' }}>Visibility</span>
-            <select value={type} onChange={e => setType(e.target.value as any)} style={inp}><option value="PUBLIC">Public</option><option value="PRIVATE">Private</option><option value="INVITE_ONLY">Invite Only</option></select>
+            <NativeSelect value={type} onChange={e => setType(e.target.value as any)} style={inp}><option value="PUBLIC">Public</option><option value="PRIVATE">Private</option><option value="INVITE_ONLY">Invite Only</option></NativeSelect>
           </label>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '16px 24px', borderTop: '1px solid #e2e8f0' }}>

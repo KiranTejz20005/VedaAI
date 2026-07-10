@@ -1,4 +1,6 @@
 'use client';
+import { NativeSelect } from '@/components/ui/native-select';
+
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -594,7 +596,7 @@ export default function CreateAssignmentPage() {
 
                 <div className="input-group">
                   <label className="label" htmlFor="subject">Subject</label>
-                  <select
+                  <NativeSelect
                     id="subject"
                     value={formData.subject}
                     onChange={(e) => setFormData((d) => ({ ...d, subject: e.target.value }))}
@@ -604,7 +606,7 @@ export default function CreateAssignmentPage() {
                     {['Mathematics', 'Physics', 'Chemistry', 'Biology', 'Computer Science', 'English', 'History', 'Geography', 'Economics'].map((s) => (
                       <option key={s} value={s}>{s}</option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
 
                 {/* Due Date */}

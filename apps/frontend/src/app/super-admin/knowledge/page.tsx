@@ -21,6 +21,7 @@ import { LoadingState } from '@/design-system/LoadingState';
 import { ErrorState } from '@/design-system/ErrorState';
 import { adminService } from '@/services/admin.service';
 import { format } from 'date-fns';
+import { NativeSelect } from '@/components/ui/native-select';
 
 interface KnowledgeStats {
   totalArticles: number;
@@ -348,11 +349,11 @@ export default function KnowledgePage() {
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Category</label>
-                <select style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none', backgroundColor: '#FFF' }}>
+                <NativeSelect style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none', backgroundColor: '#FFF' }}>
                   {categories.map(cat => (
                     <option key={cat.name} value={cat.name}>{cat.name}</option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>File or Link URL</label>

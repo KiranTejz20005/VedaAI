@@ -1,4 +1,6 @@
 'use client';
+import { NativeSelect } from '@/components/ui/native-select';
+
 
 import { useState } from 'react';
 import { PageHeader } from '@/design-system/PageHeader';
@@ -88,7 +90,7 @@ export default function WhiteLabelBrandingPage() {
             </div>
             
             <label style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: 600, marginBottom: 8 }}>Global Font Family</label>
-            <select 
+            <NativeSelect 
               value={fontFamily} 
               onChange={e => setFontFamily(e.target.value)}
               style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 6 }}
@@ -97,7 +99,7 @@ export default function WhiteLabelBrandingPage() {
               <option value="Roboto">Roboto</option>
               <option value="Open Sans">Open Sans</option>
               <option value="Merriweather">Merriweather (Serif)</option>
-            </select>
+            </NativeSelect>
           </Card>
 
         </div>

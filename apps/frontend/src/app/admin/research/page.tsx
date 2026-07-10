@@ -1,4 +1,6 @@
 'use client';
+import { NativeSelect } from '@/components/ui/native-select';
+
 
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
@@ -37,10 +39,10 @@ export default function ResearchAdminDashboard() {
         <Card padding="24px">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
              <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, margin: 0 }}>Department Productivity Comparison</h3>
-             <select style={{ padding: '4px 12px', borderRadius: 4, border: '1px solid var(--border)' }}>
+             <NativeSelect style={{ padding: '4px 12px', borderRadius: 4, border: '1px solid var(--border)' }}>
                <option>2026-2027</option>
                <option>2025-2026</option>
-             </select>
+             </NativeSelect>
           </div>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

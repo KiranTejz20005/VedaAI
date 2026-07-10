@@ -1,4 +1,6 @@
 'use client';
+import { NativeSelect } from '@/components/ui/native-select';
+
  
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -263,9 +265,9 @@ function SchoolPanel({ onClose, profile, onProfileUpdate }: { onClose: () => voi
       </div>
       <div className="input-group" style={{ marginBottom: 14 }}>
         <label className="label">Department</label>
-        <select className="input" value={dept} onChange={(e) => setDept(e.target.value)}>
+        <NativeSelect className="input" value={dept} onChange={(e) => setDept(e.target.value)}>
           {['Science', 'Mathematics', 'English', 'Social Studies', 'Languages', 'Arts', 'Physical Education'].map((d) => <option key={d}>{d}</option>)}
-        </select>
+        </NativeSelect>
       </div>
       <div className="input-group" style={{ marginBottom: 20 }}>
         <label className="label">Academic Year</label>
@@ -399,9 +401,9 @@ function AppearancePanel({ onClose, profile, onProfileUpdate }: { onClose: () =>
         <label className="label">Language</label>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <Globe size={16} color="var(--text-muted)" />
-          <select className="input" value={lang} onChange={(e) => setLang(e.target.value)}>
+          <NativeSelect className="input" value={lang} onChange={(e) => setLang(e.target.value)}>
             {['english', 'hindi', 'spanish', 'french'].map((l) => <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>)}
-          </select>
+          </NativeSelect>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>

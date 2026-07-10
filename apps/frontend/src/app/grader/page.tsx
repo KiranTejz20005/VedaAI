@@ -1,4 +1,6 @@
 'use client';
+import { NativeSelect } from '@/components/ui/native-select';
+
  
 
 import { useState, useEffect } from 'react';
@@ -260,10 +262,10 @@ export default function GraderDashboard() {
                   <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Grading Configuration</h3>
                   <div className="input-group" style={{ marginBottom: 16 }}>
                     <label className="label">Evaluation Rubric</label>
-                    <select className="input" value={rubricId} onChange={(e) => setRubricId(e.target.value)}>
+                    <NativeSelect className="input" value={rubricId} onChange={(e) => setRubricId(e.target.value)}>
                       <option value="">No Rubric (General correctness)</option>
                       {rubrics.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
-                    </select>
+                    </NativeSelect>
                   </div>
                   <div className="input-group" style={{ marginBottom: 20 }}>
                     <label className="label">Reference Answer Key</label>

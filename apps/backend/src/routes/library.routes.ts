@@ -7,11 +7,16 @@ import {
   getResources,
   updateResource,
   deleteResource,
-  downloadResource
+  downloadResource,
+  viewResource
 } from '../controllers/library.controller';
 import { uploadMiddleware } from '../middlewares/upload.middleware';
 
 const router = Router();
+
+// Public routes (No authentication required)
+router.get('/:id/download', asyncHandler(downloadResource));
+router.get('/:id/view', asyncHandler(viewResource));
 
 router.use(authenticate);
 router.use(requireOrganizationScope());
@@ -21,6 +26,5 @@ router.post('/', requireRole('TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'), uplo
 router.get('/', requireRole('TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'), asyncHandler(getResources));
 router.put('/:id', requireRole('TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'), asyncHandler(updateResource));
 router.delete('/:id', requireRole('TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'), asyncHandler(deleteResource));
-router.get('/:id/download', requireRole('TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'), asyncHandler(downloadResource));
 
 export default router;

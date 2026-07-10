@@ -1,4 +1,6 @@
 'use client';
+import { NativeSelect } from '@/components/ui/native-select';
+
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -501,22 +503,22 @@ export default function PaperViewPage({ params }: { params: Promise<{ id: string
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Select Difficulty</label>
-                    <select className="input" style={{ width: '100%' }} value={regenDiff} onChange={(e) => setRegenDiff(e.target.value)}>
+                    <NativeSelect className="input" style={{ width: '100%' }} value={regenDiff} onChange={(e) => setRegenDiff(e.target.value)}>
                       <option value="easy">Easy</option>
                       <option value="medium">Medium</option>
                       <option value="hard">Hard</option>
-                    </select>
+                    </NativeSelect>
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Bloom Taxonomy level</label>
-                    <select className="input" style={{ width: '100%' }} value={regenBloom} onChange={(e) => setRegenBloom(e.target.value)}>
+                    <NativeSelect className="input" style={{ width: '100%' }} value={regenBloom} onChange={(e) => setRegenBloom(e.target.value)}>
                       <option value="REMEMBER">Remember</option>
                       <option value="UNDERSTAND">Understand</option>
                       <option value="APPLY">Apply</option>
                       <option value="ANALYZE">Analyze</option>
                       <option value="EVALUATE">Evaluate</option>
                       <option value="CREATE">Create</option>
-                    </select>
+                    </NativeSelect>
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 4 }}>AI Prompt Context (Optional)</label>

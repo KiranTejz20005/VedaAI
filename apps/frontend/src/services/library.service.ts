@@ -1,4 +1,5 @@
 import { apiClient } from './api.client';
+import { getApiToken } from '@/lib/api';
 
 export interface LibraryResource {
   id: string;
@@ -43,13 +44,23 @@ export const LibraryService = {
     await apiClient.delete(`/library/${id}`);
   },
 
-  downloadResource: (resource: LibraryResource) => {
-    // If it's an Assignment or a Knowledge Document, their fileUrl is already directly accessible 
-    if (resource.resourceType === 'Assignment' || resource.resourceType === 'Document') {
-      window.open(resource.fileUrl, '_blank');
+  downloadResource: async (resource: LibraryResource) => {
+    if (resource.fileUrl?.startsWith('/uploads/')) {
+      const token = getApiToken();
+      const tokenQuery = token ? `?token=${token}` : '';
+      window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/library/${resource.id}/download${tokenQuery}`, '_blank');
     } else {
-      // Navigate to the download URL which prompts the browser to download for standard LibraryResources
-      window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/library/${resource.id}/download`, '_blank');
+      window.open(resource.fileUrl, '_blank');
+    }
+  },
+
+  viewResource: async (resource: LibraryResource) => {
+    if (resource.fileUrl?.startsWith('/uploads/')) {
+      const token = getApiToken();
+      const tokenQuery = token ? `?token=${token}` : '';
+      window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/library/${resource.id}/view${tokenQuery}`, '_blank');
+    } else {
+      window.open(resource.fileUrl, '_blank');
     }
   },
 };

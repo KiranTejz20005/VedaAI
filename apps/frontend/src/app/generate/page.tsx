@@ -291,10 +291,14 @@ export default function GeneratePage() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Generation failed';
       setGenerationError(message);
-      if (message.includes('image') || message.includes('png') || message.includes('jpg')) {
+      if (message.toLowerCase().includes('daily quiz limit') || message.toLowerCase().includes('limit exceeded') || message.toLowerCase().includes('per day')) {
+        toast.error(`Daily limit reached. You can generate up to 5 quizzes per day. Try again tomorrow!`);
+      } else if (message.includes('image') || message.includes('png') || message.includes('jpg')) {
         toast.error('Image references detected. Please use text-only content.');
       } else if (message.includes('AI provider') || message.includes('API key')) {
         toast.error('AI service unavailable. Please check your API configuration.');
+      } else if (message.includes('30 seconds') || message.includes('slow down')) {
+        toast.error('Please wait a moment before generating another quiz.');
       } else {
         toast.error(message);
       }

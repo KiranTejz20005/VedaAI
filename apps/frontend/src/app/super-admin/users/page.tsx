@@ -1,4 +1,6 @@
 'use client';
+import { NativeSelect } from '@/components/ui/native-select';
+
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
@@ -668,7 +670,7 @@ export default function GlobalUsersDirectory() {
               
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Role</label>
-                <select 
+                <NativeSelect 
                   value={newUserForm.role}
                   onChange={(e) => setNewUserForm(prev => ({ ...prev, role: e.target.value }))}
                   style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none', backgroundColor: '#FFF' }}
@@ -677,12 +679,12 @@ export default function GlobalUsersDirectory() {
                   <option value="TEACHER">Faculty</option>
                   <option value="ORG_ADMIN">Org Admin</option>
                   <option value="SUPER_ADMIN">Super Admin</option>
-                </select>
+                </NativeSelect>
               </div>
 
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Organization</label>
-                <select 
+                <NativeSelect 
                   value={newUserForm.organizationId}
                   onChange={(e) => setNewUserForm(prev => ({ ...prev, organizationId: e.target.value }))}
                   style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none', backgroundColor: '#FFF' }}
@@ -691,7 +693,7 @@ export default function GlobalUsersDirectory() {
                   {stats?.orgBreakdown.filter(o => o.id).map((o: any) => (
                     <option key={o.id} value={o.id}>{o.name}</option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
             </div>
 

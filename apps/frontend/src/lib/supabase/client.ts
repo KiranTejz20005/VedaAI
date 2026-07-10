@@ -1,6 +1,7 @@
+'use client';
 /**
  * supabase/client.ts
- * Browser-side Supabase client for use in Client Components ('use client').
+ * Browser-side Supabase client for use in Client Components ().
  *
  * USAGE:
  *   import { createClient } from '@/lib/supabase/client';

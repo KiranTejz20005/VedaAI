@@ -1,3 +1,4 @@
+import { NativeSelect } from '@/components/ui/native-select';
 import React, { useState } from "react";
 import {
   Search,
@@ -316,7 +317,7 @@ export default function WhatVidyaEnables() {
                     className="w-full bg-white border border-gray-200 text-[10px] pl-8 pr-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#e05934] rounded-lg text-gray-800"
                   />
                 </div>
-                <select
+                <NativeSelect
                   value={selectedFilter}
                   onChange={(e) => setSelectedFilter(e.target.value as any)}
                   className="bg-white border border-gray-200 text-[10px] px-2 py-1.5 rounded-lg focus:ring-1 focus:ring-[#e05934] focus:outline-none text-gray-600 font-mono"
@@ -325,7 +326,7 @@ export default function WhatVidyaEnables() {
                   <option value="Strong Grip">Strong Grip</option>
                   <option value="Needs Practice">Needs Practice</option>
                   <option value="Critical Support">Support Needed</option>
-                </select>
+                </NativeSelect>
               </div>
 
               {/* Split view: Left: List index, Right: Selection Details */}

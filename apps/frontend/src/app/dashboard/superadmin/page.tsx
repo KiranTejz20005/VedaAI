@@ -1,4 +1,6 @@
 'use client';
+import { NativeSelect } from '@/components/ui/native-select';
+
 
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
@@ -47,11 +49,11 @@ export default function SuperAdminDashboard() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
             <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, margin: 0 }}>Institution Subscriptions</h3>
             <div style={{ display: 'flex', gap: 8 }}>
-              <select style={{ padding: '4px 12px', borderRadius: 4, border: '1px solid var(--border)' }}>
+              <NativeSelect style={{ padding: '4px 12px', borderRadius: 4, border: '1px solid var(--border)' }}>
                 <option>All Tiers</option>
                 <option>Enterprise</option>
                 <option>Professional</option>
-              </select>
+              </NativeSelect>
             </div>
           </div>
           

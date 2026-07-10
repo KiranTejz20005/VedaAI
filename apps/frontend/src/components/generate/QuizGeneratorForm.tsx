@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Sparkles, Loader2 } from 'lucide-react';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 export interface QuizFormData {
   topic: string;
@@ -37,30 +38,51 @@ export function QuizGeneratorForm({ formData, setFormData, onSubmit, loading }: 
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 14 }}>
           <div className="input-group" style={{ flex: 1, minWidth: 150 }}>
             <label className="label">Difficulty</label>
-            <select className="input" value={formData.difficulty} onChange={e => setFormData({...formData, difficulty: e.target.value})}>
-              <option value="EASY">Easy</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="HARD">Hard</option>
-            </select>
+            <Select value={formData.difficulty} onValueChange={val => setFormData({...formData, difficulty: val || 'MEDIUM'})}>
+              <SelectTrigger className="input">
+                <SelectValue placeholder="Select Difficulty">
+                  {formData.difficulty.charAt(0).toUpperCase() + formData.difficulty.slice(1).toLowerCase()}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="EASY">Easy</SelectItem>
+                <SelectItem value="MEDIUM">Medium</SelectItem>
+                <SelectItem value="HARD">Hard</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="input-group" style={{ flex: 1, minWidth: 150 }}>
             <label className="label">Bloom Level</label>
-            <select className="input" value={formData.bloom_level} onChange={e => setFormData({...formData, bloom_level: e.target.value})}>
-              <option value="REMEMBER">Remember</option>
-              <option value="UNDERSTAND">Understand</option>
-              <option value="APPLY">Apply</option>
-              <option value="ANALYZE">Analyze</option>
-              <option value="EVALUATE">Evaluate</option>
-              <option value="CREATE">Create</option>
-            </select>
+            <Select value={formData.bloom_level} onValueChange={val => setFormData({...formData, bloom_level: val || 'APPLY'})}>
+              <SelectTrigger className="input">
+                <SelectValue placeholder="Select Bloom Level">
+                  {formData.bloom_level.charAt(0).toUpperCase() + formData.bloom_level.slice(1).toLowerCase()}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="REMEMBER">Remember</SelectItem>
+                <SelectItem value="UNDERSTAND">Understand</SelectItem>
+                <SelectItem value="APPLY">Apply</SelectItem>
+                <SelectItem value="ANALYZE">Analyze</SelectItem>
+                <SelectItem value="EVALUATE">Evaluate</SelectItem>
+                <SelectItem value="CREATE">Create</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="input-group" style={{ flex: 1, minWidth: 150 }}>
             <label className="label">Number of Questions</label>
-            <select className="input" value={formData.numQuestions} onChange={e => setFormData({...formData, numQuestions: parseInt(e.target.value) || 5})}>
-              {Array.from({ length: 10 }).map((_, i) => (
-                <option key={i + 1} value={i + 1}>{i + 1} Question{i > 0 ? 's' : ''}</option>
-              ))}
-            </select>
+            <Select value={formData.numQuestions.toString()} onValueChange={val => setFormData({...formData, numQuestions: parseInt(val || '5') || 5})}>
+              <SelectTrigger className="input">
+                <SelectValue placeholder="Select number of questions">
+                  {formData.numQuestions} Question{formData.numQuestions > 1 ? 's' : ''}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <SelectItem key={i + 1} value={(i + 1).toString()}>{i + 1} Question{i > 0 ? 's' : ''}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

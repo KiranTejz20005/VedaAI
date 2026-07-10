@@ -37,24 +37,7 @@ export async function generateSingleQuestion(params: {
   }
 
   // Define structured JSON schema for the AI output
-  const responseFormat = {
-    type: "json_schema",
-    json_schema: {
-      name: "single_question",
-      schema: {
-        type: "object",
-        properties: {
-          question_text: { type: "string" },
-          options: { type: "array", items: { type: "string" } },
-          answer: { type: "string" },
-          explanation: { type: "string" },
-          hint: { type: "string" },
-          ai_confidence_score: { type: "number" }
-        },
-        required: ["question_text", "options", "answer", "explanation"]
-      }
-    }
-  };
+  const responseFormat = { type: "json_object" };
 
   const taskInstructions = [
     `Topic: ${params.topic}`,
@@ -66,7 +49,7 @@ export async function generateSingleQuestion(params: {
     '- Include exactly 4 plausible options (A, B, C, D)',
     '- Mark the correct answer clearly as exactly "A", "B", "C", or "D"',
     '- Include a helpful, subtle hint (max 1 sentence)',
-    '- Return ONLY valid JSON matching the schema provided in responseFormat.'
+    '- Return ONLY valid JSON matching this exact structure: { "question_text": "...", "options": ["A. ...", "B. ...", "C. ...", "D. ..."], "answer": "A", "explanation": "...", "hint": "...", "ai_confidence_score": 0.95 }'
   ].join('\n');
 
   let parsed: any = { options: [], answer: 'A', question_text: '' };
@@ -77,7 +60,7 @@ export async function generateSingleQuestion(params: {
       taskInstructions,
       responseFormat
     });
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("AI generation timed out")), 5000));
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("AI generation timed out")), 60000));
     parsed = await Promise.race([aiPromise, timeoutPromise]);
   } catch (err) {
     logger.warn(`AI Generation failed for single question, falling back. Error: ${err}`);
@@ -117,33 +100,7 @@ export async function generateMultipleQuestions(params: {
     }
   }
 
-  const responseFormat = {
-    type: "json_schema",
-    json_schema: {
-      name: "multiple_questions",
-      schema: {
-        type: "object",
-        properties: {
-          questions: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                question_text: { type: "string" },
-                options: { type: "array", items: { type: "string" } },
-                answer: { type: "string" },
-                explanation: { type: "string" },
-                hint: { type: "string" },
-                ai_confidence_score: { type: "number" }
-              },
-              required: ["question_text", "options", "answer", "explanation"]
-            }
-          }
-        },
-        required: ["questions"]
-      }
-    }
-  };
+  const responseFormat = { type: "json_object" };
 
   const taskInstructions = [
     `Topic: ${params.topic}`,
@@ -156,7 +113,7 @@ export async function generateMultipleQuestions(params: {
     '- Include exactly 4 plausible options (A, B, C, D) per question.',
     '- Mark the correct answer clearly as exactly "A", "B", "C", or "D".',
     '- Include a helpful, subtle hint (max 1 sentence) per question.',
-    '- Return ONLY valid JSON matching the schema provided in responseFormat.'
+    '- Return ONLY valid JSON matching this exact structure: { "questions": [ { "question_text": "...", "options": ["A. ...", "B. ...", "C. ...", "D. ..."], "answer": "A", "explanation": "...", "hint": "...", "ai_confidence_score": 0.95 } ] }'
   ].join('\n');
 
   let parsed: any = { questions: [] };
@@ -167,7 +124,7 @@ export async function generateMultipleQuestions(params: {
       taskInstructions,
       responseFormat
     });
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("AI generation timed out")), 5000));
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("AI generation timed out")), 60000));
     parsed = await Promise.race([aiPromise, timeoutPromise]);
   } catch (err) {
     logger.warn(`AI Generation failed, falling back to mock questions. Error: ${err}`);

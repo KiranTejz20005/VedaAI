@@ -74,25 +74,6 @@ export const generateQuestions = async (req: Request, res: Response): Promise<vo
     const numQuestions = Number(count) || 5;
 
     const userId = (req as any).user?.id;
-    if (userId) {
-      // 5 attempt daily limit for generating practice questions
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const attemptsToday = await prisma.quizSession.count({
-        where: {
-          userId,
-          createdAt: {
-            gte: today,
-          },
-        },
-      });
-
-      if (attemptsToday >= 5) {
-        res.status(403).json({ success: false, error: 'Maximum daily attempt limit reached (5/5). Please try again tomorrow.' });
-        return;
-      }
-    }
 
     const questions = await generateMultipleQuestions({
       topic,

@@ -8,6 +8,7 @@ import { LibraryResource, LibraryService } from '@/services/library.service';
 import { UploadModal } from '@/components/library/UploadModal';
 import { ResourceTable } from '@/components/library/ResourceTable';
 import { PageHeader } from '@/design-system/PageHeader';
+import { NativeSelect } from '@/components/ui/native-select';
 
 const SUBJECTS = ['All', 'Math', 'Science', 'English', 'History', 'Computer Science', 'Art', 'General'];
 const CLASSES = ['All', 'Class 9', 'Class 10', 'Class 11', 'Class 12', 'General'];
@@ -83,27 +84,27 @@ export default function MyLibraryPage() {
             <Filter size={16} className="text-gray-400" />
             <span className="text-sm font-medium text-gray-700">Filters:</span>
           </div>
-          <select 
+          <NativeSelect 
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary shrink-0"
           >
             {SUBJECTS.map(s => <option key={s} value={s}>{s === 'All' ? 'All Subjects' : s}</option>)}
-          </select>
-          <select 
+          </NativeSelect>
+          <NativeSelect 
             value={className}
             onChange={(e) => setClassName(e.target.value)}
             className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary shrink-0"
           >
             {CLASSES.map(c => <option key={c} value={c}>{c === 'All' ? 'All Classes' : c}</option>)}
-          </select>
-          <select 
+          </NativeSelect>
+          <NativeSelect 
             value={resourceType}
             onChange={(e) => setResourceType(e.target.value)}
             className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary shrink-0"
           >
             {RESOURCE_TYPES.map(t => <option key={t} value={t}>{t === 'All' ? 'All Types' : t}</option>)}
-          </select>
+          </NativeSelect>
         </div>
       </div>
 

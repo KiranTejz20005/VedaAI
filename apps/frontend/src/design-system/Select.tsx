@@ -1,4 +1,6 @@
 'use client';
+import { NativeSelect } from '@/components/ui/native-select';
+
 
 import React from 'react';
 
@@ -23,7 +25,7 @@ export function Select({ label, error, options, className, style, ...props }: Se
         </label>
       )}
       <div style={{ position: 'relative' }}>
-        <select
+        <NativeSelect
           className={className}
           {...props}
           style={{
@@ -59,7 +61,7 @@ export function Select({ label, error, options, className, style, ...props }: Se
               {opt.label}
             </option>
           ))}
-        </select>
+        </NativeSelect>
         <svg
           width="16"
           height="16"

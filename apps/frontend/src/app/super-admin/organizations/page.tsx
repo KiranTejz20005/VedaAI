@@ -1,4 +1,6 @@
 'use client';
+import { NativeSelect } from '@/components/ui/native-select';
+
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
@@ -330,7 +332,7 @@ export default function SuperAdminOrganizations() {
                   style={{ width: '100%', paddingLeft: 30, paddingRight: 10, paddingTop: 8, paddingBottom: 8, border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 12, color: '#111827', background: '#FAFAFA', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
                 />
               </div>
-              <select
+              <NativeSelect
                 value={roleFilter}
                 onChange={e => setRoleFilter(e.target.value)}
                 style={{ padding: '7px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 12, color: '#374151', background: '#FAFAFA', fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }}
@@ -339,7 +341,7 @@ export default function SuperAdminOrganizations() {
                 <option value="STUDENT">Students</option>
                 <option value="FACULTY">Faculty</option>
                 <option value="ADMIN">Admins</option>
-              </select>
+              </NativeSelect>
             </div>
 
             {/* User cards */}

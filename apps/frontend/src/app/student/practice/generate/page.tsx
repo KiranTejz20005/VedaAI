@@ -6,6 +6,7 @@ import { Sparkles, Loader2, AlertCircle, ImageOff, Paperclip, ChevronLeft } from
 import toast from 'react-hot-toast';
 import { apiClient } from '@/services/api.client';
 import { motion } from 'framer-motion';
+import { NativeSelect } from '@/components/ui/native-select';
 
 interface GeneratedQuestion {
   id: string;
@@ -149,7 +150,7 @@ export default function CustomQuizGenerator() {
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginBottom: 20 }}>
             <div style={{ flex: 1, minWidth: 150, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <label style={{ fontSize: 13, fontWeight: 700, color: '#475569' }}>Difficulty</label>
-              <select 
+              <NativeSelect 
                 value={formData.difficulty} 
                 onChange={e => setFormData({...formData, difficulty: e.target.value})}
                 style={{ padding: '12px 16px', borderRadius: 12, border: '1px solid #E2E8F0', fontSize: 14, outline: 'none', background: '#FFFFFF' }}
@@ -157,11 +158,11 @@ export default function CustomQuizGenerator() {
                 <option value="EASY">Easy</option>
                 <option value="MEDIUM">Medium</option>
                 <option value="HARD">Hard</option>
-              </select>
+              </NativeSelect>
             </div>
             <div style={{ flex: 1, minWidth: 150, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <label style={{ fontSize: 13, fontWeight: 700, color: '#475569' }}>Bloom Level</label>
-              <select 
+              <NativeSelect 
                 value={formData.bloom_level} 
                 onChange={e => setFormData({...formData, bloom_level: e.target.value})}
                 style={{ padding: '12px 16px', borderRadius: 12, border: '1px solid #E2E8F0', fontSize: 14, outline: 'none', background: '#FFFFFF' }}
@@ -172,11 +173,11 @@ export default function CustomQuizGenerator() {
                 <option value="ANALYZE">Analyze</option>
                 <option value="EVALUATE">Evaluate</option>
                 <option value="CREATE">Create</option>
-              </select>
+              </NativeSelect>
             </div>
             <div style={{ flex: 1, minWidth: 150, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <label style={{ fontSize: 13, fontWeight: 700, color: '#475569' }}>Number of Questions</label>
-              <select 
+              <NativeSelect 
                 value={formData.numQuestions} 
                 onChange={e => setFormData({...formData, numQuestions: parseInt(e.target.value) || 5})}
                 style={{ padding: '12px 16px', borderRadius: 12, border: '1px solid #E2E8F0', fontSize: 14, outline: 'none', background: '#FFFFFF' }}
@@ -184,7 +185,7 @@ export default function CustomQuizGenerator() {
                 {Array.from({ length: 15 }).map((_, i) => (
                   <option key={i + 1} value={i + 1}>{i + 1} Question{i > 0 ? 's' : ''}</option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
           </div>
 

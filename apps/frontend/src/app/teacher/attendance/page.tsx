@@ -6,6 +6,7 @@ import { Card } from '@/design-system/Card';
 import { Button } from '@/design-system/Button';
 import { Check, X, Calendar as CalendarIcon, Users, Clock, HelpCircle, Lock } from 'lucide-react';
 import { useAttendance, AttendanceStatus } from '@/hooks/useAttendance';
+import { NativeSelect } from '@/components/ui/native-select';
 
 export default function AttendancePage() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -71,11 +72,11 @@ export default function AttendancePage() {
                 <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>Class / Subject</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)' }}>
                   <Users size={16} color="var(--text-muted)" />
-                  <select value={subject} onChange={e => setSubject(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', color: 'var(--text-primary)' }}>
+                  <NativeSelect value={subject} onChange={e => setSubject(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', color: 'var(--text-primary)' }}>
                     <option value="Computer Science 101">Computer Science 101</option>
                     <option value="Advanced Mathematics">Advanced Mathematics</option>
                     <option value="Physics II">Physics II</option>
-                  </select>
+                  </NativeSelect>
                 </div>
               </div>
             </div>

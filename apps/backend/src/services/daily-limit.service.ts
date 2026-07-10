@@ -18,13 +18,15 @@ const CHECK_AND_INCR_SCRIPT = `
 
 export interface DailyLimitConfig {
   STUDENT_QUIZ_LIMIT: number;
+  FACULTY_QUIZ_LIMIT: number;
   TEACHER_PAPER_LIMIT: number;
   TEACHER_ASSIGNMENT_LIMIT: number;
   ADMIN_UNLIMITED: boolean;
 }
 
 const DAILY_LIMIT_CONFIG: DailyLimitConfig = {
-  STUDENT_QUIZ_LIMIT: 2,          // Students can generate 2 quizzes per day
+  STUDENT_QUIZ_LIMIT: 2,           // Students can generate 2 quizzes per day
+  FACULTY_QUIZ_LIMIT: 5,           // Faculty/Teachers can generate 5 quizzes per day
   TEACHER_PAPER_LIMIT: 5,          // Teachers can generate 5 question papers per day
   TEACHER_ASSIGNMENT_LIMIT: 5,     // Teachers can create 5 assignments per day
   ADMIN_UNLIMITED: true,           // Admins have unlimited access
@@ -57,6 +59,7 @@ export class DailyLimitService {
     }
 
     if (role === 'TEACHER' || role === 'FACULTY') {
+      if (type === 'quiz') return DAILY_LIMIT_CONFIG.FACULTY_QUIZ_LIMIT;
       if (type === 'paper') return DAILY_LIMIT_CONFIG.TEACHER_PAPER_LIMIT;
       if (type === 'assignment') return DAILY_LIMIT_CONFIG.TEACHER_ASSIGNMENT_LIMIT;
     }
@@ -65,7 +68,8 @@ export class DailyLimitService {
       if (type === 'quiz') return DAILY_LIMIT_CONFIG.STUDENT_QUIZ_LIMIT;
     }
 
-    return 0; // No permission
+    // Default: deny access
+    return 0;
   }
 
   /**

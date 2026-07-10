@@ -1,4 +1,6 @@
 'use client';
+import { NativeSelect } from '@/components/ui/native-select';
+
 
 import React, { useEffect, useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
@@ -310,8 +312,8 @@ function CreateDiscussionModal({ onClose, onCreated }: { onClose: () => void; on
           <label style={labelStyle}><span style={labelText}>Title</span><input value={title} onChange={e => setTitle(e.target.value)} style={inputStyle} placeholder="What's on your mind?" /></label>
           <label style={labelStyle}><span style={labelText}>Body</span><textarea value={body} onChange={e => setBody(e.target.value)} required rows={4} style={{ ...inputStyle, height: 'auto', padding: '10px 14px', resize: 'vertical' as const }} placeholder="Share your question, idea, or insight…" /></label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <label style={labelStyle}><span style={labelText}>Type</span><select value={type} onChange={e => setType(e.target.value)} style={inputStyle}><option value="DISCUSSION">Discussion</option><option value="PROJECT">Help Wanted</option><option value="ANNOUNCEMENT">Showcase</option></select></label>
-            <label style={labelStyle}><span style={labelText}>Visibility</span><select value={vis} onChange={e => setVis(e.target.value)} style={inputStyle}><option value="PUBLIC">Public</option><option value="ORG_ONLY">Org Only</option></select></label>
+            <label style={labelStyle}><span style={labelText}>Type</span><NativeSelect value={type} onChange={e => setType(e.target.value)} style={inputStyle}><option value="DISCUSSION">Discussion</option><option value="PROJECT">Help Wanted</option><option value="ANNOUNCEMENT">Showcase</option></NativeSelect></label>
+            <label style={labelStyle}><span style={labelText}>Visibility</span><NativeSelect value={vis} onChange={e => setVis(e.target.value)} style={inputStyle}><option value="PUBLIC">Public</option><option value="ORG_ONLY">Org Only</option></NativeSelect></label>
           </div>
           <label style={labelStyle}><span style={labelText}>Tags (comma-separated)</span><input value={tags} onChange={e => setTags(e.target.value)} style={inputStyle} placeholder="Computer Science, React" /></label>
         </div>

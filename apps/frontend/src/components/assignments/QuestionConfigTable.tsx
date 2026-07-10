@@ -1,4 +1,6 @@
 'use client';
+import { NativeSelect } from '@/components/ui/native-select';
+
 
 import React from 'react';
 import { X, Plus, ChevronDown, Minus } from 'lucide-react';
@@ -83,7 +85,7 @@ export function QuestionTypeRow({
       {/* Desktop view */}
       <div className="desktop-question-row">
         <div className="question-select-wrap">
-          <select
+          <NativeSelect
             value={row.type}
             onChange={(e) => onChange({ ...row, type: e.target.value as QuestionTypeOption })}
             className="input question-select"
@@ -92,7 +94,7 @@ export function QuestionTypeRow({
             {QUESTION_TYPE_OPTIONS.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
-          </select>
+          </NativeSelect>
           <ChevronDown size={16} className="question-select-chevron" aria-hidden="true" />
         </div>
 
@@ -125,7 +127,7 @@ export function QuestionTypeRow({
       <div className="mobile-question-row">
         <div className="mobile-row-top">
           <div className="question-select-wrap">
-            <select
+            <NativeSelect
               value={row.type}
               onChange={(e) => onChange({ ...row, type: e.target.value as QuestionTypeOption })}
               className="input question-select"
@@ -134,7 +136,7 @@ export function QuestionTypeRow({
               {QUESTION_TYPE_OPTIONS.map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
-            </select>
+            </NativeSelect>
             <ChevronDown size={16} className="question-select-chevron" aria-hidden="true" />
           </div>
           <button

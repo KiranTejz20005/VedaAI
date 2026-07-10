@@ -246,17 +246,11 @@ export const deleteResource = async (req: Request, res: Response): Promise<void>
 export const downloadResource = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
 
-    const organizationId = getOrgId(req);
     const resource = await prisma.libraryResource.findUnique({ where: { id } });
 
-    if (!resource || resource.organizationId !== organizationId) {
-      res.status(403).json({ success: false, error: 'Resource not found' });
+    if (!resource) {
+      res.status(404).json({ success: false, error: 'Resource not found' });
       return;
     }
 
@@ -279,5 +273,38 @@ export const downloadResource = async (req: Request, res: Response): Promise<voi
   } catch (error: any) {
     console.error('Error downloading resource:', error);
     res.status(500).json({ success: false, error: 'Failed to download resource' });
+  }
+};
+
+export const viewResource = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const resource = await prisma.libraryResource.findUnique({ where: { id } });
+
+    if (!resource) {
+      res.status(404).json({ success: false, error: 'Resource not found' });
+      return;
+    }
+
+    if (!resource.fileUrl) {
+      res.status(404).json({ success: false, error: 'File not found' });
+      return;
+    }
+
+    if (resource.fileUrl.startsWith('/uploads/')) {
+      const filename = resource.fileUrl.replace('/uploads/', '');
+      const filePath = path.join(process.cwd(), 'uploads', filename);
+      if (fs.existsSync(filePath)) {
+        res.sendFile(filePath);
+      } else {
+        res.status(404).json({ success: false, error: 'File missing from server' });
+      }
+    } else {
+      res.redirect(resource.fileUrl);
+    }
+  } catch (error: any) {
+    console.error('Error viewing resource:', error);
+    res.status(500).json({ success: false, error: 'Failed to view resource' });
   }
 };

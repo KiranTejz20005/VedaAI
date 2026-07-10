@@ -36,6 +36,11 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
       token = req.cookies.access_token;
     }
 
+    // 3. Extract from query parameter (for direct file downloads/views)
+    if (!token && req.query && req.query.token) {
+      token = req.query.token as string;
+    }
+
     if (!token) {
       return res.status(401).json({ success: false, error: 'Authentication required' });
     }

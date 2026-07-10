@@ -26,8 +26,6 @@ export default function TeacherDashboard() {
   const [stats, setStats] = useState<TeacherStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showGroupModal, setShowGroupModal] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -178,7 +176,7 @@ export default function TeacherDashboard() {
               <Users size={18} /> Create Group
             </button>
             <button
-              onClick={() => setShowUploadModal(true)}
+              onClick={() => router.push('/teacher/library')}
               style={{ padding: '12px 16px', background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 0.2s', justifyContent: 'center' }}
               onMouseOver={e => e.currentTarget.style.background = 'var(--bg-muted)'}
               onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
@@ -186,7 +184,7 @@ export default function TeacherDashboard() {
               <UploadCloud size={18} /> Upload Resource
             </button>
             <button
-              onClick={() => router.push('/teacher/attendance')}
+              onClick={() => router.push('/teacher/insights')}
               style={{ padding: '12px 16px', background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 0.2s', justifyContent: 'center' }}
               onMouseOver={e => e.currentTarget.style.background = 'var(--bg-muted)'}
               onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
@@ -194,7 +192,7 @@ export default function TeacherDashboard() {
               <Users size={18} /> View Classes
             </button>
             <button
-              onClick={() => router.push('/teacher/assessments')}
+              onClick={() => router.push('/grader')}
               style={{ padding: '12px 16px', background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 0.2s', justifyContent: 'center' }}
               onMouseOver={e => e.currentTarget.style.background = 'var(--bg-muted)'}
               onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
@@ -202,7 +200,7 @@ export default function TeacherDashboard() {
               <ClipboardList size={18} /> Grade Assignments
             </button>
             <button
-              onClick={() => router.push('/teacher/insights')}
+              onClick={() => router.push('/ai-toolkit')}
               style={{ padding: '12px 16px', background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 0.2s', justifyContent: 'center' }}
               onMouseOver={e => e.currentTarget.style.background = 'var(--bg-muted)'}
               onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
@@ -213,77 +211,6 @@ export default function TeacherDashboard() {
         </Card>
       </div>
 
-      {/* Material Upload Modal */}
-      {showUploadModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'var(--surface)', padding: 24, borderRadius: 16, width: '90%', maxWidth: 500 }}>
-            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16 }}>Upload Material</h2>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: 24, fontSize: 14 }}>Upload Word (.docx) or PDF files for your class.</p>
-            
-            <div style={{ border: '2px dashed var(--border)', borderRadius: 12, padding: 32, textAlign: 'center', marginBottom: 24 }}>
-              <UploadCloud size={40} color="var(--text-muted)" style={{ margin: '0 auto 12px' }} />
-              <p style={{ fontWeight: 600, marginBottom: 4 }}>Drag & drop files here</p>
-              <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>or click to browse</p>
-              <input 
-                type="file" 
-                accept=".pdf,.doc,.docx" 
-                style={{ display: 'none' }} 
-                id="material-upload" 
-                onChange={async (e) => {
-                  if (e.target.files?.length) {
-                    const file = e.target.files[0];
-                    toast.success(`Selected ${file.name}, uploading...`);
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    try {
-                      await api.post('/teacher/upload-material', formData, {
-                        headers: { 'Content-Type': 'multipart/form-data' }
-                      });
-                      toast.success('Material uploaded successfully!');
-                    } catch (err: any) {
-                      toast.error('Failed to upload material');
-                    } finally {
-                      setTimeout(() => setShowUploadModal(false), 500);
-                    }
-                  }
-                }}
-              />
-              <label htmlFor="material-upload" style={{ display: 'inline-block', padding: '8px 16px', background: 'var(--bg-muted)', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-                Browse Files
-              </label>
-            </div>
-            
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-              <button 
-                onClick={() => setShowUploadModal(false)}
-                style={{ padding: '8px 16px', background: 'transparent', border: 'none', fontWeight: 600, cursor: 'pointer', color: 'var(--text-secondary)' }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Group Coming Soon Modal */}
-      {showGroupModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'var(--surface)', padding: 24, borderRadius: 16, width: '90%', maxWidth: 400, textAlign: 'center' }}>
-            <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#FEF3C7', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <AlertCircle size={24} />
-            </div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Under Construction</h2>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: 24, fontSize: 14 }}>
-              The Group Creation feature is currently in development. It will be available in an upcoming update!
-            </p>
-            <button 
-              onClick={() => setShowGroupModal(false)}
-              style={{ padding: '10px 24px', background: 'var(--brand)', color: 'white', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer', width: '100%' }}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

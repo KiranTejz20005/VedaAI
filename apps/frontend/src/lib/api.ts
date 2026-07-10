@@ -25,6 +25,7 @@ let _accessToken: string | null = null;
 export const setApiToken = (token: string | null) => {
   _accessToken = token;
 };
+export const getApiToken = () => _accessToken;
 
 let csrfPromise: Promise<any> | null = null;
 async function ensureCsrfToken() {

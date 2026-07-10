@@ -1,4 +1,6 @@
 'use client';
+import { NativeSelect } from '@/components/ui/native-select';
+
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
@@ -107,11 +109,11 @@ export default function SuperAdminAudit() {
                   onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
                 />
               </div>
-              <select value={actionFilter} onChange={e => { setActionFilter(e.target.value); setPage(1); }}
+              <NativeSelect value={actionFilter} onChange={e => { setActionFilter(e.target.value); setPage(1); }}
                 style={{ padding: '8px 32px 8px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', fontSize: 'var(--text-sm)', fontFamily: 'inherit', background: 'var(--bg-input)', outline: 'none', appearance: 'none', minWidth: 140, cursor: 'pointer' }}>
                 <option value="">All Actions</option>
                 {actions.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
+              </NativeSelect>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               <Calendar size={14} color="var(--text-muted)" />

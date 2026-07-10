@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import { X, UploadCloud, File, AlertCircle } from 'lucide-react';
 import { LibraryService } from '@/services/library.service';
 import { Button } from '@/components/ui/button';
+import { NativeSelect } from '@/components/ui/native-select';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -29,23 +30,44 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
 
   if (!isOpen) return null;
 
+  const updateFileState = (newFile: File) => {
+    setFile(newFile);
+    if (!title) {
+      // Auto-fill title from filename without extension
+      setTitle(newFile.name.replace(/\.[^/.]+$/, ''));
+    }
+
+    // Auto-detect resource type
+    const extension = newFile.name.split('.').pop()?.toLowerCase() || '';
+    const mimeType = newFile.type.toLowerCase();
+    
+    if (mimeType.startsWith('video/') || ['mp4', 'webm', 'mov', 'avi'].includes(extension)) {
+      setResourceType('Video');
+    } else if (mimeType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'].includes(extension)) {
+      setResourceType('Image');
+    } else if (mimeType === 'application/pdf' || extension === 'pdf') {
+      setResourceType('PDF');
+    } else if (mimeType.includes('presentation') || ['ppt', 'pptx'].includes(extension)) {
+      setResourceType('Presentation');
+    } else if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('tar') || ['zip', 'rar', 'tar', 'gz', '7z'].includes(extension)) {
+      setResourceType('Archive');
+    } else if (['doc', 'docx', 'txt', 'rtf', 'csv', 'xlsx', 'xls'].includes(extension) || mimeType.includes('word') || mimeType.includes('text/') || mimeType.includes('sheet')) {
+      setResourceType('Document');
+    } else {
+      setResourceType('Other');
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-      if (!title) {
-        // Auto-fill title from filename without extension
-        setTitle(e.target.files[0].name.replace(/\.[^/.]+$/, ''));
-      }
+      updateFileState(e.target.files[0]);
     }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0]);
-      if (!title) {
-        setTitle(e.dataTransfer.files[0].name.replace(/\.[^/.]+$/, ''));
-      }
+      updateFileState(e.dataTransfer.files[0]);
     }
   };
 
@@ -155,35 +177,35 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
 
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-gray-700">Resource Type</label>
-                <select 
+                <NativeSelect 
                   value={resourceType}
                   onChange={(e) => setResourceType(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                 >
                   {RESOURCE_TYPES.map(rt => <option key={rt} value={rt}>{rt}</option>)}
-                </select>
+                </NativeSelect>
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-gray-700">Subject</label>
-                <select 
+                <NativeSelect 
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                 >
                   {SUBJECTS.map(sub => <option key={sub} value={sub}>{sub}</option>)}
-                </select>
+                </NativeSelect>
               </div>
 
               <div className="space-y-1.5 col-span-2">
                 <label className="text-sm font-medium text-gray-700">Class/Group</label>
-                <select 
+                <NativeSelect 
                   value={className}
                   onChange={(e) => setClassName(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                 >
                   {CLASSES.map(cls => <option key={cls} value={cls}>{cls}</option>)}
-                </select>
+                </NativeSelect>
               </div>
 
               <div className="space-y-1.5 col-span-2">

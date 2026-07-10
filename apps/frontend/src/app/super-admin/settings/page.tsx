@@ -1,4 +1,6 @@
 'use client';
+import { NativeSelect } from '@/components/ui/native-select';
+
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
@@ -276,23 +278,23 @@ export default function SuperAdminSettings() {
               <div className="space-y-5">
                 <div>
                   <label className="block text-[11px] font-bold text-gray-700 mb-1.5">Default Timezone</label>
-                  <select value={timezone} onChange={e => setTimezone(e.target.value)}
+                  <NativeSelect value={timezone} onChange={e => setTimezone(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-700 focus:outline-none focus:border-blue-500">
                     <option value="UTC-5:00 Eastern Time (US & Canada)">UTC-5:00 Eastern Time (US & Canada)</option>
                     <option value="UTC-8:00 Pacific Time">UTC-8:00 Pacific Time</option>
                     <option value="UTC+0:00 Greenwich Mean Time">UTC+0:00 Greenwich Mean Time</option>
-                  </select>
+                  </NativeSelect>
                 </div>
                 
                 <div>
                   <label className="block text-[11px] font-bold text-gray-700 mb-1.5">Data Retention Policy</label>
-                  <select value={retentionPolicy} onChange={e => setRetentionPolicy(e.target.value)}
+                  <NativeSelect value={retentionPolicy} onChange={e => setRetentionPolicy(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-700 focus:outline-none focus:border-blue-500">
                     <option value="30 Days">30 Days</option>
                     <option value="90 Days">90 Days</option>
                     <option value="1 Year">1 Year</option>
                     <option value="Indefinite">Indefinite (Requires Enterprise)</option>
-                  </select>
+                  </NativeSelect>
                   <p className="text-[10px] text-gray-400 mt-1.5">Applies globally across all tenant organizations.</p>
                 </div>
 

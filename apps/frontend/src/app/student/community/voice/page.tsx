@@ -1,4 +1,6 @@
 'use client';
+import { NativeSelect } from '@/components/ui/native-select';
+
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Headphones, Mic, MicOff, Phone, Plus, Radio, Users, Volume2, X } from 'lucide-react';
@@ -56,12 +58,12 @@ function CreateRoomModal({ onClose, onCreated }: { onClose: () => void; onCreate
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', color: '#64748b' }}>Room Type</span>
-            <select value={roomType} onChange={e => setRoomType(e.target.value as any)} style={inp}>
+            <NativeSelect value={roomType} onChange={e => setRoomType(e.target.value as any)} style={inp}>
               <option value="STUDY">Study</option>
               <option value="PROJECT">Project</option>
               <option value="CASUAL">Casual</option>
               <option value="INTERVIEW">Interview</option>
-            </select>
+            </NativeSelect>
           </label>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '16px 24px', borderTop: '1px solid #e2e8f0' }}>
@@ -310,17 +312,17 @@ export default function VoiceRoomsPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Microphone</span>
-              <select value={selectedMic} onChange={e => setSelectedMic(e.target.value)} style={{ width: '100%', height: 32, borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 11, padding: '0 8px', outline: 'none', background: '#f8fafc', color: '#0f172a' }}>
+              <NativeSelect value={selectedMic} onChange={e => setSelectedMic(e.target.value)} style={{ width: '100%', height: 32, borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 11, padding: '0 8px', outline: 'none', background: '#f8fafc', color: '#0f172a' }}>
                 {audioInputs.length === 0 && <option value="default">Default Microphone</option>}
                 {audioInputs.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${audioInputs.indexOf(d) + 1}`}</option>)}
-              </select>
+              </NativeSelect>
             </label>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Headphones</span>
-              <select value={selectedSpeaker} onChange={e => setSelectedSpeaker(e.target.value)} style={{ width: '100%', height: 32, borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 11, padding: '0 8px', outline: 'none', background: '#f8fafc', color: '#0f172a' }}>
+              <NativeSelect value={selectedSpeaker} onChange={e => setSelectedSpeaker(e.target.value)} style={{ width: '100%', height: 32, borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 11, padding: '0 8px', outline: 'none', background: '#f8fafc', color: '#0f172a' }}>
                 {audioOutputs.length === 0 && <option value="default">Default Speakers</option>}
                 {audioOutputs.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Speaker ${audioOutputs.indexOf(d) + 1}`}</option>)}
-              </select>
+              </NativeSelect>
             </label>
           </div>
 

@@ -1,4 +1,6 @@
 'use client';
+import { NativeSelect } from '@/components/ui/native-select';
+
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
@@ -123,12 +125,12 @@ export default function AnnouncementsPage() {
               <label style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>Audience</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-muted)' }}>
                 <Users size={18} color="var(--text-muted)" />
-                <select value={audience} onChange={e => setAudience(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: 'var(--text-base)', color: 'var(--text-primary)' }}>
+                <NativeSelect value={audience} onChange={e => setAudience(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: 'var(--text-base)', color: 'var(--text-primary)' }}>
                   <option value="All Enrolled Students">All Enrolled Students</option>
                   <option value="Computer Science 101">Computer Science 101</option>
                   <option value="Advanced Mathematics">Advanced Mathematics</option>
                   <option value="Physics II">Physics II</option>
-                </select>
+                </NativeSelect>
               </div>
             </div>
 

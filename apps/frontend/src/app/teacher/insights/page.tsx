@@ -7,6 +7,7 @@ import { LoadingState } from '@/design-system/LoadingState';
 import { ErrorState } from '@/design-system/ErrorState';
 import { useClassInsights } from '@/hooks/useClassInsights';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { NativeSelect } from '@/components/ui/native-select';
 
 export default function ClassInsightsPage() {
   const { 
@@ -42,7 +43,7 @@ export default function ClassInsightsPage() {
         
         <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
           <span className="text-sm font-semibold text-slate-600 pl-2">Select Class:</span>
-          <select 
+          <NativeSelect 
             value={selectedClassId} 
             onChange={(e) => setSelectedClassId(e.target.value)}
             className="border-none bg-slate-50 text-slate-800 font-bold text-sm rounded-lg py-2 px-4 focus:ring-2 focus:ring-indigo-500"
@@ -52,7 +53,7 @@ export default function ClassInsightsPage() {
                 Grade {c.grade} - {c.section} ({c.academicYear})
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
       </div>
 

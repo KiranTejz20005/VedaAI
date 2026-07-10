@@ -43,17 +43,25 @@ export class AIOrchestrator {
       );
 
       // 3. Prompt Building
-      const finalPrompt = PromptBuilderService.buildPrompt(
+      let finalPrompt = PromptBuilderService.buildPrompt(
         options.intent,
         compressedContext,
         options.taskInstructions
       );
 
+      // Handle JSON Schema fallback since some providers (like NVIDIA Llama endpoints) reject `json_schema`
+      let finalResponseFormat = options.responseFormat;
+      if (options.responseFormat?.type === 'json_schema') {
+        const schemaString = JSON.stringify(options.responseFormat.json_schema.schema, null, 2);
+        finalPrompt += `\n\nIMPORTANT: You must return ONLY valid JSON that precisely matches this JSON Schema:\n${schemaString}`;
+        finalResponseFormat = { type: 'json_object' };
+      }
+
       // 4. Execute via Provider Abstraction
       const result = await provider.generate(finalPrompt, {
         model: modelConfig.modelName,
         temperature: options.temperature,
-        responseFormat: options.responseFormat,
+        responseFormat: finalResponseFormat,
         media: options.media,
       });
 
