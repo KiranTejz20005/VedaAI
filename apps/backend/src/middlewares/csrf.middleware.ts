@@ -16,6 +16,7 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
 
   if (SAFE_METHODS.includes(req.method)) {
     if (!cookieToken) {
+      const token = generateToken();
       let cookieDomain: string | undefined = undefined;
       if (process.env.NODE_ENV === 'production' && process.env.FRONTEND_URL) {
         try {
