@@ -16,12 +16,20 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
 
   if (SAFE_METHODS.includes(req.method)) {
     if (!cookieToken) {
-      const token = generateToken();
+      let cookieDomain: string | undefined = undefined;
+      if (process.env.NODE_ENV === 'production' && process.env.FRONTEND_URL) {
+        try {
+          const frontendUrl = new URL(process.env.FRONTEND_URL.split(',')[0]);
+          cookieDomain = frontendUrl.hostname.startsWith('localhost') ? undefined : '.' + frontendUrl.hostname;
+        } catch(e) {}
+      }
+
       res.cookie(COOKIE_NAME, token, {
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         httpOnly: false,
         secure: process.env.NODE_ENV === 'production',
         path: '/',
+        domain: cookieDomain,
       });
     }
     next();
