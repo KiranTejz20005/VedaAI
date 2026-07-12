@@ -32,7 +32,7 @@ async function ensureCsrfToken() {
   if (typeof document !== 'undefined' && !document.cookie.includes('XSRF-TOKEN=')) {
     if (!csrfPromise) {
       // Make a GET request to obtain the CSRF cookie
-      csrfPromise = axios.get(joinUrl(getBaseURL(), '/public-organizations'), { withCredentials: true })
+      csrfPromise = axios.get(joinUrl(getBaseURL(), '/auth/public-organizations'), { withCredentials: true })
         .catch(() => {}) // Ignore errors, the cookie is set by middleware regardless
         .finally(() => { csrfPromise = null; });
     }
