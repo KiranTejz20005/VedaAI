@@ -1,5 +1,6 @@
 import { getDashboardRoute, validateRouteAccess } from '../navigation';
 import { UserRole, ROUTES } from '../../config/routes';
+import { vi } from 'vitest';
 
 describe('Navigation Utils', () => {
   describe('getDashboardRoute', () => {
@@ -32,11 +33,11 @@ describe('Navigation Utils', () => {
 
   describe('validateRouteAccess', () => {
     const originalEnv = process.env.NODE_ENV;
-    let consoleErrorSpy: jest.SpyInstance;
+    let consoleErrorSpy: any;
 
     beforeAll(() => {
       (process.env as any).NODE_ENV = 'development';
-      consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     });
 
     afterAll(() => {
