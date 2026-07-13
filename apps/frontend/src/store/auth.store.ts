@@ -39,6 +39,13 @@ interface AuthStore {
     lastName?: string;
     provider: string;
     token?: string;
+    role?: 'STUDENT' | 'TEACHER' | 'ADMIN' | 'SUPER_ADMIN';
+    isSignUp?: boolean;
+  }) => Promise<{ success: boolean; error?: string }>;
+  googleLogin: (data: {
+    token: string;
+    role: 'STUDENT' | 'TEACHER' | 'ADMIN' | 'SUPER_ADMIN';
+    isSignUp?: boolean;
   }) => Promise<{ success: boolean; error?: string }>;
   signup: (data: {
     email: string;
@@ -155,6 +162,29 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     } catch (err: any) {
       set({ isLoading: false });
       return { success: false, error: err.message || 'SSO Login failed.' };
+    }
+  },
+
+  googleLogin: async (data) => {
+    try {
+      set({ isLoading: true });
+      const res = await api.post('/auth/google', data);
+      const { accessToken, user } = res.data?.data || {};
+      if (accessToken && user) {
+        setApiToken(accessToken);
+        set({
+          user,
+          accessToken,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+        return { success: true };
+      }
+      set({ isLoading: false });
+      return { success: false, error: 'Invalid response from auth server.' };
+    } catch (err: any) {
+      set({ isLoading: false });
+      return { success: false, error: err.message || 'Google Login failed.' };
     }
   },
 

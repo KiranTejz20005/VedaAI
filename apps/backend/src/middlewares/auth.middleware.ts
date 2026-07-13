@@ -52,7 +52,7 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
       id: decodedPayload.userId,
       email: decodedPayload.email,
       role: decodedPayload.role,
-      organizationId: decodedPayload.organizationId,
+      organizationId: decodedPayload.organizationId || '00000000-0000-0000-0000-000000000000',
       activeOrganizationId: decodedPayload.activeOrganizationId,
       departmentId: decodedPayload.departmentId,
     };

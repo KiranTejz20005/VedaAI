@@ -147,6 +147,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    if (!user.passwordHash) {
+      sendUnauthorized(res, 'Please sign in with Google.');
+      return;
+    }
+
     const isMatch = await verifyPassword(password, user.passwordHash);
     if (!isMatch) {
       await prisma.loginHistory.create({
@@ -412,6 +417,11 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
       return;
     }
 
+    if (!user.passwordHash) {
+      sendBadRequest(res, 'Account uses Google Sign-In, so you cannot change the password.');
+      return;
+    }
+
     const isMatch = await verifyPassword(body.currentPassword, user.passwordHash);
     if (!isMatch) {
       sendBadRequest(res, 'Incorrect current password');
@@ -584,5 +594,129 @@ export const completeOnboarding = async (req: Request, res: Response): Promise<v
   } catch (error: any) {
     logger.error({ err: error }, '[completeOnboarding]');
     sendError(res, { error: 'Failed to complete onboarding', statusCode: 500 });
+  }
+};
+
+export const googleSignin = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token, role, isSignUp } = req.body;
+    const ipAddress = req.ip || '0.0.0.0';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+
+    if (!token) {
+      sendBadRequest(res, 'Google token is required');
+      return;
+    }
+
+    if (!role || !['STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN'].includes(role)) {
+      sendBadRequest(res, 'Valid role is required');
+      return;
+    }
+
+    const response = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!response.ok) {
+      sendBadRequest(res, 'Invalid Google token');
+      return;
+    }
+
+    const payload: any = await response.json();
+    if (!payload || !payload.email) {
+      sendBadRequest(res, 'Invalid Google token payload');
+      return;
+    }
+
+    const { email, given_name, family_name, picture } = payload;
+    const normalizedEmail = email.trim().toLowerCase();
+
+    let user = await prisma.user.findFirst({
+      where: { email: normalizedEmail },
+      include: { organization: true }
+    });
+
+    if (user) {
+      if (user.role !== role) {
+        sendForbidden(res, `This Google account is already linked to a ${user.role} profile. You cannot sign in to the ${role} portal.`);
+        return;
+      }
+
+      if (user.authProvider === 'LOCAL') {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { authProvider: 'GOOGLE' },
+          include: { organization: true }
+        });
+      }
+
+      if (user.status !== 'ACTIVE') {
+        sendForbidden(res, 'Account disabled');
+        return;
+      }
+
+      if (user.organization && user.organization.status !== 'ACTIVE') {
+        sendForbidden(res, 'Organization is not active');
+        return;
+      }
+    } else {
+      if (!isSignUp) {
+        res.status(404).json({ success: false, error: 'Account not found. Please sign up first.', code: 'ACCOUNT_NOT_FOUND' });
+        return;
+      }
+      user = await prisma.user.create({
+        data: {
+          email: normalizedEmail,
+          authProvider: 'GOOGLE',
+          firstName: given_name || 'Unknown',
+          lastName: family_name || 'Unknown',
+          avatar: picture || null,
+          role: role as any,
+          hasCompletedOnboarding: true,
+        },
+        include: { organization: true }
+      });
+      
+      await AuditService.logAuditEvent({
+        action: 'SIGNUP_SUCCESS',
+        userId: user.id,
+        organizationId: user.organizationId || undefined,
+        entity: 'User',
+        entityId: user.id,
+        ipAddress,
+        userAgent,
+      });
+    }
+
+    const accessToken = generateAccessToken({
+      userId: user.id, email: user.email, role: user.role,
+      organizationId: user.organizationId,
+      activeOrganizationId: user.activeOrganizationId,
+      departmentId: user.departmentId,
+    });
+
+    const refreshToken = await createRefreshToken(user.id);
+
+    await prisma.loginHistory.create({
+      data: { userId: user.id, ipAddress, userAgent, status: 'SUCCESS' },
+    }).catch(() => {});
+
+    await AuditService.logAuditEvent({
+      action: 'LOGIN_SUCCESS', userId: user.id,
+      organizationId: user.organizationId || undefined, ipAddress, userAgent,
+    });
+
+    const sessionExpiry = new Date();
+    sessionExpiry.setDate(sessionExpiry.getDate() + 30);
+    await prisma.session.create({
+      data: { userId: user.id, userAgent, ipAddress, expiresAt: sessionExpiry },
+    }).catch(() => {});
+
+    setRefreshCookie(res, refreshToken);
+
+    sendSuccess(res, { data: serializeAuthTokens(accessToken, user, refreshToken), message: 'Google Sign-In successful' });
+  } catch (error: any) {
+    logger.error({ err: error }, '[googleSignin]');
+    sendError(res, { error: 'Google Authentication failed', statusCode: 500 });
   }
 };

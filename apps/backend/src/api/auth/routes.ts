@@ -31,6 +31,7 @@ import {
   getUserOrganizations,
   getStorageUsage,
   completeOnboarding,
+  googleSignin,
 } from './controller';
 
 const router = Router();
@@ -56,6 +57,7 @@ router.post('/signup', authLimiter, validate(signupSchema), asyncHandler(signup)
 router.post('/accept-invite', authLimiter, validate(acceptInviteSchema), asyncHandler(acceptInvite));
 router.post('/login', authLimiter, validate(loginSchema), asyncHandler(login));
 router.post('/sso', authLimiter, validate(ssoSchema), asyncHandler(ssoLogin));
+router.post('/google', authLimiter, asyncHandler(googleSignin));
 router.post('/refresh', refreshLimiter, asyncHandler(refresh));
 router.post('/logout', authLimiter, asyncHandler(logout));
 

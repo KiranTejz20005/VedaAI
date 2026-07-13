@@ -266,6 +266,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    if (!user.passwordHash) {
+      res.status(401).json({ success: false, error: 'Please sign in with Google.' });
+      return;
+    }
+
     const isMatch = await verifyPassword(password, user.passwordHash);
     if (!isMatch) {
       // Record login failure
@@ -373,6 +378,179 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ success: false, error: 'Authentication failed' });
   }
 };
+
+// ── POST /auth/google ──
+export const googleSignin = async (req: Request, res: Response): Promise<void> => {
+  const ipAddress = req.ip || '0.0.0.0';
+  const userAgent = req.headers['user-agent'] || 'unknown';
+
+  try {
+    const { token, role, isSignUp } = req.body;
+
+    if (!token) {
+      res.status(400).json({ success: false, error: 'Google token is required' });
+      return;
+    }
+
+    if (!role || !['STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN'].includes(role)) {
+      res.status(400).json({ success: false, error: 'Valid role is required' });
+      return;
+    }
+
+    // Verify Google token
+    const response = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!response.ok) {
+      res.status(400).json({ success: false, error: 'Invalid Google token' });
+      return;
+    }
+
+    const payload: any = await response.json();
+    if (!payload || !payload.email) {
+      res.status(400).json({ success: false, error: 'Invalid Google token payload' });
+      return;
+    }
+
+    const { email, given_name, family_name, picture } = payload;
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Check if user exists by email
+    let user = await prisma.user.findFirst({
+      where: {
+        email: normalizedEmail
+      },
+      include: { organization: true }
+    });
+
+    if (user) {
+      // User exists. Check if they are trying to sign into the wrong profile
+      if (user.role !== role) {
+        res.status(403).json({ 
+          success: false, 
+          error: `This Google account is already linked to a ${user.role} profile. You cannot sign in to the ${role} portal.` 
+        });
+        return;
+      }
+
+      // If they signed up with local, update the authProvider to GOOGLE
+      if (user.authProvider === 'LOCAL') {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { authProvider: 'GOOGLE' },
+          include: { organization: true }
+        });
+      }
+
+      if (user.status !== 'ACTIVE') {
+        res.status(403).json({ success: false, error: 'Account disabled' });
+        return;
+      }
+
+      if (user.organization && user.organization.status !== 'ACTIVE') {
+        res.status(403).json({ success: false, error: 'Organization is not active' });
+        return;
+      }
+
+    } else {
+      if (!isSignUp) {
+        res.status(404).json({ success: false, error: 'Account not found. Please sign up first.', code: 'ACCOUNT_NOT_FOUND' });
+        return;
+      }
+      // User does not exist, create a fresh profile for the requested role
+      user = await prisma.user.create({
+        data: {
+          email: normalizedEmail,
+          authProvider: 'GOOGLE',
+          firstName: given_name || 'Unknown',
+          lastName: family_name || 'Unknown',
+          avatar: picture || null,
+          role: role as any,
+          hasCompletedOnboarding: true,
+        },
+        include: { organization: true }
+      });
+      
+      await AuditService.logAuditEvent({
+        action: 'SIGNUP_SUCCESS',
+        userId: user.id,
+        organizationId: user.organizationId || undefined,
+        entity: 'User',
+        entityId: user.id,
+        ipAddress,
+        userAgent,
+        metadata: { provider: 'GOOGLE' }
+      });
+    }
+
+    // Generate tokens
+    const accessToken = generateAccessToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      organizationId: user.organizationId,
+      activeOrganizationId: user.activeOrganizationId,
+      departmentId: user.departmentId,
+    });
+
+    const refreshToken = await createRefreshToken(user.id);
+
+    // Save success history
+    await prisma.loginHistory.create({
+      data: {
+        userId: user.id,
+        ipAddress,
+        userAgent,
+        status: 'SUCCESS',
+      },
+    });
+
+    await AuditService.logAuditEvent({
+      action: 'LOGIN_SUCCESS',
+      userId: user.id,
+      organizationId: user.organizationId || undefined,
+      ipAddress,
+      userAgent,
+      metadata: { provider: 'GOOGLE' }
+    });
+
+    // Create session record
+    const sessionExpiry = new Date();
+    sessionExpiry.setDate(sessionExpiry.getDate() + 30);
+    await prisma.session.create({
+      data: {
+        userId: user.id,
+        userAgent,
+        ipAddress,
+        expiresAt: sessionExpiry,
+      },
+    });
+
+    setRefreshCookie(res, refreshToken);
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        accessToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          hasCompletedOnboarding: user.hasCompletedOnboarding,
+        },
+      },
+    });
+
+  } catch (error: any) {
+    logger.error(`[googleSignin] ${error}`);
+    res.status(500).json({ success: false, error: 'Google authentication failed' });
+  }
+};
+
 
 // ── POST /auth/refresh ──
 export const refresh = async (req: Request, res: Response): Promise<void> => {
@@ -734,6 +912,11 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
       return;
     }
 
+    if (!user.passwordHash) {
+      res.status(400).json({ success: false, error: 'Account uses Google Sign-In, so you cannot change the password.' });
+      return;
+    }
+
     const isMatch = await verifyPassword(currentPassword, user.passwordHash);
     if (!isMatch) {
       res.status(400).json({ success: false, error: 'Incorrect current password' });
@@ -870,10 +1053,15 @@ export const ssoLogin = async (req: Request, res: Response): Promise<void> => {
   const userAgent = req.headers['user-agent'] || 'unknown';
 
   try {
-    const { email, firstName, lastName, provider } = req.body;
+    const { email, firstName, lastName, provider, role, isSignUp } = req.body;
 
     if (!email) {
       res.status(400).json({ success: false, error: 'Email is required' });
+      return;
+    }
+
+    if (!role || !['STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN'].includes(role)) {
+      res.status(400).json({ success: false, error: 'Valid role is required' });
       return;
     }
 
@@ -882,20 +1070,32 @@ export const ssoLogin = async (req: Request, res: Response): Promise<void> => {
     // Attempt to find user
     let user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     
-    // If user does not exist, create a new one (SSO auto-onboarding)
-    if (!user) {
+    if (user) {
+      if (user.role !== role) {
+        res.status(403).json({ 
+          success: false, 
+          error: `This account is already linked to a ${user.role} profile. You cannot sign in to the ${role} portal.` 
+        });
+        return;
+      }
+    } else {
+      if (!isSignUp) {
+        res.status(404).json({ success: false, error: 'Account not found. Please sign up first.', code: 'ACCOUNT_NOT_FOUND' });
+        return;
+      }
+      // If user does not exist, create a new one (SSO auto-onboarding)
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const crypto = require('crypto');
       const randomPassword = crypto.randomBytes(16).toString('hex');
       const pwdHash = await hashPassword(randomPassword);
       user = await prisma.user.create({
         data: {
-          email,
+          email: normalizedEmail,
           passwordHash: pwdHash,
           firstName: firstName || 'SSO',
           lastName: lastName || 'User',
-          role: 'TEACHER', // default role
-          hasCompletedOnboarding: false,
+          role: role as any,
+          hasCompletedOnboarding: true,
         },
       });
     }

@@ -20,6 +20,7 @@ import {
   completeOnboarding,
   acceptInvite,
   ssoLogin,
+  googleSignin,
 } from '../controllers/auth.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 
@@ -49,6 +50,7 @@ router.post('/signup', authLimiter, asyncHandler(signup));
 router.post('/accept-invite', authLimiter, asyncHandler(acceptInvite));
 router.post('/login', authLimiter, asyncHandler(login));
 router.post('/sso', authLimiter, asyncHandler(ssoLogin));
+router.post('/google', authLimiter, asyncHandler(googleSignin));
 router.post('/refresh', refreshLimiter, asyncHandler(refresh));
 router.post('/logout', authLimiter, asyncHandler(logout));
 

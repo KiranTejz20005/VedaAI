@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import toast from 'react-hot-toast';
 import { Eye, EyeOff } from 'lucide-react';
+import { useGoogleLogin } from '@react-oauth/google';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,6 +16,40 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<'STUDENT' | 'TEACHER'>('STUDENT');
+
+  const handleGoogleSuccess = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setIsSubmitting(true);
+      const { googleLogin } = useAuthStore.getState();
+      const result = await googleLogin({
+        token: tokenResponse.access_token,
+        role: selectedRole,
+        isSignUp: false
+      });
+      setIsSubmitting(false);
+
+      if (result.success) {
+        toast.success('Successfully logged in with Google!');
+        const user = useAuthStore.getState().user;
+        const isOnboarded = user?.hasCompletedOnboarding === true || !!(user?.organizationId && user?.departmentId);
+        let dashboardPath = '/dashboard/student';
+        if (user?.role === 'TEACHER' || user?.role === 'FACULTY') dashboardPath = '/dashboard/faculty';
+        if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') dashboardPath = '/dashboard/admin';
+        router.replace(isOnboarded ? dashboardPath : '/onboarding');
+      } else {
+        if (result.error?.includes('Account not found')) {
+          toast.error('Account not found. Redirecting to sign up...');
+          setTimeout(() => router.push('/register'), 1500);
+        } else {
+          toast.error(result.error || 'Google login failed.');
+        }
+      }
+    },
+    onError: () => {
+      toast.error('Google login failed or was cancelled.');
+    }
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -28,7 +63,9 @@ export default function LoginPage() {
           firstName: event.data.firstName || 'Student',
           lastName: event.data.lastName || 'Member',
           provider: event.data.provider || 'SSO',
-          token: event.data.token
+          token: event.data.token,
+          role: selectedRole,
+          isSignUp: false
         });
         setIsSubmitting(false);
 
@@ -56,7 +93,14 @@ export default function LoginPage() {
           
           router.replace(isOnboarded ? dashboardPath : '/onboarding');
         } else {
-          toast.error(result.error || 'SSO authentication failed.');
+          if (result.error?.includes('Account not found')) {
+            toast.error('Account not found. Redirecting to sign up...');
+            setTimeout(() => {
+              router.push('/register');
+            }, 1500);
+          } else {
+            toast.error(result.error || 'SSO authentication failed.');
+          }
         }
       }
     };
@@ -80,17 +124,15 @@ export default function LoginPage() {
     }
 
     if (!isMock) {
-      const redirectUri = `${window.location.origin}/auth/callback?provider=${provider}`;
-      let authUrl = '';
       if (provider === 'google') {
-        const scope = encodeURIComponent('openid profile email');
-        authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId?.trim()}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${scope}`;
+        handleGoogleSuccess();
       } else {
+        const redirectUri = `${window.location.origin}/auth/callback`;
         const state = 'state_123';
         const codeChallenge = 'challenge';
-        authUrl = `https://twitter.com/i/oauth2/authorize?response_type=code&client_id=${xClientId?.trim()}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=users.read%20tweet.read&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=plain`;
+        const authUrl = `https://twitter.com/i/oauth2/authorize?response_type=code&client_id=${xClientId?.trim()}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=users.read%20tweet.read&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=plain`;
+        window.location.href = authUrl;
       }
-      window.location.href = authUrl;
       return;
     }
 
@@ -680,6 +722,31 @@ export default function LoginPage() {
           <div className="main-form-wrap">
             <h1 className="form-header-title">Welcome back</h1>
             
+            <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '100px', padding: '4px', marginBottom: '24px' }}>
+              {['STUDENT', 'TEACHER'].map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setSelectedRole(r as any)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '100px',
+                    border: 'none',
+                    background: selectedRole === r ? '#FFFFFF' : 'transparent',
+                    color: selectedRole === r ? '#111111' : '#6B7280',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    boxShadow: selectedRole === r ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {r === 'TEACHER' ? 'Faculty' : r.charAt(0) + r.slice(1).toLowerCase()}
+                </button>
+              ))}
+            </div>
+
             <button className="sso-btn-pill" type="button" onClick={() => handleSSO('google')}>
               <svg viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>

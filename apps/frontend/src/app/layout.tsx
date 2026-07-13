@@ -3,6 +3,7 @@ import './globals.css';
 import { AppShell } from '@/components/layout/AppShell';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { CommandPalette } from '@/components/ui/CommandPalette';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 export const metadata: Metadata = {
   title: 'Vidya AI — AI-Powered Assessment Creator',
@@ -41,10 +42,12 @@ export default function RootLayout({
         />
       </head>
       <body suppressHydrationWarning>
-        <ThemeProvider>
-          <CommandPalette />
-          <AppShell>{children}</AppShell>
-        </ThemeProvider>
+        <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""}>
+          <ThemeProvider>
+            <CommandPalette />
+            <AppShell>{children}</AppShell>
+          </ThemeProvider>
+        </GoogleOAuthProvider>
       </body>
     </html>
   );
