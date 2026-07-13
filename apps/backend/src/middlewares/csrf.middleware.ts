@@ -22,7 +22,9 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
         try {
           const frontendUrl = new URL(process.env.FRONTEND_URL.split(',')[0]);
           cookieDomain = frontendUrl.hostname.startsWith('localhost') ? undefined : '.' + frontendUrl.hostname;
-        } catch(e) {}
+        } catch(e) {
+          // Ignore invalid URL
+        }
       }
 
       res.cookie(COOKIE_NAME, token, {

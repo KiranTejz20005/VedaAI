@@ -130,13 +130,7 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
     const presentDays = attendanceRecords.filter(r => r.status === 'PRESENT').length;
     const monthlyAttendance = totalDays > 0 ? Number(((presentDays / totalDays) * 100).toFixed(1)) : 0;
     
-    // Global rank: compare student average score
-    const studentStats = await prisma.studentSubmission.groupBy({
-      by: ['studentId'],
-      where: { organizationId: orgId, status: { in: ['GRADED', 'RESULT_PUBLISHED'] } },
-      _count: { id: true },
-    });
-    
+    // Global rank calculation uses allStudents proxy.
     // Instead of raw query, just use a simple mock calculation based on real data length for now, or true ranking if we have time.
     // For now, count total students in org and assign a rank based on completed submissions count as proxy.
     const allStudents = await prisma.user.count({ where: { organizationId: orgId, role: 'STUDENT' } });

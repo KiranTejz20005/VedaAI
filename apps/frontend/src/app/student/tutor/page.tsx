@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { MessageSquare, Plus, Clock, ArrowRight, RotateCcw, Lightbulb, MoreVertical, Edit2, Trash2 } from 'lucide-react';
+import { MessageSquare, Plus, Clock, ArrowRight, RotateCcw, Lightbulb, Edit2, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
 import { PageHeader } from '@/design-system/PageHeader';

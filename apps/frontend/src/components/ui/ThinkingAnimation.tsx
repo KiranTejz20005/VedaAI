@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { BrainCircuit } from 'lucide-react';
 
 interface ThinkingAnimationProps {
   variant?: 'dots' | 'pulse' | 'brain' | 'wave';

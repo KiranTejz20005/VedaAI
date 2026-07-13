@@ -1,6 +1,8 @@
 import prisma from '../config/prisma';
 import { AIOrchestrator } from './ai/ai-orchestrator.service';
 import { retrieveContext } from './rag.service';
+import fs from 'fs';
+import path from 'path';
 
 export class AITutorService {
   /**
@@ -56,7 +58,7 @@ export class AITutorService {
 
     // 4. Construct Socratic Prompt
     const prompt = `
-${require('fs').readFileSync(require('path').join(process.cwd(), 'tutor_master_prompt.txt'), 'utf8')}
+${fs.readFileSync(path.join(process.cwd(), 'tutor_master_prompt.txt'), 'utf8')}
 
 --- DYNAMIC CONTEXT ---
 Mode: ${activeMode}

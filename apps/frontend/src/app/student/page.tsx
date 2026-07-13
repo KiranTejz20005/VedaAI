@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Card } from '@/design-system/Card';
-import { PlayCircle, Calendar, Trophy, Zap, Calculator, BookOpen, Users, TrendingUp, Sparkles, Plus } from 'lucide-react';
+import { Calendar, Trophy, Zap, Calculator, BookOpen, Users, TrendingUp, Sparkles, Plus } from 'lucide-react';
 import Link from 'next/link';
 
 interface DashboardData {

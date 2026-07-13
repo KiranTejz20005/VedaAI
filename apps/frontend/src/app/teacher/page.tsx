@@ -3,11 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import toast from 'react-hot-toast';
 import { PageHeader } from '@/design-system/PageHeader';
 import { MetricCard } from '@/design-system/MetricCard';
 import { Card } from '@/design-system/Card';
-import { Users, UserCheck, UserX, FileText, UploadCloud, Percent, ClipboardList, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { Users, UserCheck, UserX, FileText, UploadCloud, Percent, ClipboardList, Loader2, Sparkles } from 'lucide-react';
 
 interface TeacherStats {
   totalStudents: number;

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, AlertCircle } from 'lucide-react';
+import { X, Send } from 'lucide-react';
 import { apiClient } from '@/services/api.client';
 import toast from 'react-hot-toast';
 

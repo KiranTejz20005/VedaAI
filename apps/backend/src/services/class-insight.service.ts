@@ -3,7 +3,7 @@ import { AIOrchestrator } from './ai/ai-orchestrator.service';
 
 export class ClassInsightService {
 
-  static async getAssignedClasses(organizationId: string, facultyId: string) {
+  static async getAssignedClasses(organizationId: string, _facultyId: string) {
     return prisma.class.findMany({
       where: { organizationId },
       select: { id: true, grade: true, section: true, academicYear: true }
