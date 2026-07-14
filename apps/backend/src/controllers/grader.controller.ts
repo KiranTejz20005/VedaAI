@@ -180,18 +180,21 @@ export const listSubmissions = async (req: Request, res: Response): Promise<void
       orderBy: { submittedAt: 'desc' },
     });
 
-    const submissionsWithUsers = await Promise.all(
-      submissions.map(async (sub) => {
-        const user = await prisma.user.findUnique({
-          where: { id: sub.studentId },
-          select: { firstName: true, lastName: true, email: true }
-        });
-        return {
-          ...sub,
-          studentName: user ? `${user.firstName} ${user.lastName}`.trim() : sub.studentId
-        };
-      })
-    );
+    const studentIds = Array.from(new Set(submissions.map((s) => s.studentId)));
+    const users = studentIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: studentIds } },
+          select: { id: true, firstName: true, lastName: true, email: true },
+        })
+      : [];
+    const userMap = new Map(users.map((u) => [u.id, u]));
+    const submissionsWithUsers = submissions.map((sub) => {
+      const user = userMap.get(sub.studentId);
+      return {
+        ...sub,
+        studentName: user ? `${user.firstName} ${user.lastName}`.trim() : sub.studentId,
+      };
+    });
 
     res.json({ success: true, data: submissionsWithUsers });
   } catch (err) {

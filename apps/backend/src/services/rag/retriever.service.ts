@@ -1,14 +1,31 @@
-import { performVectorSearch } from './vector-search.service';
+import { performVectorSearch, getEmbedding } from './vector-search.service';
 import { performBM25Search } from './bm25.service';
 import { expandContextWithGraph } from './graph-traversal.service';
 import { buildContextString } from './context-builder.service';
 import { logger } from '../../utils/logger';
+import { getOrSet, CacheTTL } from '../../api/common/cache';
+
+function hashQuery(query: string): string {
+  let hash = 0;
+  for (let i = 0; i < query.length; i++) {
+    const char = query.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+}
 
 export async function advancedRetrieveContext(query: string, organizationId: string, limit = 5): Promise<string> {
+  const cacheKey = `rag:${organizationId}:${hashQuery(query)}`;
   try {
-    // 1 & 2. Hybrid Search: Run Vector and Keyword search in parallel
+    return await getOrSet(cacheKey, async () => {
+    // 1 & 2. Hybrid Search: Run Vector and Keyword search in parallel.
+    // The vector portion now uses native pgvector similarity (DB-ranked);
+    // we compute the embedding once and pass it down to avoid recomputation.
+    const queryVector = await getEmbedding(query);
+
     const [vectorResults, bm25Results] = await Promise.all([
-      performVectorSearch(query, organizationId),
+      queryVector ? performVectorSearch(query, organizationId, queryVector) : Promise.resolve([]),
       performBM25Search(query, organizationId)
     ]);
 
@@ -49,6 +66,7 @@ export async function advancedRetrieveContext(query: string, organizationId: str
     const finalContext = buildContextString(expandedChunks);
     
     return finalContext;
+    }, CacheTTL.SHORT);
   } catch (error) {
     logger.error(`Error in advancedRetrieveContext: ${error}`);
     return '';

@@ -115,7 +115,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
 
     sendCreated(res, serializeAuthTokens(accessToken, user, refreshToken), 'Account created successfully');
   } catch (error: any) {
-    logger.error({ err: error }, '[signup]');
+    ((req as any).logger ?? logger).error({ err: error, stack: error.stack }, '[signup]');
     sendError(res, { error: 'Registration failed. Please try again later.', statusCode: 500 });
   }
 };
@@ -207,7 +207,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     sendSuccess(res, { data: serializeAuthTokens(accessToken, user, refreshToken), message: 'Login successful' });
   } catch (error: any) {
-    logger.error({ err: error }, '[login]');
+    ((req as any).logger ?? logger).error({ err: error, stack: error.stack }, '[login]');
     sendError(res, { error: 'Authentication failed', statusCode: 500 });
   }
 };
@@ -225,7 +225,8 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
     sendSuccess(res, { data: { accessToken } });
   } catch (error: any) {
     clearRefreshCookie(res);
-    sendError(res, { error: error.message || 'Token refresh failed', statusCode: error.status || 401 });
+    ((req as any).logger ?? logger).error({ err: error, stack: error.stack }, '[refresh]');
+    sendError(res, { error: 'Token refresh failed', code: 'INVALID_REFRESH_TOKEN', statusCode: error.status || 401 });
   }
 };
 
@@ -238,7 +239,7 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
     clearRefreshCookie(res);
     sendSuccess(res, { data: null, message: 'Logged out successfully' });
   } catch (error: any) {
-    logger.error({ err: error }, '[logout]');
+    ((req as any).logger ?? logger).error({ err: error, stack: error.stack }, '[logout]');
     sendError(res, { error: 'Logout failed', statusCode: 500 });
   }
 };
@@ -289,8 +290,8 @@ export const ssoLogin = async (req: Request, res: Response): Promise<void> => {
 
     sendSuccess(res, { data: serializeAuthTokens(accessToken, user, refreshToken), message: 'SSO Login successful' });
   } catch (error: any) {
-    logger.error({ err: error }, '[ssoLogin]');
-    sendError(res, { error: error.message || 'SSO Authentication failed', statusCode: 500 });
+    ((req as any).logger ?? logger).error({ err: error, stack: error.stack }, '[ssoLogin]');
+    sendError(res, { error: 'SSO Authentication failed', code: 'SSO_AUTH_FAILED', statusCode: 500 });
   }
 };
 
@@ -327,8 +328,8 @@ export const acceptInvite = async (req: Request, res: Response): Promise<void> =
 
     sendCreated(res, { id: user.id, email: user.email }, 'Account created successfully');
   } catch (error: any) {
-    logger.error({ err: error }, '[acceptInvite]');
-    sendBadRequest(res, error.message || 'Failed to accept invitation');
+    ((req as any).logger ?? logger).error({ err: error, stack: error.stack }, '[acceptInvite]');
+    sendBadRequest(res, 'Failed to accept invitation');
   }
 };
 
@@ -341,7 +342,7 @@ export const getPublicOrganizations = async (_req: Request, res: Response): Prom
     });
     sendSuccess(res, { data: orgs });
   } catch (error: any) {
-    logger.error({ err: error }, '[getPublicOrganizations]');
+    ((_req as any).logger ?? logger).error({ err: error, stack: error.stack }, '[getPublicOrganizations]');
     sendError(res, { error: 'Failed to fetch public organizations', statusCode: 500 });
   }
 };
@@ -361,7 +362,7 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
       data: serializeProfile(user, user.organization?.name, user.department?.name),
     });
   } catch (error: any) {
-    logger.error({ err: error }, '[getMe]');
+    ((req as any).logger ?? logger).error({ err: error, stack: error.stack }, '[getMe]');
     sendError(res, { error: 'Failed to fetch profile', statusCode: 500 });
   }
 };
@@ -384,7 +385,7 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
 
     sendSuccess(res, { data: serializeProfile(user, user.organization?.name), message: 'Profile updated successfully' });
   } catch (error: any) {
-    logger.error({ err: error }, '[updateProfile]');
+    ((req as any).logger ?? logger).error({ err: error, stack: error.stack }, '[updateProfile]');
     sendError(res, { error: 'Failed to update profile', statusCode: 500 });
   }
 };
@@ -401,7 +402,7 @@ export const updatePreferences = async (req: Request, res: Response): Promise<vo
 
     sendSuccess(res, { data: { preferences: user.preferences }, message: 'Preferences updated successfully' });
   } catch (error: any) {
-    logger.error({ err: error }, '[updatePreferences]');
+    ((req as any).logger ?? logger).error({ err: error, stack: error.stack }, '[updatePreferences]');
     sendError(res, { error: 'Failed to update preferences', statusCode: 500 });
   }
 };
@@ -436,7 +437,7 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
 
     sendSuccess(res, { data: null, message: 'Password changed successfully' });
   } catch (error: any) {
-    logger.error({ err: error }, '[changePassword]');
+    ((req as any).logger ?? logger).error({ err: error, stack: error.stack }, '[changePassword]');
     sendError(res, { error: 'Failed to change password', statusCode: 500 });
   }
 };
@@ -450,7 +451,7 @@ export const getSessions = async (req: Request, res: Response): Promise<void> =>
     });
     sendSuccess(res, { data: sessions.map(serializeSession) });
   } catch (error: any) {
-    logger.error({ err: error }, '[getSessions]');
+    ((req as any).logger ?? logger).error({ err: error, stack: error.stack }, '[getSessions]');
     sendError(res, { error: 'Failed to fetch sessions', statusCode: 500 });
   }
 };
@@ -466,7 +467,7 @@ export const revokeSessionById = async (req: Request, res: Response): Promise<vo
 
     sendSuccess(res, { data: null, message: 'Session revoked successfully' });
   } catch (error: any) {
-    logger.error({ err: error }, '[revokeSessionById]');
+    ((req as any).logger ?? logger).error({ err: error, stack: error.stack }, '[revokeSessionById]');
     sendError(res, { error: 'Failed to revoke session', statusCode: 500 });
   }
 };
@@ -510,7 +511,7 @@ export const switchOrganization = async (req: Request, res: Response): Promise<v
       message: 'Switched organization successfully',
     });
   } catch (error: any) {
-    logger.error({ err: error }, '[switchOrganization]');
+    ((req as any).logger ?? logger).error({ err: error, stack: error.stack }, '[switchOrganization]');
     sendError(res, { error: 'Failed to switch organization', statusCode: 500 });
   }
 };
@@ -543,7 +544,7 @@ export const getUserOrganizations = async (req: Request, res: Response): Promise
 
     sendSuccess(res, { data: orgs.map((o) => serializeOrganizationRef(o, user.role)) });
   } catch (error: any) {
-    logger.error({ err: error }, '[getUserOrganizations]');
+    ((req as any).logger ?? logger).error({ err: error, stack: error.stack }, '[getUserOrganizations]');
     sendError(res, { error: 'Failed to fetch organizations', statusCode: 500 });
   }
 };
@@ -575,7 +576,7 @@ export const getStorageUsage = async (req: Request, res: Response): Promise<void
 
     sendSuccess(res, { data: serializeStorageUsage(usedBytes, limitBytes) });
   } catch (error: any) {
-    logger.error({ err: error }, '[getStorageUsage]');
+    ((req as any).logger ?? logger).error({ err: error, stack: error.stack }, '[getStorageUsage]');
     sendError(res, { error: 'Failed to calculate storage', statusCode: 500 });
   }
 };
@@ -592,7 +593,7 @@ export const completeOnboarding = async (req: Request, res: Response): Promise<v
       message: 'Onboarding completed successfully',
     });
   } catch (error: any) {
-    logger.error({ err: error }, '[completeOnboarding]');
+    ((req as any).logger ?? logger).error({ err: error, stack: error.stack }, '[completeOnboarding]');
     sendError(res, { error: 'Failed to complete onboarding', statusCode: 500 });
   }
 };
@@ -716,7 +717,7 @@ export const googleSignin = async (req: Request, res: Response): Promise<void> =
 
     sendSuccess(res, { data: serializeAuthTokens(accessToken, user, refreshToken), message: 'Google Sign-In successful' });
   } catch (error: any) {
-    logger.error({ err: error }, '[googleSignin]');
+    ((req as any).logger ?? logger).error({ err: error, stack: error.stack }, '[googleSignin]');
     sendError(res, { error: 'Google Authentication failed', statusCode: 500 });
   }
 };

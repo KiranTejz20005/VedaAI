@@ -1,6 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { getRedisClient } from '../../config/redis';
 import prisma from '../../config/prisma';
+import { logger } from '../../utils/logger';
 import { getActiveAiJobCount, getStalledAiJobCount } from '../../workers/aiGeneration.worker';
 
 const router = Router();
@@ -34,9 +35,13 @@ router.get('/metrics', async (_req: Request, res: Response) => {
       durationMs: Date.now() - start,
     });
   } catch (error) {
+    const reqLogger = (_req as any).logger ?? logger;
+    reqLogger.error({ err: error, stack: error instanceof Error ? error.stack : undefined }, '[metrics]');
+    const message = process.env.NODE_ENV === 'production' ? 'Metrics collection failed' : (error instanceof Error ? error.message : 'Metrics collection failed');
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Metrics collection failed',
+      error: message,
+      code: 'INTERNAL_ERROR',
       durationMs: Date.now() - start,
     });
   }

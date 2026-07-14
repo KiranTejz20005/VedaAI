@@ -13,7 +13,7 @@ export class NvidiaProvider implements AIProvider {
     });
   }
 
-  async generate(prompt: string, options?: any): Promise<any> {
+  async generate(prompt: string, options?: any, signal?: AbortSignal): Promise<any> {
     const model = options?.model || 'meta/llama-3.1-70b-instruct';
     let messages: any[] = [{ role: 'user', content: prompt }];
     
@@ -36,7 +36,7 @@ export class NvidiaProvider implements AIProvider {
       temperature: options?.temperature || 0.7,
       max_tokens: options?.maxTokens || 4096,
       response_format: options?.responseFormat,
-    });
+    }, { signal });
     return response.choices[0].message.content;
   }
 

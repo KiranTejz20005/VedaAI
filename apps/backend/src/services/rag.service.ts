@@ -1,8 +1,10 @@
 import prisma from '../config/prisma';
+import { Prisma } from '@prisma/client';
 import OpenAI from 'openai';
 import { env } from '../config/env';
 import { extractTextFromFile } from './grader.service';
 import { logger } from '../utils/logger';
+import { invalidateByPattern } from '../api/common/cache';
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY || '' });
 
@@ -37,7 +39,11 @@ export async function ingestDocument(fileUrl: string, fileType: string, organiza
       model: 'text-embedding-3-small',
       input: chunkObj.content,
     });
-    
+
+    // Native pgvector column: inject the embedding as a `vector` literal.
+    const embedding = response.data[0].embedding;
+    const vectorLiteral = Prisma.raw(`'[${embedding.join(',')}]'::vector`);
+
     // Set up metadata with hierarchical graph links
     const extendedMetadata: Record<string, any> = {
       ...chunkObj.metadata,
@@ -51,7 +57,7 @@ export async function ingestDocument(fileUrl: string, fileType: string, organiza
       data: {
         documentId: doc.id,
         content: chunkObj.content,
-        vector: response.data[0].embedding,
+        vector: vectorLiteral as never,
         metadata: extendedMetadata,
       }
     });
@@ -60,13 +66,16 @@ export async function ingestDocument(fileUrl: string, fileType: string, organiza
     if (previousChunkId) {
       await prisma.$executeRaw`
         UPDATE "KnowledgeChunk" 
-        SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{nextChunkId}', ${`"${dbChunk.id}"`}::jsonb) 
+        SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{nextChunkId}', ${dbChunk.id}::jsonb) 
         WHERE id = ${previousChunkId}
       `;
     }
 
     previousChunkId = dbChunk.id;
   }
+
+  // Invalidate cached RAG results for this organization so new embeddings are picked up
+  await invalidateByPattern(`rag:${organizationId}:*`).catch(() => {});
 
   return doc.id;
 }

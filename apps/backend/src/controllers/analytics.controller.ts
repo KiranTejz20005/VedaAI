@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { AnalyticsService } from '../services/analytics.service';
+import { getOrSet, CacheKeys, CacheTTL } from '../api/common/cache';
 
 export const getDashboardStats = async (req: Request, res: Response) => {
   try {
@@ -10,44 +11,44 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       return;
     }
 
-    const totalQuestions = await prisma.questionBank.count({
-      where: { organizationId: orgId }
-    });
-    
-    const totalAssessments = await prisma.assignment.count({
-      where: { organizationId: orgId }
-    });
-    
-    // Instead of pendingReviews, we can count pending student submissions
-    const pendingReviews = await prisma.studentSubmission.count({ 
-      where: { status: { not: 'GRADED' } } 
-    });
+    const cacheKey = CacheKeys.ANALYTICS(orgId, 'dashboard');
+    const data = await getOrSet(cacheKey, async () => {
+      const totalQuestions = await prisma.questionBank.count({
+        where: { organizationId: orgId }
+      });
+      
+      const totalAssessments = await prisma.assignment.count({
+        where: { organizationId: orgId }
+      });
+      
+      // Instead of pendingReviews, we can count pending student submissions
+      const pendingReviews = await prisma.studentSubmission.count({ 
+        where: { status: { not: 'GRADED' } } 
+      });
 
-    const bloomDistribution = await prisma.questionBank.groupBy({
-      by: ['bloomLevel'],
-      where: { organizationId: orgId },
-      _count: { bloomLevel: true }
-    });
+      const bloomDistribution = await prisma.questionBank.groupBy({
+        by: ['bloomLevel'],
+        where: { organizationId: orgId },
+        _count: { bloomLevel: true }
+      });
 
-    const difficultyDistribution = await prisma.questionBank.groupBy({
-      by: ['difficulty'],
-      where: { organizationId: orgId },
-      _count: { difficulty: true }
-    });
+      const difficultyDistribution = await prisma.questionBank.groupBy({
+        by: ['difficulty'],
+        where: { organizationId: orgId },
+        _count: { difficulty: true }
+      });
 
-    const bloomData = bloomDistribution.map((b: any) => ({
-      level: b.bloomLevel,
-      count: b._count.bloomLevel
-    }));
+      const bloomData = bloomDistribution.map((b: any) => ({
+        level: b.bloomLevel,
+        count: b._count.bloomLevel
+      }));
 
-    const difficultyData = difficultyDistribution.map((d: any) => ({
-      level: d.difficulty,
-      count: d._count.difficulty
-    }));
+      const difficultyData = difficultyDistribution.map((d: any) => ({
+        level: d.difficulty,
+        count: d._count.difficulty
+      }));
 
-    res.json({
-      success: true,
-      data: {
+      return {
         totals: {
           questions: totalQuestions,
           assessments: totalAssessments,
@@ -55,8 +56,10 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         },
         bloomDistribution: bloomData,
         difficultyDistribution: difficultyData
-      }
-    });
+      };
+    }, CacheTTL.SHORT);
+
+    res.json({ success: true, data });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message || 'Failed to fetch analytics' });
   }

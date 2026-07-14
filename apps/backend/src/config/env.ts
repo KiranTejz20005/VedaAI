@@ -74,7 +74,7 @@ const envSchema = z.object({
     .transform((v) => (v && v.trim().length > 0 ? v.trim() : undefined)),
 
   // Upload / Storage
-  STORAGE_TYPE: z.enum(['local', 's3', 'cloudinary']).default('local'),
+  STORAGE_TYPE: z.enum(['local', 's3', 'cloudinary', 'supabase']).default('local'),
   MAX_FILE_SIZE_MB: z.string().default('10').transform(Number),
   UPLOAD_DIR: z
     .string()
@@ -82,6 +82,9 @@ const envSchema = z.object({
     .transform((v) => (v.startsWith('/') || v.startsWith('./') ? v : `./${v}`)),
 
   // Cloud storage credentials (optional, used when STORAGE_TYPE !== 'local')
+  SUPABASE_URL: z.string().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  SUPABASE_BUCKET: z.string().optional(),
   S3_BUCKET: z.string().optional(),
   S3_REGION: z.string().optional(),
   S3_ACCESS_KEY_ID: z.string().optional(),
@@ -95,8 +98,8 @@ const envSchema = z.object({
     .string()
     .default('true')
     .transform((value) => value.toLowerCase() !== 'false'),
-  AI_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(4).default(1),
-  PDF_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(2).default(1),
+  AI_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(4).default(3),
+  PDF_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(2).default(2),
   // Render worker mode: 'web' = API only, 'worker' = workers only, 'both' = combined (dev only)
   RENDER_WORKER_MODE: z.enum(['web', 'worker', 'both']).default('both'),
 

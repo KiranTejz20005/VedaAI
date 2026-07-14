@@ -5,6 +5,7 @@ import prisma from '../config/prisma';
 import { AIOrchestrator } from './ai/ai-orchestrator.service';
 import { logger } from '../utils/logger';
 import { retrieveContext } from './rag.service';
+import { invalidateCache } from '../api/common/cache';
 
 export async function extractTextFromFile(filePath: string, fileType: string): Promise<string> {
   try {
@@ -145,6 +146,9 @@ export async function evaluateSubmission(submissionId: string): Promise<any> {
       where: { id: submissionId },
       data: { status: 'GRADED' },
     });
+
+    // Invalidate cached student-performance analytics so fresh scores are reflected
+    await invalidateCache(`analytics:student:${submission.studentId}`).catch(() => {});
 
     logger.info({ submissionId, score: evaluation.score }, 'AI Assignment Evaluation completed');
     return evaluation;

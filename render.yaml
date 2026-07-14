@@ -19,7 +19,9 @@ services:
         value: "5000"
       - key: FRONTEND_URL
         value: https://vedaai-ed.vercel.app
-      - key: MONGODB_URI
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
         sync: false
       - key: REDIS_URL
         sync: false
@@ -59,7 +61,9 @@ services:
         value: "5001"
       - key: FRONTEND_URL
         value: https://vedaai-ed.vercel.app
-      - key: MONGODB_URI
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
         sync: false
       - key: REDIS_URL
         sync: false

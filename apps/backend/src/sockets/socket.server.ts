@@ -34,7 +34,8 @@ function parseOrigins(raw: string): string[] {
 }
 
 function isAllowedVercelPreview(hostname: string): boolean {
-  return /^vidyaai[\w-]*\.vercel\.app$/i.test(hostname);
+  // Only the specific production preview domain — no wildcard subdomains (CSWSH risk).
+  return hostname === 'vedaai-ed.vercel.app';
 }
 
 function isAllowedSocketOrigin(origin: string, allowedOrigins: string[]): boolean {
@@ -64,7 +65,10 @@ export function initializeSocketServer(
   io = new SocketIOServer<ClientToServerEvents, ServerToClientEvents>(httpServer, {
     cors: {
       origin: (origin, callback) => {
-        if (!origin) return callback(null, true);
+        // Browsers always send Origin on CORS requests. A missing Origin means a
+        // non-browser client. With credentials enabled, reject in production to avoid
+        // cross-site WebSocket hijacking; allow only in development.
+        if (!origin) return callback(null, env.NODE_ENV !== 'production');
         callback(null, isAllowedSocketOrigin(origin, corsOrigins));
       },
       methods: ['GET', 'POST'],

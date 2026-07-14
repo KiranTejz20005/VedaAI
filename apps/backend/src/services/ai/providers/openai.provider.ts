@@ -10,7 +10,7 @@ export class OpenAIProvider implements AIProvider {
     this.client = new OpenAI({ apiKey: env.OPENAI_API_KEY || '' });
   }
 
-  async generate(prompt: string, options?: any): Promise<any> {
+  async generate(prompt: string, options?: any, signal?: AbortSignal): Promise<any> {
     const model = options?.model || 'gpt-4o-mini';
     let messages: any[] = [{ role: 'user', content: prompt }];
     
@@ -32,7 +32,7 @@ export class OpenAIProvider implements AIProvider {
       messages,
       temperature: options?.temperature || 0.7,
       response_format: options?.responseFormat,
-    });
+    }, { signal });
     return response.choices[0].message.content;
   }
 

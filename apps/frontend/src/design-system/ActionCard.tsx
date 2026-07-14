@@ -64,5 +64,12 @@ export function ActionCard({ icon, label, description, href, onClick, variant = 
     return <Link href={href} style={{ textDecoration: 'none' }}>{content}</Link>;
   }
 
-  return <div onClick={onClick} role="button" tabIndex={0} style={{ cursor: 'pointer' }}>{content}</div>;
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClick?.();
+    }
+  };
+
+  return <div onClick={onClick} onKeyDown={handleKeyDown} role="button" tabIndex={0} aria-label={label} style={{ cursor: 'pointer' }}>{content}</div>;
 }

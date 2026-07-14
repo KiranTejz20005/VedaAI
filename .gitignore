@@ -4,6 +4,9 @@ dist/
 build/
 .next/
 .turbo/
+out/
+.eslintcache
+*.tsbuildinfo
 *.log
 .env
 .env.local
@@ -12,6 +15,5 @@ uploads/
 *.pdf
 coverage/
 .nyc_output/
-.agent/
-.github/
 dump.rdb
+redis-local/

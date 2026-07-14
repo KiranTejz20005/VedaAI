@@ -1,5 +1,6 @@
 import prisma from '../config/prisma';
 import { logger } from '../utils/logger';
+import { invalidateByPattern } from '../api/common/cache';
 
 
 /**
@@ -44,6 +45,9 @@ export async function saveToQuestionBank(params: {
         updatedBy: 'system',
       },
     });
+
+    // Invalidate cached org-scoped analytics (dashboard question-bank aggregates)
+    await invalidateByPattern(`analytics:${params.organizationId}:*`).catch(() => {});
 
     return question;
   } catch (err) {

@@ -150,6 +150,9 @@ model Department {
 }
 
 model User {
+  @@index([status])
+  @@index([role])
+  @@index([organizationId, role, status])
   id                     String        @id @default(uuid())
   email                  String        @unique
   passwordHash           String?
@@ -166,7 +169,7 @@ model User {
   forcePasswordReset     Boolean       @default(false)
   activeOrganizationId   String?
   organizationId         String?
-  organization           Organization? @relation(fields: [organizationId], references: [id])
+  organization           Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   departmentId           String?
   department             Department?   @relation(fields: [departmentId], references: [id])
   preferences            Json?
@@ -425,6 +428,7 @@ model SyllabusSubtopic {
 // â”€â”€ Questions & Assessment â”€â”€
 
 model Question {
+  @@index([unitId])
   id         String     @id @default(uuid())
   content    String
   options    Json?
@@ -764,6 +768,7 @@ model PromptExecution {
 // â”€â”€ Question Bank â”€â”€
 
 model QuestionBank {
+  @@index([organizationId, subject])
   id             String               @id @default(uuid())
   content        String
   options        Json?
@@ -914,7 +919,7 @@ model RubricCriterion {
   teacherNotes     String? @db.Text
 
   // Embedding for Hybrid RAG
-  vector Json? // Array of floats
+  vector Unsupported("vector")? // Array of floats
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -938,6 +943,8 @@ model AssignmentGradingConfig {
 // â”€â”€ Submissions â”€â”€
 
 model StudentSubmission {
+  @@index([status])
+  @@index([assignmentId, status])
   id             String                 @id @default(uuid())
   assignmentId   String
   assignment     Assignment             @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
@@ -989,6 +996,8 @@ model QuestionCollection {
 // â”€â”€ AI Features â”€â”€
 
 model AIRecommendation {
+  @@index([type])
+  @@index([groupId])
   id              String        @id @default(uuid())
   studentId       String?
   groupId         String?
@@ -1220,6 +1229,7 @@ model Notification {
 // â”€â”€ Community Hub â”€â”€
 
 model CommunityPost {
+  @@index([visibility])
   id             String        @id @default(uuid())
   authorId       String
   author         User          @relation("CommunityPosts", fields: [authorId], references: [id], onDelete: Cascade)
@@ -1451,7 +1461,7 @@ model KnowledgeChunk {
   assignmentId   String?
   assignment     Assignment?          @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   content        String               @db.Text
-  vector         Json
+  vector         Unsupported("vector")
   metadata       Json?
   qualityMetrics ChunkQualityMetrics?
   createdAt      DateTime             @default(now())

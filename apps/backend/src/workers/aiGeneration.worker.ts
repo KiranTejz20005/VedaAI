@@ -495,7 +495,9 @@ export function createAiGenerationWorker() {
           const current = await prisma.assignment.findUnique({ where: { id: assignmentId } });
           if (current && current.activeGenerationJobId === jobRecordId && current.status !== 'COMPLETED') {
             if (generationSeq === 1) {
-              await prisma.assignment.delete({ where: { id: assignmentId } }).catch(() => {});
+              await prisma.assignment.delete({ where: { id: assignmentId } }).catch((err) => {
+                logger.warn(`[STEP 12] Failed to delete failed assignment ${assignmentId}: ${err instanceof Error ? err.message : String(err)}`);
+              });
             } else {
               await prisma.assignment.update({
                 where: { id: assignmentId },
@@ -656,7 +658,9 @@ export function createAiGenerationWorker() {
           if (current && current.activeGenerationJobId === jobRecordId && current.status !== 'COMPLETED') {
             if (!hasPartial && generationSeq === 1) {
               await Promise.allSettled([
-                prisma.assignment.delete({ where: { id: assignmentId } }).catch(() => {}),
+                prisma.assignment.delete({ where: { id: assignmentId } }).catch((err) => {
+                  logger.warn(`[WORKER FAIL] Failed to delete failed assignment ${assignmentId}: ${err instanceof Error ? err.message : String(err)}`);
+                }),
                 prisma.generationJob.update({
                   where: { id: jobRecordId, generationSeq },
                   data: {
@@ -667,7 +671,9 @@ export function createAiGenerationWorker() {
                     progress: lastProgress,
                     stageIndex: STAGE_ORDER.failed,
                   },
-                }).catch(() => {}),
+                }).catch((err) => {
+                  logger.warn(`[WORKER FAIL] Failed to update GenerationJob ${jobRecordId} on final attempt: ${err instanceof Error ? err.message : String(err)}`);
+                }),
               ]);
             } else {
               await Promise.allSettled([
@@ -723,7 +729,9 @@ export function createAiGenerationWorker() {
             prisma.generationJob.update({
               where: { id: jobRecordId, generationSeq },
               data: { error: message, progressVersion: { increment: 1 } },
-            }).catch(() => {}),
+            }).catch((err) => {
+              logger.warn(`[WORKER FAIL] Failed to update GenerationJob ${jobRecordId} on non-final attempt: ${err instanceof Error ? err.message : String(err)}`);
+            }),
           ]);
           progressVersion += 1;
         }
@@ -745,7 +753,7 @@ export function createAiGenerationWorker() {
       connection: getBullRedisClient(),
       skipVersionCheck: true,
       concurrency: env.AI_WORKER_CONCURRENCY,
-      limiter: { max: 5, duration: 60000 },
+      limiter: { max: 30, duration: 60000 },
       lockDuration: 180_000,
       stalledInterval: 120_000,
       drainDelay: 5000,
@@ -795,7 +803,9 @@ export function createAiGenerationWorker() {
 
       await Promise.allSettled([
         Number(jobRecord.generationSeq) === 1
-          ? prisma.assignment.delete({ where: { id: assignmentId } }).catch(() => {})
+          ? prisma.assignment.delete({ where: { id: assignmentId } }).catch((err) => {
+              logger.warn(`[WORKER:STALL] Failed to delete stalled assignment ${assignmentId}: ${err instanceof Error ? err.message : String(err)}`);
+            })
           : prisma.assignment.updateMany({
               where: { id: assignmentId, activeGenerationJobId: jrId, NOT: { status: 'COMPLETED' } },
               data: { status: 'FAILED' },
@@ -809,7 +819,9 @@ export function createAiGenerationWorker() {
             progressVersion: { increment: 1 },
             stageIndex: STAGE_ORDER.failed,
           },
-        }).catch(() => {}),
+        }).catch((err) => {
+          logger.warn(`[WORKER:STALL] Failed to update GenerationJob ${jobRecord?.id} when auto-failing stalled job: ${err instanceof Error ? err.message : String(err)}`);
+        }),
       ]);
 
       const nextVersion = Number(jobRecord.progressVersion ?? 0) + 1;

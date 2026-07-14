@@ -40,7 +40,7 @@ const variantStyles: Record<ButtonVariant, React.CSSProperties> = {
     border: 'none',
   },
   danger: {
-    background: '#EF4444',
+    background: 'var(--error)',
     color: 'white',
     border: 'none',
   },
@@ -89,11 +89,11 @@ export function Button({
         fontFamily: 'inherit',
         opacity: disabled ? 0.55 : 1,
         transition: 'all 0.15s ease',
-        ...(variant === 'primary' && hovered && !disabled ? { background: 'var(--brand-hover)', boxShadow: '0 4px 12px rgba(232, 83, 29, 0.3)' } : {}),
+        ...(variant === 'primary' && hovered && !disabled ? { background: 'var(--brand-hover)', boxShadow: '0 4px 12px color-mix(in srgb, var(--brand) 30%, transparent)' } : {}),
         ...(variant === 'secondary' && hovered && !disabled ? { background: 'var(--bg-hover)', borderColor: 'var(--border-strong)' } : {}),
         ...(variant === 'outline' && hovered && !disabled ? { background: 'var(--brand-light)' } : {}),
         ...(variant === 'ghost' && hovered && !disabled ? { background: 'var(--bg-hover)' } : {}),
-        ...(variant === 'danger' && hovered && !disabled ? { background: '#DC2626' } : {}),
+        ...(variant === 'danger' && hovered && !disabled ? { background: 'color-mix(in srgb, var(--error) 85%, black)' } : {}),
         ...style,
       }}
     >

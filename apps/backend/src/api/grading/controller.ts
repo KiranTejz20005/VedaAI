@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { logger } from '../../utils/logger';
 import { sendSuccess, sendCreated, sendAccepted } from '../common/response';
 import { ApiError } from '../common/errors';
 import { parsePagination, buildPagination } from '../common/pagination';
@@ -10,52 +11,58 @@ import prisma from '../../config/prisma';
 import { serializeGradingConfig, serializeSubmission, serializeEvaluation, serializeBulkEvaluateJob } from './serializers';
 
 export const saveGradingConfig = async (req: Request, res: Response): Promise<void> => {
-  const { assignmentId } = req.params;
-  const userId = getRequestUserId(req);
-  const orgId = requireRequestOrgId(req);
+  const log = (req as any).logger ?? undefined;
+  try {
+    const { assignmentId } = req.params;
+    const userId = getRequestUserId(req);
+    const orgId = requireRequestOrgId(req);
 
-  await assertCanGradeAssignment(req, assignmentId);
+    await assertCanGradeAssignment(req, assignmentId);
 
-  const existing = await prisma.assignmentGradingConfig.findUnique({ where: { assignmentId } });
-  let config: any;
+    const existing = await prisma.assignmentGradingConfig.findUnique({ where: { assignmentId } });
+    let config: any;
 
-  if (existing) {
-    config = await (prisma as any).assignmentGradingConfig.update({
-      where: { assignmentId },
-      data: {
-        answerKeyText: req.body.answerKeyText,
-        rubricId: req.body.rubricId ?? null,
-        aiModel: req.body.aiModel ?? null,
-        passingScore: req.body.passingScore ?? null,
-        maxAttempts: req.body.maxAttempts ?? null,
-        gradingType: req.body.gradingType,
-      },
+    if (existing) {
+      config = await (prisma as any).assignmentGradingConfig.update({
+        where: { assignmentId },
+        data: {
+          answerKeyText: req.body.answerKeyText,
+          rubricId: req.body.rubricId ?? null,
+          aiModel: req.body.aiModel ?? null,
+          passingScore: req.body.passingScore ?? null,
+          maxAttempts: req.body.maxAttempts ?? null,
+          gradingType: req.body.gradingType,
+        },
+      });
+    } else {
+      config = await (prisma as any).assignmentGradingConfig.create({
+        data: {
+          assignmentId,
+          answerKeyText: req.body.answerKeyText,
+          rubricId: req.body.rubricId ?? null,
+          aiModel: req.body.aiModel ?? null,
+          passingScore: req.body.passingScore ?? null,
+          maxAttempts: req.body.maxAttempts ?? null,
+          gradingType: req.body.gradingType,
+          status: 'ACTIVE',
+        },
+      });
+    }
+
+    await AuditService.logAuditEvent({
+      userId,
+      organizationId: orgId,
+      action: 'GRADING_CONFIG_SAVED',
+      entity: 'GradingConfig',
+      entityId: config.id,
+      metadata: { assignmentId },
     });
-  } else {
-    config = await (prisma as any).assignmentGradingConfig.create({
-      data: {
-        assignmentId,
-        answerKeyText: req.body.answerKeyText,
-        rubricId: req.body.rubricId ?? null,
-        aiModel: req.body.aiModel ?? null,
-        passingScore: req.body.passingScore ?? null,
-        maxAttempts: req.body.maxAttempts ?? null,
-        gradingType: req.body.gradingType,
-        status: 'ACTIVE',
-      },
-    });
+
+    sendCreated(res, serializeGradingConfig(config));
+  } catch (error: any) {
+    (log ?? logger).error({ err: error, stack: error.stack, assignmentId: req.params.assignmentId }, '[saveGradingConfig]');
+    throw error;
   }
-
-  await AuditService.logAuditEvent({
-    userId,
-    organizationId: orgId,
-    action: 'GRADING_CONFIG_SAVED',
-    entity: 'GradingConfig',
-    entityId: config.id,
-    metadata: { assignmentId },
-  });
-
-  sendCreated(res, serializeGradingConfig(config));
 };
 
 export const getGradingConfig = async (req: Request, res: Response): Promise<void> => {

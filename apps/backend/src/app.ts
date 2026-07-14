@@ -268,6 +268,20 @@ function createApp() {
     req.headers['x-request-id'] = requestId;
     res.setHeader('X-Request-Id', requestId);
     (req as any).requestId = requestId;
+    // Attach a request-correlated pino child logger. The getter re-reads
+    // `req.user` on each access so userId/orgId are bound once auth runs.
+    Object.defineProperty(req, 'logger', {
+      configurable: true,
+      enumerable: false,
+      get() {
+        const user = (req as any).user;
+        return logger.child({
+          requestId,
+          userId: user?.id,
+          orgId: user?.activeOrganizationId ?? user?.organizationId ?? undefined,
+        });
+      },
+    });
     next();
   });
 

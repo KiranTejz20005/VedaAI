@@ -1,6 +1,7 @@
 import prisma from '../config/prisma';
 import { env } from '../config/env';
 import OpenAI from 'openai';
+import { getOrSet, CacheTTL } from '../api/common/cache';
 
 let nvidiaClient: OpenAI | null = null;
 function getNvidia(): OpenAI {
@@ -15,6 +16,12 @@ function getNvidia(): OpenAI {
 
 export class AnalyticsService {
   static async getStudentPerformance(studentId: string) {
+    return getOrSet(`analytics:student:${studentId}`, async () => {
+      return AnalyticsService.computeStudentPerformance(studentId);
+    }, CacheTTL.SHORT);
+  }
+
+  private static async computeStudentPerformance(studentId: string) {
     // Find submissions and evaluations
     const submissions = await prisma.studentSubmission.findMany({
       where: { studentId },
