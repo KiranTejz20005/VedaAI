@@ -5,7 +5,7 @@ import { env } from '../config/env';
 import { extractTextFromFile } from './grader.service';
 import { logger } from '../utils/logger';
 import { invalidateByPattern } from '../api/common/cache';
-
+import { randomUUID } from 'crypto';
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY || '' });
 
 import { parseDocumentIntoSemanticChunks } from './document-parser.service';
@@ -53,14 +53,16 @@ export async function ingestDocument(fileUrl: string, fileType: string, organiza
       // To keep it simple, we just store prevChunkId.
     };
     
-    const dbChunk: any = await prisma.knowledgeChunk.create({
-      data: {
-        documentId: doc.id,
-        content: chunkObj.content,
-        vector: vectorLiteral as never,
-        metadata: extendedMetadata,
-      }
-    });
+    const dbChunkId = randomUUID();
+    
+    // Convert embedding array to string format expected by pgvector: "[1.2, 0.5, ...]"
+    const vectorString = `[${embedding.join(',')}]`;
+
+    await prisma.$executeRaw`
+      INSERT INTO "KnowledgeChunk" ("id", "documentId", "content", "vector", "metadata", "createdAt")
+      VALUES (${dbChunkId}, ${doc.id}, ${chunkObj.content}, ${vectorString}::vector, ${extendedMetadata}::jsonb, NOW())
+    `;
+    const dbChunk = { id: dbChunkId };
 
     // Update previous chunk's nextChunkId to establish the bidirectional graph
     if (previousChunkId) {
