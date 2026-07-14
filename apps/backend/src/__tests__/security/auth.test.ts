@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import express, { Request, Response, NextFunction } from 'express';
+import express from 'express';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import argon2 from 'argon2';
