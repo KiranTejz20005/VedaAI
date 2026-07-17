@@ -81,6 +81,58 @@ export async function generateSingleQuestion(params: {
   };
 }
 
+export interface BlueprintSlot {
+  id: string;
+  coId: string;
+  title: string;
+  marks: number;
+  bloomLevel: string;
+  topic?: string;
+  itemType: string;
+}
+
+export interface BlueprintGenerationResult {
+  slotId: string;
+  questions: GeneratedQuestion[];
+  coId: string;
+  bloomLevel: string;
+  marks: number;
+}
+
+export async function generateFromBlueprint(params: {
+  blueprintId: string;
+  slots: BlueprintSlot[];
+  subject: string;
+  difficulty: string;
+  context?: string;
+  organizationId?: string;
+  excludeQuestionIds?: string[];
+}): Promise<BlueprintGenerationResult[]> {
+  const results: BlueprintGenerationResult[] = [];
+
+  for (const slot of params.slots) {
+    const slotQuestions = await generateMultipleQuestions({
+      topic: slot.topic || slot.title,
+      subject: params.subject,
+      difficulty: params.difficulty,
+      bloomLevel: slot.bloomLevel,
+      context: params.context,
+      organizationId: params.organizationId,
+      count: Math.max(1, Math.ceil(slot.marks / 5)),
+    });
+
+    results.push({
+      slotId: slot.id,
+      questions: slotQuestions,
+      coId: slot.coId,
+      bloomLevel: slot.bloomLevel,
+      marks: slot.marks,
+    });
+  }
+
+  return results;
+}
+
 export async function generateMultipleQuestions(params: {
   topic: string;
   subject: string;

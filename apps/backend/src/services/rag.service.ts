@@ -1,5 +1,4 @@
 import prisma from '../config/prisma';
-import { Prisma } from '@prisma/client';
 import OpenAI from 'openai';
 import { env } from '../config/env';
 import { extractTextFromFile } from './grader.service';
@@ -40,12 +39,10 @@ export async function ingestDocument(fileUrl: string, fileType: string, organiza
       input: chunkObj.content,
     });
 
-    // Native pgvector column: inject the embedding as a `vector` literal.
     const embedding = response.data[0].embedding;
-    const vectorLiteral = Prisma.raw(`'[${embedding.join(',')}]'::vector`);
 
     // Set up metadata with hierarchical graph links
-    const extendedMetadata: Record<string, any> = {
+    const extendedMetadata: Record<string, unknown> = {
       ...chunkObj.metadata,
       chunkType: chunkObj.chunkType,
       prevChunkId: previousChunkId,
@@ -62,18 +59,16 @@ export async function ingestDocument(fileUrl: string, fileType: string, organiza
       INSERT INTO "KnowledgeChunk" ("id", "documentId", "content", "vector", "metadata", "createdAt")
       VALUES (${dbChunkId}, ${doc.id}, ${chunkObj.content}, ${vectorString}::vector, ${extendedMetadata}::jsonb, NOW())
     `;
-    const dbChunk = { id: dbChunkId };
-
     // Update previous chunk's nextChunkId to establish the bidirectional graph
     if (previousChunkId) {
       await prisma.$executeRaw`
         UPDATE "KnowledgeChunk" 
-        SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{nextChunkId}', ${dbChunk.id}::jsonb) 
+        SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{nextChunkId}', ${dbChunkId}::jsonb) 
         WHERE id = ${previousChunkId}
       `;
     }
 
-    previousChunkId = dbChunk.id;
+    previousChunkId = dbChunkId;
   }
 
   // Invalidate cached RAG results for this organization so new embeddings are picked up

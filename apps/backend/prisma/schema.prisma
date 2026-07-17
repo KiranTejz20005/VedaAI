@@ -78,6 +78,21 @@ enum BloomLevel {
   CREATE
 }
 
+enum ArtifactStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum BlueprintItemType {
+  OBJECTIVE
+  SHORT_ANSWER
+  LONG_ANSWER
+  PRACTICAL
+  MCQ
+}
+
 // â”€â”€ Organization (tenant) â”€â”€
 
 model Organization {
@@ -132,6 +147,10 @@ model Organization {
   copilotWorkflows   CopilotWorkflow[]
   tutorSessions      TutorSession[]
   teacherTutorConfig TeacherTutorConfig?
+  courses            Course[]
+  programs           Program[]
+  blueprints         Blueprint[]
+  approvalRecords    ApprovalRecord[]
 }
 
 model Department {
@@ -143,6 +162,7 @@ model Department {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   users          User[]
+  courses        Course[]
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -1579,28 +1599,73 @@ model TeacherTutorConfig {
 }
 
 // â”€â”€ OBE & Accreditation (Phase 20) â”€â”€
+model Course {
+  id             String       @id @default(uuid())
+  name           String
+  code           String
+  description    String?
+  departmentId   String?
+  department     Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  status         String       @default("ACTIVE")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  outcomes       CourseOutcome[]
+  blueprints     Blueprint[]
+
+  @@unique([code, organizationId])
+  @@index([departmentId])
+  @@index([organizationId])
+}
+
+model Program {
+  id             String       @id @default(uuid())
+  name           String
+  code           String
+  description    String?
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  status         String       @default("ACTIVE")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  outcomes       ProgramOutcome[]
+
+  @@unique([code, organizationId])
+  @@index([organizationId])
+}
+
 model CourseOutcome {
   id             String     @id @default(uuid())
   code           String
-  description    String
+  description    String     @db.Text
   bloomLevel     BloomLevel
-  courseId       String
+  courseId        String
+  course         Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
   organizationId String
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
+
+  coMappings     CoPoMapping[]
+  blueprintItems BlueprintItem[]
 
   @@index([courseId])
   @@index([organizationId])
 }
 
 model ProgramOutcome {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   code           String
-  description    String
+  description    String    @db.Text
   programId      String
+  program        Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
   organizationId String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  poMappings     CoPoMapping[]
 
   @@index([programId])
   @@index([organizationId])
@@ -1609,11 +1674,93 @@ model ProgramOutcome {
 model CoPoMapping {
   id        String   @id @default(uuid())
   coId      String
+  co        CourseOutcome @relation(fields: [coId], references: [id], onDelete: Cascade)
   poId      String
+  po        ProgramOutcome @relation(fields: [poId], references: [id], onDelete: Cascade)
   weightage Int      @default(3)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reviews   MappingReview[]
 
   @@unique([coId, poId])
+}
+
+model Blueprint {
+  id              String       @id @default(uuid())
+  title           String
+  description     String?      @db.Text
+  courseId         String
+  course          Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  totalMarks      Int          @default(100)
+  status          ArtifactStatus @default(DRAFT)
+  version         Int          @default(1)
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectedById    String?
+  rejectedAt      DateTime?
+  rejectionReason String?      @db.Text
+  createdBy       String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  items           BlueprintItem[]
+  approvals       ApprovalRecord[]
+
+  @@index([courseId])
+  @@index([organizationId])
+  @@index([status])
+}
+
+model BlueprintItem {
+  id          String           @id @default(uuid())
+  blueprintId String
+  blueprint   Blueprint        @relation(fields: [blueprintId], references: [id], onDelete: Cascade)
+  coId        String
+  co          CourseOutcome    @relation(fields: [coId], references: [id], onDelete: Cascade)
+  title       String
+  marks       Int
+  count       Int              @default(1)
+  bloomLevel  BloomLevel
+  itemType    BlueprintItemType @default(MCQ)
+  topic       String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([blueprintId])
+  @@index([coId])
+}
+
+model ApprovalRecord {
+  id             String       @id @default(uuid())
+  entityType     String
+  entityId       String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  status         ArtifactStatus
+  comments       String?      @db.Text
+  decidedById    String?
+  decidedAt      DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([entityType, entityId])
+  @@index([organizationId])
+  @@index([status])
+}
+
+model MappingReview {
+  id               String      @id @default(uuid())
+  coPoMappingId    String
+  coPoMapping      CoPoMapping @relation(fields: [coPoMappingId], references: [id], onDelete: Cascade)
+  previousWeightage Int?
+  newWeightage     Int
+  reason           String      @db.Text
+  changedById      String?
+  createdAt        DateTime    @default(now())
+
+  @@index([coPoMappingId])
 }
 
 // â”€â”€ Research & Digital Library (Phase 21) â”€â”€

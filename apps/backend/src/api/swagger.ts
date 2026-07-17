@@ -24,6 +24,7 @@ import { adminPaths } from './admin/openapi';
 import { notificationPaths } from './notifications/openapi';
 import { copilotPaths } from './copilot/openapi';
 import { jobsPaths } from './jobs/openapi';
+import obePaths from './obe/openapi';
 
 function buildFullSpec() {
   const allPaths = {
@@ -49,6 +50,7 @@ function buildFullSpec() {
     ...notificationPaths,
     ...copilotPaths,
     ...jobsPaths,
+    ...obePaths,
   };
 
   return {

@@ -1,199 +1,542 @@
 'use client';
-import { useEffect, useState } from 'react';
+
+import { useState, useEffect, useCallback } from 'react';
+import { Button } from '@/design-system/Button';
 import { api } from '@/lib/api';
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
-import { Button } from '@/design-system/Button';
-import { MetricCard } from '@/design-system/MetricCard';
-import { Target, CheckCircle2, TrendingUp, Sparkles, Download, Layers, PenTool } from 'lucide-react';
+import { BookOpen, Target, FileText, BarChart3, Plus, Check, X, History } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export default function OBEDashboard() {
-  const [mapping, setMapping] = useState<Record<string, Record<string, number | null>>>({});
-  const [courseOutcomes, setCourseOutcomes] = useState<any[]>([]);
-  const [programOutcomes, setProgramOutcomes] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+const BLOOM_LEVELS = ['REMEMBER', 'UNDERSTAND', 'APPLY', 'ANALYZE', 'EVALUATE', 'CREATE'] as const;
+type BloomLevel = typeof BLOOM_LEVELS[number];
+const BLOOM_COLORS: Record<BloomLevel, string> = {
+  REMEMBER: '#6366f1',
+  UNDERSTAND: '#8b5cf6',
+  APPLY: '#a855f7',
+  ANALYZE: '#d946ef',
+  EVALUATE: '#ec4899',
+  CREATE: '#f43f5e',
+};
+const WEIGHTAGE_COLORS: Record<number, string> = {
+  1: '#e2e8f0',
+  2: '#93c5fd',
+  3: '#3b82f6',
+  4: '#2563eb',
+  5: '#1d4ed8',
+};
 
-  useEffect(() => {
-    const fetchOBE = async () => {
-      try {
-        setLoading(true);
-        const res = await api.get('/teacher/obe');
-        if (res.data?.success) {
-          setCourseOutcomes(res.data.data.courseOutcomes);
-          setProgramOutcomes(res.data.data.programOutcomes);
-          setMapping(res.data.data.mapping);
-        }
-      } catch (err) {
-        toast.error('Failed to load OBE data');
-      } finally {
-        setLoading(false);
+type BlueprintStatus = 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+
+interface Course { id: string; name: string; code: string; _count?: { outcomes: number; blueprints: number } }
+interface CoMapping { poId: string; weightage: number }
+interface CourseOutcome { id: string; code: string; description: string; bloomLevel: BloomLevel; coMappings: CoMapping[] }
+interface ProgramOutcome { id: string; code: string; description: string }
+interface MappingMatrix { coId: string; coCode: string; bloomLevel: BloomLevel; mappings: Array<{ poId: string; poCode: string; weightage: number }> }
+interface BlueprintItem { id: string; coId: string; title: string; marks: number; bloomLevel: BloomLevel }
+interface Blueprint { id: string; title: string; totalMarks: number; status: BlueprintStatus; items: BlueprintItem[]; _count?: { items: number }; createdAt: string }
+interface AttainmentResult { coId: string; coCode: string; attainment: number; threshold: number; metThreshold: boolean; bloomLevel: BloomLevel }
+interface ValidationIssue { message: string; severity: 'error' | 'warning' }
+interface ValidationResult { valid: boolean; issues: ValidationIssue[] }
+
+export default function TeacherOBEPage() {
+  const [activeTab, setActiveTab] = useState<'graph' | 'blueprints' | 'attainment' | 'audit'>('graph');
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [matrix, setMatrix] = useState<MappingMatrix[]>([]);
+  const [programOutcomes, setProgramOutcomes] = useState<ProgramOutcome[]>([]);
+  const [blueprints, setBlueprints] = useState<Blueprint[]>([]);
+  const [attainment, setAttainment] = useState<AttainmentResult[]>([]);
+  const [showAddCO, setShowAddCO] = useState(false);
+  const [showAddPO, setShowAddPO] = useState(false);
+  const [newCO, setNewCO] = useState({ code: '', description: '', bloomLevel: 'UNDERSTAND' as BloomLevel });
+  const [newPO, setNewPO] = useState({ code: '', description: '' });
+  const [newBlueprint, setNewBlueprint] = useState({ title: '', totalMarks: 100 });
+  const [showAddBlueprint, setShowAddBlueprint] = useState(false);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+
+  const fetchCourses = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const res = await api.get('/obe/courses', { signal });
+      const data: Course[] = res.data.data || [];
+      setCourses(data);
+      if (data.length > 0) {
+        setSelectedCourseId((prev) => prev || data[0].id);
       }
-    };
-    fetchOBE();
+    } catch {
+      toast.error('Failed to load courses');
+    }
   }, []);
 
-  const getBloomColor = (level: string) => {
-    switch (level.toLowerCase()) {
-      case 'remember': return '#94A3B8';
-      case 'understand': return '#38BDF8';
-      case 'apply': return '#4ADE80';
-      case 'analyze': return '#FBBF24';
-      case 'evaluate': return '#F87171';
-      case 'create': return '#A78BFA';
-      default: return '#94A3B8';
+  const fetchGraph = useCallback(async (courseId: string, signal?: AbortSignal) => {
+    setLoading(true);
+    try {
+      const [graphRes, progRes] = await Promise.all([
+        api.get(`/obe/courses/${courseId}`, { signal }),
+        api.get('/obe/programs', { signal }),
+      ]);
+      const graph = graphRes.data.data;
+      setMatrix(graph.mappingMatrix || []);
+      setProgramOutcomes(graph.programOutcomes || progRes.data.data || []);
+    } catch {
+      toast.error('Failed to load curriculum graph');
+    } finally {
+      setLoading(false);
     }
+  }, []);
+
+  const fetchBlueprints = useCallback(async (courseId: string, signal?: AbortSignal) => {
+    try {
+      const res = await api.get(`/obe/courses/${courseId}/blueprints`, { signal });
+      setBlueprints(res.data.data || []);
+    } catch { /* empty */ }
+  }, []);
+
+  const fetchAttainment = useCallback(async (courseId: string, signal?: AbortSignal) => {
+    try {
+      const res = await api.get(`/obe/courses/${courseId}/attainment/co`, { signal });
+      setAttainment(res.data.data?.outcomes || []);
+    } catch { /* empty */ }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchCourses(controller.signal);
+    return () => controller.abort();
+  }, [fetchCourses]);
+
+  useEffect(() => {
+    if (!selectedCourseId) return;
+    const controller = new AbortController();
+    fetchGraph(selectedCourseId, controller.signal);
+    if (activeTab === 'blueprints') fetchBlueprints(selectedCourseId, controller.signal);
+    if (activeTab === 'attainment') fetchAttainment(selectedCourseId, controller.signal);
+    return () => controller.abort();
+  }, [selectedCourseId, activeTab, fetchGraph, fetchBlueprints, fetchAttainment]);
+
+  const handleAddCO = async () => {
+    if (!newCO.code || !newCO.description) { toast.error('Code and description required'); return; }
+    try {
+      await api.post(`/obe/courses/${selectedCourseId}/outcomes`, newCO);
+      toast.success('Course Outcome created');
+      setNewCO({ code: '', description: '', bloomLevel: 'UNDERSTAND' });
+      setShowAddCO(false);
+      fetchGraph(selectedCourseId);
+    } catch { toast.error('Failed to create CO'); }
   };
 
-  const handleAIMapping = () => {
-    toast.success('AI OBE Copilot is analyzing syllabi...');
-    // Real mapping would go here
-    setTimeout(() => {
-      toast.success('Matrix optimized by AI!');
-    }, 1500);
+  const handleAddPO = async () => {
+    if (!newPO.code || !newPO.description) { toast.error('Code and description required'); return; }
+    try {
+      const programs = await api.get('/obe/programs');
+      const prog = programs.data.data?.[0];
+      if (!prog) { toast.error('No program found. Create a program first.'); return; }
+      await api.post(`/obe/programs/${prog.id}/outcomes`, newPO);
+      toast.success('Program Outcome created');
+      setNewPO({ code: '', description: '' });
+      setShowAddPO(false);
+      fetchGraph(selectedCourseId);
+    } catch { toast.error('Failed to create PO'); }
   };
 
-  if (loading) {
-    return <div style={{ padding: 20 }}>Loading OBE Analytics...</div>;
-  }
+  const handleMappingChange = async (coId: string, poId: string, weightage: number) => {
+    try {
+      await api.post('/obe/mappings', { coId, poId, weightage, reason: `Weightage updated to ${weightage}` });
+      fetchGraph(selectedCourseId);
+    } catch { toast.error('Failed to update mapping'); }
+  };
+
+  const handleCreateBlueprint = async () => {
+    if (!newBlueprint.title) { toast.error('Title required'); return; }
+    try {
+      await api.post(`/obe/courses/${selectedCourseId}/blueprints`, { ...newBlueprint, courseId: selectedCourseId });
+      toast.success('Blueprint created');
+      setNewBlueprint({ title: '', totalMarks: 100 });
+      setShowAddBlueprint(false);
+      fetchBlueprints(selectedCourseId);
+    } catch { toast.error('Failed to create blueprint'); }
+  };
+
+  const handleValidate = async (id: string) => {
+    try {
+      const res = await api.post(`/obe/blueprints/${id}/validate`);
+      setValidationResult(res.data.data);
+      if (res.data.data.valid) toast.success('Blueprint is valid');
+      else toast.error('Blueprint has issues');
+    } catch { toast.error('Validation failed'); }
+  };
+
+  const handleSubmitForReview = async (id: string) => {
+    try {
+      await api.post(`/obe/blueprints/${id}/submit`);
+      toast.success('Submitted for review');
+      fetchBlueprints(selectedCourseId);
+    } catch { toast.error('Failed to submit'); }
+  };
+
+  const handleApprove = async (id: string) => {
+    try {
+      await api.post(`/obe/blueprints/${id}/approve`, { comments: 'Approved via OBE dashboard' });
+      toast.success('Blueprint approved');
+      fetchBlueprints(selectedCourseId);
+    } catch { toast.error('Failed to approve'); }
+  };
+
+  const handleReject = async (id: string) => {
+    setRejectTarget(id);
+    setRejectReason('');
+  };
+
+  const submitReject = async () => {
+    if (!rejectTarget || !rejectReason.trim()) { toast.error('Reason required'); return; }
+    try {
+      await api.post(`/obe/blueprints/${rejectTarget}/reject`, { reason: rejectReason });
+      toast.success('Blueprint rejected');
+      setRejectTarget(null);
+      setRejectReason('');
+      fetchBlueprints(selectedCourseId);
+    } catch { toast.error('Failed to reject'); }
+  };
+
+  const statusColor = (s: BlueprintStatus): string => {
+    if (s === 'APPROVED') return '#22c55e';
+    if (s === 'REJECTED') return '#ef4444';
+    if (s === 'PENDING_REVIEW') return '#f59e0b';
+    return '#94a3b8';
+  };
+
+  const tabs = [
+    { id: 'graph' as const, label: 'Curriculum Graph', icon: BookOpen },
+    { id: 'blueprints' as const, label: 'Blueprints', icon: FileText },
+    { id: 'attainment' as const, label: 'Attainment', icon: BarChart3 },
+    { id: 'audit' as const, label: 'Audit', icon: History },
+  ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <PageHeader
-          title="Outcome-Based Education (OBE)"
-          subtitle="Curriculum Mapping & Accreditation Quality Assurance."
-        />
-        <div style={{ display: 'flex', gap: 12 }}>
-          <Button variant="outline"><Download size={16} style={{ marginRight: 8 }} /> NAAC Report</Button>
-          <Button variant="outline"><Download size={16} style={{ marginRight: 8 }} /> NBA Report</Button>
+    <div style={{ padding: '0 0 48px' }}>
+      <PageHeader
+        title="OBE Management"
+        subtitle="Outcome-Based Education workflow for your department"
+      />
+
+      <div style={{ display: 'flex', gap: 16, marginBottom: 24, alignItems: 'center' }}>
+        <select
+          value={selectedCourseId}
+          onChange={(e) => setSelectedCourseId(e.target.value)}
+          style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 14, minWidth: 200 }}
+        >
+          <option value="">Select Course</option>
+          {courses.map((c) => (
+            <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
+          ))}
+        </select>
+
+        <div style={{ display: 'flex', gap: 4, marginLeft: 'auto', background: '#f1f5f9', borderRadius: 8, padding: 4 }}>
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500,
+                background: activeTab === t.id ? '#fff' : 'transparent',
+                color: activeTab === t.id ? '#1e293b' : '#64748b',
+                boxShadow: activeTab === t.id ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              }}
+            >
+              <t.icon size={14} />
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-        <MetricCard icon={<Target size={18} />} label="Total COs" value="3" />
-        <MetricCard icon={<Layers size={18} />} label="Mapped POs" value="5" />
-        <MetricCard icon={<CheckCircle2 size={18} />} label="Avg. Attainment" value="82%" />
-        <MetricCard icon={<TrendingUp size={18} color="#10B981" />} label="CQI Status" value="On Track" />
-      </div>
+      {!selectedCourseId && (
+        <Card style={{ padding: 48, textAlign: 'center' }}>
+          <Target size={48} color="#cbd5e1" style={{ marginBottom: 16 }} />
+          <h3 style={{ fontSize: 18, fontWeight: 600, color: '#475569', marginBottom: 8 }}>Select a Course</h3>
+          <p style={{ color: '#94a3b8' }}>Choose a course above to manage its OBE workflow</p>
+        </Card>
+      )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 24 }}>
-        {/* CO-PO Mapping Matrix */}
-        <Card padding="24px">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, margin: 0 }}>CO-PO Mapping Matrix</h3>
-            <Button variant="outline" size="sm" onClick={handleAIMapping}>
-              <Sparkles size={16} style={{ marginRight: 8, color: 'var(--brand)' }} /> Auto-Map with AI
+      {selectedCourseId && loading && (
+        <Card style={{ padding: 48, textAlign: 'center' }}>
+          <p style={{ color: '#94a3b8' }}>Loading...</p>
+        </Card>
+      )}
+
+      {selectedCourseId && !loading && activeTab === 'graph' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ fontSize: 16, fontWeight: 600 }}>CO-PO Mapping Matrix</h3>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button onClick={() => setShowAddCO(!showAddCO)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Plus size={14} /> Add CO
+              </Button>
+              <Button onClick={() => setShowAddPO(!showAddPO)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Plus size={14} /> Add PO
+              </Button>
+            </div>
+          </div>
+
+          {showAddCO && (
+            <Card style={{ padding: 16 }}>
+              <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>New Course Outcome</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr auto', gap: 8, alignItems: 'end' }}>
+                <div>
+                  <label style={{ fontSize: 12, color: '#64748b' }}>Code</label>
+                  <input value={newCO.code} onChange={(e) => setNewCO({ ...newCO, code: e.target.value })} placeholder="CO1" style={{ width: '100%', padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: '#64748b' }}>Description</label>
+                  <input value={newCO.description} onChange={(e) => setNewCO({ ...newCO, description: e.target.value })} placeholder="Apply concepts to..." style={{ width: '100%', padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: '#64748b' }}>Bloom Level</label>
+                  <select value={newCO.bloomLevel} onChange={(e) => setNewCO({ ...newCO, bloomLevel: e.target.value as BloomLevel })} style={{ width: '100%', padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }}>
+                    {BLOOM_LEVELS.map((b) => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <Button onClick={handleAddCO} style={{ background: '#22c55e', color: '#fff', padding: '6px 12px' }}><Check size={14} /></Button>
+                  <Button onClick={() => setShowAddCO(false)} style={{ background: '#ef4444', color: '#fff', padding: '6px 12px' }}><X size={14} /></Button>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {showAddPO && (
+            <Card style={{ padding: 16 }}>
+              <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>New Program Outcome</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr auto', gap: 8, alignItems: 'end' }}>
+                <div>
+                  <label style={{ fontSize: 12, color: '#64748b' }}>Code</label>
+                  <input value={newPO.code} onChange={(e) => setNewPO({ ...newPO, code: e.target.value })} placeholder="PO1" style={{ width: '100%', padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: '#64748b' }}>Description</label>
+                  <input value={newPO.description} onChange={(e) => setNewPO({ ...newPO, description: e.target.value })} placeholder="Engineering knowledge..." style={{ width: '100%', padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }} />
+                </div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <Button onClick={handleAddPO} style={{ background: '#22c55e', color: '#fff', padding: '6px 12px' }}><Check size={14} /></Button>
+                  <Button onClick={() => setShowAddPO(false)} style={{ background: '#ef4444', color: '#fff', padding: '6px 12px' }}><X size={14} /></Button>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          <Card style={{ padding: 0, overflow: 'hidden' }}>
+            {matrix.length === 0 ? (
+              <div style={{ padding: 48, textAlign: 'center' }}>
+                <Target size={40} color="#cbd5e1" style={{ marginBottom: 12 }} />
+                <p style={{ color: '#94a3b8' }}>No course outcomes yet. Add COs and POs to build your mapping matrix.</p>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc' }}>
+                      <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: '2px solid #e2e8f0', fontWeight: 600, minWidth: 100 }}>CO</th>
+                      <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: '2px solid #e2e8f0', fontWeight: 600, minWidth: 120 }}>Bloom</th>
+                      {programOutcomes.map((po) => (
+                        <th key={po.id} style={{ padding: '10px 14px', textAlign: 'center', borderBottom: '2px solid #e2e8f0', fontWeight: 600, minWidth: 80 }}>{po.code}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {matrix.map((row) => (
+                      <tr key={row.coId} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '10px 14px', fontWeight: 500 }}>{row.coCode}</td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <span style={{ background: BLOOM_COLORS[row.bloomLevel] || '#94a3b8', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 500 }}>
+                            {row.bloomLevel}
+                          </span>
+                        </td>
+                        {programOutcomes.map((po) => {
+                          const mapping = row.mappings.find((m) => m.poId === po.id);
+                          const w = mapping?.weightage ?? 0;
+                          return (
+                            <td key={po.id} style={{ padding: '10px 14px', textAlign: 'center' }}>
+                              <select
+                                value={w}
+                                onChange={(e) => handleMappingChange(row.coId, po.id, Number(e.target.value))}
+                                style={{
+                                  width: 48, padding: '2px 4px', borderRadius: 4, border: 'none', textAlign: 'center', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                                  background: WEIGHTAGE_COLORS[w] || '#f8fafc',
+                                  color: w > 0 ? '#fff' : '#94a3b8',
+                                }}
+                              >
+                                {[0, 1, 2, 3, 4, 5].map((v) => <option key={v} value={v}>{v}</option>)}
+                              </select>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {selectedCourseId && !loading && activeTab === 'blueprints' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ fontSize: 16, fontWeight: 600 }}>Assessment Blueprints</h3>
+            <Button onClick={() => setShowAddBlueprint(true)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Plus size={14} /> New Blueprint
             </Button>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
-              <thead>
-                <tr>
-                  <th style={{ padding: '12px', borderBottom: '2px solid var(--border)', textAlign: 'left' }}>Course Outcome</th>
-                  <th style={{ padding: '12px', borderBottom: '2px solid var(--border)' }}>Bloom Level</th>
-                  {programOutcomes.map(po => (
-                    <th key={po} style={{ padding: '12px', borderBottom: '2px solid var(--border)' }}>{po}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {courseOutcomes.map(co => (
-                  <tr key={co.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                    <td style={{ padding: '16px 12px', textAlign: 'left' }}>
-                      <div style={{ fontWeight: 600, marginBottom: 4 }}>{co.id}</div>
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>{co.desc}</div>
-                    </td>
-                    <td style={{ padding: '16px 12px' }}>
-                      <span style={{ 
-                        padding: '4px 8px', borderRadius: 12, fontSize: 'var(--text-xs)', fontWeight: 600,
-                        background: `${getBloomColor(co.bloom)}20`, color: getBloomColor(co.bloom) 
-                      }}>
-                        {co.bloom}
-                      </span>
-                    </td>
-                    {programOutcomes.map(po => {
-                      const val = mapping[co.id]?.[po];
-                      return (
-                        <td key={po} style={{ padding: '16px 12px' }}>
-                          <div style={{ 
-                            width: 32, height: 32, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            borderRadius: 8, background: val ? 'var(--brand-light)' : 'transparent', 
-                            color: val ? 'var(--brand)' : 'var(--text-muted)',
-                            fontWeight: val ? 700 : 400,
-                            border: val ? 'none' : '1px dashed var(--border)'
-                          }}>
-                            {val || '-'}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div style={{ marginTop: 16, fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textAlign: 'right' }}>
-            Mapping Weightage: 1 = Low, 2 = Medium, 3 = High
-          </div>
-        </Card>
-
-        {/* Bloom's Taxonomy Distribution */}
-        <Card padding="24px">
-          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, margin: '0 0 24px 0' }}>Bloom's Taxonomy</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {['Remember', 'Understand', 'Apply', 'Analyze', 'Evaluate', 'Create'].map((level, idx) => {
-              // Mock distribution
-              const percentage = [5, 20, 30, 25, 15, 5][idx];
-              const color = getBloomColor(level);
-              return (
-                <div key={level}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 'var(--text-sm)', fontWeight: 600 }}>
-                    <span>{level}</span>
-                    <span style={{ color: 'var(--text-secondary)' }}>{percentage}%</span>
-                  </div>
-                  <div style={{ width: '100%', height: 8, background: 'var(--bg-muted)', borderRadius: 4, overflow: 'hidden' }}>
-                    <div style={{ width: `${percentage}%`, height: '100%', background: color, borderRadius: 4 }} />
-                  </div>
+          {showAddBlueprint && (
+            <Card style={{ padding: 16 }}>
+              <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>New Blueprint</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: 8, alignItems: 'end' }}>
+                <div>
+                  <label style={{ fontSize: 12, color: '#64748b' }}>Title</label>
+                  <input value={newBlueprint.title} onChange={(e) => setNewBlueprint({ ...newBlueprint, title: e.target.value })} placeholder="Mid-Term Assessment" style={{ width: '100%', padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }} />
                 </div>
-              );
-            })}
-          </div>
-        </Card>
-      </div>
-      {/* CQI Action Taken Reports */}
-      <Card padding="24px">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, margin: 0 }}>Continuous Quality Improvement (CQI)</h3>
-          <Button variant="outline" size="sm">
-            <PenTool size={16} style={{ marginRight: 8 }} /> Log Action Taken Report
-          </Button>
-        </div>
-        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: 24 }}>
-          Track and resolve underperforming Course Outcomes across your classes.
-        </p>
+                <div>
+                  <label style={{ fontSize: 12, color: '#64748b' }}>Total Marks</label>
+                  <input type="number" value={newBlueprint.totalMarks} onChange={(e) => setNewBlueprint({ ...newBlueprint, totalMarks: Number(e.target.value) })} style={{ width: '100%', padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }} />
+                </div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <Button onClick={handleCreateBlueprint} style={{ background: '#22c55e', color: '#fff', padding: '6px 12px' }}>Create</Button>
+                  <Button onClick={() => setShowAddBlueprint(false)} style={{ background: '#ef4444', color: '#fff', padding: '6px 12px' }}>Cancel</Button>
+                </div>
+              </div>
+            </Card>
+          )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <div style={{ padding: '16px', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <span style={{ fontWeight: 700, color: '#991B1B' }}>CO2 Attainment: 54%</span>
-              <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: '#DC2626', padding: '4px 8px', background: '#FEE2E2', borderRadius: 12 }}>ACTION REQUIRED</span>
+          {blueprints.length === 0 ? (
+            <Card style={{ padding: 48, textAlign: 'center' }}>
+              <FileText size={40} color="#cbd5e1" style={{ marginBottom: 12 }} />
+              <p style={{ color: '#94a3b8' }}>No blueprints yet. Create one to plan your assessment structure.</p>
+            </Card>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 }}>
+              {blueprints.map((bp) => (
+                <Card key={bp.id} style={{ padding: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                    <div>
+                      <h4 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>{bp.title}</h4>
+                      <p style={{ fontSize: 12, color: '#94a3b8' }}>{bp._count?.items ?? bp.items?.length ?? 0} items — {bp.totalMarks} marks</p>
+                    </div>
+                    <span style={{ background: statusColor(bp.status), color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
+                      {bp.status.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {bp.status === 'DRAFT' && (
+                      <>
+                        <Button onClick={() => handleValidate(bp.id)} style={{ fontSize: 11, padding: '4px 8px' }}>Validate</Button>
+                        <Button onClick={() => handleSubmitForReview(bp.id)} style={{ fontSize: 11, padding: '4px 8px', background: '#f59e0b', color: '#fff' }}>Submit</Button>
+                      </>
+                    )}
+                    {bp.status === 'PENDING_REVIEW' && (
+                      <>
+                        <Button onClick={() => handleApprove(bp.id)} style={{ fontSize: 11, padding: '4px 8px', background: '#22c55e', color: '#fff' }}>Approve</Button>
+                        <Button onClick={() => handleReject(bp.id)} style={{ fontSize: 11, padding: '4px 8px', background: '#ef4444', color: '#fff' }}>Reject</Button>
+                      </>
+                    )}
+                  </div>
+                  {validationResult && (
+                    <div style={{ marginTop: 12, padding: 8, borderRadius: 6, background: validationResult.valid ? '#f0fdf4' : '#fef2f2', fontSize: 12 }}>
+                      {validationResult.valid ? (
+                        <span style={{ color: '#22c55e' }}>✓ Blueprint is valid</span>
+                      ) : (
+                        <div>
+                          {validationResult.issues.map((issue: ValidationIssue, idx: number) => (
+                            <p key={idx} style={{ color: issue.severity === 'error' ? '#ef4444' : '#f59e0b', margin: '2px 0' }}>{issue.message}</p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Card>
+              ))}
             </div>
-            <p style={{ fontSize: 'var(--text-sm)', color: '#7F1D1D', margin: '0 0 16px 0' }}>Target attainment (70%) not reached for: Design and implement neural networks.</p>
-            <Button variant="outline" size="sm" style={{ width: '100%', borderColor: '#FCA5A5', color: '#991B1B' }}>Submit Remedial Plan</Button>
-          </div>
+          )}
+        </div>
+      )}
 
-          <div style={{ padding: '16px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>CO1 Attainment: 88%</span>
-              <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: '#059669', padding: '4px 8px', background: '#D1FAE5', borderRadius: 12 }}>TARGET MET</span>
+      {selectedCourseId && !loading && activeTab === 'attainment' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 600 }}>CO Attainment</h3>
+
+          {attainment.length === 0 ? (
+            <Card style={{ padding: 48, textAlign: 'center' }}>
+              <BarChart3 size={40} color="#cbd5e1" style={{ marginBottom: 12 }} />
+              <p style={{ color: '#94a3b8' }}>No attainment data. Complete assessments to see results.</p>
+            </Card>
+          ) : (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+                {attainment.map((a) => (
+                  <Card key={a.coId} style={{ padding: 16, borderLeft: `4px solid ${a.metThreshold ? '#22c55e' : '#ef4444'}` }}>
+                    <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>{a.coCode}</div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: a.metThreshold ? '#22c55e' : '#ef4444' }}>
+                      {Math.round(a.attainment * 100)}%
+                    </div>
+                    <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
+                      Target: {Math.round(a.threshold * 100)}% — {a.metThreshold ? 'Met' : 'Below'}
+                    </div>
+                    <div style={{ marginTop: 8, height: 6, background: '#f1f5f9', borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${Math.min(a.attainment * 100, 100)}%`, background: a.metThreshold ? '#22c55e' : '#ef4444', borderRadius: 3 }} />
+                    </div>
+                  </Card>
+                ))}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+                {BLOOM_LEVELS.map((bloom) => {
+                  const bloomCos = attainment.filter((a) => a.bloomLevel === bloom);
+                  const avg = bloomCos.length > 0 ? bloomCos.reduce((s, a) => s + a.attainment, 0) / bloomCos.length : 0;
+                  return (
+                    <div key={bloom} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0' }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: BLOOM_COLORS[bloom] }} />
+                      <div style={{ fontSize: 12, color: '#64748b', minWidth: 80 }}>{bloom}</div>
+                      <div style={{ flex: 1, height: 6, background: '#f1f5f9', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${avg * 100}%`, background: BLOOM_COLORS[bloom], borderRadius: 3 }} />
+                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 600, minWidth: 40 }}>{Math.round(avg * 100)}%</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {selectedCourseId && !loading && activeTab === 'audit' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 600 }}>Mapping Change History</h3>
+          <Card style={{ padding: 48, textAlign: 'center' }}>
+            <History size={40} color="#cbd5e1" style={{ marginBottom: 12 }} />
+            <p style={{ color: '#94a3b8' }}>Change history will appear here as mappings are updated.</p>
+          </Card>
+        </div>
+      )}
+
+      {rejectTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}
+          onClick={() => setRejectTarget(null)}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 400 }} onClick={(e) => e.stopPropagation()}>
+            <h4 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Rejection Reason</h4>
+            <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Why is this blueprint being rejected?"
+              style={{ width: '100%', padding: 8, border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, minHeight: 80, resize: 'vertical' }} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
+              <Button onClick={() => setRejectTarget(null)} style={{ background: '#f1f5f9', color: '#475569' }}>Cancel</Button>
+              <Button onClick={submitReject} style={{ background: '#ef4444', color: '#fff' }}>Reject</Button>
             </div>
-            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: '0 0 16px 0' }}>No action required. Maintaining high attainment through interactive labs.</p>
-            <Button variant="outline" size="sm" style={{ width: '100%' }}>View Attainment Breakdown</Button>
           </div>
         </div>
-      </Card>
+      )}
     </div>
   );
 }

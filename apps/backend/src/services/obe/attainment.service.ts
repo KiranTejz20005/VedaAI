@@ -1,101 +1,222 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../config/prisma';
+import { ApiError } from '../../api/common/errors';
 
-const prisma = new PrismaClient();
-
-interface FormulaConfig {
-  directWeight: number; // e.g., 0.8
-  indirectWeight: number; // e.g., 0.2
-  components: {
-    assignments: number; // e.g., 0.2
-    quizzes: number; // e.g., 0.2
-    midterm: number; // e.g., 0.3
-    semester: number; // e.g., 0.3
-  }
+export interface FormulaConfig {
+  directWeight: number;
+  indirectWeight: number;
 }
 
 const DEFAULT_FORMULA: FormulaConfig = {
   directWeight: 0.8,
   indirectWeight: 0.2,
-  components: {
-    assignments: 0.2,
-    quizzes: 0.2,
-    midterm: 0.3,
-    semester: 0.3
-  }
 };
 
 export class AttainmentService {
-  
-  /**
-   * Calculates the overall attainment for a specific Course Outcome.
-   * Directs attainment comes from graded submissions, Indirect from survey metrics.
-   */
-  async calculateCourseOutcomeAttainment(coId: string, __courseId: string, formula: FormulaConfig = DEFAULT_FORMULA): Promise<number> {
-    // 1. Fetch CO Details
-    const co = await prisma.courseOutcome.findUnique({ where: { id: coId } });
-    if (!co) throw new Error('Course Outcome not found');
+  static async calculateCoAttainment(
+    courseId: string,
+    organizationId: string,
+    threshold = 0.6,
+    formula: FormulaConfig = DEFAULT_FORMULA
+  ) {
+    const course = await prisma.course.findFirst({
+      where: { id: courseId, organizationId },
+    });
+    if (!course) throw ApiError.notFound('Course not found');
 
-    // 2. Mock Direct Attainment Calculation
-    // In production, this would query all Assignments and Quizzes mapped to this CO,
-    // fetch the Student Submissions, and calculate the weighted average of their scores.
-    const directAttainment = this.aggregateDirectScores(__courseId);
-
-    // 3. Mock Indirect Attainment Calculation
-    // In production, this would query Course Exit Surveys and Student Feedback mapped to this CO.
-    const indirectAttainment = this.aggregateIndirectScores(__courseId);
-
-    // 4. Combine based on Formula
-    const overallAttainment = (directAttainment * formula.directWeight) + (indirectAttainment * formula.indirectWeight);
-
-    // 5. CQI Orchestration: Check if attainment is below threshold (e.g. 70%)
-    if (overallAttainment < 70) {
-      await this.flagForCQI(coId, overallAttainment);
-    }
-
-    return parseFloat(overallAttainment.toFixed(2));
-  }
-
-  /**
-   * Calculates attainment for a Program Outcome based on the CoPoMapping weights.
-   */
-  async calculateProgramOutcomeAttainment(poId: string, __organizationId: string): Promise<number> {
-    // 1. Fetch all CO mappings for this PO
-    const mappings = await prisma.coPoMapping.findMany({
-      where: { poId }
+    const outcomes = await prisma.courseOutcome.findMany({
+      where: { courseId, organizationId },
     });
 
-    if (mappings.length === 0) return 0;
+    const assignments = await prisma.assignment.findMany({
+      where: { organizationId },
+      select: { id: true, subject: true },
+    });
 
-    let totalWeight = 0;
-    let weightedAttainmentSum = 0;
+    const assignmentIds = assignments.map((a) => a.id);
 
-    // 2. Calculate weighted average of associated COs
-    for (const mapping of mappings) {
-      const coAttainment = await this.calculateCourseOutcomeAttainment(mapping.coId, 'mock-course-id');
-      weightedAttainmentSum += coAttainment * mapping.weightage;
-      totalWeight += mapping.weightage;
+    const submissions = await prisma.studentSubmission.findMany({
+      where: {
+        assignmentId: { in: assignmentIds },
+        organizationId,
+        status: 'GRADED',
+      },
+      include: {
+        evaluations: { select: { score: true, totalMarks: true } },
+      },
+    });
+
+    const gradedSubs = submissions.filter(
+      (s) => s.evaluations.length > 0 && s.evaluations[0].totalMarks > 0
+    );
+
+    const results = [];
+
+    for (const co of outcomes) {
+      const attainment = this.computeCoScore(gradedSubs, formula);
+      const metThreshold = attainment >= threshold;
+
+      results.push({
+        coId: co.id,
+        coCode: co.code,
+        description: co.description,
+        bloomLevel: co.bloomLevel,
+        attainment,
+        threshold,
+        metThreshold,
+      });
     }
 
-    const poAttainment = totalWeight > 0 ? (weightedAttainmentSum / totalWeight) : 0;
-    return parseFloat(poAttainment.toFixed(2));
+    const overall = results.length > 0
+      ? results.reduce((sum, r) => sum + r.attainment, 0) / results.length
+      : 0;
+
+    return {
+      courseId,
+      courseName: course.name,
+      threshold,
+      formula,
+      outcomes: results,
+      overallAttainment: parseFloat(overall.toFixed(2)),
+      flaggedCos: results.filter((r) => !r.metThreshold),
+    };
   }
 
-  private aggregateDirectScores(__courseId: string): number {
-    // Simulated DB aggregation over assessments
-    // SELECT AVG(score) FROM Submission s JOIN Assessment a ON s.assessmentId = a.id WHERE a.courseId = courseId
-    return Math.random() * (95 - 65) + 65; // Random between 65 and 95
+  static async calculatePoAttainment(
+    organizationId: string,
+    threshold = 0.6,
+    formula: FormulaConfig = DEFAULT_FORMULA
+  ) {
+    const programOutcomes = await prisma.programOutcome.findMany({
+      where: { organizationId },
+      include: {
+        poMappings: {
+          include: {
+            co: { select: { id: true, courseId: true } },
+          },
+        },
+      },
+    });
+
+    const coIds = [...new Set(programOutcomes.flatMap((po) => po.poMappings.map((m) => m.coId)))];
+
+    const coScores = new Map<string, number>();
+    if (coIds.length > 0) {
+      const courses = await prisma.courseOutcome.findMany({
+        where: { id: { in: coIds }, organizationId },
+        select: { id: true, courseId: true },
+      });
+
+      const courseIds = [...new Set(courses.map((c) => c.courseId))];
+
+      const assignments = await prisma.assignment.findMany({
+        where: { organizationId },
+        select: { id: true },
+      });
+
+      const submissions = await prisma.studentSubmission.findMany({
+        where: {
+          assignmentId: { in: assignments.map((a) => a.id) },
+          organizationId,
+          status: 'GRADED',
+        },
+        include: {
+          evaluations: { select: { score: true, totalMarks: true } },
+        },
+      });
+
+      const gradedSubs = submissions.filter(
+        (s) => s.evaluations.length > 0 && s.evaluations[0].totalMarks > 0
+      );
+
+      for (const coId of coIds) {
+        coScores.set(coId, this.computeCoScore(gradedSubs, formula));
+      }
+    }
+
+    const results = [];
+
+    for (const po of programOutcomes) {
+      if (po.poMappings.length === 0) {
+        results.push({
+          poId: po.id,
+          poCode: po.code,
+          description: po.description,
+          attainment: 0,
+          threshold,
+          metThreshold: false,
+          contributingCOs: 0,
+        });
+        continue;
+      }
+
+      let totalWeight = 0;
+      let weightedSum = 0;
+
+      for (const mapping of po.poMappings) {
+        const coAttainment = coScores.get(mapping.coId) ?? 0;
+        weightedSum += coAttainment * mapping.weightage;
+        totalWeight += mapping.weightage;
+      }
+
+      const attainment = totalWeight > 0 ? weightedSum / totalWeight : 0;
+      const rounded = parseFloat(attainment.toFixed(2));
+
+      results.push({
+        poId: po.id,
+        poCode: po.code,
+        description: po.description,
+        attainment: rounded,
+        threshold,
+        metThreshold: rounded >= threshold,
+        contributingCOs: po.poMappings.length,
+      });
+    }
+
+    const overall = results.length > 0
+      ? results.reduce((sum, r) => sum + r.attainment, 0) / results.length
+      : 0;
+
+    return {
+      threshold,
+      formula,
+      programOutcomes: results,
+      overallAttainment: parseFloat(overall.toFixed(2)),
+      flaggedPos: results.filter((r) => !r.metThreshold),
+    };
   }
 
-  private aggregateIndirectScores(__courseId: string): number {
-    // Simulated DB aggregation over surveys
-    return Math.random() * (90 - 70) + 70; // Random between 70 and 90
+  static async getAttainmentDashboard(courseId: string, organizationId: string) {
+    const coAttainment = await this.calculateCoAttainment(courseId, organizationId);
+    const poAttainment = await this.calculatePoAttainment(organizationId);
+
+    return {
+      course: coAttainment,
+      program: poAttainment,
+      summary: {
+        totalCOs: coAttainment.outcomes.length,
+        cosMeetingTarget: coAttainment.outcomes.filter((o) => o.metThreshold).length,
+        totalPOs: poAttainment.programOutcomes.length,
+        posMeetingTarget: poAttainment.programOutcomes.filter((o) => o.metThreshold).length,
+      },
+    };
   }
 
-  private async flagForCQI(coId: string, attainment: number) {
-    // Create an actionable alert for the Teacher/Department Head
-    console.log(`[CQI Alert] CO ${coId} has dropped below target threshold to ${attainment}%. Triggering Action Taken Report workflow.`);
-    // In production: Create a notification record in the DB
+  static async getFlaggedCos(courseId: string, organizationId: string, threshold = 0.6) {
+    const result = await this.calculateCoAttainment(courseId, organizationId, threshold);
+    return result.flaggedCos;
+  }
+
+  private static computeCoScore(
+    gradedSubs: Array<{ evaluations: Array<{ score: number; totalMarks: number }> }>,
+    _formula: FormulaConfig
+  ): number {
+    if (gradedSubs.length === 0) return 0;
+
+    const totalScore = gradedSubs.reduce((sum, s) => {
+      const ev = s.evaluations[0];
+      return sum + ev.score / ev.totalMarks;
+    }, 0);
+
+    return parseFloat(Math.min(1, Math.max(0, totalScore / gradedSubs.length)).toFixed(2));
   }
 }
-
-export const attainmentService = new AttainmentService();

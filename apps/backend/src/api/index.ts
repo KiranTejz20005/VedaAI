@@ -25,6 +25,7 @@ import adminRouter from './admin/routes';
 import notificationsRouter from './notifications/routes';
 import copilotRouter from './copilot/routes';
 import jobsRouter from './jobs/routes';
+import obeRouter from './obe/routes';
 
 const apiGateway = Router();
 
@@ -60,6 +61,7 @@ apiGateway.use('/admin', adminRouter);
 apiGateway.use('/notifications', notificationsRouter);
 apiGateway.use('/copilot', copilotRouter);
 apiGateway.use('/jobs', jobsRouter);
+apiGateway.use('/obe', obeRouter);
 apiGateway.use(metricsRouter);
 
 
