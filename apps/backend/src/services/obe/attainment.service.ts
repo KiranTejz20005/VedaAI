@@ -101,13 +101,6 @@ export class AttainmentService {
 
     const coScores = new Map<string, number>();
     if (coIds.length > 0) {
-      const courses = await prisma.courseOutcome.findMany({
-        where: { id: { in: coIds }, organizationId },
-        select: { id: true, courseId: true },
-      });
-
-      const courseIds = [...new Set(courses.map((c) => c.courseId))];
-
       const assignments = await prisma.assignment.findMany({
         where: { organizationId },
         select: { id: true },
