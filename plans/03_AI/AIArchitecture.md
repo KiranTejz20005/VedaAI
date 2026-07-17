@@ -1,0 +1,2 @@
+# AI architecture
+Use a constrained orchestration service: parse documents → extract structured academic entities → faculty approve graph mappings → retrieve approved evidence → plan deterministic constraints → generate one structured artefact/item → run deterministic and model-based checks → present for review. Every model response must carry source IDs, model/prompt version and confidence signals. The model writes and classifies; policy, planning, validation and approval remain system-owned.
