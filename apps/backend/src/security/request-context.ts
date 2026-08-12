@@ -26,7 +26,7 @@ export function getRequestOrgId(req: Request): string | undefined {
       undefined
     );
   }
-  return req.user?.organizationId || undefined;
+  return req.user?.organizationId || req.user?.activeOrganizationId || undefined;
 }
 
 export function requireRequestOrgId(req: Request): string {

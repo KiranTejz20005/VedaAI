@@ -82,7 +82,12 @@ router.get('/dashboard/stats', asyncHandler(async (req, res) => {
   const testIds = recentTestsRaw.map(t => t.id);
   const evaluationsForTests = await prisma.submissionEvaluation.findMany({
     where: { submission: { assignmentId: { in: testIds } } },
-    include: { submission: true }
+    select: {
+      id: true,
+      score: true,
+      totalMarks: true,
+      submission: { select: { assignmentId: true, studentId: true } },
+    },
   });
 
   const recentTests = recentTestsRaw.map(t => {
@@ -100,9 +105,12 @@ router.get('/dashboard/stats', asyncHandler(async (req, res) => {
   const evaluationsRaw = await prisma.submissionEvaluation.findMany({
     orderBy: { score: 'desc' },
     take: 3,
-    include: {
-      submission: true
-    }
+    select: {
+      id: true,
+      score: true,
+      totalMarks: true,
+      submission: { select: { studentId: true } },
+    },
   });
 
   const topStudentIds = evaluationsRaw.map(e => e.submission.studentId);

@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import pdfParse from 'pdf-parse';
+import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma';
 import { AIOrchestrator } from './ai/ai-orchestrator.service';
 import { logger } from '../utils/logger';
@@ -187,7 +188,7 @@ export async function overrideEvaluation(submissionId: string, payload: Override
       teacherFeedback: payload.teacherFeedback || payload.reason || '',
       overriddenBy: payload.teacherId || 'teacher',
       overriddenAt: new Date(),
-      criteriaGrades: payload.criteriaGrades || evaluation.criteriaGrades,
+      criteriaGrades: (payload.criteriaGrades ?? evaluation.criteriaGrades ?? []) as Prisma.InputJsonValue,
       teacherOverride: {
         originalScore: previousScore,
         overrideScore: newScore,
@@ -195,7 +196,7 @@ export async function overrideEvaluation(submissionId: string, payload: Override
         teacherFeedback: payload.teacherFeedback,
         updatedAt: new Date().toISOString(),
         updatedBy: payload.teacherId,
-      },
+      } as Prisma.InputJsonValue,
     },
   });
 

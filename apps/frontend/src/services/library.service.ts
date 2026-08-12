@@ -31,8 +31,19 @@ export const LibraryService = {
   },
 
   getResources: async (params?: { subject?: string; className?: string; resourceType?: string; search?: string }): Promise<LibraryResource[]> => {
-    const response = await apiClient.get<{ success: boolean; data: LibraryResource[] }>('/library', { params });
-    return response.data.data;
+    try {
+      const response = await apiClient.get<{ success: boolean; data: LibraryResource[] }>('/library', { params });
+      if (Array.isArray(response.data?.data)) {
+        return response.data.data;
+      }
+      if (Array.isArray(response.data)) {
+        return response.data as unknown as LibraryResource[];
+      }
+      return [];
+    } catch (err) {
+      console.warn('LibraryService.getResources warning:', err);
+      return [];
+    }
   },
 
   updateResource: async (id: string, data: Partial<LibraryResource>): Promise<LibraryResource> => {
