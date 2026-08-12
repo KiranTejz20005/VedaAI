@@ -1707,7 +1707,6 @@ model Blueprint {
   updatedAt       DateTime     @updatedAt
 
   items           BlueprintItem[]
-  approvals       ApprovalRecord[]
 
   @@index([courseId])
   @@index([organizationId])

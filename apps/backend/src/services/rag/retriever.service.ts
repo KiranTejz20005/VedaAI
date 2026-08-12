@@ -4,68 +4,87 @@ import { expandContextWithGraph } from './graph-traversal.service';
 import { buildContextString } from './context-builder.service';
 import { logger } from '../../utils/logger';
 import { getOrSet, CacheTTL } from '../../api/common/cache';
+import crypto from 'crypto';
 
-function hashQuery(query: string): string {
-  let hash = 0;
-  for (let i = 0; i < query.length; i++) {
-    const char = query.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0;
-  }
-  return Math.abs(hash).toString(36);
+export interface RrfOptions {
+  rrfK?: number;
+  semanticWeight?: number;
+  keywordWeight?: number;
 }
 
-export async function advancedRetrieveContext(query: string, organizationId: string, limit = 5): Promise<string> {
+function hashQuery(query: string): string {
+  return crypto.createHash('sha256').update(query.trim().toLowerCase()).digest('hex').substring(0, 16);
+}
+
+// Reciprocal Rank Fusion (RRF) algorithm merging vector similarity and full-text keyword ranks
+export function performRRF(
+  vectorResults: Array<{ chunk: any; score: number }>,
+  keywordResults: Array<{ chunk: any; score: number }>,
+  options: RrfOptions = {}
+): Array<{ chunk: any; rrfScore: number }> {
+  const rrfK = options.rrfK ?? 60;
+  const semanticWeight = options.semanticWeight ?? 1.0;
+  const keywordWeight = options.keywordWeight ?? 1.0;
+
+  const scoreMap = new Map<string, { chunk: any; rrfScore: number }>();
+
+  // 1. Process Semantic Vector Search Ranks (1-indexed)
+  vectorResults.forEach((v, index) => {
+    const rank = index + 1;
+    const rrfContribution = semanticWeight / (rrfK + rank);
+    const existing = scoreMap.get(v.chunk.id);
+    if (existing) {
+      existing.rrfScore += rrfContribution;
+    } else {
+      scoreMap.set(v.chunk.id, { chunk: v.chunk, rrfScore: rrfContribution });
+    }
+  });
+
+  // 2. Process Full-Text Keyword Search Ranks (1-indexed)
+  keywordResults.forEach((k, index) => {
+    const rank = index + 1;
+    const rrfContribution = keywordWeight / (rrfK + rank);
+    const existing = scoreMap.get(k.chunk.id);
+    if (existing) {
+      existing.rrfScore += rrfContribution;
+    } else {
+      scoreMap.set(k.chunk.id, { chunk: k.chunk, rrfScore: rrfContribution });
+    }
+  });
+
+  // 3. Sort merged candidates by RRF score descending
+  return Array.from(scoreMap.values()).sort((a, b) => b.rrfScore - a.rrfScore);
+}
+
+export async function advancedRetrieveContext(
+  query: string,
+  organizationId: string,
+  limit = 5
+): Promise<string> {
   const cacheKey = `rag:${organizationId}:${hashQuery(query)}`;
   try {
     return await getOrSet(cacheKey, async () => {
-    // 1 & 2. Hybrid Search: Run Vector and Keyword search in parallel.
-    // The vector portion now uses native pgvector similarity (DB-ranked);
-    // we compute the embedding once and pass it down to avoid recomputation.
-    const queryVector = await getEmbedding(query);
+      // 1. Compute query vector (utilizes 1-hour Redis embedding cache)
+      const queryVector = await getEmbedding(query);
 
-    const [vectorResults, bm25Results] = await Promise.all([
-      queryVector ? performVectorSearch(query, organizationId, queryVector) : Promise.resolve([]),
-      performBM25Search(query, organizationId)
-    ]);
+      // 2. Parallel hybrid retrieval: Vector Search + GIN-indexed Keyword Search
+      const candidateLimit = Math.max(limit * 10, 50);
+      const [vectorResults, bm25Results] = await Promise.all([
+        queryVector ? performVectorSearch(query, organizationId, queryVector, candidateLimit) : Promise.resolve([]),
+        performBM25Search(query, organizationId, candidateLimit),
+      ]);
 
-    // 3. Hybrid Score Fusion
-    // We normalize scores by simply summing them into a map for this proof of concept.
-    // In production, weights could be applied.
-    const chunkScores = new Map<string, { chunk: any, score: number }>();
-    
-    // Weight vector heavily if similarity is high
-    for (const v of vectorResults) {
-      if (v.score > 0.5) { // Confidence threshold
-        chunkScores.set(v.chunk.id, { chunk: v.chunk, score: v.score * 2 });
-      }
-    }
-
-    // Weight keywords
-    for (const b of bm25Results) {
-      const existing = chunkScores.get(b.chunk.id);
-      if (existing) {
-        existing.score += b.score * 0.5; // Boost score if found by both
-      } else {
-        chunkScores.set(b.chunk.id, { chunk: b.chunk, score: b.score });
-      }
-    }
-
-    // Sort by combined score
-    const fusedResults = Array.from(chunkScores.values())
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
+      // 3. Reciprocal Rank Fusion (RRF)
+      const fusedResults = performRRF(vectorResults, bm25Results).slice(0, limit);
       
-    if (fusedResults.length === 0) return '';
+      if (fusedResults.length === 0) return '';
 
-    // 4. Graph Traversal Context Expansion
-    const topChunkIds = fusedResults.map(r => r.chunk.id);
-    const expandedChunks = await expandContextWithGraph(topChunkIds);
+      // 4. Graph Traversal Context Expansion
+      const topChunkIds = fusedResults.map((r) => r.chunk.id);
+      const expandedChunks = await expandContextWithGraph(topChunkIds);
 
-    // 5. Context Builder
-    const finalContext = buildContextString(expandedChunks);
-    
-    return finalContext;
+      // 5. Context Builder
+      return buildContextString(expandedChunks);
     }, CacheTTL.SHORT);
   } catch (error) {
     logger.error(`Error in advancedRetrieveContext: ${error}`);
