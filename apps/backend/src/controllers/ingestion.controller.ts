@@ -46,7 +46,7 @@ export class IngestionController {
 
   static async listSources(req: Request, res: Response): Promise<void> {
     try {
-      const organizationId = requireRequestOrgId(req);
+      requireRequestOrgId(req);
       
       // TODO: Fetch ingested sources from DB scoped to organizationId
       const sources: any[] = [];
