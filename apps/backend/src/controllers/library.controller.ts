@@ -87,13 +87,18 @@ export const getResources = async (req: Request, res: Response): Promise<void> =
       ];
     }
 
-    const resources = await prisma.libraryResource.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        uploadedBy: { select: { firstName: true, lastName: true } },
-      },
-    });
+    let resources: any[] = [];
+    try {
+      resources = await prisma.libraryResource.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          uploadedBy: { select: { firstName: true, lastName: true } },
+        },
+      });
+    } catch (err) {
+      console.warn('LibraryResource query warning:', err);
+    }
 
     const unifiedResources = [...resources];
 
@@ -166,8 +171,8 @@ export const getResources = async (req: Request, res: Response): Promise<void> =
       unifiedResources.push(...docResources);
     }
 
-    // Sort all by createdAt desc
-    unifiedResources.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    // Sort all by createdAt desc safely
+    unifiedResources.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     res.json({ success: true, data: unifiedResources });
   } catch (error: any) {

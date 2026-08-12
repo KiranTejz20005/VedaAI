@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma';
 import { AIOrchestrator } from './ai/ai-orchestrator.service';
 import { retrieveContext, retrieveContextWithSources, type RagSourceCitation } from './rag.service';
@@ -9,7 +10,7 @@ export interface TutorChatResult {
   followUp: string;
   messageId: string;
   confidenceScore?: number;
-  ragReferences?: unknown;
+  ragReferences?: Prisma.InputJsonValue;
   sources?: RagSourceCitation[];
 }
 
@@ -160,7 +161,7 @@ ${dynamicContext}
     sessionId: string,
     userMessage: string,
     assistantMessage: string,
-    ragReferences: unknown,
+    ragReferences: Prisma.InputJsonValue | undefined,
     confidence?: number
   ): Promise<string> {
     await prisma.tutorMessage.create({
@@ -176,7 +177,7 @@ ${dynamicContext}
         sessionId,
         role: 'ASSISTANT',
         content: assistantMessage,
-        ragReferences,
+        ragReferences: ragReferences ?? Prisma.JsonNull,
         confidence,
       },
     });
@@ -214,8 +215,8 @@ ${dynamicContext}
       tutorReply.suggestedFollowUp = "Is there a concept from your syllabus you'd like to review?";
     }
 
-    const ragReferences = ctx.sources.length
-      ? { source: 'rag_engine', contextRetrieved: true, citations: ctx.sources }
+    const ragReferences: Prisma.InputJsonValue = ctx.sources.length
+      ? { source: 'rag_engine', contextRetrieved: true, citations: ctx.sources as unknown as Prisma.InputJsonValue }
       : { source: 'rag_engine', contextRetrieved: Boolean(ctx.ragContext) };
 
     const messageId = await this.persistExchange(
@@ -271,8 +272,8 @@ ${dynamicContext}
     }
 
     const message = fullText.trim();
-    const ragReferences = ctx.sources.length
-      ? { source: 'rag_engine', contextRetrieved: true, citations: ctx.sources }
+    const ragReferences: Prisma.InputJsonValue = ctx.sources.length
+      ? { source: 'rag_engine', contextRetrieved: true, citations: ctx.sources as unknown as Prisma.InputJsonValue }
       : { source: 'rag_engine', contextRetrieved: Boolean(ctx.ragContext) };
 
     const messageId = await this.persistExchange(
