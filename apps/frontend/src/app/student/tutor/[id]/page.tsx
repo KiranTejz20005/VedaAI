@@ -4,21 +4,67 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { Send, ArrowLeft, Sparkles, AlertCircle, BrainCircuit, Lightbulb, RotateCcw } from 'lucide-react';
+import { Send, ArrowLeft, Sparkles, AlertCircle, BrainCircuit, Lightbulb, RotateCcw, BookOpen } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
+import { useTutorStore } from '@/store/tutor.store';
+import { useTutorSocket } from '@/hooks/useTutorSocket';
 import { Card } from '@/design-system/Card';
 import { Button } from '@/design-system/Button';
 import { LoadingState } from '@/design-system/LoadingState';
 import { ErrorState } from '@/design-system/ErrorState';
-import type { TutorSessionDetail, TutorMessage } from '@/types/tutor.types';
+import type { TutorSessionDetail, TutorMessage, RagSourceCitation } from '@/types/tutor.types';
 import { getSession, sendChatMessage, closeSession, generateFlashcards } from '@/services/tutor.service';
-import { ThinkingAnimation } from '@/components/ui/ThinkingAnimation';
 import { FlashcardModal } from '@/components/ui/FlashcardModal';
+
+function RagSourceCards({ sources }: { sources: RagSourceCitation[] }) {
+  if (sources.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {sources.map((source) => (
+        <div
+          key={source.chunkId}
+          style={{
+            padding: '8px 10px',
+            borderRadius: 8,
+            border: '1px solid var(--border-subtle)',
+            background: '#F8FAFC',
+            fontSize: 11,
+            color: 'var(--text-secondary)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, fontWeight: 600 }}>
+            <BookOpen size={12} />
+            <span>{source.filename}</span>
+            {source.topic ? <span style={{ color: 'var(--text-muted)' }}>· {source.topic}</span> : null}
+          </div>
+          <p style={{ margin: 0, lineHeight: 1.4 }}>{source.excerpt}{source.excerpt.length >= 180 ? '…' : ''}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function TutorChatPage() {
   const { id } = useParams() as { id: string };
   const { user } = useAuthStore();
   const router = useRouter();
+
+  const { streamQuery } = useTutorSocket(id, {
+    onStreamComplete: (message: TutorMessage) => {
+      setMessages((prev) => [...prev, message]);
+      setIsSending(false);
+    },
+    onStreamError: (error: string) => {
+      toast.error(error || 'Streaming failed');
+      resetStream();
+      setIsSending(false);
+    },
+  });
+
+  const activeStream = useTutorStore((s) => s.activeStream);
+  const startStream = useTutorStore((s) => s.startStream);
+  const resetStream = useTutorStore((s) => s.resetStream);
 
   const [session, setSession] = useState<TutorSessionDetail | null>(null);
   const [messages, setMessages] = useState<TutorMessage[]>([]);
@@ -55,23 +101,33 @@ export default function TutorChatPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, activeStream?.content]);
 
-    const handleSend = async (e?: React.FormEvent) => {
+  const sendViaHttp = async (userMessageContent: string, optimisticUserMsg: TutorMessage) => {
+    const response = await sendChatMessage(id, userMessageContent, mode);
+    const assistantMsg: TutorMessage = {
+      id: response.messageId || (Date.now() + 1).toString(),
+      sessionId: id,
+      role: 'ASSISTANT',
+      content: response.message,
+      createdAt: new Date().toISOString(),
+      confidence: (response as any).confidenceScore,
+    };
+    setMessages((prev) => [...prev, assistantMsg]);
+  };
+
+  const handleSend = async (e?: React.FormEvent) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
-    
+
     if (!inputValue.trim() || isSending || session?.status === 'CLOSED') return;
 
     const userMessageContent = inputValue.trim();
-    
-    // 1. Immediately clear input synchronously
     setInputValue('');
     setIsSending(true);
 
-    // 2. Optimistic update
     const optimisticUserMsg: TutorMessage = {
       id: Date.now().toString(),
       sessionId: id,
@@ -80,32 +136,31 @@ export default function TutorChatPage() {
       createdAt: new Date().toISOString(),
     };
 
+    const requestId = `tutor-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const streamingMessageId = `stream-${requestId}`;
+
     setMessages((prev) => [...prev, optimisticUserMsg]);
+    startStream(requestId, streamingMessageId);
 
     try {
-      // 3. Send API request
-      const response = await sendChatMessage(id, userMessageContent, mode);
-      
-      const assistantMsg: TutorMessage = {
-        id: response.messageId || (Date.now() + 1).toString(),
-        sessionId: id,
-        role: 'ASSISTANT',
-        content: response.message,
-        createdAt: new Date().toISOString(),
-        confidence: (response as any).confidenceScore,
-      };
-
-      // 4. Render AI response
-      setMessages((prev) => [...prev, assistantMsg]);
+      const transport = await streamQuery(userMessageContent, mode, requestId);
+      if (transport === 'http') {
+        resetStream();
+        await sendViaHttp(userMessageContent, optimisticUserMsg);
+      }
     } catch (err: any) {
-      toast.error(err.message || 'Failed to send message');
-      // Rollback optimistic update on error
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticUserMsg.id));
-      // Only restore input if user hasn't typed a new message
-      setInputValue((prev) => prev === '' ? userMessageContent : prev);
+      try {
+        resetStream();
+        await sendViaHttp(userMessageContent, optimisticUserMsg);
+      } catch (fallbackErr: any) {
+        toast.error(fallbackErr.message || 'Failed to send message');
+        setMessages((prev) => prev.filter((m) => m.id !== optimisticUserMsg.id));
+        setInputValue((prev) => (prev === '' ? userMessageContent : prev));
+      }
     } finally {
-      // 5. Enable input
-      setIsSending(false);
+      if (useTutorStore.getState().activeStream === null) {
+        setIsSending(false);
+      }
       setTimeout(() => {
         inputRef.current?.focus();
       }, 0);
@@ -116,8 +171,6 @@ export default function TutorChatPage() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       e.stopPropagation();
-      
-      // Explicitly check disabled state again for keyboard events
       if (!isSending && inputValue.trim()) {
         handleSend();
       }
@@ -130,14 +183,30 @@ export default function TutorChatPage() {
       await closeSession(id);
       toast.success('Session closed');
       router.push('/student/tutor');
-    } catch (err: any) {
+    } catch {
       toast.error('Failed to close session');
     }
   };
 
+  const streamingMessage: TutorMessage | null = activeStream
+    ? {
+        id: activeStream.messageId,
+        sessionId: id,
+        role: 'ASSISTANT',
+        content: activeStream.content,
+        createdAt: new Date().toISOString(),
+        isStreaming: true,
+        sources: activeStream.sources,
+        ragReferences: activeStream.ragReferences,
+      }
+    : null;
+
+  const displayMessages = streamingMessage ? [...messages, streamingMessage] : messages;
+
   if (isLoading) return <LoadingState lines={8} />;
   if (error || !session) return <ErrorState message={error || 'Session not found'} onRetry={fetchSession} />;
-  return (
+
+  return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -164,7 +233,7 @@ export default function TutorChatPage() {
                 await restartSession(id);
                 toast.success('Session restarted');
                 fetchSession();
-              } catch (err) {
+              } catch {
                 toast.error('Failed to restart session');
               }
             }}>
@@ -175,17 +244,17 @@ export default function TutorChatPage() {
       </div>
 
       <Card style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
-        {/* Chat History */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: 24, background: '#FAFAFA' }}>
-          {messages.length === 0 ? (
+          {displayMessages.length === 0 ? (
             <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)' }}>
               <Sparkles size={40} style={{ margin: '0 auto 16px', opacity: 0.5, color: 'var(--brand)' }} />
               <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>Ready to learn?</h3>
               <p>Ask a question about {session.subject} to get started.</p>
             </div>
           ) : (
-            messages.map((msg) => {
+            displayMessages.map((msg) => {
               const isUser = msg.role === 'USER';
+              const sources = msg.sources ?? [];
               return (
                 <div key={msg.id} style={{
                   display: 'flex',
@@ -209,10 +278,14 @@ export default function TutorChatPage() {
                     border: isUser ? 'none' : '1px solid var(--border-subtle)',
                     fontSize: 'var(--text-base)',
                     lineHeight: 1.5,
-                    whiteSpace: 'pre-wrap'
+                    whiteSpace: 'pre-wrap',
                   }}>
                     {msg.content}
-                    {!isUser && !!msg.ragReferences && (
+                    {msg.isStreaming && !msg.content && (
+                      <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Thinking…</span>
+                    )}
+                    {!isUser && sources.length > 0 && <RagSourceCards sources={sources} />}
+                    {!isUser && !sources.length && !!msg.ragReferences && (
                       <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-subtle)', fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <AlertCircle size={12} /> Sourced from institution knowledge
                       </div>
@@ -222,27 +295,26 @@ export default function TutorChatPage() {
               );
             })
           )}
-          {isSending && (
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                <div style={{ 
-                  width: 32, height: 32, borderRadius: '50%', background: 'var(--primary-light)', 
-                  color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' 
-                }}>
-                  <BrainCircuit size={16} />
-                </div>
-                <div style={{
-                  background: 'var(--bg-card)', border: '1px solid var(--border)',
-                  padding: '12px 16px', borderRadius: 'var(--radius-lg)',
-                  borderTopLeftRadius: 4, display: 'flex', alignItems: 'center', minWidth: 80
-                }}>
-                  <ThinkingAnimation variant="brain" />
-                </div>
+          {isSending && !activeStream && (
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: '50%', background: 'var(--primary-light)',
+                color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <BrainCircuit size={16} />
               </div>
+              <div style={{
+                background: 'var(--bg-card)', border: '1px solid var(--border)',
+                padding: '12px 16px', borderRadius: 'var(--radius-lg)',
+                borderTopLeftRadius: 4, display: 'flex', alignItems: 'center', minWidth: 80,
+              }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>Connecting…</span>
+              </div>
+            </div>
           )}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Area */}
         {session.status === 'ACTIVE' ? (
           <div style={{ padding: 16, borderTop: '1px solid var(--border-subtle)', background: 'white' }}>
             <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
@@ -305,12 +377,11 @@ export default function TutorChatPage() {
         )}
       </Card>
 
-      <FlashcardModal 
-        open={isFlashcardModalOpen} 
-        onClose={() => setIsFlashcardModalOpen(false)} 
-        fetchFlashcards={() => generateFlashcards(id)} 
+      <FlashcardModal
+        open={isFlashcardModalOpen}
+        onClose={() => setIsFlashcardModalOpen(false)}
+        fetchFlashcards={() => generateFlashcards(id)}
       />
     </div>
   );
 }
-// trigger rebuild

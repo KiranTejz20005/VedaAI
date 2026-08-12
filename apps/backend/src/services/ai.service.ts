@@ -108,12 +108,13 @@ ${typeBreakdown ? `7. Adhere to this breakdown: ${JSON.stringify(typeBreakdown)}
 
   await reportProgress('batch_generating', 50, 'Generating paper sections and validating constraints...');
 
-  // 3. Execution via AI Orchestrator (Provider Agnostic)
+  // 3. Execution via AI Orchestrator (Provider Agnostic with proactive failover)
   const generatedData = await AIOrchestrator.generate({
     intent: 'GenerateQuestionPaper',
     context: combinedContext,
     taskInstructions,
-    responseFormat
+    responseFormat,
+    signal,
   });
 
   await reportProgress('validating', 80, 'Validating generated paper format...');
@@ -193,7 +194,8 @@ CRITICAL RULES:
     intent: 'GenerateQuestionPaper',
     context: '',
     taskInstructions,
-    responseFormat
+    responseFormat,
+    signal,
   });
 
   // Merge the generated answers back into the paper
@@ -217,5 +219,5 @@ CRITICAL RULES:
 }
 
 export function getProviderHealthSnapshot() {
-  return {};
+  return AIOrchestrator.getHealthSnapshot();
 }

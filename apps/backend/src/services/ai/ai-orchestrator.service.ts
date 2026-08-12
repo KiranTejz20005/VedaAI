@@ -8,6 +8,7 @@ import { AIProvider } from './providers/provider.interface';
 import { ProviderHealthManager } from './provider-health';
 import { withTimeout, createTimeoutSignal } from '../../utils/timeout';
 import { logger } from '../../utils/logger';
+import { env } from '../../config/env';
 
 export interface AIRequestOptions {
   intent: string;
@@ -22,39 +23,43 @@ export interface AIRequestOptions {
   signal?: AbortSignal; // Optional upstream cancellation signal
 }
 
-const GENERATION_TIMEOUT_MS = 120_000;
-// Fallback order used when the registry-selected provider fails.
-const FALLBACK_ORDER: string[] = ['openai', 'groq', 'nvidia'];
+const DEFAULT_SECONDARY_TIMEOUT_MS = 30_000;
+// Preferred fallback order when the registry-selected provider fails or circuit is open.
+const FALLBACK_ORDER: string[] = ['groq', 'openai', 'nvidia'];
 
 export class AIOrchestrator {
   private static providers: Record<string, AIProvider> = {
-    'openai': new OpenAIProvider(),
-    'groq': new GroqProvider(),
-    'nvidia': new NvidiaProvider()
+    openai: new OpenAIProvider(),
+    groq: new GroqProvider(),
+    nvidia: new NvidiaProvider(),
   };
 
-  // Circuit breaker over the live providers (reuses existing dead-code manager).
+  // Circuit breaker manager tracking health and state transitions across providers
   private static health = new ProviderHealthManager();
 
+  static getHealthManager(): ProviderHealthManager {
+    return this.health;
+  }
+
+  static getHealthSnapshot() {
+    return this.health.statsSnapshot();
+  }
+
   static async generate(options: AIRequestOptions): Promise<any> {
+    const totalStartMs = Date.now();
+
     try {
       // 1. Model Selection based on Intent
       const modelConfig = ModelRegistryService.getModelForIntent(options.intent);
+      const primaryProvider = modelConfig.provider;
 
       // 2. Token Budgeting & Context Compression
-      const compressedContext = TokenBudgetService.truncateContextToFitBudget(
-        options.context,
-        modelConfig
-      );
+      const compressedContext = TokenBudgetService.truncateContextToFitBudget(options.context, modelConfig);
 
       // 3. Prompt Building
-      let finalPrompt = PromptBuilderService.buildPrompt(
-        options.intent,
-        compressedContext,
-        options.taskInstructions
-      );
+      let finalPrompt = PromptBuilderService.buildPrompt(options.intent, compressedContext, options.taskInstructions);
 
-      // Handle JSON Schema fallback since some providers (like NVIDIA Llama endpoints) reject `json_schema`
+      // Handle JSON Schema fallback since some endpoints reject raw `json_schema`
       let finalResponseFormat = options.responseFormat;
       if (options.responseFormat?.type === 'json_schema') {
         const schemaString = JSON.stringify(options.responseFormat.json_schema.schema, null, 2);
@@ -62,33 +67,42 @@ export class AIOrchestrator {
         finalResponseFormat = { type: 'json_object' };
       }
 
-      // 4. Execute via Provider Abstraction with multi-provider fallback.
-      // The registry-selected provider is tried first; on failure we attempt
-      // each remaining healthy provider once. A per-call AbortSignal timeout
-      // guarantees a hung LLM call is actually aborted.
+      // 4. Determine provider evaluation order
       const orderedProviders = [
-        modelConfig.provider,
-        ...FALLBACK_ORDER.filter((p) => p !== modelConfig.provider),
+        primaryProvider,
+        ...FALLBACK_ORDER.filter((p) => p !== primaryProvider),
       ];
 
       let lastError: Error | null = null;
+      const primaryTimeoutMs = env.AI_PRIMARY_TIMEOUT_MS || 12_000;
 
       for (const providerName of orderedProviders) {
         const provider = this.providers[providerName];
         if (!provider) continue;
 
-        // Circuit breaker: skip providers currently tripped/open/quarantined.
-        if (!this.health.canAttempt(providerName as any)) {
-          logger.warn(`[AI_FALLBACK] Skipping ${providerName}: circuit open/quarantined`);
+        const isPrimary = providerName === primaryProvider;
+        const circuitState = this.health.getCircuitState(providerName);
+
+        // Circuit breaker check: skip provider if circuit is OPEN / quarantined
+        if (!this.health.canAttempt(providerName)) {
+          const fallbackTarget = orderedProviders.find((p) => p !== providerName && this.health.canAttempt(p)) || 'none';
+          logger.warn(
+            {
+              primaryProvider,
+              skippedProvider: providerName,
+              fallbackProvider: fallbackTarget,
+              circuitState,
+            },
+            `[AI_FAILOVER] Skipping provider '${providerName}' (circuit ${circuitState}). Proactively failing over to '${fallbackTarget}'.`
+          );
           continue;
         }
 
-        // Use the registry model for the primary provider; let fallback
-        // providers use their own sensible default model.
-        const model = providerName === modelConfig.provider ? modelConfig.modelName : undefined;
-
-        const signal = createTimeoutSignal(GENERATION_TIMEOUT_MS, options.signal);
-        const t0 = Date.now();
+        // Configurable 12s timeout for primary provider; 30s timeout for secondary providers
+        const currentTimeoutMs = isPrimary ? primaryTimeoutMs : DEFAULT_SECONDARY_TIMEOUT_MS;
+        const model = isPrimary ? modelConfig.modelName : undefined;
+        const timeoutSignal = createTimeoutSignal(currentTimeoutMs, options.signal);
+        const providerStartMs = Date.now();
 
         try {
           const result = await withTimeout(
@@ -100,19 +114,31 @@ export class AIOrchestrator {
                 responseFormat: finalResponseFormat,
                 media: options.media,
               },
-              signal
+              timeoutSignal
             ),
-            GENERATION_TIMEOUT_MS,
+            currentTimeoutMs,
             `AI generation (${providerName})`,
-            signal
+            timeoutSignal
           );
 
-          this.health.recordSuccess(providerName as any, Date.now() - t0);
+          const providerDurationMs = Date.now() - providerStartMs;
+          this.health.recordSuccess(providerName, providerDurationMs);
 
-          // 5. Response Validation (assuming JSON here)
+          if (!isPrimary) {
+            logger.info(
+              {
+                primaryProvider,
+                successfulProvider: providerName,
+                totalDurationMs: Date.now() - totalStartMs,
+                providerDurationMs,
+              },
+              `[AI_FAILOVER] Failover execution via '${providerName}' completed successfully in ${providerDurationMs}ms.`
+            );
+          }
+
+          // 5. Response Parsing & Validation
           if (modelConfig.supportsJSON) {
             try {
-              // Some models wrap JSON in markdown blocks even when instructed not to
               let cleanResult = result;
               if (typeof result === 'string') {
                 cleanResult = result.replace(/```json/gi, '').replace(/```/g, '').trim();
@@ -120,29 +146,124 @@ export class AIOrchestrator {
               return JSON.parse(cleanResult);
             } catch (e) {
               logger.error({ result }, `Failed to parse AI response as JSON from ${providerName}`);
-              this.health.recordValidationFailure(providerName as any);
-              lastError = new Error('AI Response Validation Failed: Invalid JSON');
-              continue; // try next provider
+              this.health.recordValidationFailure(providerName);
+              lastError = new Error(`AI Response Validation Failed (${providerName}): Invalid JSON`);
+              continue;
             }
           }
 
           return result;
         } catch (error) {
           lastError = error as Error;
-          const duration = Date.now() - t0;
-          logger.error(`[AI_FALLBACK] Provider ${providerName} failed after ${duration}ms: ${error}`);
-          this.health.recordTransportFailure(providerName as any);
-          // fall through to next provider
+          const providerDurationMs = Date.now() - providerStartMs;
+          const isTimeout =
+            (error as Error).message?.includes('timed out') ||
+            (error as Error).name === 'AbortError' ||
+            timeoutSignal.aborted;
+
+          if (isTimeout) {
+            this.health.recordTimeoutFailure(providerName);
+          } else {
+            this.health.recordTransportFailure(providerName);
+          }
+
+          const updatedCircuitState = this.health.getCircuitState(providerName);
+          const fallbackTarget = orderedProviders.find((p) => p !== providerName && this.health.canAttempt(p)) || 'none';
+
+          logger.warn(
+            {
+              primaryProvider,
+              failedProvider: providerName,
+              fallbackProvider: fallbackTarget,
+              durationMs: providerDurationMs,
+              timeoutLimitMs: currentTimeoutMs,
+              isTimeout,
+              error: (error as Error).message,
+              circuitState: updatedCircuitState,
+            },
+            `[AI_FAILOVER] Provider '${providerName}' failed/timed out after ${providerDurationMs}ms (${(error as Error).message}). Failing over to '${fallbackTarget}'.`
+          );
         }
       }
 
       throw new Error(
         `AI generation failed after trying providers [${orderedProviders.join(', ')}]. ` +
-        `Last error: ${lastError?.message}`
+          `Last error: ${lastError?.message}`
       );
     } catch (error) {
-      logger.error(`AIOrchestrator generation failed: ${error}`);
+      logger.error(`AIOrchestrator generation failed: ${(error as Error).message}`);
       throw error;
     }
   }
+
+  /**
+   * Streams LLM tokens with the same provider failover semantics as generate().
+   */
+  static async *stream(options: AIRequestOptions): AsyncGenerator<string> {
+    const modelConfig = ModelRegistryService.getModelForIntent(options.intent);
+    const primaryProvider = modelConfig.provider;
+    const compressedContext = TokenBudgetService.truncateContextToFitBudget(options.context, modelConfig);
+    const finalPrompt = PromptBuilderService.buildPrompt(options.intent, compressedContext, options.taskInstructions);
+
+    const orderedProviders = [
+      primaryProvider,
+      ...FALLBACK_ORDER.filter((p) => p !== primaryProvider),
+    ];
+
+    let lastError: Error | null = null;
+    const primaryTimeoutMs = env.AI_PRIMARY_TIMEOUT_MS || 12_000;
+
+    for (const providerName of orderedProviders) {
+      const provider = this.providers[providerName];
+      if (!provider) continue;
+
+      const isPrimary = providerName === primaryProvider;
+      if (!this.health.canAttempt(providerName)) continue;
+
+      const currentTimeoutMs = isPrimary ? primaryTimeoutMs : DEFAULT_SECONDARY_TIMEOUT_MS;
+      const model = isPrimary ? modelConfig.modelName : undefined;
+      const timeoutSignal = createTimeoutSignal(currentTimeoutMs, options.signal);
+      const providerStartMs = Date.now();
+
+      try {
+        for await (const token of provider.stream(finalPrompt, {
+          model,
+          temperature: options.temperature,
+        })) {
+          if (timeoutSignal.aborted) {
+            throw new Error(`AI streaming (${providerName}) timed out`);
+          }
+          if (typeof token === 'string' && token.length > 0) {
+            yield token;
+          }
+        }
+
+        this.health.recordSuccess(providerName, Date.now() - providerStartMs);
+        return;
+      } catch (error) {
+        lastError = error as Error;
+        const isTimeout =
+          (error as Error).message?.includes('timed out') ||
+          (error as Error).name === 'AbortError' ||
+          timeoutSignal.aborted;
+
+        if (isTimeout) {
+          this.health.recordTimeoutFailure(providerName);
+        } else {
+          this.health.recordTransportFailure(providerName);
+        }
+
+        logger.warn(
+          { failedProvider: providerName, error: (error as Error).message },
+          `[AI_FAILOVER] Streaming provider '${providerName}' failed; trying next provider.`
+        );
+      }
+    }
+
+    throw new Error(
+      `AI streaming failed after trying providers [${orderedProviders.join(', ')}]. ` +
+        `Last error: ${lastError?.message}`
+    );
+  }
 }
+

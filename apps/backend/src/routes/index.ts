@@ -32,6 +32,7 @@ import attendanceRoutes from './attendance.routes';
 import copilotRoutes from './copilot.routes';
 import libraryRoutes from './library.routes';
 import classInsightRoutes from './class-insight.routes';
+import ingestionRoutes from './ingestion.routes';
 
 // ── New API Gateway ──
 import apiGateway from '../api/index';
@@ -101,6 +102,7 @@ apiRouter.use('/v1/student', studentRoutes);
 apiRouter.use('/v1/attendance', attendanceRoutes);
 apiRouter.use('/v1/library', libraryRoutes);
 apiRouter.use('/v1/insights', classInsightRoutes);
+apiRouter.use('/v1/ingestion', ingestionRoutes);
 
 // Copilot
 apiRouter.use('/v1/copilot', copilotRoutes);

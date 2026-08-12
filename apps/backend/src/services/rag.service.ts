@@ -9,7 +9,7 @@ const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY || '' });
 
 import { parseDocumentIntoSemanticChunks } from './document-parser.service';
 
-export async function ingestDocument(fileUrl: string, fileType: string, organizationId: string, filename: string): Promise<string> {
+export async function ingestDocument(fileUrl: string, fileType: string, organizationId: string, filename: string, userId: string = 'system'): Promise<string> {
   if (!env.OPENAI_API_KEY) {
     logger.warn('No OPENAI_API_KEY found, RAG embeddings will be skipped.');
     return '';
@@ -20,11 +20,72 @@ export async function ingestDocument(fileUrl: string, fileType: string, organiza
 
   const semanticChunks = await parseDocumentIntoSemanticChunks(text);
   
+  // ── AUTO-CLASSIFICATION ──
+  let category = 'HANDOUT';
+  let status = 'ACTIVE';
+
+  if (semanticChunks.length > 0) {
+    const sampleIndices = [
+      0, 
+      Math.floor(semanticChunks.length / 2), 
+      semanticChunks.length - 1
+    ];
+    const uniqueIndices = [...new Set(sampleIndices)];
+    const sampleText = uniqueIndices.map(i => semanticChunks[i].content).join('\n\n---\n\n');
+
+    const prompt = `System: You are an academic classifier. Analyze the following document excerpts.
+Classify this document strictly as one of the following categories: 'HANDOUT', 'SYLLABUS', 'ASSESSMENT', 'LAB_MANUAL'.
+Respond with the exact word and nothing else.
+
+Excerpts:
+${sampleText}`;
+
+    try {
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.0,
+      });
+
+      const verdict = completion.choices[0].message.content?.trim();
+      
+      if (['HANDOUT', 'SYLLABUS', 'ASSESSMENT', 'LAB_MANUAL'].includes(verdict || '')) {
+        category = verdict as string;
+      }
+
+      if (category === 'ASSESSMENT') {
+        status = 'PENDING_APPROVAL';
+        
+        // Notify Admins
+        const admins = await prisma.user.findMany({
+          where: { organizationId, role: { in: ['ADMIN', 'SUPER_ADMIN'] } },
+          select: { id: true }
+        });
+
+        if (admins.length > 0) {
+          await prisma.notification.createMany({
+            data: admins.map(admin => ({
+              userId: admin.id,
+              organizationId,
+              title: '📝 Assessment Requires Approval',
+              message: `An Assessment (${filename}) was automatically routed to your queue for review.`,
+              type: 'INFO',
+            }))
+          });
+        }
+      }
+    } catch (llmErr) {
+      logger.error(`[AUTO-CLASSIFICATION] Failed to run classification, defaulting to HANDOUT: ${llmErr}`);
+    }
+  }
+
   const doc = await prisma.knowledgeDocument.create({
     data: {
       filename,
       fileUrl,
       organizationId,
+      category,
+      status: status as any
     }
   });
 
@@ -79,4 +140,5 @@ export async function ingestDocument(fileUrl: string, fileType: string, organiza
 
 
 
-export { advancedRetrieveContext as retrieveContext } from './rag/retriever.service';
+export { advancedRetrieveContext as retrieveContext, retrieveContextWithSources } from './rag/retriever.service';
+export type { RagSourceCitation } from './rag/retriever.service';

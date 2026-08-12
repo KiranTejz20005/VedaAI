@@ -79,7 +79,7 @@ export const getSession = async (req: Request, res: Response): Promise<void> => 
  */
 export const chat = async (req: Request, res: Response): Promise<void> => {
   const { sessionId } = req.params;
-  const { message } = req.body;
+  const { message, mode } = req.body;
   const studentId = getRequestUserId(req);
   const organizationId = req.user?.activeOrganizationId ?? req.user?.organizationId ?? '';
 
@@ -88,7 +88,7 @@ export const chat = async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  const reply = await AITutorService.chat(sessionId, studentId, organizationId, message);
+  const reply = await AITutorService.chat(sessionId, studentId, organizationId, message, mode);
 
   // Update streak!
   if (studentId !== 'demo-faculty-id') {
