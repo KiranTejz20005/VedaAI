@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  Loader2, ArrowLeft, Check, AlertCircle, Award, MessageSquare, Edit
+  Loader2, ArrowLeft, Check, AlertCircle, Award, MessageSquare, Edit, ShieldCheck
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/services/api.client';
@@ -21,6 +21,9 @@ interface Evaluation {
   totalMarks: number;
   generalFeedback: string;
   criteriaGrades: CriteriaGrade[];
+  isOverridden?: boolean;
+  overrideReason?: string;
+  teacherFeedback?: string;
   submission: {
     id: string;
     fileUrl: string;
@@ -42,23 +45,27 @@ export default function GradeReviewPage() {
   // Edited values
   const [manualGrades, setManualGrades] = useState<Record<string, number>>({});
   const [overrideReason, setOverrideReason] = useState('');
+  const [teacherFeedback, setTeacherFeedback] = useState('');
   const [saving, setSaving] = useState(false);
 
   const loadData = async () => {
     try {
       setLoading(true);
       const evalRes = await apiClient.get<{ success: boolean; data: any }>(`/grader/submissions/${submissionId}/evaluate`);
-      setEvaluation(evalRes.data.data);
+      const data = evalRes.data.data;
+      setEvaluation(data);
 
       // Initialize manual grades
       const initialGrades: Record<string, number> = {};
-      evalRes.data.data.criteriaGrades.forEach((c: CriteriaGrade) => {
+      data.criteriaGrades.forEach((c: CriteriaGrade) => {
         initialGrades[c.criteriaId] = c.score;
       });
       setManualGrades(initialGrades);
+      setOverrideReason(data.overrideReason || '');
+      setTeacherFeedback(data.teacherFeedback || '');
 
       // Bind actual student submission text
-      setStudentText(evalRes.data.data.studentText || 'No text extracted from submission.');
+      setStudentText(data.studentText || 'No text extracted from submission.');
     } catch {
       toast.error('Failed to load evaluation details');
     } finally {
@@ -77,15 +84,35 @@ export default function GradeReviewPage() {
   const handleSaveOverride = async () => {
     setSaving(true);
     const finalScore = calculateTotalScore();
+
+    const updatedCriteria = evaluation?.criteriaGrades.map(cg => ({
+      ...cg,
+      score: manualGrades[cg.criteriaId] ?? cg.score
+    })) || [];
+
     try {
-      await apiClient.post(`/grader/submissions/${submissionId}/override`, {
+      await apiClient.patch(`/grader/submissions/${submissionId}/override`, {
         overrideScore: finalScore,
-        reason: overrideReason || 'Manual teacher review and criteria adjustment.',
+        reason: overrideReason || 'Manual teacher review and score adjustment.',
+        teacherFeedback: teacherFeedback || overrideReason || 'Grade reviewed and confirmed by teacher.',
+        criteriaGrades: updatedCriteria,
       });
-      toast.success('Grades finalized and review completed');
+      toast.success('Grades finalized and override saved');
       router.push('/grader');
     } catch {
-      toast.error('Failed to save manual grade overrides');
+      // Fallback to POST if endpoint differs
+      try {
+        await apiClient.post(`/grader/submissions/${submissionId}/override`, {
+          overrideScore: finalScore,
+          reason: overrideReason || 'Manual teacher review and score adjustment.',
+          teacherFeedback: teacherFeedback || overrideReason || 'Grade reviewed and confirmed by teacher.',
+          criteriaGrades: updatedCriteria,
+        });
+        toast.success('Grades finalized and override saved');
+        router.push('/grader');
+      } catch {
+        toast.error('Failed to save grade override');
+      }
     } finally {
       setSaving(false);
     }
@@ -111,14 +138,26 @@ export default function GradeReviewPage() {
     );
   }
 
+  const isOverridden = evaluation.isOverridden || Object.keys(manualGrades).some(k => {
+    const orig = evaluation.criteriaGrades.find(c => c.criteriaId === k);
+    return orig && orig.score !== manualGrades[k];
+  });
+
   return (
     <div className="dashboard-view" style={{ padding: '20px var(--page-pad)', display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Header */}
-      <div>
-        <button onClick={() => router.push('/grader')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontWeight: 600, padding: 0 }}>
-          <ArrowLeft size={16} /> Back to Dashboard
-        </button>
-        <h1 className="page-title" style={{ marginTop: 12 }}>Review Student Evaluation</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <button onClick={() => router.push('/grader')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontWeight: 600, padding: 0 }}>
+            <ArrowLeft size={16} /> Back to Dashboard
+          </button>
+          <h1 className="page-title" style={{ marginTop: 12 }}>Review & Override Evaluation</h1>
+        </div>
+        {isOverridden && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FEF3C7', color: '#92400E', padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 700, border: '1px solid #FDE68A' }}>
+            <ShieldCheck size={16} /> Overridden by Teacher
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, height: 'calc(100vh - 200px)', minHeight: 500 }}>
@@ -132,10 +171,10 @@ export default function GradeReviewPage() {
           </div>
         </div>
 
-        {/* Right: AI Grading Rubric Panel */}
+        {/* Right: AI Rubric Grading Panel & Controls */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', padding: 24, overflowY: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 10, marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700 }}>AI Rubric Grading Analysis</h3>
+            <h3 style={{ fontSize: 15, fontWeight: 700 }}>Rubric Evaluation & Override</h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Award size={18} color="var(--brand)" />
               <span style={{ fontSize: 18, fontWeight: 800 }}>{calculateTotalScore()} / {evaluation.totalMarks}</span>
@@ -152,7 +191,7 @@ export default function GradeReviewPage() {
                     <input
                       type="number"
                       className="input"
-                      style={{ width: 60, height: 32, padding: '0 6px', textAlign: 'center' }}
+                      style={{ width: 60, height: 32, padding: '0 6px', textAlign: 'center', fontWeight: 700 }}
                       value={manualGrades[cg.criteriaId] ?? cg.score}
                       onChange={(e) => setManualGrades({ ...manualGrades, [cg.criteriaId]: Number(e.target.value) })}
                     />
@@ -162,7 +201,7 @@ export default function GradeReviewPage() {
                   </div>
                 </div>
                 <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                  <strong>AI Feedback:</strong> {cg.explanation}
+                  <strong>AI Analysis:</strong> {cg.explanation}
                 </p>
               </div>
             ))}
@@ -170,33 +209,48 @@ export default function GradeReviewPage() {
             {/* General Feedback */}
             <div style={{ marginTop: 10 }}>
               <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <MessageSquare size={14} /> General Feedback
+                <MessageSquare size={14} /> AI General Feedback
               </h4>
               <p style={{ fontSize: 13, color: 'var(--text-secondary)', background: '#F9FAFB', padding: 12, borderRadius: 8, border: '1px solid var(--border)' }}>
                 {evaluation.generalFeedback}
               </p>
             </div>
 
-            {/* Override notes */}
+            {/* Personalised Teacher Feedback */}
             <div style={{ marginTop: 10 }}>
               <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Edit size={14} /> Teacher Review Notes
+                <MessageSquare size={14} color="var(--brand)" /> Personalised Teacher Feedback (Visible to Student)
               </h4>
               <textarea
                 className="input"
-                rows={3}
-                placeholder="Enter audit/override notes for students..."
+                rows={2}
+                placeholder="Enter feedback for the student..."
+                value={teacherFeedback}
+                onChange={(e) => setTeacherFeedback(e.target.value)}
+              />
+            </div>
+
+            {/* Override notes */}
+            <div style={{ marginTop: 10 }}>
+              <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Edit size={14} /> Override Reason & Audit Notes
+              </h4>
+              <textarea
+                className="input"
+                rows={2}
+                placeholder="Reason for score adjustment (recorded in audit log)..."
                 value={overrideReason}
                 onChange={(e) => setOverrideReason(e.target.value)}
               />
             </div>
           </div>
 
-          <button className="btn btn-primary" onClick={handleSaveOverride} disabled={saving} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            {saving ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />} Accept and Finalize Grade
+          <button className="btn btn-primary" onClick={handleSaveOverride} disabled={saving} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: 42, fontWeight: 600 }}>
+            {saving ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />} Save Grade Override
           </button>
         </div>
       </div>
     </div>
   );
 }
+

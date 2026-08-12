@@ -157,3 +157,58 @@ export async function evaluateSubmission(submissionId: string): Promise<any> {
     throw error;
   }
 }
+
+export interface OverridePayload {
+  overrideScore: number;
+  reason?: string;
+  teacherFeedback?: string;
+  criteriaGrades?: any[];
+  teacherId?: string;
+}
+
+export async function overrideEvaluation(submissionId: string, payload: OverridePayload) {
+  const evaluation = await prisma.submissionEvaluation.findUnique({
+    where: { submissionId },
+  });
+
+  if (!evaluation) {
+    throw new Error('Evaluation not found for this submission');
+  }
+
+  const previousScore = evaluation.score;
+  const newScore = Number(payload.overrideScore);
+
+  const updated = await prisma.submissionEvaluation.update({
+    where: { submissionId },
+    data: {
+      score: newScore,
+      isOverridden: true,
+      overrideReason: payload.reason || 'Manual teacher grade override',
+      teacherFeedback: payload.teacherFeedback || payload.reason || '',
+      overriddenBy: payload.teacherId || 'teacher',
+      overriddenAt: new Date(),
+      criteriaGrades: payload.criteriaGrades || evaluation.criteriaGrades,
+      teacherOverride: {
+        originalScore: previousScore,
+        overrideScore: newScore,
+        reason: payload.reason,
+        teacherFeedback: payload.teacherFeedback,
+        updatedAt: new Date().toISOString(),
+        updatedBy: payload.teacherId,
+      },
+    },
+  });
+
+  await prisma.studentSubmission.update({
+    where: { id: submissionId },
+    data: { status: 'GRADED' },
+  });
+
+  const sub = await prisma.studentSubmission.findUnique({ where: { id: submissionId }, select: { studentId: true } });
+  if (sub?.studentId) {
+    await invalidateCache(`analytics:student:${sub.studentId}`).catch(() => {});
+  }
+
+  return { evaluation: updated, previousScore, newScore };
+}
+
