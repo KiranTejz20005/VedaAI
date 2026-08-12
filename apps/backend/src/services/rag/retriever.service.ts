@@ -15,60 +15,105 @@ function hashQuery(query: string): string {
   return Math.abs(hash).toString(36);
 }
 
+export interface RagSourceCitation {
+  chunkId: string;
+  documentId: string;
+  filename: string;
+  topic?: string;
+  subject?: string;
+  chunkType?: string;
+  excerpt: string;
+  score: number;
+}
+
+interface FusedRetrievalResult {
+  context: string;
+  sources: RagSourceCitation[];
+}
+
+async function fuseAndBuildContext(
+  query: string,
+  organizationId: string,
+  limit: number
+): Promise<FusedRetrievalResult> {
+  const queryVector = await getEmbedding(query);
+
+  const [vectorResults, bm25Results] = await Promise.all([
+    queryVector ? performVectorSearch(query, organizationId, queryVector) : Promise.resolve([]),
+    performBM25Search(query, organizationId),
+  ]);
+
+  const chunkScores = new Map<string, { chunk: any; score: number }>();
+
+  for (const v of vectorResults) {
+    if (v.score > 0.5) {
+      chunkScores.set(v.chunk.id, { chunk: v.chunk, score: v.score * 2 });
+    }
+  }
+
+  for (const b of bm25Results) {
+    const existing = chunkScores.get(b.chunk.id);
+    if (existing) {
+      existing.score += b.score * 0.5;
+    } else {
+      chunkScores.set(b.chunk.id, { chunk: b.chunk, score: b.score });
+    }
+  }
+
+  const fusedResults = Array.from(chunkScores.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+
+  if (fusedResults.length === 0) {
+    return { context: '', sources: [] };
+  }
+
+  const topChunkIds = fusedResults.map((r) => r.chunk.id);
+  const expandedChunks = await expandContextWithGraph(topChunkIds);
+  const finalContext = buildContextString(expandedChunks);
+
+  const sources: RagSourceCitation[] = fusedResults.map(({ chunk, score }) => {
+    const metadata = (chunk.metadata ?? {}) as Record<string, unknown>;
+    return {
+      chunkId: chunk.id,
+      documentId: chunk.documentId,
+      filename: chunk.document?.filename ?? 'Institution document',
+      topic: typeof metadata.topic === 'string' ? metadata.topic : undefined,
+      subject: typeof metadata.subject === 'string' ? metadata.subject : undefined,
+      chunkType: typeof metadata.chunkType === 'string' ? metadata.chunkType : undefined,
+      excerpt: String(chunk.content ?? '').slice(0, 180),
+      score,
+    };
+  });
+
+  return { context: finalContext, sources };
+}
+
 export async function advancedRetrieveContext(query: string, organizationId: string, limit = 5): Promise<string> {
   const cacheKey = `rag:${organizationId}:${hashQuery(query)}`;
   try {
     return await getOrSet(cacheKey, async () => {
-    // 1 & 2. Hybrid Search: Run Vector and Keyword search in parallel.
-    // The vector portion now uses native pgvector similarity (DB-ranked);
-    // we compute the embedding once and pass it down to avoid recomputation.
-    const queryVector = await getEmbedding(query);
-
-    const [vectorResults, bm25Results] = await Promise.all([
-      queryVector ? performVectorSearch(query, organizationId, queryVector) : Promise.resolve([]),
-      performBM25Search(query, organizationId)
-    ]);
-
-    // 3. Hybrid Score Fusion
-    // We normalize scores by simply summing them into a map for this proof of concept.
-    // In production, weights could be applied.
-    const chunkScores = new Map<string, { chunk: any, score: number }>();
-    
-    // Weight vector heavily if similarity is high
-    for (const v of vectorResults) {
-      if (v.score > 0.5) { // Confidence threshold
-        chunkScores.set(v.chunk.id, { chunk: v.chunk, score: v.score * 2 });
-      }
-    }
-
-    // Weight keywords
-    for (const b of bm25Results) {
-      const existing = chunkScores.get(b.chunk.id);
-      if (existing) {
-        existing.score += b.score * 0.5; // Boost score if found by both
-      } else {
-        chunkScores.set(b.chunk.id, { chunk: b.chunk, score: b.score });
-      }
-    }
-
-    // Sort by combined score
-    const fusedResults = Array.from(chunkScores.values())
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
-      
-    if (fusedResults.length === 0) return '';
-
-    // 4. Graph Traversal Context Expansion
-    const topChunkIds = fusedResults.map(r => r.chunk.id);
-    const expandedChunks = await expandContextWithGraph(topChunkIds);
-
-    // 5. Context Builder
-    const finalContext = buildContextString(expandedChunks);
-    
-    return finalContext;
+      const { context } = await fuseAndBuildContext(query, organizationId, limit);
+      return context;
     }, CacheTTL.SHORT);
   } catch (error) {
     logger.error(`Error in advancedRetrieveContext: ${error}`);
     return '';
+  }
+}
+
+export async function retrieveContextWithSources(
+  query: string,
+  organizationId: string,
+  limit = 5
+): Promise<FusedRetrievalResult> {
+  const cacheKey = `rag:${organizationId}:${hashQuery(query)}:sources`;
+  try {
+    return await getOrSet(cacheKey, async () => {
+      return fuseAndBuildContext(query, organizationId, limit);
+    }, CacheTTL.SHORT);
+  } catch (error) {
+    logger.error(`Error in retrieveContextWithSources: ${error}`);
+    return { context: '', sources: [] };
   }
 }

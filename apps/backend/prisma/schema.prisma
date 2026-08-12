@@ -1466,6 +1466,8 @@ model KnowledgeDocument {
   fileUrl        String
   organizationId String
   organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category       String                 @default("HANDOUT")
+  status         WorkflowStatus         @default(ACTIVE)
   chunks         KnowledgeChunk[]
   qualityScore   KnowledgeQualityScore?
   createdAt      DateTime               @default(now())
@@ -1707,7 +1709,6 @@ model Blueprint {
   updatedAt       DateTime     @updatedAt
 
   items           BlueprintItem[]
-  approvals       ApprovalRecord[]
 
   @@index([courseId])
   @@index([organizationId])

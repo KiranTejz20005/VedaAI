@@ -16,6 +16,19 @@ export interface TutorMessage {
   confidence?: number;
   ragReferences?: unknown;
   createdAt: string;
+  isStreaming?: boolean;
+  sources?: RagSourceCitation[];
+}
+
+export interface RagSourceCitation {
+  chunkId: string;
+  documentId: string;
+  filename: string;
+  topic?: string;
+  subject?: string;
+  chunkType?: string;
+  excerpt: string;
+  score: number;
 }
 
 export interface TutorSessionDetail extends TutorSession {

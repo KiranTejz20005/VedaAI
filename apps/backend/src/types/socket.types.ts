@@ -86,6 +86,31 @@ export interface ServerToClientEvents {
   'chat:message': (payload: any) => void;
   'chat:typing': (payload: { userId: string; isTyping: boolean }) => void;
   'chat:error': (payload: { tempId?: string; error: string }) => void;
+
+  // Tutor streaming events
+  'tutor:sources': (payload: {
+    requestId: string;
+    sources: Array<{
+      chunkId: string;
+      documentId: string;
+      filename: string;
+      topic?: string;
+      subject?: string;
+      chunkType?: string;
+      excerpt: string;
+      score: number;
+    }>;
+  }) => void;
+  'tutor:chunk': (payload: { requestId: string; token: string; index: number }) => void;
+  'tutor:done': (payload: {
+    requestId: string;
+    messageId: string;
+    message: string;
+    followUp?: string;
+    confidence?: number;
+    ragReferences?: unknown;
+  }) => void;
+  'tutor:error': (payload: { requestId: string; error: string }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -102,4 +127,14 @@ export interface ClientToServerEvents {
   // Chat Events
   'chat:send_message': (data: { groupId: string; content: string; tempId?: string }) => void;
   'typing': (data: { groupId: string; isTyping: boolean }) => void;
+
+  // Tutor streaming events
+  'tutor:join_session': (data: { sessionId: string }) => void;
+  'tutor:leave_session': (data: { sessionId: string }) => void;
+  'tutor:stream_query': (data: {
+    sessionId: string;
+    message: string;
+    mode?: string;
+    requestId: string;
+  }) => void;
 }

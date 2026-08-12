@@ -67,3 +67,39 @@ export interface GenerationPdfReadyPayload {
   pdfUrl: string;
   ts: number;
 }
+
+export interface RagSourceCitation {
+  chunkId: string;
+  documentId: string;
+  filename: string;
+  topic?: string;
+  subject?: string;
+  chunkType?: string;
+  excerpt: string;
+  score: number;
+}
+
+export interface TutorSourcesPayload {
+  requestId: string;
+  sources: RagSourceCitation[];
+}
+
+export interface TutorChunkPayload {
+  requestId: string;
+  token: string;
+  index: number;
+}
+
+export interface TutorDonePayload {
+  requestId: string;
+  messageId: string;
+  message: string;
+  followUp?: string;
+  confidence?: number;
+  ragReferences?: unknown;
+}
+
+export interface TutorErrorPayload {
+  requestId: string;
+  error: string;
+}
