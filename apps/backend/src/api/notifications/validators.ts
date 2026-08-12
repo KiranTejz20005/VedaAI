@@ -2,13 +2,13 @@ import { z } from 'zod';
 
 export const notificationIdParamSchema = z.object({
   params: z.object({
-    id: z.string().uuid(),
+    id: z.string().min(1),
   }),
 });
 
 export const markReadSchema = z.object({
   params: z.object({
-    id: z.string().uuid(),
+    id: z.string().min(1),
   }),
 });
 

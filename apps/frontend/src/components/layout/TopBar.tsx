@@ -6,6 +6,7 @@ import { Bell, ChevronDown, Menu, LogOut, User, Settings, ChevronRight, Building
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
+import Notification2 from '@/components/ui/Notification2';
 
 const BREADCRUMB_MAP: Record<string, string> = {
   '/': 'Dashboard',
@@ -68,6 +69,7 @@ export function Topbar() {
   const { user, logout } = useAuthStore();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isOrgSwitcherOpen, setIsOrgSwitcherOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
   const toggle = useSidebarStore((s) => s.toggle);
   const showBackButton = pathname !== '/' && pathname !== '/dashboard';
@@ -80,14 +82,15 @@ export function Topbar() {
   }, [user?.role, fetchAvailableOrganizations]);
 
   useEffect(() => {
-    if (!isDropdownOpen && !isOrgSwitcherOpen) return;
+    if (!isDropdownOpen && !isOrgSwitcherOpen && !isNotificationOpen) return;
     const handleClose = () => {
       setIsDropdownOpen(false);
       setIsOrgSwitcherOpen(false);
+      setIsNotificationOpen(false);
     };
     window.addEventListener('click', handleClose);
     return () => window.removeEventListener('click', handleClose);
-  }, [isDropdownOpen, isOrgSwitcherOpen]);
+  }, [isDropdownOpen, isOrgSwitcherOpen, isNotificationOpen]);
 
   const handleSwitchOrg = async (orgId: string) => {
     if (isSwitching) return;
@@ -278,10 +281,41 @@ export function Topbar() {
             </div>
           )}
 
-          <button className="topbar-icon-btn" aria-label="Notifications">
-            <Bell size={18} aria-hidden="true" />
-            <span style={{ position: 'absolute', top: 6, right: 6, width: 7, height: 7, background: '#EF4444', borderRadius: '50%', border: '1.5px solid white' }} aria-hidden="true" />
-          </button>
+          <div style={{ position: 'relative' }}>
+            <button
+              className="topbar-icon-btn"
+              aria-label="Notifications"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsNotificationOpen(!isNotificationOpen);
+              }}
+            >
+              <Bell size={18} aria-hidden="true" />
+              <span style={{ position: 'absolute', top: 6, right: 6, width: 7, height: 7, background: '#EF4444', borderRadius: '50%', border: '1.5px solid white' }} aria-hidden="true" />
+            </button>
+
+            {isNotificationOpen && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '100%',
+                  marginTop: 8,
+                  zIndex: 1000,
+                  width: '380px',
+                  maxWidth: 'calc(100vw - 32px)',
+                  background: '#FFFFFF',
+                  borderRadius: '16px',
+                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.1)',
+                  border: '1px solid #E5E7EB',
+                  overflow: 'hidden',
+                }}
+              >
+                <Notification2 />
+              </div>
+            )}
+          </div>
 
           <div
             className="topbar-user"
