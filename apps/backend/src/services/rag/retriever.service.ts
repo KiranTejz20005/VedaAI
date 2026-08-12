@@ -4,15 +4,12 @@ import { expandContextWithGraph } from './graph-traversal.service';
 import { buildContextString } from './context-builder.service';
 import { logger } from '../../utils/logger';
 import { getOrSet, CacheTTL } from '../../api/common/cache';
+import crypto from 'crypto';
 
-function hashQuery(query: string): string {
-  let hash = 0;
-  for (let i = 0; i < query.length; i++) {
-    const char = query.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0;
-  }
-  return Math.abs(hash).toString(36);
+export interface RrfOptions {
+  rrfK?: number;
+  semanticWeight?: number;
+  keywordWeight?: number;
 }
 
 export interface RagSourceCitation {
@@ -31,6 +28,50 @@ interface FusedRetrievalResult {
   sources: RagSourceCitation[];
 }
 
+function hashQuery(query: string): string {
+  return crypto.createHash('sha256').update(query.trim().toLowerCase()).digest('hex').substring(0, 16);
+}
+
+// Reciprocal Rank Fusion (RRF) algorithm merging vector similarity and full-text keyword ranks
+export function performRRF(
+  vectorResults: Array<{ chunk: any; score: number }>,
+  keywordResults: Array<{ chunk: any; score: number }>,
+  options: RrfOptions = {}
+): Array<{ chunk: any; rrfScore: number }> {
+  const rrfK = options.rrfK ?? 60;
+  const semanticWeight = options.semanticWeight ?? 1.0;
+  const keywordWeight = options.keywordWeight ?? 1.0;
+
+  const scoreMap = new Map<string, { chunk: any; rrfScore: number }>();
+
+  // 1. Process Semantic Vector Search Ranks (1-indexed)
+  vectorResults.forEach((v, index) => {
+    const rank = index + 1;
+    const rrfContribution = semanticWeight / (rrfK + rank);
+    const existing = scoreMap.get(v.chunk.id);
+    if (existing) {
+      existing.rrfScore += rrfContribution;
+    } else {
+      scoreMap.set(v.chunk.id, { chunk: v.chunk, rrfScore: rrfContribution });
+    }
+  });
+
+  // 2. Process Full-Text Keyword Search Ranks (1-indexed)
+  keywordResults.forEach((k, index) => {
+    const rank = index + 1;
+    const rrfContribution = keywordWeight / (rrfK + rank);
+    const existing = scoreMap.get(k.chunk.id);
+    if (existing) {
+      existing.rrfScore += rrfContribution;
+    } else {
+      scoreMap.set(k.chunk.id, { chunk: k.chunk, rrfScore: rrfContribution });
+    }
+  });
+
+  // 3. Sort merged candidates by RRF score descending
+  return Array.from(scoreMap.values()).sort((a, b) => b.rrfScore - a.rrfScore);
+}
+
 async function fuseAndBuildContext(
   query: string,
   organizationId: string,
@@ -38,31 +79,13 @@ async function fuseAndBuildContext(
 ): Promise<FusedRetrievalResult> {
   const queryVector = await getEmbedding(query);
 
+  const candidateLimit = Math.max(limit * 10, 50);
   const [vectorResults, bm25Results] = await Promise.all([
-    queryVector ? performVectorSearch(query, organizationId, queryVector) : Promise.resolve([]),
-    performBM25Search(query, organizationId),
+    queryVector ? performVectorSearch(query, organizationId, queryVector, candidateLimit) : Promise.resolve([]),
+    performBM25Search(query, organizationId, candidateLimit),
   ]);
 
-  const chunkScores = new Map<string, { chunk: any; score: number }>();
-
-  for (const v of vectorResults) {
-    if (v.score > 0.5) {
-      chunkScores.set(v.chunk.id, { chunk: v.chunk, score: v.score * 2 });
-    }
-  }
-
-  for (const b of bm25Results) {
-    const existing = chunkScores.get(b.chunk.id);
-    if (existing) {
-      existing.score += b.score * 0.5;
-    } else {
-      chunkScores.set(b.chunk.id, { chunk: b.chunk, score: b.score });
-    }
-  }
-
-  const fusedResults = Array.from(chunkScores.values())
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit);
+  const fusedResults = performRRF(vectorResults, bm25Results).slice(0, limit);
 
   if (fusedResults.length === 0) {
     return { context: '', sources: [] };
@@ -72,7 +95,7 @@ async function fuseAndBuildContext(
   const expandedChunks = await expandContextWithGraph(topChunkIds);
   const finalContext = buildContextString(expandedChunks);
 
-  const sources: RagSourceCitation[] = fusedResults.map(({ chunk, score }) => {
+  const sources: RagSourceCitation[] = fusedResults.map(({ chunk, rrfScore }) => {
     const metadata = (chunk.metadata ?? {}) as Record<string, unknown>;
     return {
       chunkId: chunk.id,
@@ -82,7 +105,7 @@ async function fuseAndBuildContext(
       subject: typeof metadata.subject === 'string' ? metadata.subject : undefined,
       chunkType: typeof metadata.chunkType === 'string' ? metadata.chunkType : undefined,
       excerpt: String(chunk.content ?? '').slice(0, 180),
-      score,
+      score: rrfScore,
     };
   });
 

@@ -1,32 +1,100 @@
 import prisma from '../../config/prisma';
+import { logger } from '../../utils/logger';
 
 export interface BM25SearchResult {
-  chunk: any;
+  chunk: {
+    id: string;
+    content: string;
+    metadata: any;
+    documentId: string;
+    document: { filename: string } | null;
+  };
   score: number;
 }
 
-export async function performBM25Search(query: string, organizationId: string): Promise<BM25SearchResult[]> {
-  const queryTerms = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
-  if (queryTerms.length === 0) return [];
+// PostgreSQL Full-Text Search (FTS) keyword ranking using GIN index & ts_rank_cd cover-density algorithm.
+export async function performBM25Search(
+  query: string,
+  organizationId: string,
+  limit = 200
+): Promise<BM25SearchResult[]> {
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery) return [];
 
-  const chunks = await prisma.knowledgeChunk.findMany({
-    where: { document: { organizationId } },
-  });
+  try {
+    // 1. Primary FTS query using websearch_to_tsquery for user query strings (handles operators, exact terms, academic identifiers)
+    const rows = await prisma.$queryRaw<Array<{
+      id: string;
+      content: string;
+      metadata: any;
+      documentId: string;
+      documentFilename: string | null;
+      score: number;
+    }>>`
+      SELECT
+        kc."id",
+        kc."content",
+        kc."metadata",
+        kc."documentId",
+        kd."filename" AS "documentFilename",
+        ts_rank_cd(to_tsvector('english', kc."content"), websearch_to_tsquery('english', ${normalizedQuery})) AS "score"
+      FROM "KnowledgeChunk" kc
+      JOIN "KnowledgeDocument" kd ON kd."id" = kc."documentId"
+      WHERE kd."organizationId" = ${organizationId}
+        AND to_tsvector('english', kc."content") @@ websearch_to_tsquery('english', ${normalizedQuery})
+      ORDER BY "score" DESC
+      LIMIT ${limit}
+    `;
 
-  const scoredChunks = chunks.map(chunk => {
-    let score = 0;
-    const content = chunk.content.toLowerCase();
-    const metadata = JSON.stringify(chunk.metadata || {}).toLowerCase();
-    
-    // Basic term frequency matching
-    for (const term of queryTerms) {
-      if (content.includes(term)) score += 1;
-      if (metadata.includes(term)) score += 2; // Metadata hits (like subject, keywords) are weighted higher
+    if (rows.length > 0) {
+      return rows.map((r) => ({
+        chunk: {
+          id: r.id,
+          content: r.content,
+          metadata: r.metadata,
+          documentId: r.documentId,
+          document: r.documentFilename ? { filename: r.documentFilename } : null,
+        },
+        score: typeof r.score === 'string' ? parseFloat(r.score) : r.score,
+      }));
     }
 
-    return { chunk, score };
-  });
+    // 2. Fallback to plainto_tsquery if websearch_to_tsquery yielded 0 hits
+    const fallbackRows = await prisma.$queryRaw<Array<{
+      id: string;
+      content: string;
+      metadata: any;
+      documentId: string;
+      documentFilename: string | null;
+      score: number;
+    }>>`
+      SELECT
+        kc."id",
+        kc."content",
+        kc."metadata",
+        kc."documentId",
+        kd."filename" AS "documentFilename",
+        ts_rank_cd(to_tsvector('english', kc."content"), plainto_tsquery('english', ${normalizedQuery})) AS "score"
+      FROM "KnowledgeChunk" kc
+      JOIN "KnowledgeDocument" kd ON kd."id" = kc."documentId"
+      WHERE kd."organizationId" = ${organizationId}
+        AND to_tsvector('english', kc."content") @@ plainto_tsquery('english', ${normalizedQuery})
+      ORDER BY "score" DESC
+      LIMIT ${limit}
+    `;
 
-  // Filter out 0 scores
-  return scoredChunks.filter(c => c.score > 0).sort((a, b) => b.score - a.score);
+    return fallbackRows.map((r) => ({
+      chunk: {
+        id: r.id,
+        content: r.content,
+        metadata: r.metadata,
+        documentId: r.documentId,
+        document: r.documentFilename ? { filename: r.documentFilename } : null,
+      },
+      score: typeof r.score === 'string' ? parseFloat(r.score) : r.score,
+    }));
+  } catch (error) {
+    logger.warn(`Full-text search query failed for query "${normalizedQuery}": ${error}`);
+    return [];
+  }
 }

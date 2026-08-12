@@ -1,6 +1,9 @@
 import OpenAI from 'openai';
+import crypto from 'crypto';
 import { env } from '../../config/env';
 import prisma from '../../config/prisma';
+import { getCached, setCached } from '../../api/common/cache';
+import { logger } from '../../utils/logger';
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY || '' });
 
@@ -18,14 +21,58 @@ export interface VectorSearchResult {
   score: number;
 }
 
-// Compute an embedding for the given text using the configured embedding model.
+export function normalizeQuery(text: string): string {
+  return text.trim().replace(/\s+/g, ' ');
+}
+
+export function getEmbeddingCacheKey(text: string): string {
+  const normalized = normalizeQuery(text);
+  const hash = crypto.createHash('sha256').update(normalized).digest('hex');
+  return `rag:embedding:v1:${EMBEDDING_MODEL}:${hash}`;
+}
+
+// Compute an embedding for the given text using the configured embedding model with 1-hour Redis TTL cache.
 export async function getEmbedding(text: string): Promise<number[] | null> {
   if (!env.OPENAI_API_KEY) return null;
-  const response = await openai.embeddings.create({
-    model: EMBEDDING_MODEL,
-    input: text,
-  });
-  return response.data[0].embedding;
+  
+  const normalized = normalizeQuery(text);
+  if (!normalized) return null;
+
+  const cacheKey = getEmbeddingCacheKey(normalized);
+
+  // 1. Try fetching from Redis cache
+  try {
+    const cached = await getCached<number[]>(cacheKey);
+    if (cached && Array.isArray(cached) && cached.length === EMBEDDING_DIM) {
+      return cached;
+    }
+  } catch (err) {
+    logger.warn(`Redis getEmbedding cache lookup failed: ${err}`);
+  }
+
+  // 2. Cache miss: generate embedding via OpenAI API
+  try {
+    const response = await openai.embeddings.create({
+      model: EMBEDDING_MODEL,
+      input: normalized,
+    });
+    
+    const embedding = response.data[0]?.embedding ?? null;
+
+    if (embedding && Array.isArray(embedding) && embedding.length === EMBEDDING_DIM) {
+      // 3. Cache embedding in Redis for 1 hour (3600 seconds)
+      try {
+        await setCached(cacheKey, embedding, 3600);
+      } catch (err) {
+        logger.warn(`Redis setCached embedding failed: ${err}`);
+      }
+      return embedding;
+    }
+    return null;
+  } catch (err) {
+    logger.error(`OpenAI embedding generation failed: ${err}`);
+    return null;
+  }
 }
 
 // Native pgvector similarity search. Replaces the previous brute-force
