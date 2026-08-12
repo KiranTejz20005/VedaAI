@@ -24,11 +24,30 @@ export interface User {
   hasCompletedOnboarding?: boolean;
 }
 
+export const hasRole = (userRole: string | undefined, requiredRoles: string[]): boolean => {
+  if (!userRole) return false;
+  let normalized = userRole.toUpperCase();
+  if (normalized === 'ORG_ADMIN') normalized = 'ADMIN';
+  if (normalized === 'FACULTY') normalized = 'TEACHER';
+  
+  if (normalized === 'SUPER_ADMIN') return true;
+  
+  const normalizedRequired = requiredRoles.map(r => {
+    let n = r.toUpperCase();
+    if (n === 'ORG_ADMIN') n = 'ADMIN';
+    if (n === 'FACULTY') n = 'TEACHER';
+    return n;
+  });
+  
+  return normalizedRequired.includes(normalized);
+};
+
 interface AuthStore {
   user: User | null;
   accessToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  hasPermission: (roles: string[]) => boolean;
   setAuth: (user: User, token: string) => void;
   clearAuth: () => void;
   initialize: () => Promise<boolean>;
@@ -74,6 +93,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   accessToken: null,
   isAuthenticated: false,
   isLoading: true,
+
+  hasPermission: (roles: string[]) => {
+    const user = get().user;
+    return hasRole(user?.role, roles);
+  },
 
   setAuth: (user, token) => {
     setApiToken(token);

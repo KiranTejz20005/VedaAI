@@ -9,6 +9,7 @@ interface IngestionJobData {
   fileType: string;
   organizationId: string;
   filename: string;
+  userId: string;          // The user who uploaded the file
 }
 
 export function getIngestionWorker(): Worker<IngestionJobData> | null {

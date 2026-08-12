@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
-import { evaluateSubmission, extractTextFromFile } from '../services/grader.service';
+import { evaluateSubmission, extractTextFromFile, overrideEvaluation } from '../services/grader.service';
+import { AuditService } from '../services/audit.service';
 import {
   assertCanGradeAssignment,
   loadSubmissionScoped,
@@ -129,42 +130,41 @@ export const getSubmissionEvaluation = async (req: Request, res: Response): Prom
 
 export const manualGradeOverride = async (req: Request, res: Response): Promise<void> => {
   try {
-    const submission = await loadSubmissionScoped(req, req.params.submissionId);
+    const submissionId = req.params.submissionId || req.params.id;
+    const submission = await loadSubmissionScoped(req, submissionId);
     await assertCanGradeAssignment(req, submission.assignmentId);
-    const { overrideScore, reason } = req.body;
+    const { overrideScore, reason, teacherFeedback, criteriaGrades } = req.body;
+    const teacherId = getRequestUserId(req);
 
-    const evaluation = await prisma.submissionEvaluation.findUnique({
-      where: { submissionId: submission.id },
+    const result = await overrideEvaluation(submission.id, {
+      overrideScore: Number(overrideScore),
+      reason,
+      teacherFeedback,
+      criteriaGrades,
+      teacherId,
     });
 
-    if (!evaluation) {
-      res.status(404).json({ success: false, error: 'Evaluation not found' });
-      return;
-    }
-
-    const updated = await prisma.submissionEvaluation.update({
-      where: { submissionId: submission.id },
-      data: {
-        score: Number(overrideScore),
-        teacherOverride: {
-          originalScore: evaluation.score,
-          overrideScore: Number(overrideScore),
-          reason,
-          updatedAt: new Date().toISOString(),
-          updatedBy: getRequestUserId(req),
-        },
+    // Record Grade Override Audit Event
+    await AuditService.logAuditEvent({
+      userId: teacherId,
+      organizationId: submission.organizationId,
+      action: 'GRADE_OVERRIDE',
+      entity: 'StudentSubmission',
+      entityId: submission.id,
+      ipAddress: req.ip || '127.0.0.1',
+      userAgent: req.get('user-agent') || 'unknown',
+      metadata: {
+        previousScore: result.previousScore,
+        newScore: result.newScore,
+        reason: reason || 'Manual teacher grade override',
+        teacherFeedback: teacherFeedback || '',
       },
     });
 
-    await prisma.studentSubmission.update({
-      where: { id: submission.id },
-      data: { status: 'GRADED' },
-    });
-
-    res.json({ success: true, data: updated });
+    res.json({ success: true, data: result.evaluation });
   } catch (err) {
     if (handleAccessError(res, err)) return;
-    res.status(500).json({ success: false, error: 'Override failed' });
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Override failed' });
   }
 };
 

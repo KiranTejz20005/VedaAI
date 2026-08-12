@@ -24,6 +24,7 @@ import apiRouter from './routes';
 import { errorMiddleware } from './middlewares/error.middleware';
 import { logger } from './utils/logger';
 import { AuditService } from './services/audit.service';
+import { globalIpRateLimiter } from './middlewares/rate-limit.middleware';
 
 // ── Bootstrap phase tracking ──
 let isBootstrapping = false;
@@ -304,6 +305,7 @@ function createApp() {
     legacyHeaders: false,
     message: { success: false, error: 'Too many requests, please try again later.' },
   });
+  app.use('/api', globalIpRateLimiter);
   app.use('/api', limiter);
 
   app.use('/api', apiRouter);

@@ -45,5 +45,7 @@ router.post('/submissions/:submissionId/evaluate', requireRole('TEACHER', 'FACUL
 router.post('/assignments/:assignmentId/bulk-evaluate', requireRole('TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'), requirePermission(PERMISSIONS.GRADE_ASSESSMENT), asyncHandler(bulkAIEvaluation));
 router.get('/submissions/:submissionId/evaluate', requireRole('TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'), requirePermission(PERMISSIONS.GRADE_ASSESSMENT), asyncHandler(getSubmissionEvaluation));
 router.post('/submissions/:submissionId/override', requireRole('TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'), requirePermission(PERMISSIONS.GRADE_ASSESSMENT), asyncHandler(manualGradeOverride));
+router.patch('/submissions/:submissionId/override', requireRole('TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'), requirePermission(PERMISSIONS.GRADE_ASSESSMENT), asyncHandler(manualGradeOverride));
+router.patch('/submissions/:id/override', requireRole('TEACHER', 'FACULTY', 'ADMIN', 'SUPER_ADMIN'), requirePermission(PERMISSIONS.GRADE_ASSESSMENT), asyncHandler(manualGradeOverride));
 
 export default router;

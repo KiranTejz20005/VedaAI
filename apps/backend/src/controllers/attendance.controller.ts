@@ -257,3 +257,60 @@ export const getLeaveApplications = async (req: Request, res: Response): Promise
   }
 };
 
+export const getTeacherLeaveApplications = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const orgId = requireRequestOrgId(req);
+    const applications = await prisma.leaveApplication.findMany({
+      where: { organizationId: orgId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        student: {
+          select: { firstName: true, lastName: true, email: true, avatar: true },
+        },
+      },
+    });
+
+    const formatted = applications.map((app: any) => ({
+      id: app.id,
+      title: app.title,
+      subject: app.subject,
+      body: app.body,
+      status: app.status,
+      duration: app.duration,
+      createdAt: app.createdAt,
+      student: {
+        name: app.student ? `${app.student.firstName} ${app.student.lastName}` : 'Student',
+        email: app.student?.email || '',
+        avatarUrl: app.student?.avatar || undefined,
+      },
+    }));
+
+    res.json({ success: true, data: formatted });
+  } catch (error: any) {
+    logger.error(`[Attendance:getTeacherLeave] ${error}`);
+    res.status(500).json({ success: false, error: error.message || 'Failed to fetch leave requests' });
+  }
+};
+
+export const updateLeaveStatus = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!['APPROVED', 'REJECTED', 'PENDING'].includes(status)) {
+      res.status(400).json({ success: false, error: 'Invalid status' });
+      return;
+    }
+
+    const updated = await prisma.leaveApplication.update({
+      where: { id },
+      data: { status },
+    });
+
+    res.json({ success: true, data: updated });
+  } catch (error: any) {
+    logger.error(`[Attendance:updateLeaveStatus] ${error}`);
+    res.status(500).json({ success: false, error: error.message || 'Failed to update leave request status' });
+  }
+};
+

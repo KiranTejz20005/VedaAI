@@ -55,9 +55,10 @@ interface QuestionPreview {
 export default function AssignmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, hasPermission } = useAuthStore();
   const isFaculty = user?.role === 'TEACHER' || user?.role === 'FACULTY';
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'ORG_ADMIN';
+  const canApprove = hasPermission(['ADMIN', 'SUPER_ADMIN']);
   const isStudent = user?.role === 'STUDENT';
 
   const [assignment, setAssignment] = useState<Assignment | null>(null);
@@ -456,12 +457,12 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                           <CheckCircle2 size={14} /> {isSubmittingForApproval ? 'Sending...' : 'Send for Approval'}
                         </button>
                       )}
-                      {isFaculty && ['PENDING_APPROVAL'].includes(assignment.status) && (
+                      {(isFaculty && !canApprove) && ['PENDING_APPROVAL'].includes(assignment.status) && (
                         <button className="btn btn-sm" disabled style={{ gap: 4, display: 'inline-flex', alignItems: 'center', background: '#f59e0b', color: 'white', border: 'none' }}>
                           <CheckCircle2 size={14} /> Approval Sent
                         </button>
                       )}
-                      {isAdmin && ['PENDING_APPROVAL'].includes(assignment.status) && (
+                      {canApprove && ['PENDING_APPROVAL'].includes(assignment.status) && (
                         <>
                           <button onClick={handleAdminApprove} className="btn btn-success btn-sm" disabled={isPublishing} style={{ gap: 4, display: 'inline-flex', alignItems: 'center', background: '#10b981', color: 'white', border: 'none' }}>
                             <CheckCircle2 size={14} /> {isPublishing ? 'Approving...' : 'Approve & Publish'}
@@ -477,7 +478,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                           </button>
                         </>
                       )}
-                      {isFaculty && assignment.status === 'APPROVED' && (
+                      {canApprove && assignment.status === 'APPROVED' && (
                         <button onClick={handlePublish} className="btn btn-primary btn-sm" disabled={isPublishing} style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
                           <CheckCircle2 size={14} /> {isPublishing ? 'Publishing...' : 'Publish to Students'}
                         </button>

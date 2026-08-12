@@ -293,3 +293,58 @@ export const uploadRateLimiter = async (
 
   next();
 };
+
+export const globalIpRateLimiter = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+  const ipKey = `limit:global:ip:${ip}:minute`;
+  
+  try {
+    const ipCheck = await checkLimit(ipKey, 60, 60);
+    if (!ipCheck.allowed) {
+      logger.warn({
+        action: 'Global Rate Limit Triggered',
+        ip,
+        limitType: 'IP_GLOBAL_60RPM',
+      });
+      res.setHeader('Retry-After', '60');
+      res.status(429).json({ success: false, error: 'Too many requests. Global IP rate limit exceeded.', retryAfter: 60 });
+      return;
+    }
+  } catch (err) {
+    logger.error(`[globalIpRateLimiter] Error: ${err}`);
+  }
+
+  next();
+};
+
+export const aiGenerationRateLimiter = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const userId = req.user?.id || req.ip || 'anonymous';
+  const userKey = `limit:ai-gen:user:${userId}:minute`;
+
+  try {
+    const userCheck = await checkLimit(userKey, 10, 60);
+    if (!userCheck.allowed) {
+      logger.warn({
+        action: 'AI Generation Rate Limit Triggered',
+        userId,
+        limitType: 'USER_AI_GEN_10RPM',
+      });
+      res.setHeader('Retry-After', '60');
+      res.status(429).json({ success: false, error: 'AI generation rate limit exceeded. Maximum 10 requests per minute.', retryAfter: 60 });
+      return;
+    }
+  } catch (err) {
+    logger.error(`[aiGenerationRateLimiter] Error: ${err}`);
+  }
+
+  next();
+};
+

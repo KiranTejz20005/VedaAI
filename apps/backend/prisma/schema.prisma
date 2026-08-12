@@ -994,6 +994,11 @@ model SubmissionEvaluation {
   generalFeedback String
   criteriaGrades  Json
   teacherOverride Json?
+  isOverridden    Boolean           @default(false)
+  overrideReason  String?           @db.Text
+  teacherFeedback String?           @db.Text
+  overriddenBy    String?
+  overriddenAt    DateTime?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 }
@@ -1466,6 +1471,8 @@ model KnowledgeDocument {
   fileUrl        String
   organizationId String
   organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category       String                 @default("HANDOUT")
+  status         WorkflowStatus         @default(ACTIVE)
   chunks         KnowledgeChunk[]
   qualityScore   KnowledgeQualityScore?
   createdAt      DateTime               @default(now())

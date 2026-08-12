@@ -34,9 +34,10 @@ export default function MyLibraryPage() {
         className: className !== 'All' ? className : undefined,
         resourceType: resourceType !== 'All' ? resourceType : undefined,
       });
-      setResources(data);
+      setResources(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Failed to fetch library resources', error);
+      console.warn('Failed to fetch library resources', error);
+      setResources([]);
     } finally {
       setLoading(false);
     }

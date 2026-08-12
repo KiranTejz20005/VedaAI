@@ -9,6 +9,7 @@ import { ConnectionManager } from './managers/ConnectionManager';
 import { RoomManager } from './managers/RoomManager';
 import { PresenceManager } from './managers/PresenceManager';
 import { MessageManager } from './managers/MessageManager';
+import { registerTutorSocketHandlers } from './tutor.socket';
 
 let io: SocketIOServer<ClientToServerEvents, ServerToClientEvents> | null = null;
 let connectionManager: ConnectionManager | null = null;
@@ -168,6 +169,8 @@ export function initializeSocketServer(
     socket.on('typing', (payload) => {
       messageManager!.handleTyping(socket, payload);
     });
+
+    registerTutorSocketHandlers(socket);
 
     socket.on('disconnect', (reason) => {
       const userId = socket.data.userId;
