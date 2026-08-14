@@ -89,8 +89,8 @@ describe('DailyLimitService', () => {
   });
 
   it('exposes the correct limits per role and type', () => {
-    expect(service.getLimit('STUDENT', 'quiz')).toBe(Infinity);
-    expect(service.getLimit('TEACHER', 'quiz')).toBe(Infinity);
+    expect(service.getLimit('STUDENT', 'quiz')).toBe(5);
+    expect(service.getLimit('TEACHER', 'quiz')).toBe(10);
     expect(service.getLimit('TEACHER', 'paper')).toBe(5);
     expect(service.getLimit('TEACHER', 'assignment')).toBe(5);
     expect(service.getLimit('ADMIN', 'quiz')).toBe(Infinity);
@@ -99,19 +99,17 @@ describe('DailyLimitService', () => {
     expect(service.getLimit('STUDENT', 'paper')).toBe(0);
   });
 
-  it('allows unlimited daily quizzes for student when daily quiz limit is disabled', async () => {
-    const r1 = await service.checkAndIncrement('student-1', 'STUDENT', 'quiz');
-    expect(r1.allowed).toBe(true);
-    expect(r1.limit).toBe(Infinity);
-    expect(r1.remaining).toBe(Infinity);
+  it('enforces 5 daily quizzes for student then blocks', async () => {
+    for (let i = 1; i <= 5; i++) {
+      const r = await service.checkAndIncrement('student-1', 'STUDENT', 'quiz');
+      expect(r.allowed).toBe(true);
+      expect(r.used).toBe(i);
+      expect(r.remaining).toBe(5 - i);
+    }
 
-    const r2 = await service.checkAndIncrement('student-1', 'STUDENT', 'quiz');
-    expect(r2.allowed).toBe(true);
-    expect(r2.limit).toBe(Infinity);
-
-    const r3 = await service.checkAndIncrement('student-1', 'STUDENT', 'quiz');
-    expect(r3.allowed).toBe(true);
-    expect(r3.limit).toBe(Infinity);
+    const rBlocked = await service.checkAndIncrement('student-1', 'STUDENT', 'quiz');
+    expect(rBlocked.allowed).toBe(false);
+    expect(rBlocked.remaining).toBe(0);
   });
 
   it('grants admins unlimited usage', async () => {
