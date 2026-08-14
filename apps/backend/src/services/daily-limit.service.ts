@@ -22,14 +22,16 @@ export interface DailyLimitConfig {
   TEACHER_PAPER_LIMIT: number;
   TEACHER_ASSIGNMENT_LIMIT: number;
   ADMIN_UNLIMITED: boolean;
+  QUIZ_LIMIT_DISABLED?: boolean;
 }
 
 const DAILY_LIMIT_CONFIG: DailyLimitConfig = {
-  STUDENT_QUIZ_LIMIT: 2,           // Students can generate 2 quizzes per day
-  FACULTY_QUIZ_LIMIT: 5,           // Faculty/Teachers can generate 5 quizzes per day
+  STUDENT_QUIZ_LIMIT: Infinity,     // Daily quiz limit disabled until explicitly re-enabled
+  FACULTY_QUIZ_LIMIT: Infinity,     // Daily quiz limit disabled until explicitly re-enabled
   TEACHER_PAPER_LIMIT: 5,          // Teachers can generate 5 question papers per day
   TEACHER_ASSIGNMENT_LIMIT: 5,     // Teachers can create 5 assignments per day
   ADMIN_UNLIMITED: true,           // Admins have unlimited access
+  QUIZ_LIMIT_DISABLED: true,       // Toggle flag for daily quiz limit
 };
 
 export interface UsageStats {
@@ -53,6 +55,11 @@ export class DailyLimitService {
    * Get the daily limit for a user based on their role
    */
   getLimit(role: string, type: 'quiz' | 'paper' | 'assignment'): number {
+    // Disable daily quiz limit completely if configured
+    if (type === 'quiz' && DAILY_LIMIT_CONFIG.QUIZ_LIMIT_DISABLED) {
+      return Infinity;
+    }
+
     // Admins are unlimited
     if (role === 'SUPER_ADMIN' || role === 'ADMIN') {
       return DAILY_LIMIT_CONFIG.ADMIN_UNLIMITED ? Infinity : 999;

@@ -19,11 +19,11 @@ export function getIngestionWorker(): Worker<IngestionJobData> | null {
 export const ingestionWorker = new Worker<IngestionJobData>(
   INGESTION_QUEUE_NAME,
   async (job: Job<IngestionJobData>) => {
-    const { fileUrl, fileType, organizationId, filename } = job.data;
+    const { fileUrl, fileType, organizationId, filename, userId } = job.data;
     logger.info(`Processing ingestion job ${job.id} for file: ${filename}`);
 
     try {
-      await ingestDocument(fileUrl, fileType, organizationId, filename);
+      await ingestDocument(fileUrl, fileType, organizationId, filename, userId);
       logger.info(`Successfully ingested document: ${filename}`);
     } catch (error) {
       logger.error(`Error ingesting document ${filename}: ${error}`);

@@ -328,8 +328,12 @@ export function Topbar() {
             }}
             style={{ position: 'relative' }}
           >
-            <div className="topbar-user-avatar" aria-hidden="true">
-              {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'U'}
+            <div className="topbar-user-avatar" aria-hidden="true" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {user?.avatar ? (
+                <img src={user.avatar} alt="" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'U'
+              )}
             </div>
             <span className="topbar-user-name">
               {user ? `${user.firstName} ${user.lastName}` : 'Guest User'}

@@ -52,7 +52,7 @@ export async function generateSingleQuestion(params: {
     '- Return ONLY valid JSON matching this exact structure: { "question_text": "...", "options": ["A. ...", "B. ...", "C. ...", "D. ..."], "answer": "A", "explanation": "...", "hint": "...", "ai_confidence_score": 0.95 }'
   ].join('\n');
 
-  let parsed: any = { options: [], answer: 'A', question_text: '' };
+  let parsed: any = null;
   try {
     const aiPromise = AIOrchestrator.generate({
       intent: 'GenerateQuestionPaper', // Routes to deeper reasoning models
@@ -63,21 +63,36 @@ export async function generateSingleQuestion(params: {
     const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("AI generation timed out")), 60000));
     parsed = await Promise.race([aiPromise, timeoutPromise]);
   } catch (err) {
-    logger.warn(`AI Generation failed for single question, falling back. Error: ${err}`);
+    logger.error({ err }, `AI Generation failed for single question on topic "${params.topic}"`);
+    throw new Error(`AI question generation failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  const options = (parsed.options as string[]) ?? ['A. Option A', 'B. Option B', 'C. Option C', 'D. Option D'];
+  if (!parsed || !parsed.question_text) {
+    throw new Error('AI generation returned empty response.');
+  }
+
+  const rawOptions = (parsed.options as string[]) ?? [];
+  let options = rawOptions.map((opt, idx) => {
+    const letter = String.fromCharCode(65 + idx);
+    const cleaned = opt.replace(/^([A-D])[.)]\s*/i, '').trim();
+    return `${letter}. ${cleaned}`;
+  });
+
+  if (options.length !== 4) {
+    throw new Error('AI generation returned invalid options format.');
+  }
+
   const answer = (parsed.answer as string) ?? 'A';
 
   return {
     id: `q-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    question_text: (parsed.question_text as string) ?? `Question about ${params.topic}`,
+    question_text: String(parsed.question_text).trim(),
     options,
     answer,
     difficulty: params.difficulty,
     bloomLevel: params.bloomLevel,
-    ai_confidence_score: (parsed.ai_confidence_score as number) ?? 0.85,
-    hint: (parsed.hint as string) || undefined,
+    ai_confidence_score: Number(parsed.ai_confidence_score) || 0.85,
+    hint: parsed.hint ? String(parsed.hint).trim() : undefined,
   };
 }
 

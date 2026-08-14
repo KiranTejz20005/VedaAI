@@ -14,7 +14,7 @@ export class GroqProvider implements AIProvider {
   }
 
   async generate(prompt: string, options?: any, signal?: AbortSignal): Promise<any> {
-    const model = options?.model || 'llama-3.1-70b-versatile';
+    const model = options?.model || 'llama-3.3-70b-versatile';
     let messages: any[] = [{ role: 'user', content: prompt }];
     
     if (options?.media && options.media.length > 0) {
@@ -41,7 +41,7 @@ export class GroqProvider implements AIProvider {
   }
 
   async *stream(prompt: string, options?: any): AsyncIterable<any> {
-    const model = options?.model || 'llama-3.1-70b-versatile';
+    const model = options?.model || 'llama-3.3-70b-versatile';
     const stream = await this.client.chat.completions.create(
       {
         model,

@@ -109,7 +109,7 @@ const envSchema = z.object({
 
   // AI Engine & Performance
   AI_ENGINE_URL: z.string().url().default('http://localhost:8000'),
-  AI_PRIMARY_TIMEOUT_MS: z.coerce.number().int().min(1000).default(12000),
+  AI_PRIMARY_TIMEOUT_MS: z.coerce.number().int().min(1000).default(25000),
 });
 
 const parsed = envSchema.safeParse(process.env);

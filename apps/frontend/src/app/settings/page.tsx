@@ -167,7 +167,7 @@ function AccountPanel({ onClose, profile, onProfileUpdate }: { onClose: () => vo
       
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
         <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg, #E8531D, #F97316)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: 'white', flexShrink: 0, overflow: 'hidden' }}>
-          {avatar ? <img src={avatar} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (profile ? `${profile.firstName[0]}${profile.lastName[0]}` : 'JD')}
+          {avatar ? <img src={avatar} alt="" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (profile ? `${profile.firstName[0]}${profile.lastName[0]}` : 'JD')}
         </div>
         <div>
           <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer' }}>
@@ -622,7 +622,7 @@ export default function SettingsPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: 16, marginBottom: 24 }}>
         <motion.div className="card" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', alignItems: 'center', gap: 16, gridColumn: 'span 2' }}>
           <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg, #E8531D, #F97316)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: 'white', flexShrink: 0, overflow: 'hidden' }}>
-            {profile?.avatar ? <img src={profile.avatar} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials}
+            {profile?.avatar ? <img src={profile.avatar} alt="" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 17, fontWeight: 700 }}>{profile?.firstName} {profile?.lastName}</div>
