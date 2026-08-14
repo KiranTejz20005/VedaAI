@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { generateMultipleQuestions } from '../services/question-generation.service';
+import { generateSingleQuestion, generateMultipleQuestions } from '../services/question-generation.service';
 import { AIOrchestrator } from '../services/ai/ai-orchestrator.service';
 
 vi.mock('../services/rag.service', () => ({
@@ -11,6 +11,46 @@ vi.mock('../services/ai/ai-orchestrator.service', () => ({
     generate: vi.fn(),
   },
 }));
+
+describe('generateSingleQuestion', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should generate a single question successfully', async () => {
+    vi.mocked(AIOrchestrator.generate).mockResolvedValue({
+      question_text: 'What is Python lists syntax?',
+      options: ['A. [1, 2]', 'B. (1, 2)', 'C. {1, 2}', 'D. <1, 2>'],
+      answer: 'A',
+      hint: 'Square brackets',
+      ai_confidence_score: 0.98,
+    });
+
+    const result = await generateSingleQuestion({
+      topic: 'Lists',
+      subject: 'Python',
+      difficulty: 'EASY',
+      bloomLevel: 'REMEMBER',
+    });
+
+    expect(result.question_text).toBe('What is Python lists syntax?');
+    expect(result.options).toHaveLength(4);
+    expect(result.answer).toBe('A');
+  });
+
+  it('throws an error when AI generation fails for single question', async () => {
+    vi.mocked(AIOrchestrator.generate).mockRejectedValue(new Error('AI failure'));
+
+    await expect(
+      generateSingleQuestion({
+        topic: 'Lists',
+        subject: 'Python',
+        difficulty: 'EASY',
+        bloomLevel: 'REMEMBER',
+      })
+    ).rejects.toThrow('AI question generation failed');
+  });
+});
 
 describe('generateMultipleQuestions', () => {
   beforeEach(() => {

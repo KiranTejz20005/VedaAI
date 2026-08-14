@@ -643,10 +643,18 @@ export const googleSignin = async (req: Request, res: Response): Promise<void> =
         return;
       }
 
+      const updateData: any = {};
       if (user.authProvider === 'LOCAL') {
+        updateData.authProvider = 'GOOGLE';
+      }
+      if (picture && user.avatar !== picture) {
+        updateData.avatar = picture;
+      }
+
+      if (Object.keys(updateData).length > 0) {
         user = await prisma.user.update({
           where: { id: user.id },
-          data: { authProvider: 'GOOGLE' },
+          data: updateData,
           include: { organization: true }
         });
       }

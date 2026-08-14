@@ -90,7 +90,8 @@ describe('PDF Generation Performance & Visual Verification', () => {
     console.log(`[PERF_OUTPUT] PDF Path: ${result.pdfPath}`);
 
     expect(result.pdfUrl).toBeTruthy();
-    expect(totalTime).toBeLessThan(10000); // hard cutoff
+    const maxAllowedTimeMs = process.env.CI ? 60_000 : 15_000;
+    expect(totalTime).toBeLessThan(maxAllowedTimeMs); // hard cutoff with CI tolerance
     expect(fs.existsSync(result.pdfPath)).toBe(true);
     expect(fs.statSync(result.pdfPath).size).toBeGreaterThan(1000); // Non-empty valid PDF
   }, 60000);

@@ -86,12 +86,15 @@ export default function CustomQuizGenerator() {
       toast.success(`${count} questions generated successfully!`);
       router.push(`/student/practice/attempt?sessionId=${saveRes.data.data.id}`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Generation failed';
+      let message = err instanceof Error ? err.message : 'Generation failed';
+      if (message.includes('API key') || message.includes('401') || message.includes('providers [')) {
+        message = 'AI service configuration error: Valid API key missing or unauthorized. Please check your backend .env configuration.';
+      }
       setGenerationError(message);
       if (message.includes('image') || message.includes('png') || message.includes('jpg')) {
         toast.error('Image references detected. Please use text-only content.');
-      } else if (message.includes('AI provider') || message.includes('API key')) {
-        toast.error('AI service unavailable. Please check your API configuration.');
+      } else if (message.includes('API key') || message.includes('configuration error')) {
+        toast.error('AI service unavailable. Please check your API key configuration.');
       } else {
         toast.error(message);
       }

@@ -18,9 +18,9 @@ export const ModelRegistry: Record<string, ModelConfig> = {
     supportsJSON: true,
     tier: 'reasoning',
   },
-  'llama-3.1-8b-instant': {
+  'llama-3.3-70b-versatile': {
     provider: 'groq',
-    modelName: 'llama-3.1-8b-instant',
+    modelName: 'llama-3.3-70b-versatile',
     contextWindow: 128000,
     maxOutputTokens: 8000,
     supportsVision: false,

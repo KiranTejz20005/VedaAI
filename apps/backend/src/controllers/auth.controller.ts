@@ -434,11 +434,19 @@ export const googleSignin = async (req: Request, res: Response): Promise<void> =
         return;
       }
 
-      // If they signed up with local, update the authProvider to GOOGLE
+      // If they signed up with local or have a new Google picture, update authProvider and avatar
+      const updateData: any = {};
       if (user.authProvider === 'LOCAL') {
+        updateData.authProvider = 'GOOGLE';
+      }
+      if (picture && user.avatar !== picture) {
+        updateData.avatar = picture;
+      }
+
+      if (Object.keys(updateData).length > 0) {
         user = await prisma.user.update({
           where: { id: user.id },
-          data: { authProvider: 'GOOGLE' },
+          data: updateData,
           include: { organization: true }
         });
       }
@@ -540,6 +548,7 @@ export const googleSignin = async (req: Request, res: Response): Promise<void> =
           role: user.role,
           firstName: user.firstName,
           lastName: user.lastName,
+          avatar: user.avatar,
           hasCompletedOnboarding: user.hasCompletedOnboarding,
         },
       },
