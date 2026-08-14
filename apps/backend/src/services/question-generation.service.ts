@@ -72,7 +72,7 @@ export async function generateSingleQuestion(params: {
   }
 
   const rawOptions = (parsed.options as string[]) ?? [];
-  let options = rawOptions.map((opt, idx) => {
+  const options = rawOptions.map((opt, idx) => {
     const letter = String.fromCharCode(65 + idx);
     const cleaned = opt.replace(/^([A-D])[.)]\s*/i, '').trim();
     return `${letter}. ${cleaned}`;

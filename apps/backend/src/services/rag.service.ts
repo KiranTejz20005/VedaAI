@@ -9,7 +9,7 @@ const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY || '' });
 
 import { parseDocumentIntoSemanticChunks } from './document-parser.service';
 
-export async function ingestDocument(fileUrl: string, fileType: string, organizationId: string, filename: string, userId: string = 'system'): Promise<string> {
+export async function ingestDocument(fileUrl: string, fileType: string, organizationId: string, filename: string, _userId: string = 'system'): Promise<string> {
   if (!env.OPENAI_API_KEY) {
     logger.warn('No OPENAI_API_KEY found, RAG embeddings will be skipped.');
     return '';
