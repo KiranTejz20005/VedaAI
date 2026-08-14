@@ -82,7 +82,7 @@ export class DuplicateDetectionService {
       .normalize('NFC')
       .replace(/[\r\n\t]+/g, ' ')
       .replace(/\s+/g, ' ')
-      .replace(/[^a-z0-9\s\+\-\*\/\=\<\>\%]/g, '');
+      .replace(/[^a-z0-9\s+*/=<>%-]/g, '');
   }
 
   /**
@@ -229,7 +229,7 @@ export class DuplicateDetectionService {
   static async evaluateQuestionDuplicates(
     target: CandidateQuestionInput,
     candidates: CandidateQuestionInput[],
-    organizationId?: string
+    _organizationId?: string
   ): Promise<DuplicateDetectionResult> {
     const allCandidates: DuplicateCandidateMatch[] = [];
 

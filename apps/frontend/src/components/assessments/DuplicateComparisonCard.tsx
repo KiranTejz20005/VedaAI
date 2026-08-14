@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { AlertTriangle, CheckCircle2, Copy, Sparkles, XCircle, ArrowRightLeft } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Sparkles, XCircle } from 'lucide-react';
 import { Button } from '@/design-system/Button';
 
 export type DuplicateTier = 'EXACT_HASH' | 'LEXICAL' | 'SEMANTIC' | 'ANSWER_PATTERN' | 'NONE';

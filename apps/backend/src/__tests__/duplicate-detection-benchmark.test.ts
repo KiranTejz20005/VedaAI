@@ -142,7 +142,6 @@ describe('DuplicateDetectionService - Benchmark & Quality Evaluation', () => {
     let truePositives = 0;
     let falsePositives = 0;
     let falseNegatives = 0;
-    let trueNegatives = 0;
 
     for (const item of benchmarkDataset) {
       const evalResult = await DuplicateDetectionService.evaluateQuestionDuplicates(
@@ -155,7 +154,6 @@ describe('DuplicateDetectionService - Benchmark & Quality Evaluation', () => {
       if (item.isTrueDuplicate && predictedDuplicate) truePositives++;
       else if (!item.isTrueDuplicate && predictedDuplicate) falsePositives++;
       else if (item.isTrueDuplicate && !predictedDuplicate) falseNegatives++;
-      else trueNegatives++;
     }
 
     const precision = truePositives + falsePositives > 0 ? truePositives / (truePositives + falsePositives) : 1;

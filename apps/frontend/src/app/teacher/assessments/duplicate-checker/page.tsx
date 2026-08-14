@@ -6,7 +6,7 @@ import { Card } from '@/design-system/Card';
 import { Button } from '@/design-system/Button';
 import { DuplicateComparisonCard, DuplicateCandidateMatch } from '@/components/assessments/DuplicateComparisonCard';
 import { api } from '@/lib/api';
-import { AlertCircle, CheckCircle, Search, Sparkles, Filter, RefreshCw, Loader2 } from 'lucide-react';
+import { CheckCircle, Search, Sparkles, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function DuplicateCheckerPage() {

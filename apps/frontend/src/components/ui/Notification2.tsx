@@ -147,7 +147,6 @@ function SimpleAvatar({ author }: { author: UpdateAuthor }) {
   return (
     <div className="relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full border border-slate-300 bg-slate-100 items-center justify-center text-slate-800 font-bold">
       {author.avatar && !hasError ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={author.avatar}
           alt={author.name}
