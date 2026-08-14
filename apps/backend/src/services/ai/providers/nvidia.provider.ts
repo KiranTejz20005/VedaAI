@@ -42,12 +42,15 @@ export class NvidiaProvider implements AIProvider {
 
   async *stream(prompt: string, options?: any): AsyncIterable<any> {
     const model = options?.model || 'meta/llama-3.1-70b-instruct';
-    const stream = await this.client.chat.completions.create({
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      stream: true,
-      temperature: options?.temperature || 0.7,
-    });
+    const stream = await this.client.chat.completions.create(
+      {
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        stream: true,
+        temperature: options?.temperature || 0.7,
+      },
+      { signal: options?.signal }
+    );
 
     for await (const chunk of stream) {
       yield chunk.choices[0]?.delta?.content || '';
