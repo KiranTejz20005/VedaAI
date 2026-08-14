@@ -5,7 +5,7 @@ import React from 'react';
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
-interface ButtonProps {
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children?: React.ReactNode;
   variant?: ButtonVariant;
   size?: ButtonSize;
@@ -63,15 +63,19 @@ export function Button({
   type = 'button',
   className,
   style,
+  id,
+  ...rest
 }: ButtonProps) {
   const [hovered, setHovered] = React.useState(false);
 
   return (
     <button
+      id={id}
       type={type}
       className={className}
       disabled={disabled || loading}
       onClick={onClick}
+      {...rest}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{

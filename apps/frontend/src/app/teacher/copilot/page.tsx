@@ -1,24 +1,39 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { Bot, Sparkles, BookOpen, Layers, CheckCircle2, Loader2, Eye, Trash2, Printer, ArrowLeft, History, FileText, FileSignature } from 'lucide-react';
+import { useState } from 'react';
+import {
+  Bot,
+  Sparkles,
+  BookOpen,
+  Layers,
+  CheckCircle2,
+  Loader2,
+  Eye,
+  Trash2,
+  Download,
+  ArrowLeft,
+  History,
+  FileText,
+  FileSignature,
+} from 'lucide-react';
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
 import { Button } from '@/design-system/Button';
 import { Input } from '@/design-system/Input';
 import { useLessonPlanner } from '@/hooks/useLessonPlanner';
-import { useReactToPrint } from 'react-to-print';
 
 export default function CopilotPage() {
-  const { 
-    plans, 
-    loading, 
-    isGenerating, 
-    activePlan, 
-    setActivePlan, 
-    generatePlan, 
-    updatePlan, 
-    deletePlan 
+  const {
+    plans,
+    loading,
+    isGenerating,
+    isExportingPdf,
+    activePlan,
+    setActivePlan,
+    generatePlan,
+    updatePlan,
+    deletePlan,
+    exportPdf,
   } = useLessonPlanner();
 
   // Form State
@@ -31,13 +46,6 @@ export default function CopilotPage() {
   const [view, setView] = useState<'GENERATOR' | 'HISTORY' | 'EDITOR'>('GENERATOR');
   const [editMode, setEditMode] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
-  
-  // Printing Reference
-  const printRef = useRef<HTMLDivElement>(null);
-  const handlePrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: activePlan?.title || 'Lesson_Plan',
-  });
 
   // Extract structured content safely
   const parseContent = (contentStr: string) => {
@@ -56,12 +64,16 @@ export default function CopilotPage() {
     }
   };
 
+  const handleExportPdf = async () => {
+    if (!activePlan || isExportingPdf) return;
+    await exportPdf(activePlan.id);
+  };
+
   const saveFieldEdit = async (field: string, value: any) => {
     if (!activePlan) return;
-    
-    // Determine if the field is a top-level schema field or inside "content"
+
     const isTopLevel = ['title', 'subject', 'duration', 'objectives', 'activities', 'assessments'].includes(field);
-    
+
     const updates: any = {};
     if (isTopLevel) {
       updates[field] = value;
@@ -89,24 +101,22 @@ export default function CopilotPage() {
     };
 
     return (
-      <div className="mb-8 p-6 bg-white border border-slate-200 rounded-xl hover:border-slate-300 transition-colors group print:border-none print:p-0 print:mb-6">
+      <div className="mb-8 p-6 bg-white border border-slate-200 rounded-xl hover:border-slate-300 transition-colors group">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             {icon}
             {title}
           </h3>
-          <div className="print:hidden">
-            {!isEditing && (
-              <Button variant="outline" size="sm" onClick={startEditing} className="opacity-0 group-hover:opacity-100 transition-opacity">
-                Edit
-              </Button>
-            )}
-          </div>
+          {!isEditing && (
+            <Button variant="outline" size="sm" onClick={startEditing} className="opacity-0 group-hover:opacity-100 transition-opacity">
+              Edit
+            </Button>
+          )}
         </div>
 
         {isEditing ? (
           <div className="space-y-4">
-            <textarea 
+            <textarea
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
               className="w-full min-h-[150px] p-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
@@ -169,7 +179,12 @@ export default function CopilotPage() {
                   <Button variant="outline" size="sm" onClick={() => { setActivePlan(plan); setView('EDITOR'); }}>
                     <Eye className="w-4 h-4" />
                   </Button>
-                  <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => deletePlan(plan.id)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                    onClick={() => deletePlan(plan.id)}
+                  >
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
@@ -187,19 +202,29 @@ export default function CopilotPage() {
 
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6 print:hidden">
+        <div className="flex items-center justify-between mb-6">
           <Button variant="outline" onClick={() => setView('HISTORY')}>
             <ArrowLeft className="w-4 h-4 mr-2" /> Back to Library
           </Button>
           <div className="flex items-center gap-3">
-            <Button variant="primary" onClick={() => handlePrint()}>
-              <Printer className="w-4 h-4 mr-2" /> Export PDF
+            <Button
+              id="export-pdf-btn"
+              variant="primary"
+              onClick={handleExportPdf}
+              disabled={isExportingPdf}
+              className="min-w-[140px] justify-center"
+            >
+              {isExportingPdf ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating PDF…</>
+              ) : (
+                <><Download className="w-4 h-4 mr-2" /> Export PDF</>
+              )}
             </Button>
           </div>
         </div>
 
-        {/* Printable Area */}
-        <div ref={printRef} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 md:p-12 print:shadow-none print:border-none print:p-0">
+        {/* Lesson Plan viewer */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 md:p-12">
           {/* Header */}
           <div className="border-b-2 border-slate-800 pb-8 mb-8">
             <div className="flex justify-between items-start mb-6">
@@ -232,10 +257,6 @@ export default function CopilotPage() {
           {renderSection('Homework / Assignments', 'homework', content.homework, <BookOpen className="w-5 h-5 text-slate-500" />)}
           {renderSection('Expected Outcomes', 'outcomes', content.outcomes, <CheckCircle2 className="w-5 h-5 text-emerald-600" />)}
           {renderSection('Teacher Notes', 'teacherNotes', content.teacherNotes, <FileText className="w-5 h-5 text-slate-600" />, false)}
-          
-          <div className="mt-16 pt-8 border-t border-slate-200 text-center text-xs text-slate-400 hidden print:block">
-            Generated securely by VidyaAI Faculty Copilot • Page 1
-          </div>
         </div>
       </div>
     );
@@ -259,8 +280,8 @@ export default function CopilotPage() {
           <form onSubmit={handleGenerate} className="space-y-5">
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">Subject</label>
-              <Input 
-                placeholder="e.g., Physics, Data Structures" 
+              <Input
+                placeholder="e.g., Physics, Data Structures"
                 value={subject}
                 onChange={e => setSubject(e.target.value)}
                 required
@@ -269,8 +290,8 @@ export default function CopilotPage() {
 
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">Topic</label>
-              <Input 
-                placeholder="e.g., Quantum Mechanics, Trees" 
+              <Input
+                placeholder="e.g., Quantum Mechanics, Trees"
                 value={topic}
                 onChange={e => setTopic(e.target.value)}
                 required
@@ -279,9 +300,9 @@ export default function CopilotPage() {
 
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">Duration (mins)</label>
-              <Input 
+              <Input
                 type="number"
-                placeholder="60" 
+                placeholder="60"
                 value={duration}
                 onChange={e => setDuration(e.target.value)}
                 required
@@ -290,17 +311,17 @@ export default function CopilotPage() {
 
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">Learning Outcomes (Optional)</label>
-              <textarea 
+              <textarea
                 className="w-full h-32 p-3 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm resize-none"
-                placeholder="What should students know by the end?&#10;- Understand wave duality&#10;- Solve equations"
+                placeholder={"What should students know by the end?\n- Understand wave duality\n- Solve equations"}
                 value={outcomes}
                 onChange={e => setOutcomes(e.target.value)}
               />
             </div>
 
-            <Button 
-              type="submit" 
-              variant="primary" 
+            <Button
+              type="submit"
+              variant="primary"
               className="w-full justify-center h-12 text-base font-bold shadow-lg shadow-indigo-500/30"
               disabled={isGenerating || !subject || !topic}
             >
@@ -310,10 +331,10 @@ export default function CopilotPage() {
                 <><Sparkles className="w-5 h-5 mr-2" /> Generate Lesson Plan</>
               )}
             </Button>
-            
-            <Button 
-              type="button" 
-              variant="outline" 
+
+            <Button
+              type="button"
+              variant="outline"
               className="w-full justify-center mt-3"
               onClick={() => setView('HISTORY')}
             >
@@ -344,7 +365,8 @@ export default function CopilotPage() {
             </div>
             <h2 className="text-2xl font-bold text-slate-800 mb-4">AI-Powered Lesson Planning</h2>
             <p className="text-slate-600 max-w-lg mb-8 leading-relaxed">
-              Generate comprehensive, classroom-ready lesson plans instantly. Our Hybrid RAG engine aligns the content with your organization's curriculum and generates structured PDFs with a single click.
+              Generate comprehensive, classroom-ready lesson plans instantly. Our Hybrid RAG engine aligns
+              the content with your organization&apos;s curriculum and generates structured A4 PDFs using Puppeteer.
             </p>
             <div className="grid grid-cols-2 gap-4 text-left max-w-lg w-full">
               <div className="bg-white p-4 rounded-xl border border-slate-200">
@@ -353,9 +375,9 @@ export default function CopilotPage() {
                 <p className="text-xs text-slate-500 mt-1">10+ explicit sections generated.</p>
               </div>
               <div className="bg-white p-4 rounded-xl border border-slate-200">
-                <Printer className="w-5 h-5 text-indigo-500 mb-2" />
+                <Download className="w-5 h-5 text-indigo-500 mb-2" />
                 <h4 className="font-bold text-slate-800 text-sm">Flawless PDF Export</h4>
-                <p className="text-xs text-slate-500 mt-1">Beautiful layouts, zero overlap.</p>
+                <p className="text-xs text-slate-500 mt-1">Beautiful A4 layouts via Puppeteer.</p>
               </div>
             </div>
           </div>
@@ -365,15 +387,13 @@ export default function CopilotPage() {
   );
 
   return (
-    <div className="space-y-6 print:space-y-0 print:m-0 print:bg-white min-h-screen">
-      <div className="print:hidden">
-        <PageHeader 
-          title="Teacher AI Copilot" 
-          subtitle="Generate, edit, and export structured lesson plans instantly."
-        />
-      </div>
+    <div className="space-y-6 min-h-screen">
+      <PageHeader
+        title="Teacher AI Copilot"
+        subtitle="Generate, edit, and export structured lesson plans instantly."
+      />
 
-      <div className="print:m-0">
+      <div>
         {view === 'GENERATOR' && renderGenerator()}
         {view === 'HISTORY' && renderHistory()}
         {view === 'EDITOR' && renderEditor()}

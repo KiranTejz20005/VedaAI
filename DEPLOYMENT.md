@@ -30,6 +30,10 @@ This document outlines the production deployment strategy for the Vidya AI Educa
 - `JWT_EXPIRES_IN=24h`
 - `CORS_ORIGIN=https://app.vidya-ai.com`
 
+### PDF Generation & Worker
+- `CHROMIUM_PATH=/usr/bin/chromium-browser` (Required for Alpine Linux / Docker Fargate environments)
+- `PDF_WORKER_CONCURRENCY=2` (Number of concurrent Puppeteer PDF rendering jobs per worker node)
+
 ## Docker Deployment (Single Node / Testing)
 
 A `docker-compose.prod.yml` file is provided in the repository root.
