@@ -170,6 +170,7 @@ api.interceptors.response.use(
             const token = res.data?.data?.accessToken;
             
             if (token) {
+              setApiToken(token);
               const { useAuthStore } = await import('@/store/auth.store');
               const user = useAuthStore.getState().user;
               if (user) {

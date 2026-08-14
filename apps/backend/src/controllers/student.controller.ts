@@ -451,17 +451,19 @@ export const getMyResults = async (req: Request, res: Response): Promise<void> =
     });
 
     const data = submissions
-      .filter((s) => s.assignment.organizationId === orgId)
+      .filter((s) => !s.assignment?.organizationId || s.assignment.organizationId === orgId)
       .map((s) => {
-        const evalObj = s.evaluations[0];
+        const evalObj = s.evaluations && s.evaluations.length > 0 ? s.evaluations[0] : null;
+        const totalMarks = s.assignment?.totalMarks || 100;
+        const score = evalObj?.score || 0;
         return {
           id: s.id,
           assignmentId: s.assignmentId,
-          title: s.assignment.title,
-          subject: s.assignment.subject,
-          totalMarks: s.assignment.totalMarks,
-          score: evalObj?.score || 0,
-          percentage: evalObj ? (evalObj.score / evalObj.totalMarks) * 100 : 0,
+          title: s.assignment?.title || 'Assignment',
+          subject: s.assignment?.subject || 'General',
+          totalMarks,
+          score,
+          percentage: evalObj && totalMarks > 0 ? Math.round((score / totalMarks) * 100) : 0,
           feedback: evalObj?.generalFeedback || null,
           status: s.status,
           submittedAt: s.submittedAt,
