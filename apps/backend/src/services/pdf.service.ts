@@ -641,7 +641,13 @@ async function launchBrowser(puppeteer: any): Promise<any> {
   }
 
   const launchOptions: any = {
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--no-zygote',
+    ],
     headless: true,
   };
 
