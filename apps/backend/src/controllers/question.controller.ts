@@ -112,3 +112,61 @@ export const deleteQuestion = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: 'Failed to delete question' });
   }
 };
+
+export const checkDuplicateQuestion = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Authentication required' });
+      return;
+    }
+
+    const { content, options, answer, subjectId, candidates } = req.body;
+
+    if (!content) {
+      res.status(400).json({ success: false, error: 'Question content is required' });
+      return;
+    }
+
+    const orgId = req.user.organizationId || undefined;
+
+    let candidateQuestions: Array<{ id: string; content: string; options?: string[]; answer?: string }> = Array.isArray(candidates) ? candidates : [];
+
+    if (candidateQuestions.length === 0 && orgId) {
+      const dbQuestions = await prisma.question.findMany({
+        where: {
+          organizationId: orgId,
+          ...(subjectId && { subjectId }),
+        },
+        select: {
+          id: true,
+          content: true,
+          options: true,
+          answer: true,
+        },
+        take: 200,
+        orderBy: { createdAt: 'desc' },
+      });
+
+      candidateQuestions = dbQuestions.map((q) => ({
+        id: q.id,
+        content: q.content,
+        options: Array.isArray(q.options) ? (q.options as string[]) : undefined,
+        answer: q.answer || undefined,
+      }));
+    }
+
+    const { DuplicateDetectionService } = await import('../services/duplicate-detection.service');
+    const result = await DuplicateDetectionService.evaluateQuestionDuplicates(
+      { content, options, answer, subjectId, organizationId: orgId },
+      candidateQuestions,
+      orgId
+    );
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to perform duplicate detection check',
+    });
+  }
+};

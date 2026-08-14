@@ -4,7 +4,8 @@ import {
   getQuestions,
   getQuestionById,
   updateQuestion,
-  deleteQuestion
+  deleteQuestion,
+  checkDuplicateQuestion,
 } from '../controllers/question.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 import { requirePermission } from '../security/access-control';
@@ -15,9 +16,11 @@ const router = Router();
 router.use(authenticate);
 
 // CRUD routes for Questions
-// Any authenticated user can read
 router.get('/', getQuestions);
 router.get('/:id', getQuestionById);
+
+// VID-14: Multi-tier question duplicate detection check endpoint
+router.post('/duplicate-check', checkDuplicateQuestion);
 
 // Only specific roles can create/update/delete
 router.post('/', requirePermission('MANAGE_QUESTION_BANK'), createQuestion);

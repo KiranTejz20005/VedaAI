@@ -74,8 +74,9 @@ export const generateQuestions = async (req: Request, res: Response): Promise<vo
     const numQuestions = Number(count) || 5;
 
     const userId = (req as any).user?.id;
+    const orgId = (req as any).user?.organizationId;
 
-    const questions = await generateMultipleQuestions({
+    const generatedQuestions = await generateMultipleQuestions({
       topic,
       subject,
       difficulty: difficulty || 'MEDIUM',
@@ -84,10 +85,26 @@ export const generateQuestions = async (req: Request, res: Response): Promise<vo
       count: numQuestions,
     });
 
-    // Persist to DB so questions survive localStorage clears
+    // Stage pre-insertion batch deduplication
+    const candidateItems = generatedQuestions.map((q) => ({
+      id: q.id,
+      content: q.question_text,
+      options: q.options,
+      answer: q.answer,
+      difficulty: q.difficulty,
+      bloomLevel: q.bloomLevel,
+    }));
+
+    const { DuplicateDetectionService } = await import('../services/duplicate-detection.service');
+    const dedupResult = await DuplicateDetectionService.deduplicateBatch(candidateItems, orgId);
+
+    const acceptedIds = new Set(dedupResult.accepted.map((a) => a.id));
+    const acceptedQuestions = generatedQuestions.filter((q) => acceptedIds.has(q.id));
+
+    // Persist only accepted non-duplicate questions to DB
     if (userId) {
       await Promise.all(
-        questions.map(async (question) => {
+        acceptedQuestions.map(async (question) => {
           try {
             await prisma.question.upsert({
               where: { id: question.id },
@@ -113,7 +130,17 @@ export const generateQuestions = async (req: Request, res: Response): Promise<vo
       );
     }
 
-    res.status(201).json({ success: true, data: questions });
+    res.status(200).json({
+      success: true,
+      data: acceptedQuestions,
+      deduplicationStats: dedupResult.stats,
+      discardedDuplicates: dedupResult.duplicates.map((d) => ({
+        id: d.item.id,
+        content: d.item.content,
+        tier: d.result.tier,
+        candidateMatch: d.result.candidate?.questionText,
+      })),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to generate questions';
     if (message.includes('AI provider') || message.includes('API key')) {
