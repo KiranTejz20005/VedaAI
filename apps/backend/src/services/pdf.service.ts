@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { env } from '../config/env';
 import type { IGeneratedPaper } from '../types/models.types';
 import type { ILessonPlanData, ILessonPlanActivity } from '../types/lesson-plan.types';
@@ -620,18 +621,18 @@ async function launchBrowser(puppeteer: any): Promise<any> {
         'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
       ];
       for (const p of winPaths) {
-        if (require('fs').existsSync(p)) {
+        if (fs.existsSync(p)) {
           executablePath = p;
           break;
         }
       }
     } else if (process.platform === 'darwin') {
       const macPath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-      if (require('fs').existsSync(macPath)) executablePath = macPath;
+      if (fs.existsSync(macPath)) executablePath = macPath;
     } else if (process.platform === 'linux') {
       const linuxPaths = ['/usr/bin/chromium-browser', '/usr/bin/chromium', '/usr/bin/google-chrome'];
       for (const p of linuxPaths) {
-        if (require('fs').existsSync(p)) {
+        if (fs.existsSync(p)) {
           executablePath = p;
           break;
         }

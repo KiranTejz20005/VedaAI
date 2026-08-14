@@ -1,6 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { CurriculumGraphService } from '../services/obe/curriculum-graph.service';
-import { BloomClassifierService } from '../services/obe/bloom.service';
 import prisma from '../config/prisma';
 
 vi.mock('../config/prisma', () => {

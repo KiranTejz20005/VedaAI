@@ -77,7 +77,7 @@ describe('PDF Generation Performance & Visual Verification', () => {
     };
 
     const t0 = Date.now();
-    const html = buildLessonPlanHtml(sample3PageData);
+    buildLessonPlanHtml(sample3PageData);
     const t1 = Date.now();
     const htmlTime = t1 - t0;
 
