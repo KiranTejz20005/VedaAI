@@ -229,6 +229,7 @@ export class AIOrchestrator {
         for await (const token of provider.stream(finalPrompt, {
           model,
           temperature: options.temperature,
+          signal: timeoutSignal,
         })) {
           if (timeoutSignal.aborted) {
             throw new Error(`AI streaming (${providerName}) timed out`);
