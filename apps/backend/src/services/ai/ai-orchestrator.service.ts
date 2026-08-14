@@ -142,8 +142,18 @@ export class AIOrchestrator {
               let cleanResult = result;
               if (typeof result === 'string') {
                 cleanResult = result.replace(/```json/gi, '').replace(/```/g, '').trim();
+                const match = cleanResult.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+                if (match) {
+                  cleanResult = match[0];
+                }
               }
-              return JSON.parse(cleanResult);
+              try {
+                return JSON.parse(cleanResult);
+              } catch {
+                const { jsonrepair } = await import('jsonrepair');
+                const repaired = jsonrepair(cleanResult);
+                return JSON.parse(repaired);
+              }
             } catch (e) {
               logger.error({ result }, `Failed to parse AI response as JSON from ${providerName}`);
               this.health.recordValidationFailure(providerName);

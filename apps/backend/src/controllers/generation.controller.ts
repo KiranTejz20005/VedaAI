@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { generateSingleQuestion, generateMultipleQuestions } from '../services/question-generation.service';
+import { generateSingleQuestion, generateMultipleQuestions, GeneratedQuestion } from '../services/question-generation.service';
 import prisma from '../config/prisma';
 import { logger } from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
@@ -71,40 +71,65 @@ export const generateQuestions = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const numQuestions = Number(count) || 5;
+    const numQuestions = Math.min(25, Math.max(1, Number(count) || 5));
 
     const userId = (req as any).user?.id;
     const orgId = (req as any).user?.organizationId;
 
-    const generatedQuestions = await generateMultipleQuestions({
-      topic,
-      subject,
-      difficulty: difficulty || 'MEDIUM',
-      bloomLevel: bloomLevel || 'APPLY',
-      context: context || undefined,
-      count: numQuestions,
-    });
-
-    // Stage pre-insertion batch deduplication
-    const candidateItems = generatedQuestions.map((q) => ({
-      id: q.id,
-      content: q.question_text,
-      options: q.options,
-      answer: q.answer,
-      difficulty: q.difficulty,
-      bloomLevel: q.bloomLevel,
-    }));
-
+    const acceptedQuestions: GeneratedQuestion[] = [];
     const { DuplicateDetectionService } = await import('../services/duplicate-detection.service');
-    const dedupResult = await DuplicateDetectionService.deduplicateBatch(candidateItems, orgId);
+    let attempts = 0;
+    const maxAttempts = 3;
 
-    const acceptedIds = new Set(dedupResult.accepted.map((a) => a.id));
-    const acceptedQuestions = generatedQuestions.filter((q) => acceptedIds.has(q.id));
+    while (acceptedQuestions.length < numQuestions && attempts < maxAttempts) {
+      attempts++;
+      const neededCount = numQuestions - acceptedQuestions.length;
 
-    // Persist only accepted non-duplicate questions to DB
+      const batch = await generateMultipleQuestions({
+        topic,
+        subject,
+        difficulty: difficulty || 'MEDIUM',
+        bloomLevel: bloomLevel || 'APPLY',
+        context: context || undefined,
+        organizationId: orgId,
+        count: neededCount,
+      });
+
+      const candidateItems = batch.map((q) => ({
+        id: q.id,
+        content: q.question_text,
+        options: q.options,
+        answer: q.answer,
+        difficulty: q.difficulty,
+        bloomLevel: q.bloomLevel,
+      }));
+
+      const dedupResult = await DuplicateDetectionService.deduplicateBatch(candidateItems, orgId);
+      const acceptedIds = new Set(dedupResult.accepted.map((a) => a.id));
+      const newlyAccepted = batch.filter((q) => acceptedIds.has(q.id));
+
+      for (const q of newlyAccepted) {
+        if (
+          acceptedQuestions.length < numQuestions &&
+          !acceptedQuestions.some((existing: GeneratedQuestion) => existing.id === q.id || existing.question_text === q.question_text)
+        ) {
+          acceptedQuestions.push(q);
+        }
+      }
+    }
+
+    if (acceptedQuestions.length === 0) {
+      res.status(500).json({
+        success: false,
+        error: `Failed to generate valid practice questions for topic "${topic}". Please try again.`,
+      });
+      return;
+    }
+
+    // Persist accepted non-duplicate questions to DB
     if (userId) {
       await Promise.all(
-        acceptedQuestions.map(async (question) => {
+        acceptedQuestions.map(async (question: GeneratedQuestion) => {
           try {
             await prisma.question.upsert({
               where: { id: question.id },
@@ -133,13 +158,8 @@ export const generateQuestions = async (req: Request, res: Response): Promise<vo
     res.status(200).json({
       success: true,
       data: acceptedQuestions,
-      deduplicationStats: dedupResult.stats,
-      discardedDuplicates: dedupResult.duplicates.map((d) => ({
-        id: d.item.id,
-        content: d.item.content,
-        tier: d.result.tier,
-        candidateMatch: d.result.candidate?.questionText,
-      })),
+      totalRequested: numQuestions,
+      totalGenerated: acceptedQuestions.length,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to generate questions';

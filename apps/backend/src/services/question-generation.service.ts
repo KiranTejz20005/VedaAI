@@ -157,18 +157,21 @@ export async function generateMultipleQuestions(params: {
   const taskInstructions = [
     `Topic: ${params.topic}`,
     `Subject: ${params.subject}`,
-    `Difficulty: ${params.difficulty}`,
+    `Difficulty Level: ${params.difficulty}`,
     `Bloom's Taxonomy Level: ${params.bloomLevel}`,
     `Task: Generate exactly ${params.count} high-quality, completely distinct multiple-choice questions.`,
     'Rules:',
+    `- Topic must strictly be "${params.topic}" in "${params.subject}". Do NOT generate generic or placeholder questions.`,
+    `- Generate EXACTLY ${params.count} distinct questions.`,
     '- No two questions should test the exact same concept or have similar phrasing.',
-    '- Include exactly 4 plausible options (A, B, C, D) per question.',
+    '- Include exactly 4 plausible, domain-specific options per question labeled "A. ...", "B. ...", "C. ...", "D. ...".',
     '- Mark the correct answer clearly as exactly "A", "B", "C", or "D".',
+    '- Do NOT use generic placeholder options like "Option A", "It is fundamental", or "None of the above".',
     '- Include a helpful, subtle hint (max 1 sentence) per question.',
     '- Return ONLY valid JSON matching this exact structure: { "questions": [ { "question_text": "...", "options": ["A. ...", "B. ...", "C. ...", "D. ..."], "answer": "A", "explanation": "...", "hint": "...", "ai_confidence_score": 0.95 } ] }'
   ].join('\n');
 
-  let parsed: any = { questions: [] };
+  let parsed: any = null;
   try {
     const aiPromise = AIOrchestrator.generate({
       intent: 'GenerateQuestionPaper', 
@@ -179,34 +182,64 @@ export async function generateMultipleQuestions(params: {
     const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("AI generation timed out")), 60000));
     parsed = await Promise.race([aiPromise, timeoutPromise]);
   } catch (err) {
-    logger.warn(`AI Generation failed, falling back to mock questions. Error: ${err}`);
-    // Mock fallback
-    parsed = {
-      questions: Array.from({ length: params.count }).map((_, i) => ({
-        question_text: `[Mock] What is a key concept in ${params.topic}? (${i + 1})`,
-        options: ['A. It is fundamental', 'B. It is irrelevant', 'C. It is deprecated', 'D. None of the above'],
-        answer: 'A',
-        explanation: 'This is a mocked explanation since the AI provider was unavailable.',
-        hint: 'Think about the basics.',
-        ai_confidence_score: 0.99
-      }))
-    };
+    logger.error({ err }, `AI Generation failed for topic "${params.topic}" count=${params.count}`);
+    throw new Error(`AI question generation failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  const questionsList = (parsed.questions as any[]) ?? [];
+  if (!parsed) {
+    throw new Error('AI generation returned empty response.');
+  }
 
-  return questionsList.map((item, index) => {
-    const options = (item.options as string[]) ?? ['A. Option A', 'B. Option B', 'C. Option C', 'D. Option D'];
-    const answer = (item.answer as string) ?? 'A';
-    return {
-      id: `q-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
-      question_text: (item.question_text as string) ?? `Question about ${params.topic}`,
+  let questionsList: any[] = [];
+  if (Array.isArray(parsed.questions)) {
+    questionsList = parsed.questions;
+  } else if (Array.isArray(parsed)) {
+    questionsList = parsed;
+  } else if (parsed.question_text) {
+    questionsList = [parsed];
+  }
+
+  const validQuestions: GeneratedQuestion[] = [];
+
+  for (let i = 0; i < questionsList.length; i++) {
+    const item = questionsList[i];
+    if (!item || typeof item !== 'object') continue;
+
+    const questionText = String(item.question_text || item.questionText || item.question || '').trim();
+    
+    // Reject mock or empty questions
+    if (!questionText || questionText.includes('[Mock]') || questionText.toLowerCase().includes('placeholder')) {
+      continue;
+    }
+
+    let options: string[] = Array.isArray(item.options) ? item.options.map(String) : [];
+    if (options.length !== 4 || options.some(opt => opt.includes('It is fundamental') || opt.includes('Option A'))) {
+      continue;
+    }
+
+    // Ensure options are prefixed with A., B., C., D.
+    options = options.map((opt, idx) => {
+      const letter = String.fromCharCode(65 + idx);
+      const cleaned = opt.replace(/^([A-D])[.)]\s*/i, '').trim();
+      return `${letter}. ${cleaned}`;
+    });
+
+    let answer = String(item.answer || 'A').trim().toUpperCase();
+    if (!['A', 'B', 'C', 'D'].includes(answer)) {
+      answer = 'A';
+    }
+
+    validQuestions.push({
+      id: `q-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}`,
+      question_text: questionText,
       options,
       answer,
       difficulty: params.difficulty,
       bloomLevel: params.bloomLevel,
-      ai_confidence_score: (item.ai_confidence_score as number) ?? 0.85,
-      hint: (item.hint as string) || undefined,
-    };
-  });
+      ai_confidence_score: Number(item.ai_confidence_score) || 0.90,
+      hint: item.hint ? String(item.hint).trim() : undefined,
+    });
+  }
+
+  return validQuestions;
 }
