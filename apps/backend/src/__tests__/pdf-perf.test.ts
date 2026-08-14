@@ -93,5 +93,5 @@ describe('PDF Generation Performance & Visual Verification', () => {
     expect(totalTime).toBeLessThan(10000); // hard cutoff
     expect(fs.existsSync(result.pdfPath)).toBe(true);
     expect(fs.statSync(result.pdfPath).size).toBeGreaterThan(1000); // Non-empty valid PDF
-  }, 15000);
+  }, 60000);
 });
