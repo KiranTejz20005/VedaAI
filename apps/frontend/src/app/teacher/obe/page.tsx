@@ -7,10 +7,11 @@ import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
 import { BookOpen, Target, FileText, BarChart3, Plus, Check, X, History } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { COPOMatrix, COPOMatrixData } from '@/components/obe/COPOMatrix';
 
 const BLOOM_LEVELS = ['REMEMBER', 'UNDERSTAND', 'APPLY', 'ANALYZE', 'EVALUATE', 'CREATE'] as const;
 type BloomLevel = typeof BLOOM_LEVELS[number];
-const BLOOM_COLORS: Record<BloomLevel, string> = {
+const BLOOM_HEX_COLORS: Record<BloomLevel, string> = {
   REMEMBER: '#6366f1',
   UNDERSTAND: '#8b5cf6',
   APPLY: '#a855f7',
@@ -18,21 +19,10 @@ const BLOOM_COLORS: Record<BloomLevel, string> = {
   EVALUATE: '#ec4899',
   CREATE: '#f43f5e',
 };
-const WEIGHTAGE_COLORS: Record<number, string> = {
-  1: '#e2e8f0',
-  2: '#93c5fd',
-  3: '#3b82f6',
-  4: '#2563eb',
-  5: '#1d4ed8',
-};
 
 type BlueprintStatus = 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
 
 interface Course { id: string; name: string; code: string; _count?: { outcomes: number; blueprints: number } }
-interface CoMapping { poId: string; weightage: number }
-interface CourseOutcome { id: string; code: string; description: string; bloomLevel: BloomLevel; coMappings: CoMapping[] }
-interface ProgramOutcome { id: string; code: string; description: string }
-interface MappingMatrix { coId: string; coCode: string; bloomLevel: BloomLevel; mappings: Array<{ poId: string; poCode: string; weightage: number }> }
 interface BlueprintItem { id: string; coId: string; title: string; marks: number; bloomLevel: BloomLevel }
 interface Blueprint { id: string; title: string; totalMarks: number; status: BlueprintStatus; items: BlueprintItem[]; _count?: { items: number }; createdAt: string }
 interface AttainmentResult { coId: string; coCode: string; attainment: number; threshold: number; metThreshold: boolean; bloomLevel: BloomLevel }
@@ -44,8 +34,7 @@ export default function TeacherOBEPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const [matrix, setMatrix] = useState<MappingMatrix[]>([]);
-  const [programOutcomes, setProgramOutcomes] = useState<ProgramOutcome[]>([]);
+  const [matrixData, setMatrixData] = useState<COPOMatrixData | null>(null);
   const [blueprints, setBlueprints] = useState<Blueprint[]>([]);
   const [attainment, setAttainment] = useState<AttainmentResult[]>([]);
   const [showAddCO, setShowAddCO] = useState(false);
@@ -74,13 +63,8 @@ export default function TeacherOBEPage() {
   const fetchGraph = useCallback(async (courseId: string, signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const [graphRes, progRes] = await Promise.all([
-        api.get(`/obe/courses/${courseId}`, { signal }),
-        api.get('/obe/programs', { signal }),
-      ]);
-      const graph = graphRes.data.data;
-      setMatrix(graph.mappingMatrix || []);
-      setProgramOutcomes(graph.programOutcomes || progRes.data.data || []);
+      const res = await api.get(`/obe/courses/${courseId}/co-po-matrix`, { signal });
+      setMatrixData(res.data.data);
     } catch {
       toast.error('Failed to load curriculum graph');
     } finally {
@@ -215,6 +199,15 @@ export default function TeacherOBEPage() {
     { id: 'audit' as const, label: 'Audit', icon: History },
   ];
 
+  const handleSaveMatrix = async (payload: {
+    mappings: Array<{ coId: string; poId: string; weightage: number }>;
+    bloomOverrides: Array<{ coId: string; bloomLevel: BloomLevel }>;
+  }) => {
+    if (!selectedCourseId) return;
+    const res = await api.post(`/obe/courses/${selectedCourseId}/co-po-matrix`, payload);
+    setMatrixData(res.data.data);
+  };
+
   return (
     <div style={{ padding: '0 0 48px' }}>
       <PageHeader
@@ -270,7 +263,7 @@ export default function TeacherOBEPage() {
       {selectedCourseId && !loading && activeTab === 'graph' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontSize: 16, fontWeight: 600 }}>CO-PO Mapping Matrix</h3>
+            <h3 style={{ fontSize: 16, fontWeight: 600 }}>CO / PO Curriculum Management</h3>
             <div style={{ display: 'flex', gap: 8 }}>
               <Button onClick={() => setShowAddCO(!showAddCO)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Plus size={14} /> Add CO
@@ -327,59 +320,18 @@ export default function TeacherOBEPage() {
             </Card>
           )}
 
-          <Card style={{ padding: 0, overflow: 'hidden' }}>
-            {matrix.length === 0 ? (
-              <div style={{ padding: 48, textAlign: 'center' }}>
-                <Target size={40} color="#cbd5e1" style={{ marginBottom: 12 }} />
-                <p style={{ color: '#94a3b8' }}>No course outcomes yet. Add COs and POs to build your mapping matrix.</p>
-              </div>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ background: '#f8fafc' }}>
-                      <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: '2px solid #e2e8f0', fontWeight: 600, minWidth: 100 }}>CO</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: '2px solid #e2e8f0', fontWeight: 600, minWidth: 120 }}>Bloom</th>
-                      {programOutcomes.map((po) => (
-                        <th key={po.id} style={{ padding: '10px 14px', textAlign: 'center', borderBottom: '2px solid #e2e8f0', fontWeight: 600, minWidth: 80 }}>{po.code}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {matrix.map((row) => (
-                      <tr key={row.coId} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '10px 14px', fontWeight: 500 }}>{row.coCode}</td>
-                        <td style={{ padding: '10px 14px' }}>
-                          <span style={{ background: BLOOM_COLORS[row.bloomLevel] || '#94a3b8', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 500 }}>
-                            {row.bloomLevel}
-                          </span>
-                        </td>
-                        {programOutcomes.map((po) => {
-                          const mapping = row.mappings.find((m) => m.poId === po.id);
-                          const w = mapping?.weightage ?? 0;
-                          return (
-                            <td key={po.id} style={{ padding: '10px 14px', textAlign: 'center' }}>
-                              <select
-                                value={w}
-                                onChange={(e) => handleMappingChange(row.coId, po.id, Number(e.target.value))}
-                                style={{
-                                  width: 48, padding: '2px 4px', borderRadius: 4, border: 'none', textAlign: 'center', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                                  background: WEIGHTAGE_COLORS[w] || '#f8fafc',
-                                  color: w > 0 ? '#fff' : '#94a3b8',
-                                }}
-                              >
-                                {[0, 1, 2, 3, 4, 5].map((v) => <option key={v} value={v}>{v}</option>)}
-                              </select>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
+          {matrixData ? (
+            <COPOMatrix
+              data={matrixData}
+              onSaveMatrix={handleSaveMatrix}
+              onRefresh={() => fetchGraph(selectedCourseId)}
+            />
+          ) : (
+            <Card style={{ padding: 48, textAlign: 'center' }}>
+              <Target size={40} color="#cbd5e1" style={{ marginBottom: 12 }} />
+              <p style={{ color: '#94a3b8' }}>No matrix data found for this course.</p>
+            </Card>
+          )}
         </div>
       )}
 
@@ -498,10 +450,10 @@ export default function TeacherOBEPage() {
                   const avg = bloomCos.length > 0 ? bloomCos.reduce((s, a) => s + a.attainment, 0) / bloomCos.length : 0;
                   return (
                     <div key={bloom} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0' }}>
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: BLOOM_COLORS[bloom] }} />
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: BLOOM_HEX_COLORS[bloom] }} />
                       <div style={{ fontSize: 12, color: '#64748b', minWidth: 80 }}>{bloom}</div>
                       <div style={{ flex: 1, height: 6, background: '#f1f5f9', borderRadius: 3, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${avg * 100}%`, background: BLOOM_COLORS[bloom], borderRadius: 3 }} />
+                        <div style={{ height: '100%', width: `${avg * 100}%`, background: BLOOM_HEX_COLORS[bloom], borderRadius: 3 }} />
                       </div>
                       <div style={{ fontSize: 12, fontWeight: 600, minWidth: 40 }}>{Math.round(avg * 100)}%</div>
                     </div>

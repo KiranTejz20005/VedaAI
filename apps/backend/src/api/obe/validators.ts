@@ -151,3 +151,38 @@ export const attainmentQuerySchema = z.object({
     threshold: z.coerce.number().min(0).max(1).optional(),
   }).partial(),
 });
+
+export const coPoMatrixParamSchema = z.object({
+  params: z.object({ id: uuidParam }),
+});
+
+export const updateCoPoMatrixSchema = z.object({
+  params: z.object({ id: uuidParam }),
+  body: z.object({
+    mappings: z.array(
+      z.object({
+        coId: uuidParam,
+        poId: uuidParam,
+        weightage: z.number().int().min(0).max(5),
+      })
+    ).optional(),
+    bloomOverrides: z.array(
+      z.object({
+        coId: uuidParam,
+        bloomLevel: z.enum(['REMEMBER', 'UNDERSTAND', 'APPLY', 'ANALYZE', 'EVALUATE', 'CREATE']),
+      })
+    ).optional(),
+    reason: z.string().optional(),
+  }),
+});
+
+export const classifyBloomSchema = z.object({
+  body: z.object({
+    text: z.string().min(1),
+    config: z.object({
+      version: z.string().optional(),
+      customVerbs: z.record(z.enum(['REMEMBER', 'UNDERSTAND', 'APPLY', 'ANALYZE', 'EVALUATE', 'CREATE'])).optional(),
+      levelWeights: z.record(z.number()).optional(),
+    }).optional(),
+  }),
+});

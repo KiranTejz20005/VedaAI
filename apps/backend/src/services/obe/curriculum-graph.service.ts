@@ -1,6 +1,7 @@
 import prisma from '../../config/prisma';
 import { ApiError } from '../../api/common/errors';
 import type { BloomLevel, Prisma } from '@prisma/client';
+import { BloomClassifierService } from './bloom.service';
 
 export class CurriculumGraphService {
   static async createCourseOutcome(data: {
@@ -469,5 +470,121 @@ export class CurriculumGraphService {
       where: { coPoMappingId: mapping.id },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  static async getCoPoMatrix(courseId: string, organizationId: string) {
+    const course = await prisma.course.findFirst({
+      where: { id: courseId, organizationId },
+    });
+    if (!course) throw ApiError.notFound('Course not found');
+
+    const cos = await prisma.courseOutcome.findMany({
+      where: { courseId, organizationId },
+      include: {
+        coMappings: {
+          include: { po: true },
+        },
+      },
+      orderBy: { code: 'asc' },
+    });
+
+    const pos = await prisma.programOutcome.findMany({
+      where: { organizationId },
+      orderBy: { code: 'asc' },
+    });
+
+    // Compute Bloom classifications & confidence scores for each CO
+    const bloomClassifications = cos.map((co) => {
+      const classification = BloomClassifierService.classify(co.description);
+      return {
+        coId: co.id,
+        coCode: co.code,
+        predictedLevel: classification.level,
+        effectiveLevel: co.bloomLevel,
+        confidence: classification.confidence,
+        cues: classification.cues,
+        explanation: classification.explanation,
+      };
+    });
+
+    const matrix = cos.map((co) => ({
+      coId: co.id,
+      coCode: co.code,
+      bloomLevel: co.bloomLevel,
+      mappings: pos.map((po) => {
+        const found = co.coMappings.find((m) => m.poId === po.id);
+        return {
+          poId: po.id,
+          poCode: po.code,
+          weightage: found ? found.weightage : 0,
+        };
+      }),
+    }));
+
+    return {
+      course: {
+        id: course.id,
+        name: course.name,
+        code: course.code,
+        description: course.description,
+      },
+      cos: cos.map((c) => ({
+        id: c.id,
+        code: c.code,
+        description: c.description,
+        bloomLevel: c.bloomLevel,
+      })),
+      pos: pos.map((p) => ({
+        id: p.id,
+        code: p.code,
+        description: p.description,
+      })),
+      matrix,
+      bloomClassifications,
+      version: 1,
+    };
+  }
+
+  static async updateCoPoMatrix(
+    courseId: string,
+    organizationId: string,
+    data: {
+      mappings?: Array<{ coId: string; poId: string; weightage: number }>;
+      bloomOverrides?: Array<{ coId: string; bloomLevel: BloomLevel }>;
+      changedById?: string;
+      reason?: string;
+    }
+  ) {
+    const course = await prisma.course.findFirst({
+      where: { id: courseId, organizationId },
+    });
+    if (!course) throw ApiError.notFound('Course not found');
+
+    // 1. Process bloomOverrides
+    if (data.bloomOverrides && data.bloomOverrides.length > 0) {
+      for (const override of data.bloomOverrides) {
+        const co = await prisma.courseOutcome.findFirst({
+          where: { id: override.coId, courseId, organizationId },
+        });
+        if (co) {
+          await prisma.courseOutcome.update({
+            where: { id: co.id },
+            data: { bloomLevel: override.bloomLevel },
+          });
+        }
+      }
+    }
+
+    // 2. Process matrix mappings
+    if (data.mappings && data.mappings.length > 0) {
+      await this.bulkUpsertCoPoMappings({
+        mappings: data.mappings,
+        organizationId,
+        changedById: data.changedById,
+        reason: data.reason,
+      });
+    }
+
+    return this.getCoPoMatrix(courseId, organizationId);
   }
 }
