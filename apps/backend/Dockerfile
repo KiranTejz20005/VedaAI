@@ -24,8 +24,9 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Install curl for healthchecks
-RUN apk add --no-cache curl
+# Install curl for healthchecks and chromium for Puppeteer PDF rendering
+RUN apk add --no-cache curl chromium nss freetype harfbuzz ca-certificates ttf-freefont
+ENV CHROMIUM_PATH=/usr/bin/chromium-browser
 
 # Copy package configurations and install only production dependencies
 COPY package.json package-lock.json ./

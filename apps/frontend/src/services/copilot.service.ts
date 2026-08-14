@@ -12,6 +12,12 @@ export interface CopilotWorkflowRequest {
   tasks: any[];
 }
 
+export interface LessonPlanPdfJobStatus {
+  status: 'queued' | 'completed' | 'failed';
+  pdfUrl?: string | null;
+  error?: string;
+}
+
 export const copilotService = {
   getLessonPlans: async () => {
     const response = await api.get('/copilot/lesson-plans');
@@ -40,6 +46,23 @@ export const copilotService = {
 
   listWorkflows: async () => {
     const response = await api.get('/copilot/workflows');
+    return response.data.data;
+  },
+
+  /**
+   * Enqueue a BullMQ lesson-plan PDF generation job.
+   * Returns the jobId to be used for polling.
+   */
+  requestLessonPlanPdf: async (lessonPlanId: string): Promise<{ jobId: string }> => {
+    const response = await api.post(`/lessons/${lessonPlanId}/export-pdf`);
+    return response.data.data;
+  },
+
+  /**
+   * Poll the Redis job result for a lesson plan PDF job.
+   */
+  pollLessonPlanPdfJob: async (jobId: string): Promise<LessonPlanPdfJobStatus> => {
+    const response = await api.get(`/lessons/pdf-job/${jobId}`);
     return response.data.data;
   },
 };
