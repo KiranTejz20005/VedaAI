@@ -270,3 +270,31 @@ export const getMappingChangeStats = async (req: Request, res: Response): Promis
   const stats = await MappingReviewService.getChangeStats(orgId);
   sendSuccess(res, { data: stats });
 };
+
+export const getCoPoMatrixController = async (req: Request, res: Response): Promise<void> => {
+  const orgId = requireRequestOrgId(req);
+  const { id } = req.params;
+  const matrix = await CurriculumGraphService.getCoPoMatrix(id, orgId);
+  sendSuccess(res, { data: matrix });
+};
+
+export const updateCoPoMatrixController = async (req: Request, res: Response): Promise<void> => {
+  const orgId = requireRequestOrgId(req);
+  const userId = getRequestUserId(req);
+  const { id } = req.params;
+  const { mappings, bloomOverrides, reason } = req.body;
+  const updated = await CurriculumGraphService.updateCoPoMatrix(id, orgId, {
+    mappings,
+    bloomOverrides,
+    changedById: userId,
+    reason,
+  });
+  sendSuccess(res, { data: updated });
+};
+
+export const classifyBloomController = async (req: Request, res: Response): Promise<void> => {
+  const { text, config } = req.body;
+  const { BloomClassifierService } = await import('../../services/obe/bloom.service');
+  const result = BloomClassifierService.classify(text, config);
+  sendSuccess(res, { data: result });
+};

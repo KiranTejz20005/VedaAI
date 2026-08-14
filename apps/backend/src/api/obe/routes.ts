@@ -39,6 +39,9 @@ import {
   getMappingChangeHistory,
   getRecentMappingChanges,
   getMappingChangeStats,
+  getCoPoMatrixController,
+  updateCoPoMatrixController,
+  classifyBloomController,
 } from './controller';
 import {
   idParamSchema,
@@ -58,6 +61,9 @@ import {
   approveBlueprintSchema,
   rejectBlueprintSchema,
   attainmentQuerySchema,
+  coPoMatrixParamSchema,
+  updateCoPoMatrixSchema,
+  classifyBloomSchema,
 } from './validators';
 
 const router = Router();
@@ -68,6 +74,11 @@ router.get('/courses', requireRole('ADMIN', 'TEACHER'), asyncHandler(listCourses
 router.post('/courses', requireRole('ADMIN'), validate(createCourseSchema), asyncHandler(createCourse));
 router.get('/courses/:courseId', requireRole('ADMIN', 'TEACHER'), validate(courseIdParamSchema), asyncHandler(getCurriculumGraph));
 router.post('/courses/:courseId/validate', requireRole('ADMIN', 'TEACHER'), validate(courseIdParamSchema), asyncHandler(validateMappingIntegrity));
+
+// ── CO/PO Matrix & Bloom Classifier Endpoints (VID-13) ──────────────────────
+router.get('/courses/:id/co-po-matrix', requireRole('ADMIN', 'TEACHER'), validate(coPoMatrixParamSchema), asyncHandler(getCoPoMatrixController));
+router.post('/courses/:id/co-po-matrix', requireRole('ADMIN', 'TEACHER'), validate(updateCoPoMatrixSchema), asyncHandler(updateCoPoMatrixController));
+router.post('/classify-bloom', requireRole('ADMIN', 'TEACHER'), validate(classifyBloomSchema), asyncHandler(classifyBloomController));
 
 router.get('/courses/:courseId/outcomes', requireRole('ADMIN', 'TEACHER'), validate(courseIdParamSchema), asyncHandler(listCourseOutcomes));
 router.post('/courses/:courseId/outcomes', requireRole('ADMIN', 'TEACHER'), validate(createCourseOutcomeSchema), asyncHandler(createCourseOutcome));
