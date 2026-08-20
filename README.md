@@ -366,19 +366,3 @@ Deploy two separate services using the backend code:
 2. **Background Worker Service (`vidyaai-worker`)**:
    * **Start Command**: `bash start-worker.sh`
    * **Environment Variable**: `RENDER_WORKER_MODE=worker`
-
----
-
-## 🛠️ DevOps Operations & Troubleshooting Guide
-
-### 1. Jobs Stay Stuck in the "Queued" State
-* **Root Cause**: The background worker process is offline, or the Redis server is not accepting incoming TCP connections.
-* **Fix**: Verify that `ENABLE_BACKGROUND_WORKERS=true` is set on the worker instance, and check your Redis server logs.
-
-### 2. Connection Refused on Backend Port (`5000`)
-* **Root Cause**: Next.js is configured to talk to port `5000` but the Express server has crashed or failed to start due to missing environment variables.
-* **Fix**: Run `npm run test:connections` in the backend workspace to check for missing environment configuration values.
-
-### 3. PDF Compile Phase Fails
-* **Root Cause**: Chromium or Puppeteer dependencies are missing from the OS environment, causing the web-to-pdf renderer to crash.
-* **Fix**: Ensure that `@sparticuz/chromium` is correctly installed on serverless platforms, or check that Chrome is installed on the host OS.
