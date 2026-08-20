@@ -77,6 +77,10 @@ export class NvidiaProvider implements AIProvider {
     return true;
   }
 
+  isConfigured(): boolean {
+    return Boolean(env.NVIDIA_API_KEY && env.NVIDIA_API_KEY.trim().length > 5);
+  }
+
   async healthCheck(): Promise<boolean> {
     try {
       if (!env.NVIDIA_API_KEY) return false;

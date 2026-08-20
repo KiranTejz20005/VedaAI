@@ -74,6 +74,10 @@ export class OpenAIProvider implements AIProvider {
     return true;
   }
 
+  isConfigured(): boolean {
+    return Boolean(env.OPENAI_API_KEY && env.OPENAI_API_KEY.trim().length > 5);
+  }
+
   async healthCheck(): Promise<boolean> {
     try {
       if (!env.OPENAI_API_KEY) return false;

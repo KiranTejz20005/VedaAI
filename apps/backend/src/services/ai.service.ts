@@ -119,8 +119,11 @@ ${typeBreakdown ? `7. Adhere to this breakdown: ${JSON.stringify(typeBreakdown)}
 
   await reportProgress('validating', 80, 'Validating generated paper format...');
 
+  // Normalize LLM output before validation to ensure UUIDs, type enums, and MCQ options conform to schema
+  const normalizedData = normalizeRawPaper(generatedData, assignment.totalMarks || 100);
+
   // Validate the resulting JSON against our internal Zod validator
-  const validatedPaper = validatePaperOrThrow(generatedData);
+  const validatedPaper = validatePaperOrThrow(normalizedData);
 
   await reportProgress('completed', 100, 'Paper generation successful.');
 
@@ -128,6 +131,93 @@ ${typeBreakdown ? `7. Adhere to this breakdown: ${JSON.stringify(typeBreakdown)}
     paper: validatedPaper,
     warnings: [],
     metrics: { method: 'AIOrchestrator', length: combinedContext.length }
+  };
+}
+
+function normalizeRawPaper(raw: any, totalMarksRequired: number): any {
+  if (!raw || typeof raw !== 'object') return raw;
+  const sections = Array.isArray(raw.sections) ? raw.sections : [];
+
+  const normalizedSections = sections.map((sec: any, sIdx: number) => {
+    const rawQuestions = Array.isArray(sec.questions) ? sec.questions : [];
+    const questions = rawQuestions.map((q: any) => {
+      let type = String(q.type || 'short-answer').toLowerCase().replace(/_/g, '-');
+      if (type === 'multiple-choice' || type === 'multiple_choice' || type === 'mcqs') type = 'mcq';
+      if (type === 'true_false' || type === 'tf') type = 'true-false';
+      if (type === 'fill_in_the_blank' || type === 'fill-in-the-blanks' || type === 'fill_blank') type = 'fill-blank';
+      if (type === 'short_answer' || type === 'short') type = 'short-answer';
+      if (type === 'long_answer' || type === 'long') type = 'long-answer';
+      if (!['mcq', 'true-false', 'fill-blank', 'short-answer', 'long-answer'].includes(type)) {
+        type = 'short-answer';
+      }
+
+      let difficulty = String(q.difficulty || 'medium').toLowerCase();
+      if (!['easy', 'medium', 'hard'].includes(difficulty)) difficulty = 'medium';
+
+      const marks = Math.max(1, Math.round(Number(q.marks) || 1));
+
+      const id = (q.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q.id))
+        ? q.id
+        : crypto.randomUUID();
+
+      const normalizedQ: any = {
+        id,
+        question: String(q.question || 'Question text').trim(),
+        type,
+        difficulty,
+        marks,
+      };
+
+      if (type === 'mcq') {
+        const rawOptions = Array.isArray(q.options) ? q.options : [];
+        const keys = ['A', 'B', 'C', 'D'] as const;
+        normalizedQ.options = keys.map((key, idx) => {
+          const opt = rawOptions[idx];
+          if (typeof opt === 'string') return { key, text: opt.trim() || `Option ${key}` };
+          if (opt && typeof opt === 'object') return { key, text: String(opt.text || opt.value || `Option ${key}`).trim() };
+          return { key, text: `Option ${key}` };
+        });
+      } else if (type === 'fill-blank') {
+        normalizedQ.blanks = Math.max(1, Math.round(Number(q.blanks) || 1));
+      }
+
+      if (q.answer) {
+        normalizedQ.answer = {
+          text: typeof q.answer === 'string' ? q.answer : String(q.answer.text || ''),
+          ...(q.answer.explanation ? { explanation: String(q.answer.explanation) } : {})
+        };
+      }
+
+      return normalizedQ;
+    });
+
+    return {
+      title: String(sec.title || `Section ${String.fromCharCode(65 + sIdx)}`),
+      instruction: String(sec.instruction || sec.instructions || 'Attempt all questions.'),
+      questions: questions.length > 0 ? questions : [{
+        id: crypto.randomUUID(),
+        question: 'General question text.',
+        type: 'short-answer',
+        difficulty: 'medium',
+        marks: 1
+      }]
+    };
+  });
+
+  return {
+    title: String(raw.title || 'Examination Question Paper'),
+    totalMarks: Math.max(1, Math.round(Number(raw.totalMarks) || totalMarksRequired)),
+    sections: normalizedSections.length > 0 ? normalizedSections : [{
+      title: 'Section A',
+      instruction: 'Attempt all questions.',
+      questions: [{
+        id: crypto.randomUUID(),
+        question: 'General question text.',
+        type: 'short-answer',
+        difficulty: 'medium',
+        marks: totalMarksRequired || 1
+      }]
+    }]
   };
 }
 

@@ -18,15 +18,24 @@ export const ModelRegistry: Record<string, ModelConfig> = {
     supportsJSON: true,
     tier: 'reasoning',
   },
-  'llama-3.3-70b-versatile': {
+  'gpt-oss-120b': {
     provider: 'groq',
-    modelName: 'llama-3.3-70b-versatile',
+    modelName: 'openai/gpt-oss-120b',
     contextWindow: 128000,
     maxOutputTokens: 8000,
     supportsVision: false,
     supportsJSON: true,
     tier: 'fast',
-  }
+  },
+  'llama-3.3-70b-versatile': {
+    provider: 'groq',
+    modelName: 'openai/gpt-oss-120b',
+    contextWindow: 128000,
+    maxOutputTokens: 8000,
+    supportsVision: false,
+    supportsJSON: true,
+    tier: 'fast',
+  },
 };
 
 export class ModelRegistryService {
@@ -35,7 +44,7 @@ export class ModelRegistryService {
     if (intent === 'GenerateQuestionPaper' || intent === 'EvaluateTypedAnswer' || intent === 'GenerateQuestionExplanation') {
       return ModelRegistry['llama-3.1-70b-instruct']; // Needs deep reasoning, use NVIDIA
     }
-    return ModelRegistry['llama-3.1-8b-instant']; // Fast fallback, use Groq
+    return ModelRegistry['gpt-oss-120b']; // Fast fallback, use Groq
   }
 }
 

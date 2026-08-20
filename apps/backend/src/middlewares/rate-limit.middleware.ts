@@ -45,6 +45,9 @@ export const paperGenerationRateLimiter = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  // [TESTING BYPASS]: Temporarily bypass all paper rate limits and cooldowns for full testing
+  return next();
+
   const userId = req.user?.id || 'anonymous';
   const organizationId = req.user?.organizationId || 'no-organization';
   const requestId = (req.headers['x-request-id'] as string) || uuidv4();

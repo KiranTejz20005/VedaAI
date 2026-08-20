@@ -18,7 +18,7 @@ import { useAdminAuthStore } from '@/store/admin-auth.store';
 const NAV_ITEMS = [
   { href: '/faculty', label: 'Dashboard', icon: LayoutGrid, exact: true },
   { href: '/teacher', label: 'Teachers', icon: Users },
-  { href: '/teacher/assessments', label: 'Assignments', icon: FileText },
+  { href: '/assignments', label: 'Assignments', icon: FileText },
   { href: '/teacher/groups', label: 'My Classes', icon: BookOpen },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];

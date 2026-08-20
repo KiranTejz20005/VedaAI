@@ -802,14 +802,12 @@ export function createAiGenerationWorker() {
       abortManager.abort(assignmentId, jrId, `BullMQ stalled ${perJobCount} times`);
 
       await Promise.allSettled([
-        Number(jobRecord.generationSeq) === 1
-          ? prisma.assignment.delete({ where: { id: assignmentId } }).catch((err) => {
-              logger.warn(`[WORKER:STALL] Failed to delete stalled assignment ${assignmentId}: ${err instanceof Error ? err.message : String(err)}`);
-            })
-          : prisma.assignment.updateMany({
-              where: { id: assignmentId, activeGenerationJobId: jrId, NOT: { status: 'COMPLETED' } },
-              data: { status: 'FAILED' },
-            }),
+        prisma.assignment.updateMany({
+          where: { id: assignmentId, activeGenerationJobId: jrId, NOT: { status: 'COMPLETED' } },
+          data: { status: 'FAILED' },
+        }).catch((err) => {
+          logger.warn(`[WORKER:STALL] Failed to mark stalled assignment ${assignmentId} as failed: ${err instanceof Error ? err.message : String(err)}`);
+        }),
         prisma.generationJob.update({
           where: { id: jobRecord.id, generationSeq: Number(jobRecord.generationSeq ?? 0) },
           data: {

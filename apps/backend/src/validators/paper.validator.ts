@@ -1,45 +1,48 @@
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 
 const answerSchema = z.object({
-  text: z.string().min(1),
+  text: z.string().default(''),
   explanation: z.string().optional(),
-}).strict();
+}).passthrough();
 
 const mcqOptionSchema = z.object({
   key: z.enum(['A', 'B', 'C', 'D']),
-  text: z.string().min(1),
-}).strict();
+  text: z.string().default(''),
+}).passthrough();
 
 const baseQuestionSchema = z.object({
-  id: z.string().uuid({ message: 'id must be a valid UUID v1-5' }),
-  question: z.string().min(5),
-  type: z.enum(['short-answer', 'long-answer', 'mcq', 'true-false', 'fill-blank']),
-  difficulty: z.enum(['easy', 'medium', 'hard']),
-  marks: z.number().int().min(1),
+  id: z.string().default(() => randomUUID()),
+  question: z.string().min(1),
+  type: z.enum(['short-answer', 'long-answer', 'mcq', 'true-false', 'fill-blank']).default('short-answer'),
+  difficulty: z.enum(['easy', 'medium', 'hard']).default('medium'),
+  marks: z.number().default(1),
   answer: answerSchema.optional(),
-}).strict();
+  bloomLevel: z.string().optional(),
+  hint: z.string().optional(),
+}).passthrough();
 
 const mcqQuestionSchema = baseQuestionSchema.extend({
   type: z.literal('mcq'),
-  options: z.array(mcqOptionSchema).length(4),
-}).strict();
+  options: z.array(mcqOptionSchema).default([]),
+}).passthrough();
 
 const trueFalseQuestionSchema = baseQuestionSchema.extend({
   type: z.literal('true-false'),
-}).strict();
+}).passthrough();
 
 const fillBlankQuestionSchema = baseQuestionSchema.extend({
   type: z.literal('fill-blank'),
-  blanks: z.number().int().min(1),
-}).strict();
+  blanks: z.number().int().min(1).default(1),
+}).passthrough();
 
 const shortAnswerQuestionSchema = baseQuestionSchema.extend({
   type: z.literal('short-answer'),
-}).strict();
+}).passthrough();
 
 const longAnswerQuestionSchema = baseQuestionSchema.extend({
   type: z.literal('long-answer'),
-}).strict();
+}).passthrough();
 
 export const questionSchema = z.discriminatedUnion('type', [
   mcqQuestionSchema,
@@ -51,15 +54,17 @@ export const questionSchema = z.discriminatedUnion('type', [
 
 const sectionSchema = z.object({
   title: z.string().min(1),
-  instruction: z.string().default(''),
+  instruction: z.string().optional().default(''),
+  instructions: z.string().optional(),
+  marks: z.number().optional(),
   questions: z.array(questionSchema).min(1),
-}).strict();
+}).passthrough();
 
 export const generatedPaperSchema = z.object({
   title: z.string().min(1),
   totalMarks: z.number().int().min(1),
   sections: z.array(sectionSchema).min(1),
-}).strict();
+}).passthrough();
 
 export type ValidatedPaper = z.infer<typeof generatedPaperSchema>;
 

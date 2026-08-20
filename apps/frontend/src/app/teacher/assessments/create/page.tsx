@@ -8,7 +8,7 @@ import { Card } from '@/design-system/Card';
 import { Button } from '@/design-system/Button';
 import { Input } from '@/design-system/Input';
 import { DatePicker } from '@/design-system/DatePicker';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function CreateAssignmentPage() {
@@ -69,10 +69,15 @@ export default function CreateAssignmentPage() {
         <ArrowLeft size={16} /> Back to Hub
       </button>
 
-      <PageHeader
-        title="Create New Assignment"
-        subtitle="Configure a new assignment or assessment for your class."
-      />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+        <PageHeader
+          title="Create New Assignment"
+          subtitle="Configure a new assignment or assessment for your class."
+        />
+        <Button variant="primary" onClick={() => router.push('/assignments/create')}>
+          <Sparkles size={16} style={{ marginRight: 8 }} /> AI Question Paper Studio
+        </Button>
+      </div>
 
       <Card padding="32px">
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>

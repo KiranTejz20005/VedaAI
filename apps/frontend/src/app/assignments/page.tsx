@@ -235,7 +235,7 @@ function TeacherView({ assignments, loading, error, search, setSearch }: any) {
       </div>
 
       {/* Search and Filters */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 280 }}>
           <Search size={18} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF' }} />
           <input
@@ -257,6 +257,22 @@ function TeacherView({ assignments, loading, error, search, setSearch }: any) {
             }}
           />
         </div>
+        <Link
+          href="/assignments/create"
+          className="btn btn-primary"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 20px',
+            borderRadius: 12,
+            fontWeight: 700,
+            textDecoration: 'none',
+            flexShrink: 0,
+          }}
+        >
+          <Sparkles size={16} /> Create Assignment
+        </Link>
       </div>
 
       {loading ? (
@@ -270,7 +286,10 @@ function TeacherView({ assignments, loading, error, search, setSearch }: any) {
       ) : filtered.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '40px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', borderRadius: 16 }}>
           <BookOpen size={24} color="#9CA3AF" />
-          <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>No assignments found.</p>
+          <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '12px 0 16px' }}>No assignments found.</p>
+          <Link href="/assignments/create" className="btn btn-primary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Sparkles size={14} /> Create Assignment
+          </Link>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 24 }}>

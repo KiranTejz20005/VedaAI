@@ -67,14 +67,22 @@ export class AIOrchestrator {
         finalResponseFormat = { type: 'json_object' };
       }
 
-      // 4. Determine provider evaluation order
+      // 4. Determine provider evaluation order (filter out unconfigured providers)
+      const configuredProviders = Object.entries(this.providers)
+        .filter(([_, p]) => (p.isConfigured ? p.isConfigured() : true))
+        .map(([name]) => name);
+
       const orderedProviders = [
         primaryProvider,
         ...FALLBACK_ORDER.filter((p) => p !== primaryProvider),
-      ];
+      ].filter((p) => configuredProviders.includes(p));
+
+      if (orderedProviders.length === 0) {
+        throw new Error('No AI providers configured with valid API keys. Please set NVIDIA_API_KEY, GROQ_API_KEY, or OPENAI_API_KEY in your .env file.');
+      }
 
       let lastError: Error | null = null;
-      const primaryTimeoutMs = env.AI_PRIMARY_TIMEOUT_MS || 12_000;
+      const primaryTimeoutMs = env.AI_PRIMARY_TIMEOUT_MS || (options.intent === 'GenerateQuestionPaper' ? 45_000 : 25_000);
 
       for (const providerName of orderedProviders) {
         const provider = this.providers[providerName];
@@ -215,13 +223,17 @@ export class AIOrchestrator {
     const compressedContext = TokenBudgetService.truncateContextToFitBudget(options.context, modelConfig);
     const finalPrompt = PromptBuilderService.buildPrompt(options.intent, compressedContext, options.taskInstructions);
 
+    const configuredProviders = Object.entries(this.providers)
+      .filter(([_, p]) => (p.isConfigured ? p.isConfigured() : true))
+      .map(([name]) => name);
+
     const orderedProviders = [
       primaryProvider,
       ...FALLBACK_ORDER.filter((p) => p !== primaryProvider),
-    ];
+    ].filter((p) => configuredProviders.includes(p));
 
     let lastError: Error | null = null;
-    const primaryTimeoutMs = env.AI_PRIMARY_TIMEOUT_MS || 12_000;
+    const primaryTimeoutMs = env.AI_PRIMARY_TIMEOUT_MS || 25_000;
 
     for (const providerName of orderedProviders) {
       const provider = this.providers[providerName];

@@ -118,7 +118,7 @@ export default function HomeworkHubPage() {
         <BookOpen size={48} color="var(--text-muted)" style={{ margin: '0 auto 16px' }} />
         <h3 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>No Assignments Yet</h3>
         <p style={{ color: 'var(--text-secondary)', marginBottom: 24 }}>You haven't created any assignments for your classes.</p>
-        <Button variant="primary" onClick={() => router.push('/teacher/assessments/create')}>Create Assignment</Button>
+        <Button variant="primary" onClick={() => router.push('/assignments/create')}>Create Assignment</Button>
       </div>
     );
   }
@@ -130,7 +130,7 @@ export default function HomeworkHubPage() {
           title="Homework Management Hub"
           subtitle="Track submissions, late policies, and bulk grading."
         />
-        <Button variant="primary" onClick={() => router.push('/teacher/assessments/create')}>Create Assignment</Button>
+        <Button variant="primary" onClick={() => router.push('/assignments/create')}>Create Assignment</Button>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -187,6 +187,7 @@ export default function HomeworkHubPage() {
                   Bulk AI Grade ({hw.submitted - hw.graded})
                 </Button>
               )}
+              <Button variant="outline" onClick={() => router.push(`/assignments/${hw.id}`)}>Question Paper & Details</Button>
               <Button variant="outline" onClick={() => router.push(`/teacher/assessments/${hw.id}/submissions`)}>View Submissions</Button>
             </div>
           </Card>

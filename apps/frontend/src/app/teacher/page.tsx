@@ -143,7 +143,7 @@ export default function TeacherDashboard() {
           <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 16 }}>Quick Actions</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
             <button
-              onClick={() => router.push('/teacher/assessments')}
+              onClick={() => router.push('/assignments/create')}
               style={{ padding: '12px 16px', background: 'var(--brand)', color: 'white', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, border: 'none', cursor: 'pointer', transition: 'opacity 0.2s', justifyContent: 'center' }}
               onMouseOver={e => e.currentTarget.style.opacity = '0.9'}
               onMouseOut={e => e.currentTarget.style.opacity = '1'}

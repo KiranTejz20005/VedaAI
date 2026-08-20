@@ -65,6 +65,7 @@ export async function enqueueGeneration(
     if (state === 'active' || state === 'waiting' || state === 'delayed') {
       throw new Error('A duplicate generation job with identical configuration is already in progress.');
     }
+    await existingJob.remove().catch(() => {});
   }
 
   const nextSeq = (assignment.generationSeq ?? 0) + 1;
@@ -90,6 +91,8 @@ export async function enqueueGeneration(
     data: { activeGenerationJobId: jobRecord.id },
   });
 
+  const bullmqJobId = `gen-${assignmentId}-${jobRecord.id}`;
+
   // Add job with timeout to prevent hanging
   let job: any;
   try {
@@ -97,7 +100,7 @@ export async function enqueueGeneration(
       queue.add(
         'generate-paper',
         { assignmentId, jobRecordId: jobRecord.id, userId, organizationId },
-        { jobId: customJobId }
+        { jobId: bullmqJobId }
       ),
       new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Queue timeout after 10s')), 10000)
@@ -106,7 +109,7 @@ export async function enqueueGeneration(
   } catch (err: any) {
     // If queue times out, use a fallback job ID
     logger.warn(`Queue.add() timed out for assignment ${assignmentId}, using fallback job ID`);
-    job = { id: customJobId };
+    job = { id: bullmqJobId };
   }
 
   await prisma.generationJob.update({

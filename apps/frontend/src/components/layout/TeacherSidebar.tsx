@@ -23,7 +23,7 @@ import { useAdminAuthStore } from '@/store/admin-auth.store';
 const NAV_ITEMS = [
   { href: '/teacher', label: 'Home', icon: LayoutGrid, exact: true },
   { href: '/teacher/groups', label: 'My Groups', icon: Users },
-  { href: '/teacher/assessments', label: 'Assignments', icon: FileText },
+  { href: '/assignments', label: 'Assignments', icon: FileText },
   { href: '/teacher/attendance', label: 'Attendance', icon: GraduationCap },
   { href: '/teacher/leave', label: 'Leave Requests', icon: FileCheck },
   { href: '/teacher/copilot', label: 'AI Copilot', icon: Sparkles },

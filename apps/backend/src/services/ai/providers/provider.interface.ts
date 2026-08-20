@@ -6,5 +6,6 @@ export interface AIProvider {
   supportsJSON(): boolean;
   supportsStructuredOutput(): boolean;
   supportsFunctionCalling(): boolean;
+  isConfigured?(): boolean;
   healthCheck(): Promise<boolean>;
 }

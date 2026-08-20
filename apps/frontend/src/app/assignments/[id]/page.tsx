@@ -478,7 +478,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                           </button>
                         </>
                       )}
-                      {canApprove && assignment.status === 'APPROVED' && (
+                      {(isFaculty || canApprove) && assignment.status === 'APPROVED' && (
                         <button onClick={handlePublish} className="btn btn-primary btn-sm" disabled={isPublishing} style={{ gap: 4, display: 'inline-flex', alignItems: 'center' }}>
                           <CheckCircle2 size={14} /> {isPublishing ? 'Publishing...' : 'Publish to Students'}
                         </button>

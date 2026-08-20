@@ -14,7 +14,7 @@ export class GroqProvider implements AIProvider {
   }
 
   async generate(prompt: string, options?: any, signal?: AbortSignal): Promise<any> {
-    const model = options?.model || 'llama-3.3-70b-versatile';
+    const model = options?.model || 'openai/gpt-oss-120b';
     let messages: any[] = [{ role: 'user', content: prompt }];
     
     if (options?.media && options.media.length > 0) {
@@ -41,7 +41,7 @@ export class GroqProvider implements AIProvider {
   }
 
   async *stream(prompt: string, options?: any): AsyncIterable<any> {
-    const model = options?.model || 'llama-3.3-70b-versatile';
+    const model = options?.model || 'openai/gpt-oss-120b';
     const stream = await this.client.chat.completions.create(
       {
         model,
@@ -75,6 +75,10 @@ export class GroqProvider implements AIProvider {
 
   supportsFunctionCalling(): boolean {
     return true;
+  }
+
+  isConfigured(): boolean {
+    return Boolean(env.GROQ_API_KEY && env.GROQ_API_KEY.trim().length > 5);
   }
 
   async healthCheck(): Promise<boolean> {

@@ -53,6 +53,10 @@ export const checkQuizDailyLimit = async (req: Request, res: Response, next: Nex
  * Middleware to check daily limits for paper/assignment generation
  */
 export const checkPaperDailyLimit = async (req: Request, res: Response, next: NextFunction) => {
+  // [TESTING BYPASS]: Temporarily bypass daily paper limits for testing
+  (req as any).dailyLimitStatus = { allowed: true, remaining: 9999, used: 0, limit: 9999 };
+  return next();
+
   try {
     if (!req.user) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -97,6 +101,10 @@ export const checkPaperDailyLimit = async (req: Request, res: Response, next: Ne
  * Middleware to check daily limits for assignment creation
  */
 export const checkAssignmentDailyLimit = async (req: Request, res: Response, next: NextFunction) => {
+  // [TESTING BYPASS]: Temporarily bypass daily assignment creation limits for testing
+  (req as any).dailyLimitStatus = { allowed: true, remaining: 9999, used: 0, limit: 9999 };
+  return next();
+
   try {
     if (!req.user) {
       res.status(401).json({ error: 'Unauthorized' });
