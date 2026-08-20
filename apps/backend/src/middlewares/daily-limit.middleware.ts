@@ -53,12 +53,6 @@ export const checkQuizDailyLimit = async (req: Request, res: Response, next: Nex
  * Middleware to check daily limits for paper/assignment generation
  */
 export const checkPaperDailyLimit = async (req: Request, res: Response, next: NextFunction) => {
-  // [TESTING BYPASS]: In non-test environments, bypass daily paper limits for testing
-  if (process.env.NODE_ENV !== 'test') {
-    (req as any).dailyLimitStatus = { allowed: true, remaining: 9999, used: 0, limit: 9999 };
-    return next();
-  }
-
   try {
     if (!req.user) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -75,29 +69,26 @@ export const checkPaperDailyLimit = async (req: Request, res: Response, next: Ne
 
     if (!allowed) {
       logger.warn({
-        message: 'Daily paper generation limit exceeded',
         userId: req.user!.id,
         role: req.user!.role,
-        limit,
         used,
-      });
+        limit,
+      }, '[DailyLimit] Paper generation limit exceeded');
 
       res.status(429).json({
-        error: 'Daily generation limit reached',
-        details: {
-          resource: 'paper',
-          limit,
-          used,
-          remaining: 0,
-          resetInHours: getHoursUntilMidnight(),
-        },
+        error: 'Daily paper generation limit exceeded',
+        message: `You can generate ${limit} question papers per day. You have used ${used} today.`,
+        limit,
+        used,
+        remaining: 0,
+        resetAt: new Date(Date.now() + 86400000),
       });
       return;
     }
 
     next();
   } catch (error) {
-    logger.error('Error in checkPaperDailyLimit middleware:', error);
+    logger.error(error, '[DailyLimit] Error checking paper limit');
     next(error);
   }
 };
@@ -106,12 +97,6 @@ export const checkPaperDailyLimit = async (req: Request, res: Response, next: Ne
  * Middleware to check daily limits for assignments (which might have different limits)
  */
 export const checkAssignmentDailyLimit = async (req: Request, res: Response, next: NextFunction) => {
-  // [TESTING BYPASS]: In non-test environments, bypass daily assignment limits for testing
-  if (process.env.NODE_ENV !== 'test') {
-    (req as any).dailyLimitStatus = { allowed: true, remaining: 9999, used: 0, limit: 9999 };
-    return next();
-  }
-
   try {
     if (!req.user) {
       res.status(401).json({ error: 'Unauthorized' });

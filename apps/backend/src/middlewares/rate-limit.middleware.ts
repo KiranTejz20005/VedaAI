@@ -45,11 +45,6 @@ export const paperGenerationRateLimiter = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  // [TESTING BYPASS]: In non-test environments, bypass rate limits for testing
-  if (process.env.NODE_ENV !== 'test') {
-    return next();
-  }
-
   const userId = req.user?.id || 'anonymous';
   const organizationId = req.user?.organizationId || 'no-organization';
   const requestId = (req.headers['x-request-id'] as string) || uuidv4();
