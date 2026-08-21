@@ -49,7 +49,7 @@ export function CommandPalette() {
     { title: 'Research Supervisor Dashboard', path: '/dashboard/supervisor', icon: <Users size={16} /> },
     { title: 'Outcome-Based Education (OBE)', path: '/teacher/obe', icon: <Calculator size={16} /> },
     { title: 'Create Quiz', path: '/teacher/generate-quiz', icon: <FileText size={16} /> },
-    { title: 'Homework Management Hub', path: '/teacher/assessments', icon: <Calculator size={16} /> },
+    { title: 'Assignments Management', path: '/assignments', icon: <FileText size={16} /> },
     { title: 'Class Insights', path: '/teacher/insights', icon: <Users size={16} /> },
     { title: 'Record Attendance', path: '/teacher/attendance', icon: <CheckSquare size={16} /> },
     { title: 'Publish Announcement', path: '/teacher/announcements', icon: <Megaphone size={16} /> },

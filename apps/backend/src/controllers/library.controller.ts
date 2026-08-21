@@ -126,7 +126,7 @@ export const getResources = async (req: Request, res: Response): Promise<void> =
         resourceType: 'Assignment',
         subject: a.subject,
         className: a.class ? `${a.class.grade} - ${a.class.section}` : 'General',
-        fileUrl: `/dashboard/teacher/assignments/${a.id}`,
+        fileUrl: `/assignments/${a.id}`,
         fileSize: 0,
         uploadedById: a.createdById || '',
         uploadedBy: a.createdBy || { firstName: 'System', lastName: '' },
