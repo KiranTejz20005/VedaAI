@@ -54,7 +54,7 @@ export default function CreateAssignmentPage() {
       const res = await api.post('/assignments', payload);
       if (res.data?.success) {
         toast.success('Assignment created successfully');
-        router.push('/teacher/assessments');
+        router.push('/assignments');
       }
     } catch (err) {
       toast.error('Failed to create assignment');

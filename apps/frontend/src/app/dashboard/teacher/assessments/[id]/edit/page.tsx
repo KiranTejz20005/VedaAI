@@ -69,7 +69,7 @@ export default function EditAssignmentPage({ params }: { params: Promise<{ id: s
       const res = await api.put(`/assignments/${id}`, payload);
       if (res.data?.success) {
         toast.success('Assignment updated successfully');
-        router.push('/teacher/assessments');
+        router.push('/assignments');
       }
     } catch (err) {
       toast.error('Failed to update assignment');

@@ -156,13 +156,20 @@ export class AIOrchestrator {
                   cleanResult = match[0];
                 }
               }
+              let parsed: any;
               try {
-                return JSON.parse(cleanResult);
+                parsed = JSON.parse(cleanResult);
               } catch {
                 const { jsonrepair } = await import('jsonrepair');
                 const repaired = jsonrepair(cleanResult);
-                return JSON.parse(repaired);
+                parsed = JSON.parse(repaired);
               }
+              if (parsed && typeof parsed === 'object') {
+                if (parsed.paper && typeof parsed.paper === 'object') parsed = parsed.paper;
+                else if (parsed.data && typeof parsed.data === 'object' && !parsed.sections) parsed = parsed.data;
+                else if (parsed.result && typeof parsed.result === 'object' && !parsed.sections) parsed = parsed.result;
+              }
+              return parsed;
             } catch (e) {
               logger.error({ result }, `Failed to parse AI response as JSON from ${providerName}`);
               this.health.recordValidationFailure(providerName);

@@ -76,7 +76,7 @@ export default function SubmissionsListPage() {
               Bulk AI Grade ({pendingCount})
             </Button>
           )}
-          <Button variant="outline" onClick={() => router.push('/teacher/assessments')}>Back to Assessments</Button>
+          <Button variant="outline" onClick={() => router.push('/assignments')}>Back to Assignments</Button>
         </div>
       </div>
 

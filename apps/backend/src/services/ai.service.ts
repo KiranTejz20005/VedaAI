@@ -91,19 +91,39 @@ export async function generatePaper(
     }
   };
 
+  let breakdownInstructions = '';
+  if (typeBreakdown && Array.isArray(typeBreakdown) && typeBreakdown.length > 0) {
+    const totalQCount = typeBreakdown.reduce((sum, item) => sum + (Number(item.count) || 0), 0);
+    const breakdownLines = typeBreakdown.map((item, idx) => {
+      const sectionName = `Section ${String.fromCharCode(65 + idx)}`;
+      const displayName = item.displayType || item.type;
+      const count = item.count;
+      const marksPerQ = item.marksPerQuestion || 1;
+      const totalSectionMarks = count * marksPerQ;
+      return `- ${sectionName}: "${displayName}" -> Generate EXACTLY ${count} question(s) of type '${item.type}' worth ${marksPerQ} mark(s) each (Section total: ${totalSectionMarks} marks).`;
+    });
+    breakdownInstructions = `
+REQUIRED PAPER STRUCTURE & BREAKDOWN:
+Total questions to generate: ${totalQCount}
+${breakdownLines.join('\n')}
+`;
+  }
+
   const taskInstructions = `
 You are an Expert Question Paper Setter. Generate a complete examination paper.
 Assignment Title: ${assignment.title}
+Subject: ${assignment.subject || 'General'}
 Total Marks: ${assignment.totalMarks}
 
 CRITICAL RULES:
-1. Return EXACTLY the JSON schema requested.
-2. Distribute questions appropriately into sections (e.g. Section A, Section B).
-3. The sum of all question marks must equal exactly ${assignment.totalMarks}.
-4. Map EVERY question to a valid Bloom's Taxonomy level and Difficulty level.
-5. Use the provided context to ensure questions are grounded in the actual syllabus.
-6. Avoid semantic duplicates. Ensure all questions are unique.
-${typeBreakdown ? `7. Adhere to this breakdown: ${JSON.stringify(typeBreakdown)}` : ''}
+1. Return EXACTLY the JSON schema requested with valid JSON only.
+2. Distribute questions into sections (Section A, Section B, etc.) adhering to the requested breakdown.
+3. The sum of all question marks across all sections must equal exactly ${assignment.totalMarks}.
+4. Map EVERY question to an appropriate Bloom's Taxonomy level ("REMEMBER", "UNDERSTAND", "APPLY", "ANALYZE", "EVALUATE", "CREATE") and Difficulty ("easy", "medium", "hard").
+5. For all multiple choice questions ('mcq'), provide exactly 4 distinct, plausible options.
+6. Ensure questions are high-quality, academically rigorous, and relevant to "${assignment.title}".
+7. Avoid duplicate or vague placeholder questions.
+${breakdownInstructions}
 `;
 
   await reportProgress('batch_generating', 50, 'Generating paper sections and validating constraints...');
@@ -134,11 +154,29 @@ ${typeBreakdown ? `7. Adhere to this breakdown: ${JSON.stringify(typeBreakdown)}
   };
 }
 
-function normalizeRawPaper(raw: any, totalMarksRequired: number): any {
-  if (!raw || typeof raw !== 'object') return raw;
-  const sections = Array.isArray(raw.sections) ? raw.sections : [];
+function normalizeRawPaper(rawInput: any, totalMarksRequired: number): any {
+  if (!rawInput || typeof rawInput !== 'object') {
+    throw new Error('AI generation returned empty or invalid response.');
+  }
 
-  const normalizedSections = sections.map((sec: any, sIdx: number) => {
+  // Unwrap potential nested object wrappers
+  const raw = rawInput.paper || rawInput.data || rawInput.result || rawInput;
+
+  let rawSections: any[] = [];
+  if (Array.isArray(raw.sections) && raw.sections.length > 0) {
+    rawSections = raw.sections;
+  } else if (Array.isArray(raw.questions) && raw.questions.length > 0) {
+    // If model returned flat questions array, wrap into Section A
+    rawSections = [{
+      title: 'Section A',
+      instruction: 'Attempt all questions.',
+      questions: raw.questions
+    }];
+  }
+
+  const validBlooms = ['REMEMBER', 'UNDERSTAND', 'APPLY', 'ANALYZE', 'EVALUATE', 'CREATE'];
+
+  const normalizedSections = rawSections.map((sec: any, sIdx: number) => {
     const rawQuestions = Array.isArray(sec.questions) ? sec.questions : [];
     const questions = rawQuestions.map((q: any) => {
       let type = String(q.type || 'short-answer').toLowerCase().replace(/_/g, '-');
@@ -154,6 +192,11 @@ function normalizeRawPaper(raw: any, totalMarksRequired: number): any {
       let difficulty = String(q.difficulty || 'medium').toLowerCase();
       if (!['easy', 'medium', 'hard'].includes(difficulty)) difficulty = 'medium';
 
+      let bloomLevel = String(q.bloomLevel || 'UNDERSTAND').toUpperCase();
+      if (!validBlooms.includes(bloomLevel)) {
+        bloomLevel = 'UNDERSTAND';
+      }
+
       const marks = Math.max(1, Math.round(Number(q.marks) || 1));
 
       const id = (q.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q.id))
@@ -162,19 +205,22 @@ function normalizeRawPaper(raw: any, totalMarksRequired: number): any {
 
       const normalizedQ: any = {
         id,
-        question: String(q.question || 'Question text').trim(),
+        question: String(q.question || q.question_text || 'Question text').trim(),
         type,
         difficulty,
+        bloomLevel,
         marks,
       };
+
+      if (q.hint) normalizedQ.hint = String(q.hint).trim();
 
       if (type === 'mcq') {
         const rawOptions = Array.isArray(q.options) ? q.options : [];
         const keys = ['A', 'B', 'C', 'D'] as const;
         normalizedQ.options = keys.map((key, idx) => {
           const opt = rawOptions[idx];
-          if (typeof opt === 'string') return { key, text: opt.trim() || `Option ${key}` };
-          if (opt && typeof opt === 'object') return { key, text: String(opt.text || opt.value || `Option ${key}`).trim() };
+          if (typeof opt === 'string') return { key, text: opt.replace(/^[A-D][.)]\s*/i, '').trim() || `Option ${key}` };
+          if (opt && typeof opt === 'object') return { key, text: String(opt.text || opt.value || `Option ${key}`).replace(/^[A-D][.)]\s*/i, '').trim() };
           return { key, text: `Option ${key}` };
         });
       } else if (type === 'fill-blank') {
@@ -184,40 +230,30 @@ function normalizeRawPaper(raw: any, totalMarksRequired: number): any {
       if (q.answer) {
         normalizedQ.answer = {
           text: typeof q.answer === 'string' ? q.answer : String(q.answer.text || ''),
-          ...(q.answer.explanation ? { explanation: String(q.answer.explanation) } : {})
+          ...(q.answer.explanation ? { explanation: String(q.answer.explanation) } : {}),
+          ...(Array.isArray(q.answer.expectedConcepts) ? { expectedConcepts: q.answer.expectedConcepts } : {}),
+          ...(Array.isArray(q.answer.rubricCriteria) ? { rubricCriteria: q.answer.rubricCriteria } : {})
         };
       }
 
       return normalizedQ;
-    });
+    }).filter((q: any) => q.question && q.question !== 'Question text');
 
     return {
       title: String(sec.title || `Section ${String.fromCharCode(65 + sIdx)}`),
       instruction: String(sec.instruction || sec.instructions || 'Attempt all questions.'),
-      questions: questions.length > 0 ? questions : [{
-        id: crypto.randomUUID(),
-        question: 'General question text.',
-        type: 'short-answer',
-        difficulty: 'medium',
-        marks: 1
-      }]
+      questions,
     };
-  });
+  }).filter((sec: any) => sec.questions.length > 0);
+
+  if (normalizedSections.length === 0) {
+    throw new Error('AI generation produced no valid sections or questions.');
+  }
 
   return {
     title: String(raw.title || 'Examination Question Paper'),
     totalMarks: Math.max(1, Math.round(Number(raw.totalMarks) || totalMarksRequired)),
-    sections: normalizedSections.length > 0 ? normalizedSections : [{
-      title: 'Section A',
-      instruction: 'Attempt all questions.',
-      questions: [{
-        id: crypto.randomUUID(),
-        question: 'General question text.',
-        type: 'short-answer',
-        difficulty: 'medium',
-        marks: totalMarksRequired || 1
-      }]
-    }]
+    sections: normalizedSections,
   };
 }
 
