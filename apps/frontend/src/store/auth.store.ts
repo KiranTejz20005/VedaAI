@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { api, setApiToken } from '@/lib/api';
+import { createClient } from '@/lib/supabase/client';
 
 export interface User {
   id: string;
@@ -53,6 +54,8 @@ interface AuthStore {
   clearAuth: () => void;
   initialize: () => Promise<boolean>;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signInWithOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
+  verifyOtp: (email: string, token: string) => Promise<{ success: boolean; error?: string }>;
   ssoLogin: (data: {
     email: string;
     firstName?: string;
@@ -115,6 +118,39 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       if (!get().isAuthenticated) {
         set({ isLoading: true });
       }
+
+      // Check active Supabase session
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const u = session.user;
+          const userObj: User = {
+            id: u.id,
+            email: u.email || '',
+            firstName: u.user_metadata?.first_name || u.user_metadata?.full_name?.split(' ')[0] || 'User',
+            lastName: u.user_metadata?.last_name || u.user_metadata?.full_name?.split(' ')[1] || 'Account',
+            role: (u.user_metadata?.role as string) || 'STUDENT',
+            organizationId: null,
+            organizationName: null,
+            departmentId: null,
+            departmentName: null,
+            preferences: {},
+            hasCompletedOnboarding: false,
+          };
+          setApiToken(session.access_token);
+          set({
+            user: userObj,
+            accessToken: session.access_token,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+          return true;
+        }
+      } catch (sbErr) {
+        // Continue to backend refresh check
+      }
+
       const refreshRes = await api.post('/auth/refresh');
       const token = refreshRes.data?.data?.accessToken;
 
@@ -141,6 +177,86 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       if (!get().isAuthenticated) get().clearAuth();
       else set({ isLoading: false });
       return false;
+    }
+  },
+
+  signInWithOtp: async (email: string) => {
+    try {
+      set({ isLoading: true });
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+        },
+      });
+
+      set({ isLoading: false });
+      if (error) {
+        if (error.status === 500 || error.message?.includes('500') || error.message?.includes('magic link')) {
+          return {
+            success: false,
+            error: 'Custom SMTP Error: Brevo credentials in Supabase Dashboard need verification. Please check Host (smtp-relay.brevo.com), Port (587), and Brevo SMTP Key.',
+          };
+        }
+        return { success: false, error: error.message };
+      }
+      return { success: true };
+    } catch (err: any) {
+      set({ isLoading: false });
+      return { success: false, error: err.message || 'Failed to send OTP code.' };
+    }
+  },
+
+  verifyOtp: async (email: string, token: string) => {
+    try {
+      set({ isLoading: true });
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'email',
+      });
+
+      if (error) {
+        set({ isLoading: false });
+        return { success: false, error: error.message };
+      }
+
+      if (data?.session && data?.user) {
+        try {
+          await get().ssoLogin({
+            email: data.user.email || email,
+            firstName: data.user.user_metadata?.first_name || 'User',
+            lastName: data.user.user_metadata?.last_name || 'Account',
+            provider: 'supabase_otp',
+            token: data.session.access_token,
+          });
+        } catch {
+          const userObj: User = {
+            id: data.user.id,
+            email: data.user.email || email,
+            firstName: data.user.user_metadata?.first_name || 'User',
+            lastName: data.user.user_metadata?.last_name || 'Account',
+            role: 'STUDENT',
+            organizationId: null,
+            organizationName: null,
+            departmentId: null,
+            departmentName: null,
+            preferences: {},
+            hasCompletedOnboarding: false,
+          };
+          get().setAuth(userObj, data.session.access_token);
+        }
+        set({ isLoading: false });
+        return { success: true };
+      }
+
+      set({ isLoading: false });
+      return { success: false, error: 'Verification failed.' };
+    } catch (err: any) {
+      set({ isLoading: false });
+      return { success: false, error: err.message || 'OTP Verification failed.' };
     }
   },
 
@@ -242,6 +358,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     } catch (err) {
       // Ignore failures on logout endpoint and proceed to clear client auth
     } finally {
+      try {
+        const supabase = createClient();
+        await supabase.auth.signOut();
+      } catch (e) {}
       get().clearAuth();
     }
   },
@@ -266,7 +386,6 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       const res = await api.put('/auth/me/organization', data);
       if (res.data?.success) {
-        // Refresh profile details to get accurate names
         const meRes = await api.get('/auth/me');
         const user = meRes.data?.data;
         if (user) {
@@ -282,37 +401,31 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   completeOnboarding: async (data) => {
     try {
-      // 1. Update personal profile name if changed
       await api.put('/auth/me/profile', {
         firstName: data.firstName,
         lastName: data.lastName,
       });
 
-      // 2. Setup organization & department
       await api.put('/auth/me/organization', {
         organizationName: data.organizationName,
         department: data.department,
         academicYear: '2026-2027',
       });
 
-      // 3. Create class group
       const groupRes = await api.post('/groups', {
         name: data.className,
         subject: data.subject,
       });
       const group = groupRes.data?.data;
 
-      // 4. Bulk add students if any were configured
       if (group?.id && data.students.length > 0) {
         await api.post(`/groups/${group.id}/students/bulk`, {
           students: data.students,
         });
       }
 
-      // 5. Update user onboarding status
       await api.post('/auth/onboarding/complete');
 
-      // 6. Refresh user profile
       const meRes = await api.get('/auth/me');
       const user = meRes.data?.data;
       if (user) {

@@ -3,6 +3,7 @@
 import { useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
+import { createClient } from '@/lib/supabase/client';
 
 function CallbackHandler() {
   const searchParams = useSearchParams();
@@ -10,6 +11,28 @@ function CallbackHandler() {
   useEffect(() => {
     const handleCallback = async () => {
       const provider = searchParams.get('provider') || 'google';
+
+      // 1. Check Supabase OAuth Session
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          await useAuthStore.getState().initialize();
+          const user = useAuthStore.getState().user;
+          const isOnboarded =
+            user?.hasCompletedOnboarding === true ||
+            !!(user?.organizationId && user?.departmentId);
+          let dashboardPath = '/dashboard/student';
+          if (user?.role === 'TEACHER' || user?.role === 'FACULTY')
+            dashboardPath = '/dashboard/faculty';
+          if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN')
+            dashboardPath = '/dashboard/admin';
+          window.location.href = isOnboarded ? dashboardPath : '/onboarding';
+          return;
+        }
+      } catch (e) {
+        console.warn('Supabase callback session check:', e);
+      }
 
       let email = '';
       let firstName = '';
@@ -21,14 +44,16 @@ function CallbackHandler() {
           const hash = window.location.hash;
           const params = new URLSearchParams(hash.substring(1));
           const accessToken = params.get('access_token');
-          
+
           if (accessToken) {
             token = accessToken;
-            const res = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`);
+            const res = await fetch(
+              `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`
+            );
             const data = await res.json();
             if (data && data.email) {
               email = data.email;
-              firstName = data.given_name || 'SSO';
+              firstName = data.given_name || 'Google';
               lastName = data.family_name || 'User';
             }
           }
@@ -72,8 +97,15 @@ function CallbackHandler() {
             });
             if (result.success) {
               const user = useAuthStore.getState().user;
-              const isOnboarded = user?.hasCompletedOnboarding === true || (user?.organizationId && user?.departmentId);
-              window.location.href = isOnboarded ? '/dashboard' : '/onboarding';
+              const isOnboarded =
+                user?.hasCompletedOnboarding === true ||
+                !!(user?.organizationId && user?.departmentId);
+              let dashboardPath = '/dashboard/student';
+              if (user?.role === 'TEACHER' || user?.role === 'FACULTY')
+                dashboardPath = '/dashboard/faculty';
+              if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN')
+                dashboardPath = '/dashboard/admin';
+              window.location.href = isOnboarded ? dashboardPath : '/onboarding';
             } else {
               window.location.href = '/login?error=sso_failed';
             }
@@ -96,24 +128,33 @@ function CallbackHandler() {
   }, [searchParams]);
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      height: '100vh',
-      fontFamily: 'sans-serif',
-      backgroundColor: '#f3f4f6'
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        padding: '24px 40px',
-        borderRadius: '12px',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-        textAlign: 'center'
-      }}>
-        <h2 style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#111827' }}>Completing Sign In</h2>
-        <p style={{ margin: 0, fontSize: '14px', color: '#4b5563' }}>Please wait while we authorize your account...</p>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        fontFamily: 'sans-serif',
+        backgroundColor: '#f8fafc',
+      }}
+    >
+      <div
+        style={{
+          backgroundColor: 'white',
+          padding: '28px 44px',
+          borderRadius: '16px',
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.08)',
+          textAlign: 'center',
+          border: '1px solid #e2e8f0',
+        }}
+      >
+        <h2 style={{ margin: '0 0 8px 0', fontSize: '18px', color: '#0f172a', fontWeight: 600 }}>
+          Completing Authorization
+        </h2>
+        <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+          Please wait while we securely sign you in...
+        </p>
       </div>
     </div>
   );
@@ -121,27 +162,36 @@ function CallbackHandler() {
 
 export default function AuthCallbackPage() {
   return (
-    <Suspense fallback={
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-        fontFamily: 'sans-serif',
-        backgroundColor: '#f3f4f6'
-      }}>
-        <div style={{
-          backgroundColor: 'white',
-          padding: '24px 40px',
-          borderRadius: '12px',
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-          textAlign: 'center'
-        }}>
-          <h2 style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#111827' }}>Loading Authorization...</h2>
+    <Suspense
+      fallback={
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100vh',
+            fontFamily: 'sans-serif',
+            backgroundColor: '#f8fafc',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              padding: '28px 44px',
+              borderRadius: '16px',
+              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.08)',
+              textAlign: 'center',
+              border: '1px solid #e2e8f0',
+            }}
+          >
+            <h2 style={{ margin: '0 0 8px 0', fontSize: '18px', color: '#0f172a', fontWeight: 600 }}>
+              Loading Authorization...
+            </h2>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <CallbackHandler />
     </Suspense>
   );

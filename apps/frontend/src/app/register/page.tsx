@@ -152,9 +152,15 @@ export default function RegisterPage() {
       isMock = !xClientId || xClientId.includes('placeholder');
     }
 
+    let breakToPopup = false;
     if (!isMock) {
       if (provider === 'google') {
-        handleGoogleSuccess();
+        try {
+          handleGoogleSuccess();
+        } catch {
+          // Fallback to interactive popup
+          breakToPopup = true;
+        }
       } else {
         const redirectUri = `${window.location.origin}/auth/callback`;
         const state = 'state_123';
@@ -163,8 +169,9 @@ export default function RegisterPage() {
           redirectUri
         )}&scope=users.read%20tweet.read&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=plain`;
         window.location.href = authUrl;
+        return;
       }
-      return;
+      if (!breakToPopup) return;
     }
 
     if (
@@ -536,18 +543,12 @@ export default function RegisterPage() {
       {/* Left Form Section */}
       <div className="flex w-full flex-col justify-between lg:w-1/2 p-4 sm:p-6 lg:p-8 xl:p-10 h-full overflow-y-auto">
         {/* Header Branding */}
-        <div className="flex items-center justify-between w-full">
+        <div className="flex items-center w-full">
           <Link
             href="/"
             className="text-base sm:text-lg font-bold tracking-tight text-neutral-950 hover:opacity-80 transition-opacity"
           >
             VIDYA AI
-          </Link>
-          <Link
-            href="/login"
-            className="text-xs sm:text-sm font-semibold text-neutral-600 hover:text-neutral-950 transition-colors"
-          >
-            Sign in &rarr;
           </Link>
         </div>
 
