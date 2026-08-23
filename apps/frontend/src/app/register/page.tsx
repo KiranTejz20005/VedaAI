@@ -1,13 +1,35 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { motion, type Variants } from 'motion/react';
 import { useAuthStore } from '@/store/auth.store';
 import toast from 'react-hot-toast';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, MailCheck } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
+
+// Simple Google SVG Icon
+const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" width="1em" height="1em" {...props}>
+    <path
+      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      fill="#4285F4"
+    />
+    <path
+      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.16v2.84C3.99 20.53 7.7 23 12 23z"
+      fill="#34A853"
+    />
+    <path
+      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.16C1.43 8.55 1 10.22 1 12s.43 3.45 1.16 4.93l3.68-2.84z"
+      fill="#FBBC05"
+    />
+    <path
+      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.16 7.07l3.68 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+      fill="#EA4335"
+    />
+  </svg>
+);
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -17,10 +39,34 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [agreeTerms, setAgreeTerms] = useState(true);
   const [selectedRole, setSelectedRole] = useState<'STUDENT' | 'TEACHER'>('STUDENT');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
-  const [mounted, setMounted] = useState(false);
+
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.05,
+        delayChildren: 0.1,
+      },
+    },
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 10 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        type: 'spring',
+        stiffness: 320,
+        damping: 26,
+      },
+    },
+  };
 
   const handleGoogleSuccess = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
@@ -29,15 +75,19 @@ export default function RegisterPage() {
       const result = await googleLogin({
         token: tokenResponse.access_token,
         role: selectedRole,
-        isSignUp: true
+        isSignUp: true,
       });
       setIsSubmitting(false);
 
       if (result.success) {
         toast.success('Successfully registered and logged in with Google!');
         const user = useAuthStore.getState().user;
-        const isOnboarded = user?.hasCompletedOnboarding === true || !!(user?.organizationId && user?.departmentId);
-        const rolePath = user?.role ? user.role.toLowerCase().replace('_', '-') : 'student';
+        const isOnboarded =
+          user?.hasCompletedOnboarding === true ||
+          !!(user?.organizationId && user?.departmentId);
+        const rolePath = user?.role
+          ? user.role.toLowerCase().replace('_', '-')
+          : 'student';
         router.replace(isOnboarded ? `/dashboard/${rolePath}` : '/onboarding');
       } else {
         toast.error(result.error || 'Google registration failed.');
@@ -45,13 +95,12 @@ export default function RegisterPage() {
     },
     onError: () => {
       toast.error('Google registration failed or was cancelled.');
-    }
+    },
   });
 
   useEffect(() => {
-    setMounted(true);
-
     const handleMessage = async (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
       if (event.data && event.data.type === 'SSO_SUCCESS') {
         setIsSubmitting(true);
         const result = await ssoLogin({
@@ -61,15 +110,23 @@ export default function RegisterPage() {
           provider: event.data.provider || 'SSO',
           token: event.data.token,
           role: selectedRole,
-          isSignUp: true
+          isSignUp: true,
         });
         setIsSubmitting(false);
 
         if (result.success) {
-          toast.success(`Successfully registered and logged in with ${event.data.provider || 'SSO'}!`);
+          toast.success(
+            `Successfully registered and logged in with ${
+              event.data.provider || 'SSO'
+            }!`
+          );
           const user = useAuthStore.getState().user;
-          const isOnboarded = user?.hasCompletedOnboarding === true || (user?.organizationId && user?.departmentId);
-          const rolePath = user?.role ? user.role.toLowerCase().replace('_', '-') : 'student';
+          const isOnboarded =
+            user?.hasCompletedOnboarding === true ||
+            (user?.organizationId && user?.departmentId);
+          const rolePath = user?.role
+            ? user.role.toLowerCase().replace('_', '-')
+            : 'student';
           router.replace(isOnboarded ? `/dashboard/${rolePath}` : '/onboarding');
         } else {
           toast.error(result.error || 'SSO registration failed.');
@@ -79,20 +136,20 @@ export default function RegisterPage() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [ssoLogin, router]);
+  }, [ssoLogin, router, selectedRole]);
 
   const handleSSO = (provider: 'google' | 'x') => {
     const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
     const xClientId = process.env.NEXT_PUBLIC_X_CLIENT_ID;
-    
+
     let isMock = false;
     if (provider === 'google') {
-      isMock = !googleClientId || 
-               googleClientId.includes('placeholder') || 
-               !googleClientId.trim().endsWith('.apps.googleusercontent.com');
+      isMock =
+        !googleClientId ||
+        googleClientId.includes('placeholder') ||
+        !googleClientId.trim().endsWith('.apps.googleusercontent.com');
     } else {
-      isMock = !xClientId || 
-               xClientId.includes('placeholder');
+      isMock = !xClientId || xClientId.includes('placeholder');
     }
 
     if (!isMock) {
@@ -102,22 +159,34 @@ export default function RegisterPage() {
         const redirectUri = `${window.location.origin}/auth/callback`;
         const state = 'state_123';
         const codeChallenge = 'challenge';
-        const authUrl = `https://twitter.com/i/oauth2/authorize?response_type=code&client_id=${xClientId?.trim()}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=users.read%20tweet.read&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=plain`;
+        const authUrl = `https://twitter.com/i/oauth2/authorize?response_type=code&client_id=${xClientId?.trim()}&redirect_uri=${encodeURIComponent(
+          redirectUri
+        )}&scope=users.read%20tweet.read&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=plain`;
         window.location.href = authUrl;
       }
       return;
     }
 
-    if (provider === 'google' && googleClientId && !googleClientId.trim().endsWith('.apps.googleusercontent.com')) {
-      toast('Using simulated SSO login. The NEXT_PUBLIC_GOOGLE_CLIENT_ID in .env appears to be an API Key or invalid (must end with .apps.googleusercontent.com).', {
-        icon: 'ℹ️',
-        duration: 6000
-      });
+    if (
+      provider === 'google' &&
+      googleClientId &&
+      !googleClientId.trim().endsWith('.apps.googleusercontent.com')
+    ) {
+      toast(
+        'Using simulated SSO login. The NEXT_PUBLIC_GOOGLE_CLIENT_ID in .env appears to be an API Key or invalid (must end with .apps.googleusercontent.com).',
+        {
+          icon: 'ℹ️',
+          duration: 6000,
+        }
+      );
     } else {
-      toast(`Using simulated SSO login. Set NEXT_PUBLIC_${provider.toUpperCase()}_CLIENT_ID in .env for real accounts.`, {
-        icon: 'ℹ️',
-        duration: 5000
-      });
+      toast(
+        `Using simulated SSO login. Set NEXT_PUBLIC_${provider.toUpperCase()}_CLIENT_ID in .env for real accounts.`,
+        {
+          icon: 'ℹ️',
+          duration: 5000,
+        }
+      );
     }
 
     const width = 500;
@@ -138,9 +207,10 @@ export default function RegisterPage() {
 
     const providerName = provider === 'google' ? 'Google' : 'X';
     const providerColor = provider === 'google' ? '#4285F4' : '#000000';
-    const providerLogo = provider === 'google' 
-      ? `<svg viewBox="0 0 24 24" width="24" height="24" style="margin-right:8px;"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>`
-      : `<svg viewBox="0 0 24 24" width="24" height="24" fill="white" style="margin-right:8px;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`;
+    const providerLogo =
+      provider === 'google'
+        ? `<svg viewBox="0 0 24 24" width="24" height="24" style="margin-right:8px;"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>`
+        : `<svg viewBox="0 0 24 24" width="24" height="24" fill="white" style="margin-right:8px;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`;
 
     popup.document.write(`
       <html>
@@ -159,38 +229,40 @@ export default function RegisterPage() {
             }
             .card {
               background: white;
-              padding: 40px;
+              padding: 32px;
               border-radius: 16px;
               box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
-              width: 380px;
+              width: 360px;
               text-align: center;
             }
             .logo-container {
               display: flex;
               justify-content: center;
               align-items: center;
-              margin-bottom: 24px;
+              margin-bottom: 20px;
+              font-weight: 700;
+              font-size: 16px;
             }
             h1 {
-              font-size: 20px;
+              font-size: 18px;
               font-weight: 600;
               color: #111827;
-              margin: 0 0 8px 0;
+              margin: 0 0 6px 0;
             }
             p {
-              font-size: 14px;
+              font-size: 13px;
               color: #4b5563;
-              margin: 0 0 24px 0;
-              line-height: 1.5;
+              margin: 0 0 20px 0;
+              line-height: 1.4;
             }
             .profile-card {
               display: flex;
               align-items: center;
               background: #f9fafb;
               border: 1px solid #e5e7eb;
-              border-radius: 12px;
-              padding: 12px 16px;
-              margin-bottom: 12px;
+              border-radius: 10px;
+              padding: 10px 14px;
+              margin-bottom: 10px;
               text-align: left;
               cursor: pointer;
               transition: background-color 0.2s, border-color 0.2s;
@@ -200,34 +272,34 @@ export default function RegisterPage() {
               border-color: #d1d5db;
             }
             .avatar {
-              width: 40px;
-              height: 40px;
+              width: 36px;
+              height: 36px;
               border-radius: 50%;
-              margin-right: 14px;
+              margin-right: 12px;
               display: flex;
               align-items: center;
               justify-content: center;
-              font-size: 16px;
+              font-size: 14px;
               font-weight: bold;
             }
             .profile-info {
               flex: 1;
             }
             .name {
-              font-size: 14px;
+              font-size: 13px;
               font-weight: 600;
               color: #111827;
             }
             .email {
-              font-size: 12px;
+              font-size: 11px;
               color: #6b7280;
             }
             .btn {
               width: 100%;
-              padding: 12px;
+              padding: 10px;
               border-radius: 8px;
               border: none;
-              font-size: 14px;
+              font-size: 13px;
               font-weight: 600;
               cursor: pointer;
               transition: all 0.2s;
@@ -238,7 +310,7 @@ export default function RegisterPage() {
             .btn-primary {
               background: ${providerColor};
               color: white;
-              margin-bottom: 12px;
+              margin-bottom: 10px;
             }
             .btn-primary:hover {
               opacity: 0.9;
@@ -255,10 +327,10 @@ export default function RegisterPage() {
               border: 3px solid #f3f3f3;
               border-top: 3px solid ${providerColor};
               border-radius: 50%;
-              width: 24px;
-              height: 24px;
+              width: 20px;
+              height: 20px;
               animation: spin 1s linear infinite;
-              margin: 0 auto 16px auto;
+              margin: 0 auto 14px auto;
               display: none;
             }
             @keyframes spin {
@@ -305,21 +377,21 @@ export default function RegisterPage() {
                   </div>
                 </div>
                 
-                <button class="btn btn-secondary" style="margin-bottom:12px;" onclick="showCustomInput()">Use another account</button>
+                <button class="btn btn-secondary" style="margin-bottom:10px;" onclick="showCustomInput()">Use another account</button>
               </div>
 
-              <!-- Custom Input Form (Hidden initially) -->
+              <!-- Custom Input Form -->
               <div id="custom-input-form" style="display:none; text-align:left;">
-                <label style="font-size:13px; font-weight:600; color:#374151; display:block; margin-bottom:6px;">Email address</label>
-                <input type="email" id="custom-email" placeholder="name@example.com" style="width:100%; padding:10px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; margin-bottom:16px; box-sizing:border-box; outline:none;" />
+                <label style="font-size:12px; font-weight:600; color:#374151; display:block; margin-bottom:4px;">Email address</label>
+                <input type="email" id="custom-email" placeholder="name@example.com" style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; margin-bottom:14px; box-sizing:border-box; outline:none;" />
                 
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                   <button class="btn btn-primary" onclick="submitCustomAccount()">Continue</button>
                   <button class="btn btn-secondary" onclick="showAccountList()">Back</button>
                 </div>
               </div>
 
-              <div style="margin-top:16px;">
+              <div style="margin-top:12px;">
                 <button class="btn btn-secondary" onclick="window.close()">Cancel</button>
               </div>
             </div>
@@ -367,15 +439,16 @@ export default function RegisterPage() {
               document.getElementById('loader').style.display = 'block';
               
               setTimeout(() => {
+                const targetOrigin = window.location.origin;
                 window.opener.postMessage({ 
                   type: 'SSO_SUCCESS', 
                   email: selectedEmail, 
                   firstName: selectedName, 
                   lastName: 'User', 
                   provider: '${providerName}' 
-                }, '*');
+                }, targetOrigin);
                 window.close();
-              }, 1500);
+              }, 1200);
             }
           </script>
         </body>
@@ -395,6 +468,11 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!agreeTerms) {
+      toast.error('Please accept the terms and privacy policy.');
+      return;
+    }
+
     setIsSubmitting(true);
     const signupResult = await signup({
       email,
@@ -402,7 +480,7 @@ export default function RegisterPage() {
       firstName,
       lastName,
       role: selectedRole as any,
-      organizationId: ''
+      organizationId: '',
     } as any);
 
     setIsSubmitting(false);
@@ -410,539 +488,308 @@ export default function RegisterPage() {
     if (signupResult.success) {
       toast.success('Account registered successfully!');
       const user = useAuthStore.getState().user;
-      const isOnboarded = user?.hasCompletedOnboarding === true || (user?.organizationId && user?.departmentId);
-      const rolePath = user?.role ? user.role.toLowerCase().replace('_', '-') : 'student';
+      const isOnboarded =
+        user?.hasCompletedOnboarding === true ||
+        (user?.organizationId && user?.departmentId);
+      const rolePath = user?.role
+        ? user.role.toLowerCase().replace('_', '-')
+        : 'student';
       router.replace(isOnboarded ? `/dashboard/${rolePath}` : '/onboarding');
     } else {
-      toast.error(signupResult.error || 'Registration failed. Email might already be registered.');
+      toast.error(
+        signupResult.error || 'Registration failed. Email might already be registered.'
+      );
     }
   };
 
-  // Falling petals generation helper
-  const renderPetals = () => {
-    if (!mounted) return null;
-    return Array.from({ length: 20 }).map((_, i) => {
-      const left = Math.random() * 100;
-      const delay = Math.random() * 10;
-      const duration = 6 + Math.random() * 6;
-      const size = 6 + Math.random() * 8;
-      
-      return (
-        <span 
-          key={i} 
-          className="petal"
-          style={{
-            left: `${left}%`,
-            animationDelay: `${delay}s`,
-            animationDuration: `${duration}s`,
-            width: `${size}px`,
-            height: `${size * 0.7}px`
-          }}
-        />
-      );
-    });
-  };
-
-  const cherryBlossomPanel = (
-    <div className="art-panel">
-      {renderPetals()}
-    </div>
-  );
-
   if (showVerification) {
     return (
-      <div className="superhi-root">
-        <style dangerouslySetInnerHTML={{ __html: `
-          .superhi-root {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            background: #EDF2FD;
-            font-family: 'Inter', sans-serif;
-            position: relative;
-            color: #111;
-          }
-          .superhi-nav {
-            background: #FFFFFF;
-            border: 1px solid #E8EBEF;
-            margin: 12px 16px 0;
-            border-radius: 100px;
-            padding: 12px 24px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-          }
-          .nav-left {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-          }
-          .superhi-logo {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: #0000FF;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 14px;
-          }
-          .nav-link {
-            font-weight: 500;
-            font-size: 15px;
-            color: #111;
-            text-decoration: none;
-          }
-          .nav-right {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-          }
-          .verification-container {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 40px 20px;
-          }
-          .verification-card {
-            background: #FFFFFF;
-            border-radius: 24px;
-            padding: 48px 40px;
-            width: 100%;
-            max-width: 440px;
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.02);
-            text-align: center;
-            border: 1px solid rgba(0, 0, 0, 0.05);
-          }
-          .mascot-container {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 28px;
-            background: #0000FF;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          .verification-title {
-            font-size: 36px;
-            font-weight: 700;
-            line-height: 1.15;
-            color: #000000;
-            margin-bottom: 16px;
-          }
-          .verification-desc {
-            font-size: 14px;
-            color: #555555;
-            line-height: 1.5;
-            margin-bottom: 24px;
-          }
-          .verify-back-btn {
-            background: #0000FF;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: opacity 0.2s;
-          }
-          .verify-back-btn:hover {
-            opacity: 0.9;
-          }
-        ` }} />
-
-        {/* Navigation */}
-        <nav className="superhi-nav">
-          <div className="nav-left">
-            <div className="superhi-logo">Hi!</div>
-            <a href="#" className="nav-link">Catalog</a>
-            <a href="#" className="nav-link">About</a>
+      <div className="flex min-h-screen w-full items-center justify-center bg-neutral-50 p-4 font-sans text-neutral-900">
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.3 }}
+          className="w-full max-w-sm rounded-3xl border border-neutral-200/80 bg-white p-6 sm:p-8 text-center shadow-sm"
+        >
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-900 text-white">
+            <MailCheck size={24} />
           </div>
-          <div className="nav-right">
-            <button className="nav-link" onClick={() => router.push('/login')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>Sign in</button>
-          </div>
-        </nav>
-
-        {/* Main Content */}
-        <div className="verification-container">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.4 }}
-            className="verification-card"
+          <h1 className="mb-1.5 text-xl font-bold tracking-tight text-neutral-900">
+            Check your email
+          </h1>
+          <p className="mb-5 text-xs text-neutral-500 leading-relaxed">
+            We’ve sent a confirmation link to <strong className="text-neutral-900">{email}</strong>. Please click the link to verify your account.
+          </p>
+          <button
+            onClick={() => router.push('/login')}
+            className="w-full rounded-full bg-neutral-900 py-2.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 active:scale-[0.98]"
           >
-            <div className="mascot-container">
-              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
-              </svg>
-            </div>
-            <h1 className="verification-title">We’ve sent you an email!</h1>
-            <p className="verification-desc">
-              We’ve just sent you a sign in link to your email address <strong style={{ color: '#000' }}>{email}</strong>. All you need to do is click the confirm button in the email to sign in.
-            </p>
-            <button className="verify-back-btn" onClick={() => router.push('/login')}>
-              Proceed to Sign In
-            </button>
-          </motion.div>
-        </div>
+            Proceed to Sign In
+          </button>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="saas-root">
-      <style dangerouslySetInnerHTML={{ __html: `
-        .saas-root {
-          min-height: 100vh;
-          width: 100vw;
-          background: #FFFFFF;
-          display: flex;
-          font-family: 'Inter', sans-serif;
-          overflow: hidden;
-        }
-        .outer-frame {
-          display: flex;
-          width: 100%;
-          min-height: 100vh;
-          background: #FFFFFF;
-          overflow: hidden;
-        }
-        @media (max-width: 860px) {
-          .outer-frame {
-            flex-direction: column;
-          }
-          .art-panel {
-            display: none;
-          }
-        }
-        
-        /* Left Column */
-        .form-panel {
-          flex: 1;
-          padding: 48px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          position: relative;
-        }
-        .header-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 32px;
-        }
-        .logo-text {
-          font-size: 15px;
-          font-weight: 700;
-          color: #111111;
-          letter-spacing: -0.5px;
-          text-decoration: none;
-        }
-        .top-action-btn {
-          font-size: 13px;
-          font-weight: 600;
-          color: #4B5563;
-          text-decoration: none;
-        }
-        .top-action-btn:hover {
-          color: #111111;
-        }
-        
-        .main-form-wrap {
-          max-width: 360px;
-          width: 100%;
-          margin: 0 auto;
-        }
-        .form-header-title {
-          font-size: 24px;
-          font-weight: 800;
-          letter-spacing: -0.5px;
-          color: #111111;
-          margin-bottom: 24px;
-        }
-        .sso-btn-pill {
-          width: 100%;
-          background: #FFFFFF;
-          border: 1px solid #E5E7EB;
-          border-radius: 100px;
-          padding: 12px;
-          font-size: 14px;
-          font-weight: 600;
-          color: #111111;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          cursor: pointer;
-          margin-bottom: 12px;
-          transition: background-color 0.2s;
-        }
-        .sso-btn-pill:hover {
-          background: #FAFAFA;
-        }
-        
-        .or-divider {
-          display: flex;
-          align-items: center;
-          text-align: center;
-          margin: 20px 0;
-        }
-        .or-divider::before, .or-divider::after {
-          content: '';
-          flex: 1;
-          border-bottom: 1px solid #F3F4F6;
-        }
-        .or-text {
-          font-size: 11px;
-          color: #9CA3AF;
-          text-transform: uppercase;
-          padding: 0 10px;
-          font-weight: 600;
-        }
-        
-        .input-box {
-          width: 100%;
-          border: 1px solid #E5E7EB;
-          border-radius: 8px;
-          padding: 12px 14px;
-          font-size: 14px;
-          color: #111111;
-          outline: none;
-          background: #FFFFFF;
-          margin-bottom: 12px;
-          transition: border-color 0.2s;
-        }
-        .input-box:focus {
-          border-color: #111111;
-        }
-        .inline-inputs {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-          margin-bottom: 12px;
-        }
-        
-        .btn-submit-arrow {
-          width: 100%;
-          background: #111111;
-          color: #FFFFFF;
-          border: none;
-          border-radius: 100px;
-          padding: 14px;
-          font-size: 15px;
-          font-weight: 700;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          transition: background-color 0.2s;
-          margin-top: 8px;
-        }
-        .btn-submit-arrow:hover {
-          background: #222222;
-        }
-        
-        .footer-row-meta {
-          display: flex;
-          justify-content: space-between;
-          font-size: 11px;
-          color: #9CA3AF;
-          margin-top: 32px;
-        }
-        .footer-row-meta a {
-          color: #9CA3AF;
-          text-decoration: none;
-          margin-left: 12px;
-        }
-        .footer-row-meta a:hover {
-          color: #111111;
-        }
-
-        /* Right Column Cherry Blossom */
-        .art-panel {
-          flex: 1.2;
-          background-image: url('/sakura_tree.png');
-          background-size: cover;
-          background-position: center;
-          position: relative;
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
-          justify-content: flex-end;
-          height: 100vh;
-        }
-        
-        /* Petals Falling Animation */
-        .petal {
-          position: absolute;
-          background: #FBCFE8;
-          border-radius: 150% 0 150% 150%;
-          z-index: 2;
-          opacity: 0.85;
-          top: -20px;
-          transform: rotate(-45deg);
-          animation: fall linear infinite;
-        }
-        
-        @keyframes fall {
-          0% {
-            top: -20px;
-            transform: translate(0, 0) rotate(-45deg) scale(0.8);
-            opacity: 0.85;
-          }
-          50% {
-            opacity: 0.9;
-          }
-          100% {
-            top: 105%;
-            transform: translate(-180px, 400px) rotate(240deg) scale(1.1);
-            opacity: 0;
-          }
-        }
-      ` }} />
-
-      <div className="outer-frame">
-        {/* Left Form Column */}
-        <div className="form-panel">
-          <div className="header-row">
-            <Link href="/" className="logo-text">Vidya AI</Link>
-            <Link href="/login" className="top-action-btn">Sign in</Link>
-          </div>
-
-          <div className="main-form-wrap">
-            <h1 className="form-header-title">Create an account</h1>
-            
-            <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '100px', padding: '4px', marginBottom: '24px' }}>
-              {['STUDENT', 'TEACHER'].map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setSelectedRole(r as any)}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: '100px',
-                    border: 'none',
-                    background: selectedRole === r ? '#FFFFFF' : 'transparent',
-                    color: selectedRole === r ? '#111111' : '#6B7280',
-                    fontWeight: 600,
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    boxShadow: selectedRole === r ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  {r === 'TEACHER' ? 'Faculty' : r.charAt(0) + r.slice(1).toLowerCase()}
-                </button>
-              ))}
-            </div>
-
-            <button className="sso-btn-pill" type="button" onClick={() => handleSSO('google')}>
-              <svg viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-              </svg>
-              Sign up with Google
-            </button>
-
-            <div className="or-divider">
-              <span className="or-text">or</span>
-            </div>
-
-            <form onSubmit={handleSubmit}>
-              <div className="inline-inputs">
-                <input
-                  type="text"
-                  className="input-box"
-                  placeholder="First name"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  disabled={isSubmitting}
-                  required
-                />
-                <input
-                  type="text"
-                  className="input-box"
-                  placeholder="Last name"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  disabled={isSubmitting}
-                  required
-                />
-              </div>
-
-              <input
-                type="email"
-                className="input-box"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isSubmitting}
-                required
-              />
-
-              <div style={{ position: 'relative', marginBottom: '12px' }}>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  className="input-box"
-                  placeholder="Password"
-                  style={{ marginBottom: 0, paddingRight: '40px' }}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isSubmitting}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{
-                    position: 'absolute',
-                    right: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: '#9CA3AF',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 0
-                  }}
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-
-              <button type="submit" className="btn-submit-arrow" disabled={isSubmitting}>
-                {isSubmitting ? 'Signing up...' : 'Sign up →'}
-              </button>
-            </form>
-            
-            <div className="login-link-container" style={{ marginTop: '20px', fontSize: '13px', textAlign: 'center' }}>
-              Already have an account? <Link href="/login" style={{ fontWeight: '700', textDecoration: 'underline' }}>Log in</Link>
-            </div>
-          </div>
-
-          <div className="footer-row-meta">
-            <span>© 2026 Vidya AI</span>
-            <div>
-              <a href="#">Privacy</a>
-              <a href="#">Terms</a>
-            </div>
-          </div>
+    <div className="flex min-h-screen lg:h-screen w-full bg-white font-sans text-neutral-950 antialiased selection:bg-neutral-900 selection:text-white relative overflow-x-hidden lg:overflow-hidden">
+      {/* Left Form Section */}
+      <div className="flex w-full flex-col justify-between lg:w-1/2 p-4 sm:p-6 lg:p-8 xl:p-10 h-full overflow-y-auto">
+        {/* Header Branding */}
+        <div className="flex items-center justify-between w-full">
+          <Link
+            href="/"
+            className="text-base sm:text-lg font-bold tracking-tight text-neutral-950 hover:opacity-80 transition-opacity"
+          >
+            VIDYA AI
+          </Link>
+          <Link
+            href="/login"
+            className="text-xs sm:text-sm font-semibold text-neutral-600 hover:text-neutral-950 transition-colors"
+          >
+            Sign in &rarr;
+          </Link>
         </div>
 
-        {/* Right Cherry Blossom Column */}
-        {cherryBlossomPanel}
+        {/* Form Container */}
+        <div className="flex flex-1 items-center justify-center py-3 sm:py-5 my-auto">
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="w-full max-w-[360px] sm:max-w-[390px]"
+          >
+            {/* Titles */}
+            <motion.div variants={itemVariants} className="mb-3 sm:mb-4 text-center">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900">
+                Create your Account
+              </h1>
+              <p className="text-xs text-neutral-500 mt-1">
+                Join Vidya AI for autonomous grading & OBE tracking
+              </p>
+            </motion.div>
+
+            {/* Role Switcher */}
+            <motion.div variants={itemVariants} className="mb-3">
+              <div className="flex rounded-full bg-neutral-100 p-1 border border-neutral-200/70">
+                {(['STUDENT', 'TEACHER'] as const).map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setSelectedRole(r)}
+                    className={`flex-1 rounded-full py-1.5 text-xs font-semibold transition-all ${
+                      selectedRole === r
+                        ? 'bg-white text-neutral-950 shadow-sm'
+                        : 'text-neutral-500 hover:text-neutral-900'
+                    }`}
+                  >
+                    {r === 'TEACHER' ? 'Faculty' : 'Student'}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Google Signup Button */}
+            <motion.div variants={itemVariants} className="mb-3">
+              <button
+                type="button"
+                onClick={() => handleSSO('google')}
+                disabled={isSubmitting}
+                className="flex w-full items-center justify-center gap-2.5 rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs sm:text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50 active:bg-neutral-100 disabled:opacity-50"
+              >
+                <GoogleIcon className="text-base sm:text-lg" />
+                <span>Sign up with Google</span>
+              </button>
+            </motion.div>
+
+            {/* Divider */}
+            <motion.div
+              variants={itemVariants}
+              className="relative my-2.5 sm:my-3 flex items-center"
+            >
+              <div className="grow border-t border-neutral-200"></div>
+              <span className="px-3 text-xs uppercase tracking-wider text-neutral-400">or</span>
+              <div className="grow border-t border-neutral-200"></div>
+            </motion.div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="flex flex-col gap-2.5">
+              <motion.div variants={itemVariants} className="grid grid-cols-2 gap-2.5">
+                <div className="flex flex-col gap-1">
+                  <label
+                    htmlFor="firstName"
+                    className="text-xs font-semibold text-neutral-700"
+                  >
+                    First Name
+                  </label>
+                  <input
+                    id="firstName"
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    disabled={isSubmitting}
+                    required
+                    placeholder="John"
+                    className="w-full rounded-full border border-neutral-200 bg-white px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900 transition-all"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label
+                    htmlFor="lastName"
+                    className="text-xs font-semibold text-neutral-700"
+                  >
+                    Last Name
+                  </label>
+                  <input
+                    id="lastName"
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    disabled={isSubmitting}
+                    required
+                    placeholder="Doe"
+                    className="w-full rounded-full border border-neutral-200 bg-white px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900 transition-all"
+                  />
+                </div>
+              </motion.div>
+
+              <motion.div variants={itemVariants} className="flex flex-col gap-1">
+                <label
+                  htmlFor="email"
+                  className="text-xs font-semibold text-neutral-700"
+                >
+                  Email address
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isSubmitting}
+                  required
+                  placeholder="Enter your email"
+                  className="w-full rounded-full border border-neutral-200 bg-white px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900 transition-all"
+                />
+              </motion.div>
+
+              <motion.div variants={itemVariants} className="flex flex-col gap-1">
+                <label
+                  htmlFor="password"
+                  className="text-xs font-semibold text-neutral-700"
+                >
+                  Password (min. 6 characters)
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isSubmitting}
+                    required
+                    placeholder="Create a strong password"
+                    className="w-full rounded-full border border-neutral-200 bg-white px-3.5 py-1.5 sm:py-2 pr-11 text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </motion.div>
+
+              {/* Checkbox */}
+              <motion.div
+                variants={itemVariants}
+                className="flex items-start gap-2 pt-0.5"
+              >
+                <input
+                  id="terms"
+                  type="checkbox"
+                  checked={agreeTerms}
+                  onChange={(e) => setAgreeTerms(e.target.checked)}
+                  className="mt-0.5 h-3.5 w-3.5 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900 accent-neutral-900"
+                />
+                <label htmlFor="terms" className="text-xs text-neutral-600 cursor-pointer select-none leading-tight">
+                  I agree to the{' '}
+                  <Link href="/terms" className="font-semibold text-neutral-900 hover:underline">
+                    Terms
+                  </Link>{' '}
+                  and{' '}
+                  <Link href="/privacy" className="font-semibold text-neutral-900 hover:underline">
+                    Privacy Policy
+                  </Link>
+                </label>
+              </motion.div>
+
+              {/* Sign Up Button */}
+              <motion.div variants={itemVariants} className="mt-1">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full rounded-full bg-linear-to-b from-[#3a3a3a] to-[#121212] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      <span>Creating account...</span>
+                    </>
+                  ) : (
+                    <span>Create Account</span>
+                  )}
+                </button>
+              </motion.div>
+            </form>
+
+            {/* Footer */}
+            <motion.div
+              variants={itemVariants}
+              className="mt-3.5 text-center text-xs sm:text-sm text-neutral-500"
+            >
+              Already have an account?{' '}
+              <Link
+                href="/login"
+                className="font-semibold text-neutral-900 hover:underline"
+              >
+                Log in
+              </Link>
+            </motion.div>
+          </motion.div>
+        </div>
+
+        {/* Bottom Metadata */}
+        <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-neutral-400 gap-1.5 pt-2">
+          <span>&copy; {new Date().getFullYear()} Vidya AI. All rights reserved.</span>
+          <div className="flex gap-3">
+            <Link href="/privacy" className="hover:text-neutral-700 transition-colors">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="hover:text-neutral-700 transition-colors">
+              Terms of Service
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Image Section */}
+      <div className="hidden lg:block lg:w-1/2 p-3 sm:p-4 lg:p-5 h-full">
+        <div className="relative h-full w-full overflow-hidden rounded-[1.75rem] shadow-inner bg-neutral-900">
+          <img
+            src="https://assets.watermelon.sh/auth-7.avif"
+            alt="Vidya AI Authentication"
+            className="h-full w-full object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-linear-to-t from-black/75 via-black/15 to-transparent flex flex-col justify-end p-8 xl:p-10 text-white">
+            <span className="text-xs uppercase tracking-widest font-semibold text-neutral-300 mb-1.5">Empowering Education</span>
+            <h2 className="text-2xl xl:text-3xl font-bold mb-2 tracking-tight">Transform Higher Education</h2>
+            <p className="text-xs sm:text-sm text-neutral-200 leading-relaxed max-w-md">
+              Create AI-driven question papers, conduct rubric-based automated evaluations, and elevate institutional learning outcomes.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

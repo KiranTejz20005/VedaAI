@@ -1,12 +1,35 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { motion, type Variants } from 'motion/react';
 import { useAuthStore } from '@/store/auth.store';
 import toast from 'react-hot-toast';
 import { Eye, EyeOff } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
+
+// Simple Google SVG Icon
+const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" width="1em" height="1em" {...props}>
+    <path
+      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      fill="#4285F4"
+    />
+    <path
+      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.16v2.84C3.99 20.53 7.7 23 12 23z"
+      fill="#34A853"
+    />
+    <path
+      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.16C1.43 8.55 1 10.22 1 12s.43 3.45 1.16 4.93l3.68-2.84z"
+      fill="#FBBC05"
+    />
+    <path
+      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.16 7.07l3.68 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+      fill="#EA4335"
+    />
+  </svg>
+);
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,9 +37,33 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [selectedRole, setSelectedRole] = useState<'STUDENT' | 'TEACHER'>('STUDENT');
+
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.06,
+        delayChildren: 0.1,
+      },
+    },
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 12 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        type: 'spring',
+        stiffness: 320,
+        damping: 26,
+      },
+    },
+  };
 
   const handleGoogleSuccess = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
@@ -25,17 +72,21 @@ export default function LoginPage() {
       const result = await googleLogin({
         token: tokenResponse.access_token,
         role: selectedRole,
-        isSignUp: false
+        isSignUp: false,
       });
       setIsSubmitting(false);
 
       if (result.success) {
         toast.success('Successfully logged in with Google!');
         const user = useAuthStore.getState().user;
-        const isOnboarded = user?.hasCompletedOnboarding === true || !!(user?.organizationId && user?.departmentId);
+        const isOnboarded =
+          user?.hasCompletedOnboarding === true ||
+          !!(user?.organizationId && user?.departmentId);
         let dashboardPath = '/dashboard/student';
-        if (user?.role === 'TEACHER' || user?.role === 'FACULTY') dashboardPath = '/dashboard/faculty';
-        if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') dashboardPath = '/dashboard/admin';
+        if (user?.role === 'TEACHER' || user?.role === 'FACULTY')
+          dashboardPath = '/dashboard/faculty';
+        if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN')
+          dashboardPath = '/dashboard/admin';
         router.replace(isOnboarded ? dashboardPath : '/onboarding');
       } else {
         if (result.error?.includes('Account not found')) {
@@ -48,12 +99,10 @@ export default function LoginPage() {
     },
     onError: () => {
       toast.error('Google login failed or was cancelled.');
-    }
+    },
   });
 
   useEffect(() => {
-    setMounted(true);
-
     const handleMessage = async (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
       if (event.data && event.data.type === 'SSO_SUCCESS') {
@@ -65,16 +114,18 @@ export default function LoginPage() {
           provider: event.data.provider || 'SSO',
           token: event.data.token,
           role: selectedRole,
-          isSignUp: false
+          isSignUp: false,
         });
         setIsSubmitting(false);
 
         if (result.success) {
           toast.success(`Successfully logged in with ${event.data.provider || 'SSO'}!`);
           const user = useAuthStore.getState().user;
-          const isOnboarded = user?.hasCompletedOnboarding === true || (user?.organizationId && user?.departmentId);
+          const isOnboarded =
+            user?.hasCompletedOnboarding === true ||
+            (user?.organizationId && user?.departmentId);
           let dashboardPath = '/dashboard/student';
-          switch(user?.role) {
+          switch (user?.role) {
             case 'SUPER_ADMIN':
               dashboardPath = '/super-admin';
               break;
@@ -90,7 +141,7 @@ export default function LoginPage() {
               dashboardPath = '/dashboard/student';
               break;
           }
-          
+
           router.replace(isOnboarded ? dashboardPath : '/onboarding');
         } else {
           if (result.error?.includes('Account not found')) {
@@ -107,20 +158,20 @@ export default function LoginPage() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [ssoLogin, router]);
+  }, [ssoLogin, router, selectedRole]);
 
   const handleSSO = (provider: 'google' | 'x') => {
     const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
     const xClientId = process.env.NEXT_PUBLIC_X_CLIENT_ID;
-    
+
     let isMock = false;
     if (provider === 'google') {
-      isMock = !googleClientId || 
-               googleClientId.includes('placeholder') || 
-               !googleClientId.trim().endsWith('.apps.googleusercontent.com');
+      isMock =
+        !googleClientId ||
+        googleClientId.includes('placeholder') ||
+        !googleClientId.trim().endsWith('.apps.googleusercontent.com');
     } else {
-      isMock = !xClientId || 
-               xClientId.includes('placeholder');
+      isMock = !xClientId || xClientId.includes('placeholder');
     }
 
     if (!isMock) {
@@ -130,22 +181,34 @@ export default function LoginPage() {
         const redirectUri = `${window.location.origin}/auth/callback`;
         const state = 'state_123';
         const codeChallenge = 'challenge';
-        const authUrl = `https://twitter.com/i/oauth2/authorize?response_type=code&client_id=${xClientId?.trim()}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=users.read%20tweet.read&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=plain`;
+        const authUrl = `https://twitter.com/i/oauth2/authorize?response_type=code&client_id=${xClientId?.trim()}&redirect_uri=${encodeURIComponent(
+          redirectUri
+        )}&scope=users.read%20tweet.read&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=plain`;
         window.location.href = authUrl;
       }
       return;
     }
 
-    if (provider === 'google' && googleClientId && !googleClientId.trim().endsWith('.apps.googleusercontent.com')) {
-      toast('Using simulated SSO login. The NEXT_PUBLIC_GOOGLE_CLIENT_ID in .env appears to be an API Key or invalid (must end with .apps.googleusercontent.com).', {
-        icon: 'ℹ️',
-        duration: 6000
-      });
+    if (
+      provider === 'google' &&
+      googleClientId &&
+      !googleClientId.trim().endsWith('.apps.googleusercontent.com')
+    ) {
+      toast(
+        'Using simulated SSO login. The NEXT_PUBLIC_GOOGLE_CLIENT_ID in .env appears to be an API Key or invalid (must end with .apps.googleusercontent.com).',
+        {
+          icon: 'ℹ️',
+          duration: 6000,
+        }
+      );
     } else {
-      toast(`Using simulated SSO login. Set NEXT_PUBLIC_${provider.toUpperCase()}_CLIENT_ID in .env for real accounts.`, {
-        icon: 'ℹ️',
-        duration: 5000
-      });
+      toast(
+        `Using simulated SSO login. Set NEXT_PUBLIC_${provider.toUpperCase()}_CLIENT_ID in .env for real accounts.`,
+        {
+          icon: 'ℹ️',
+          duration: 5000,
+        }
+      );
     }
 
     const width = 500;
@@ -166,9 +229,10 @@ export default function LoginPage() {
 
     const providerName = provider === 'google' ? 'Google' : 'X';
     const providerColor = provider === 'google' ? '#4285F4' : '#000000';
-    const providerLogo = provider === 'google' 
-      ? `<svg viewBox="0 0 24 24" width="24" height="24" style="margin-right:8px;"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>`
-      : `<svg viewBox="0 0 24 24" width="24" height="24" fill="white" style="margin-right:8px;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`;
+    const providerLogo =
+      provider === 'google'
+        ? `<svg viewBox="0 0 24 24" width="24" height="24" style="margin-right:8px;"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>`
+        : `<svg viewBox="0 0 24 24" width="24" height="24" fill="white" style="margin-right:8px;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`;
 
     popup.document.write(`
       <html>
@@ -187,38 +251,40 @@ export default function LoginPage() {
             }
             .card {
               background: white;
-              padding: 40px;
+              padding: 32px;
               border-radius: 16px;
               box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
-              width: 380px;
+              width: 360px;
               text-align: center;
             }
             .logo-container {
               display: flex;
               justify-content: center;
               align-items: center;
-              margin-bottom: 24px;
+              margin-bottom: 20px;
+              font-weight: 700;
+              font-size: 16px;
             }
             h1 {
-              font-size: 20px;
+              font-size: 18px;
               font-weight: 600;
               color: #111827;
-              margin: 0 0 8px 0;
+              margin: 0 0 6px 0;
             }
             p {
-              font-size: 14px;
+              font-size: 13px;
               color: #4b5563;
-              margin: 0 0 24px 0;
-              line-height: 1.5;
+              margin: 0 0 20px 0;
+              line-height: 1.4;
             }
             .profile-card {
               display: flex;
               align-items: center;
               background: #f9fafb;
               border: 1px solid #e5e7eb;
-              border-radius: 12px;
-              padding: 12px 16px;
-              margin-bottom: 12px;
+              border-radius: 10px;
+              padding: 10px 14px;
+              margin-bottom: 10px;
               text-align: left;
               cursor: pointer;
               transition: background-color 0.2s, border-color 0.2s;
@@ -228,34 +294,34 @@ export default function LoginPage() {
               border-color: #d1d5db;
             }
             .avatar {
-              width: 40px;
-              height: 40px;
+              width: 36px;
+              height: 36px;
               border-radius: 50%;
-              margin-right: 14px;
+              margin-right: 12px;
               display: flex;
               align-items: center;
               justify-content: center;
-              font-size: 16px;
+              font-size: 14px;
               font-weight: bold;
             }
             .profile-info {
               flex: 1;
             }
             .name {
-              font-size: 14px;
+              font-size: 13px;
               font-weight: 600;
               color: #111827;
             }
             .email {
-              font-size: 12px;
+              font-size: 11px;
               color: #6b7280;
             }
             .btn {
               width: 100%;
-              padding: 12px;
+              padding: 10px;
               border-radius: 8px;
               border: none;
-              font-size: 14px;
+              font-size: 13px;
               font-weight: 600;
               cursor: pointer;
               transition: all 0.2s;
@@ -266,7 +332,7 @@ export default function LoginPage() {
             .btn-primary {
               background: ${providerColor};
               color: white;
-              margin-bottom: 12px;
+              margin-bottom: 10px;
             }
             .btn-primary:hover {
               opacity: 0.9;
@@ -283,10 +349,10 @@ export default function LoginPage() {
               border: 3px solid #f3f3f3;
               border-top: 3px solid ${providerColor};
               border-radius: 50%;
-              width: 24px;
-              height: 24px;
+              width: 20px;
+              height: 20px;
               animation: spin 1s linear infinite;
-              margin: 0 auto 16px auto;
+              margin: 0 auto 14px auto;
               display: none;
             }
             @keyframes spin {
@@ -333,21 +399,21 @@ export default function LoginPage() {
                   </div>
                 </div>
                 
-                <button class="btn btn-secondary" style="margin-bottom:12px;" onclick="showCustomInput()">Use another account</button>
+                <button class="btn btn-secondary" style="margin-bottom:10px;" onclick="showCustomInput()">Use another account</button>
               </div>
 
-              <!-- Custom Input Form (Hidden initially) -->
+              <!-- Custom Input Form -->
               <div id="custom-input-form" style="display:none; text-align:left;">
-                <label style="font-size:13px; font-weight:600; color:#374151; display:block; margin-bottom:6px;">Email address</label>
-                <input type="email" id="custom-email" placeholder="name@example.com" style="width:100%; padding:10px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; margin-bottom:16px; box-sizing:border-box; outline:none;" />
+                <label style="font-size:12px; font-weight:600; color:#374151; display:block; margin-bottom:4px;">Email address</label>
+                <input type="email" id="custom-email" placeholder="name@example.com" style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; margin-bottom:14px; box-sizing:border-box; outline:none;" />
                 
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                   <button class="btn btn-primary" onclick="submitCustomAccount()">Continue</button>
                   <button class="btn btn-secondary" onclick="showAccountList()">Back</button>
                 </div>
               </div>
 
-              <div style="margin-top:16px;">
+              <div style="margin-top:12px;">
                 <button class="btn btn-secondary" onclick="window.close()">Cancel</button>
               </div>
             </div>
@@ -404,7 +470,7 @@ export default function LoginPage() {
                   provider: '${providerName}' 
                 }, targetOrigin);
                 window.close();
-              }, 1500);
+              }, 1200);
             }
           </script>
         </body>
@@ -426,9 +492,11 @@ export default function LoginPage() {
     if (result.success) {
       toast.success('Successfully logged in!');
       const user = useAuthStore.getState().user;
-      const isOnboarded = user?.hasCompletedOnboarding === true || (user?.organizationId && user?.departmentId);
+      const isOnboarded =
+        user?.hasCompletedOnboarding === true ||
+        (user?.organizationId && user?.departmentId);
       let dashboardPath = '/dashboard/student';
-      switch(user?.role) {
+      switch (user?.role) {
         case 'SUPER_ADMIN':
           dashboardPath = '/super-admin';
           break;
@@ -444,397 +512,234 @@ export default function LoginPage() {
           dashboardPath = '/dashboard/student';
           break;
       }
-      
+
       router.replace(isOnboarded ? dashboardPath : '/onboarding');
     } else {
       toast.error(result.error || 'Authentication failed.');
     }
   };
 
-  // Falling petals generation helper
-  const renderPetals = () => {
-    if (!mounted) return null;
-    return Array.from({ length: 20 }).map((_, i) => {
-      const left = Math.random() * 100;
-      const delay = Math.random() * 10;
-      const duration = 6 + Math.random() * 6;
-      const size = 6 + Math.random() * 8;
-      
-      return (
-        <span 
-          key={i} 
-          className="petal"
-          style={{
-            left: `${left}%`,
-            animationDelay: `${delay}s`,
-            animationDuration: `${duration}s`,
-            width: `${size}px`,
-            height: `${size * 0.7}px`
-          }}
-        />
-      );
-    });
-  };
-
-  const cherryBlossomPanel = (
-    <div className="art-panel">
-      {renderPetals()}
-    </div>
-  );
-
   return (
-    <div className="saas-root">
-      <style dangerouslySetInnerHTML={{ __html: `
-        .saas-root {
-          min-height: 100vh;
-          width: 100vw;
-          background: #FFFFFF;
-          display: flex;
-          font-family: 'Inter', sans-serif;
-          overflow: hidden;
-        }
-        .outer-frame {
-          display: flex;
-          width: 100%;
-          min-height: 100vh;
-          background: #FFFFFF;
-          overflow: hidden;
-        }
-        @media (max-width: 860px) {
-          .outer-frame {
-            flex-direction: column;
-          }
-          .art-panel {
-            display: none;
-          }
-        }
-        
-        /* Left Column */
-        .form-panel {
-          flex: 1;
-          padding: 48px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          position: relative;
-        }
-        .header-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 32px;
-        }
-        .logo-text {
-          font-size: 15px;
-          font-weight: 700;
-          color: #111111;
-          letter-spacing: -0.5px;
-          text-decoration: none;
-        }
-        .top-action-btn {
-          font-size: 13px;
-          font-weight: 600;
-          color: #4B5563;
-          text-decoration: none;
-        }
-        .top-action-btn:hover {
-          color: #111111;
-        }
-        
-        .main-form-wrap {
-          max-width: 360px;
-          width: 100%;
-          margin: 0 auto;
-        }
-        .form-header-title {
-          font-size: 24px;
-          font-weight: 800;
-          letter-spacing: -0.5px;
-          color: #111111;
-          margin-bottom: 24px;
-        }
-        .sso-btn-pill {
-          width: 100%;
-          background: #FFFFFF;
-          border: 1px solid #E5E7EB;
-          border-radius: 100px;
-          padding: 12px;
-          font-size: 14px;
-          font-weight: 600;
-          color: #111111;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          cursor: pointer;
-          margin-bottom: 12px;
-          transition: background-color 0.2s;
-        }
-        .sso-btn-pill:hover {
-          background: #FAFAFA;
-        }
-        
-        .or-divider {
-          display: flex;
-          align-items: center;
-          text-align: center;
-          margin: 20px 0;
-        }
-        .or-divider::before, .or-divider::after {
-          content: '';
-          flex: 1;
-          border-bottom: 1px solid #F3F4F6;
-        }
-        .or-text {
-          font-size: 11px;
-          color: #9CA3AF;
-          text-transform: uppercase;
-          padding: 0 10px;
-          font-weight: 600;
-        }
-        
-        .input-box {
-          width: 100%;
-          border: 1px solid #E5E7EB;
-          border-radius: 8px;
-          padding: 12px 14px;
-          font-size: 14px;
-          color: #111111;
-          outline: none;
-          background: #FFFFFF;
-          margin-bottom: 12px;
-          transition: border-color 0.2s;
-        }
-        .input-box:focus {
-          border-color: #111111;
-        }
-        .meta-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: 13px;
-          color: #4B5563;
-          margin-bottom: 20px;
-        }
-        .checkbox-lbl {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          cursor: pointer;
-        }
-        .forgot-pass-link {
-          color: #4B5563;
-          text-decoration: none;
-        }
-        .forgot-pass-link:hover {
-          color: #111111;
-          text-decoration: underline;
-        }
-        
-        .btn-submit-arrow {
-          width: 100%;
-          background: #111111;
-          color: #FFFFFF;
-          border: none;
-          border-radius: 100px;
-          padding: 14px;
-          font-size: 15px;
-          font-weight: 700;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          transition: background-color 0.2s;
-          margin-top: 8px;
-        }
-        .btn-submit-arrow:hover {
-          background: #222222;
-        }
-        
-        .footer-row-meta {
-          display: flex;
-          justify-content: space-between;
-          font-size: 11px;
-          color: #9CA3AF;
-          margin-top: 32px;
-        }
-        .footer-row-meta a {
-          color: #9CA3AF;
-          text-decoration: none;
-          margin-left: 12px;
-        }
-        .footer-row-meta a:hover {
-          color: #111111;
-        }
-
-        /* Right Column Cherry Blossom */
-        .art-panel {
-          flex: 1.2;
-          background-image: url('/sakura_tree.png');
-          background-size: cover;
-          background-position: center;
-          position: relative;
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
-          justify-content: flex-end;
-          height: 100vh;
-        }
-        
-        /* Petals Falling Animation */
-        .petal {
-          position: absolute;
-          background: #FBCFE8;
-          border-radius: 150% 0 150% 150%;
-          z-index: 2;
-          opacity: 0.85;
-          top: -20px;
-          transform: rotate(-45deg);
-          animation: fall linear infinite;
-        }
-        
-        @keyframes fall {
-          0% {
-            top: -20px;
-            transform: translate(0, 0) rotate(-45deg) scale(0.8);
-            opacity: 0.85;
-          }
-          50% {
-            opacity: 0.9;
-          }
-          100% {
-            top: 105%;
-            transform: translate(-180px, 400px) rotate(240deg) scale(1.1);
-            opacity: 0;
-          }
-        }
-      ` }} />
-
-      <div className="outer-frame">
-        {/* Left Form Column */}
-        <div className="form-panel">
-          <div className="header-row">
-            <Link href="/" className="logo-text">Vidya AI</Link>
-            <Link href="/register" className="top-action-btn">Sign up</Link>
-          </div>
-
-          <div className="main-form-wrap">
-            <h1 className="form-header-title">Welcome back</h1>
-            
-            <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '100px', padding: '4px', marginBottom: '24px' }}>
-              {['STUDENT', 'TEACHER'].map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setSelectedRole(r as any)}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: '100px',
-                    border: 'none',
-                    background: selectedRole === r ? '#FFFFFF' : 'transparent',
-                    color: selectedRole === r ? '#111111' : '#6B7280',
-                    fontWeight: 600,
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    boxShadow: selectedRole === r ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  {r === 'TEACHER' ? 'Faculty' : r.charAt(0) + r.slice(1).toLowerCase()}
-                </button>
-              ))}
-            </div>
-
-            <button className="sso-btn-pill" type="button" onClick={() => handleSSO('google')}>
-              <svg viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-              </svg>
-              Sign in with Google
-            </button>
-
-            <div className="or-divider">
-              <span className="or-text">or</span>
-            </div>
-
-            <form onSubmit={handleSubmit}>
-              <input
-                type="email"
-                className="input-box"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isSubmitting}
-                required
-              />
-
-              <div style={{ position: 'relative', marginBottom: '12px' }}>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  className="input-box"
-                  placeholder="Password"
-                  style={{ marginBottom: 0, paddingRight: '40px' }}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isSubmitting}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{
-                    position: 'absolute',
-                    right: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: '#9CA3AF',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 0
-                  }}
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-
-              <div className="meta-row">
-                <label className="checkbox-lbl">
-                  <input type="checkbox" style={{ accentColor: '#111' }} />
-                  Remember me
-                </label>
-                <Link href="/forgot-password" className="forgot-pass-link">Forgot password?</Link>
-              </div>
-
-              <button type="submit" className="btn-submit-arrow" disabled={isSubmitting}>
-                {isSubmitting ? 'Logging in...' : 'Sign in →'}
-              </button>
-            </form>
-            
-            <div className="signup-link-container" style={{ marginTop: '20px', fontSize: '13px', textAlign: 'center' }}>
-              New to Vidya AI? <Link href="/register" style={{ fontWeight: '700', textDecoration: 'underline' }}>Create an account</Link>
-            </div>
-          </div>
-
-          <div className="footer-row-meta">
-            <span>© 2026 Vidya AI</span>
-            <div>
-              <a href="#">Privacy</a>
-              <a href="#">Terms</a>
-            </div>
-          </div>
+    <div className="flex min-h-screen lg:h-screen w-full bg-white font-sans text-neutral-950 antialiased selection:bg-neutral-900 selection:text-white relative overflow-x-hidden lg:overflow-hidden">
+      {/* Left Form Section */}
+      <div className="flex w-full flex-col justify-between lg:w-1/2 p-4 sm:p-6 lg:p-8 xl:p-10 h-full overflow-y-auto">
+        {/* Header Branding */}
+        <div className="flex items-center justify-between w-full">
+          <Link
+            href="/"
+            className="text-base sm:text-lg font-bold tracking-tight text-neutral-950 hover:opacity-80 transition-opacity"
+          >
+            VIDYA AI
+          </Link>
+          <Link
+            href="/register"
+            className="text-xs sm:text-sm font-semibold text-neutral-600 hover:text-neutral-950 transition-colors"
+          >
+            Sign up &rarr;
+          </Link>
         </div>
 
-        {/* Right Cherry Blossom Column */}
-        {cherryBlossomPanel}
+        {/* Form Container */}
+        <div className="flex flex-1 items-center justify-center py-4 sm:py-6 my-auto">
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="w-full max-w-[360px] sm:max-w-[390px]"
+          >
+            {/* Titles */}
+            <motion.div variants={itemVariants} className="mb-4 sm:mb-5 text-center">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900">
+                Welcome back
+              </h1>
+              <p className="text-xs sm:text-sm text-neutral-500 mt-1">
+                Sign in to continue to your academic workspace
+              </p>
+            </motion.div>
+
+            {/* Role Switcher */}
+            <motion.div variants={itemVariants} className="mb-3.5 sm:mb-4">
+              <div className="flex rounded-full bg-neutral-100 p-1 border border-neutral-200/70">
+                {(['STUDENT', 'TEACHER'] as const).map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setSelectedRole(r)}
+                    className={`flex-1 rounded-full py-1.5 text-xs font-semibold transition-all ${
+                      selectedRole === r
+                        ? 'bg-white text-neutral-950 shadow-sm'
+                        : 'text-neutral-500 hover:text-neutral-900'
+                    }`}
+                  >
+                    {r === 'TEACHER' ? 'Faculty' : 'Student'}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Google Login Button */}
+            <motion.div variants={itemVariants} className="mb-3 sm:mb-4">
+              <button
+                type="button"
+                onClick={() => handleSSO('google')}
+                disabled={isSubmitting}
+                className="flex w-full items-center justify-center gap-2.5 rounded-full border border-neutral-200 bg-white px-4 py-2.5 text-xs sm:text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50 active:bg-neutral-100 disabled:opacity-50"
+              >
+                <GoogleIcon className="text-base sm:text-lg" />
+                <span>Login with Google</span>
+              </button>
+            </motion.div>
+
+            {/* Divider */}
+            <motion.div
+              variants={itemVariants}
+              className="relative my-3 sm:my-4 flex items-center"
+            >
+              <div className="grow border-t border-neutral-200"></div>
+              <span className="px-3 text-xs uppercase tracking-wider text-neutral-400">or</span>
+              <div className="grow border-t border-neutral-200"></div>
+            </motion.div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="flex flex-col gap-2.5 sm:gap-3">
+              <motion.div variants={itemVariants} className="flex flex-col gap-1">
+                <label
+                  htmlFor="email"
+                  className="text-xs font-semibold text-neutral-700"
+                >
+                  Email address
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isSubmitting}
+                  required
+                  placeholder="Enter your email"
+                  className="w-full rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900 transition-all"
+                />
+              </motion.div>
+
+              <motion.div variants={itemVariants} className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="password"
+                    className="text-xs font-semibold text-neutral-700"
+                  >
+                    Password
+                  </label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs font-medium text-neutral-500 hover:text-neutral-900 hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isSubmitting}
+                    required
+                    placeholder="Enter your password"
+                    className="w-full rounded-full border border-neutral-200 bg-white px-4 py-2 pr-11 text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </motion.div>
+
+              {/* Remember me Checkbox */}
+              <motion.div
+                variants={itemVariants}
+                className="flex items-center gap-2 pt-0.5"
+              >
+                <input
+                  id="remember"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900 accent-neutral-900"
+                />
+                <label htmlFor="remember" className="text-xs text-neutral-600 cursor-pointer select-none">
+                  Remember me for 30 days
+                </label>
+              </motion.div>
+
+              {/* Sign In Button */}
+              <motion.div variants={itemVariants} className="mt-1">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full rounded-full bg-linear-to-b from-[#3a3a3a] to-[#121212] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      <span>Signing In...</span>
+                    </>
+                  ) : (
+                    <span>Sign In</span>
+                  )}
+                </button>
+              </motion.div>
+            </form>
+
+            {/* Footer */}
+            <motion.div
+              variants={itemVariants}
+              className="mt-4 text-center text-xs sm:text-sm text-neutral-500"
+            >
+              Don&apos;t have an account?{' '}
+              <Link
+                href="/register"
+                className="font-semibold text-neutral-900 hover:underline"
+              >
+                Sign up
+              </Link>
+            </motion.div>
+          </motion.div>
+        </div>
+
+        {/* Bottom Metadata */}
+        <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-neutral-400 gap-1.5 pt-2">
+          <span>&copy; {new Date().getFullYear()} Vidya AI. All rights reserved.</span>
+          <div className="flex gap-3">
+            <Link href="/privacy" className="hover:text-neutral-700 transition-colors">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="hover:text-neutral-700 transition-colors">
+              Terms of Service
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Image Section */}
+      <div className="hidden lg:block lg:w-1/2 p-3 sm:p-4 lg:p-5 h-full">
+        <div className="relative h-full w-full overflow-hidden rounded-[1.75rem] shadow-inner bg-neutral-900">
+          <img
+            src="https://assets.watermelon.sh/auth-7.avif"
+            alt="Vidya AI Authentication"
+            className="h-full w-full object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-linear-to-t from-black/75 via-black/15 to-transparent flex flex-col justify-end p-8 xl:p-10 text-white">
+            <span className="text-xs uppercase tracking-widest font-semibold text-neutral-300 mb-1.5">Academic Intelligence</span>
+            <h2 className="text-2xl xl:text-3xl font-bold mb-2 tracking-tight">Vidya AI Platform</h2>
+            <p className="text-xs sm:text-sm text-neutral-200 leading-relaxed max-w-md">
+              Streamline assessments, intelligent evaluation, OBE mapping, and continuous academic growth in one unified workspace.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
