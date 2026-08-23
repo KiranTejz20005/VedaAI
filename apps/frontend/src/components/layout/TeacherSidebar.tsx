@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import { api } from '@/lib/api';
 import {
   LayoutGrid,
-  Settings,
   X,
   Users,
   FileText,
@@ -16,11 +15,8 @@ import {
   GraduationCap,
   FileCheck,
   Search,
-  Bell,
-  MessageSquare,
-  HelpCircle,
-  Maximize2,
-  ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
@@ -32,7 +28,7 @@ interface NavItemConfig {
   exact?: boolean;
   badge?: {
     text: string;
-    variant: 'purple' | 'amber';
+    variant: 'neutral' | 'amber';
   };
 }
 
@@ -43,7 +39,7 @@ interface NavSectionConfig {
 
 export function TeacherSidebar() {
   const pathname = usePathname();
-  const { isOpen, close } = useSidebarStore();
+  const { isOpen, close, isCollapsed, toggleCollapsed } = useSidebarStore();
   const { user } = useAuthStore();
   const [assignmentCount, setAssignmentCount] = useState<number | null>(null);
 
@@ -80,7 +76,7 @@ export function TeacherSidebar() {
           href: '/ai-toolkit',
           label: "AI Teacher's Toolkit",
           icon: Smartphone,
-          badge: { text: 'New', variant: 'purple' },
+          badge: { text: 'New', variant: 'neutral' },
         },
         {
           href: '/assignments',
@@ -105,12 +101,6 @@ export function TeacherSidebar() {
       items: [
         { href: '/teacher/copilot', label: 'AI Copilot', icon: Sparkles },
         { href: '/teacher/library', label: 'My Library', icon: History },
-      ],
-    },
-    {
-      title: 'PREFERENCES',
-      items: [
-        { href: '/settings', label: 'Settings', icon: Settings },
       ],
     },
   ];
@@ -138,14 +128,14 @@ export function TeacherSidebar() {
       <aside
         role="navigation"
         aria-label="Teacher Navigation"
-        className={`fixed top-0 left-0 bottom-0 w-[260px] h-screen bg-white text-neutral-900 border-r border-neutral-200/90 flex flex-col z-40 transition-transform duration-300 shadow-xs lg:translate-x-0 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed top-0 left-0 bottom-0 h-screen bg-white text-neutral-900 border-r border-neutral-200/90 flex flex-col z-40 transition-all duration-300 shadow-xs lg:translate-x-0 ${
+          isCollapsed ? 'w-[72px]' : 'w-[260px]'
+        } ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-2">
-          <Link href="/teacher" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-sm shadow-purple-500/20 group-hover:scale-105 transition-transform">
+        <div className={`flex items-center pt-4 pb-2 ${isCollapsed ? 'justify-center px-2' : 'justify-between px-4'}`}>
+          <Link href="/teacher" className="flex items-center gap-2.5 group min-w-0" title="VidyaAI Teacher">
+            <div className="w-8 h-8 rounded-xl bg-neutral-900 flex items-center justify-center text-white shadow-sm shrink-0 group-hover:scale-105 transition-transform">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path
                   d="M12 3L3 9L12 15L21 9L12 3Z"
@@ -163,51 +153,78 @@ export function TeacherSidebar() {
                 />
               </svg>
             </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-[15px] tracking-tight text-neutral-900">
-                  VidyaAI
-                </span>
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100">
-                  Teacher
-                </span>
+            {!isCollapsed && (
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-[15px] tracking-tight text-neutral-900 truncate">
+                    VidyaAI
+                  </span>
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-700 border border-neutral-200">
+                    Teacher
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
           </Link>
 
-          {/* Mobile Close Button only (No duplicate top settings icon) */}
-          <button
-            onClick={close}
-            className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 lg:hidden transition-colors"
-            aria-label="Close navigation"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Search Bar */}
-        <div className="px-3 py-2">
-          <div
-            onClick={handleOpenSearch}
-            className="relative flex items-center w-full bg-neutral-50 border border-neutral-200/90 rounded-xl px-3 py-1.5 cursor-pointer hover:border-neutral-300 hover:bg-neutral-100/60 transition-all group"
-          >
-            <Search className="w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-600 transition-colors shrink-0 mr-2" />
-            <span className="text-xs text-neutral-400 flex-1 truncate">
-              Search
-            </span>
-            <kbd className="text-[10px] font-mono text-neutral-400 bg-white px-1.5 py-0.5 rounded border border-neutral-200 shadow-2xs shrink-0">
-              Ctrl+D
-            </kbd>
+          {/* Desktop Collapse / Expand Button & Mobile Close */}
+          <div className="flex items-center">
+            <button
+              onClick={toggleCollapsed}
+              className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 hidden lg:flex transition-colors"
+              title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {isCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={close}
+              className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 lg:hidden transition-colors"
+              aria-label="Close navigation"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
+        {/* Search Bar */}
+        <div className={`py-2 ${isCollapsed ? 'px-2 flex justify-center' : 'px-3'}`}>
+          {isCollapsed ? (
+            <button
+              onClick={handleOpenSearch}
+              className="w-10 h-10 rounded-xl bg-neutral-50 border border-neutral-200/90 flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
+              title="Search (Ctrl+D)"
+              aria-label="Search"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+          ) : (
+            <div
+              onClick={handleOpenSearch}
+              className="relative flex items-center w-full bg-neutral-50 border border-neutral-200/90 rounded-xl px-3 py-1.5 cursor-pointer hover:border-neutral-300 hover:bg-neutral-100/60 transition-all group"
+            >
+              <Search className="w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-600 transition-colors shrink-0 mr-2" />
+              <span className="text-xs text-neutral-400 flex-1 truncate">
+                Search
+              </span>
+              <kbd className="text-[10px] font-mono text-neutral-400 bg-white px-1.5 py-0.5 rounded border border-neutral-200 shadow-2xs shrink-0">
+                Ctrl+D
+              </kbd>
+            </div>
+          )}
+        </div>
+
         {/* Navigation Sections */}
-        <nav className="flex-1 px-2.5 py-1.5 overflow-y-auto space-y-4 scrollbar-thin">
+        <nav className={`flex-1 overflow-y-auto space-y-4 scrollbar-thin ${isCollapsed ? 'px-2 py-1.5' : 'px-2.5 py-1.5'}`}>
           {navSections.map((section) => (
             <div key={section.title} className="space-y-0.5">
-              <div className="px-2.5 py-1 text-[10px] font-bold tracking-wider text-neutral-400 uppercase">
-                {section.title}
-              </div>
+              {!isCollapsed ? (
+                <div className="px-2.5 py-1 text-[10px] font-bold tracking-wider text-neutral-400 uppercase">
+                  {section.title}
+                </div>
+              ) : (
+                <div className="my-1.5 border-t border-neutral-100" />
+              )}
               <div className="space-y-0.5">
                 {section.items.map(({ href, label, icon: Icon, exact, badge }) => {
                   const active = isActive(href, exact);
@@ -216,28 +233,33 @@ export function TeacherSidebar() {
                       key={label}
                       href={href}
                       onClick={close}
-                      className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium transition-all group ${
+                      title={isCollapsed ? label : undefined}
+                      className={`flex items-center rounded-xl text-xs font-medium transition-all group ${
+                        isCollapsed
+                          ? 'w-10 h-10 mx-auto justify-center'
+                          : 'justify-between px-2.5 py-2'
+                      } ${
                         active
-                          ? 'bg-purple-50 text-purple-700 font-semibold shadow-2xs'
-                          : 'text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100/80'
+                          ? 'bg-neutral-100 text-neutral-950 font-semibold shadow-2xs'
+                          : 'text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100/70'
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <Icon
                           className={`w-4 h-4 shrink-0 transition-colors ${
                             active
-                              ? 'text-purple-600'
+                              ? 'text-neutral-900'
                               : 'text-neutral-400 group-hover:text-neutral-700'
                           }`}
                         />
-                        <span className="truncate">{label}</span>
+                        {!isCollapsed && <span className="truncate">{label}</span>}
                       </div>
-                      {badge && (
+                      {!isCollapsed && badge && (
                         <span
                           className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0 uppercase tracking-tight ${
-                            badge.variant === 'purple'
-                              ? 'bg-purple-100 text-purple-700'
-                              : 'bg-amber-100 text-amber-800'
+                            badge.variant === 'amber'
+                              ? 'bg-amber-100 text-amber-800 border border-amber-200/60'
+                              : 'bg-neutral-100 text-neutral-700 border border-neutral-200'
                           }`}
                         >
                           {badge.text}
@@ -251,62 +273,32 @@ export function TeacherSidebar() {
           ))}
         </nav>
 
-        {/* Bottom Utility Actions Bar */}
-        <div className="px-3 pt-2 pb-1 border-t border-neutral-100 flex items-center justify-around text-neutral-400">
-          <button
-            onClick={() => {}}
-            className="p-1.5 rounded-lg hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
-            title="Notifications"
-          >
-            <Bell className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => {}}
-            className="p-1.5 rounded-lg hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
-            title="Messages"
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={handleOpenSearch}
-            className="p-1.5 rounded-lg hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
-            title="Quick Command"
-          >
-            <Maximize2 className="w-3.5 h-3.5" />
-          </button>
-          <Link
-            href="/contact"
-            className="p-1.5 rounded-lg hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
-            title="Help & Support"
-          >
-            <HelpCircle className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-
         {/* User Profile Card */}
-        <div className="p-3 pt-1">
-          <Link
-            href="/settings"
-            className="flex items-center gap-2.5 p-2 rounded-xl bg-neutral-50 border border-neutral-200/80 hover:border-neutral-300 hover:bg-neutral-100/90 transition-all group"
+        <div className={`p-3 border-t border-neutral-100 ${isCollapsed ? 'px-2 flex justify-center' : ''}`}>
+          <div
+            className={`flex items-center rounded-xl bg-neutral-50 border border-neutral-200/80 hover:border-neutral-300 hover:bg-neutral-100/90 transition-all ${
+              isCollapsed ? 'p-1.5 justify-center' : 'p-2'
+            }`}
           >
-            <div className="relative shrink-0">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
-                {initials || 'TC'}
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="relative shrink-0">
+                <div className="w-8 h-8 rounded-full bg-neutral-900 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                  {initials || 'TC'}
+                </div>
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
               </div>
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+              {!isCollapsed && (
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="text-xs font-semibold text-neutral-900 truncate">
+                    {displayName}
+                  </span>
+                  <span className="text-[11px] text-neutral-400 truncate">
+                    {displayEmail}
+                  </span>
+                </div>
+              )}
             </div>
-            <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-xs font-semibold text-neutral-900 truncate group-hover:text-purple-600 transition-colors">
-                {displayName}
-              </span>
-              <span className="text-[11px] text-neutral-400 truncate">
-                {displayEmail}
-              </span>
-            </div>
-            <div className="w-5 h-5 rounded-full flex items-center justify-center text-neutral-400 group-hover:text-neutral-700 group-hover:bg-neutral-200/60 transition-colors shrink-0">
-              <ChevronRight className="w-3.5 h-3.5" />
-            </div>
-          </Link>
+          </div>
         </div>
       </aside>
     </>

@@ -1,19 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, FileText, Settings, Users, BookOpen, Calculator, CheckSquare, Megaphone, MessageSquare, Cpu, Building, Network, Activity } from 'lucide-react';
+import {
+  Search,
+  FileText,
+  Settings,
+  Users,
+  BookOpen,
+  Calculator,
+  CheckSquare,
+  Megaphone,
+  MessageSquare,
+  Cpu,
+  Building,
+  Network,
+  Activity,
+  ArrowRight,
+  X,
+} from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 
 export function CommandPalette() {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-  const user = useAuthStore(state => state.user);
+  const user = useAuthStore((state) => state.user);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      if ((e.metaKey || e.ctrlKey) && (e.key.toLowerCase() === 'k' || e.key.toLowerCase() === 'd')) {
         e.preventDefault();
         setIsOpen((prev) => !prev);
       }
@@ -25,7 +43,14 @@ export function CommandPalette() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 50);
+      setSelectedIndex(0);
+    } else {
+      setQuery('');
+    }
+  }, [isOpen]);
 
   const handleAction = (path: string) => {
     setIsOpen(false);
@@ -33,66 +58,176 @@ export function CommandPalette() {
     router.push(path);
   };
 
-  const actions = user?.role === 'ADMIN' ? [
-    { title: 'SaaS Control Plane', path: '/dashboard/superadmin', icon: <Building size={16} /> },
-    { title: 'White-Label Branding', path: '/admin/branding', icon: <Settings size={16} /> },
-    { title: 'AI Control Center (MCP)', path: '/admin/ai/control-center', icon: <Network size={16} /> },
-    { title: 'Multi-Agent Workflow Designer', path: '/admin/ai/workflow-designer', icon: <Network size={16} /> },
-    { title: 'AI Swarm Observability', path: '/admin/ai/agent-monitor', icon: <Activity size={16} /> },
-    { title: 'Integration Center', path: '/admin/integrations', icon: <Settings size={16} /> },
-    { title: 'Digital Library & Research', path: '/research', icon: <BookOpen size={16} /> },
-    { title: 'Institutional Research Analytics', path: '/admin/research', icon: <Building size={16} /> },
-    { title: 'AI Orchestrator Analytics', path: '/admin/ai', icon: <Cpu size={16} /> },
-    { title: 'Institution OBE Dashboard', path: '/admin/obe', icon: <Building size={16} /> },
-  ] : user?.role === 'TEACHER' ? [
-    { title: 'Digital Library & Research', path: '/research', icon: <BookOpen size={16} /> },
-    { title: 'Research Supervisor Dashboard', path: '/dashboard/supervisor', icon: <Users size={16} /> },
-    { title: 'Outcome-Based Education (OBE)', path: '/teacher/obe', icon: <Calculator size={16} /> },
-    { title: 'Create Quiz', path: '/teacher/generate-quiz', icon: <FileText size={16} /> },
-    { title: 'Assignments Management', path: '/assignments', icon: <FileText size={16} /> },
-    { title: 'Class Insights', path: '/teacher/insights', icon: <Users size={16} /> },
-    { title: 'Record Attendance', path: '/teacher/attendance', icon: <CheckSquare size={16} /> },
-    { title: 'Publish Announcement', path: '/teacher/announcements', icon: <Megaphone size={16} /> },
-  ] : [
-    { title: 'Digital Library & Research', path: '/research', icon: <BookOpen size={16} /> },
-    { title: 'My Assessments', path: '/student/assessments', icon: <FileText size={16} /> },
-    { title: 'Course Discussions', path: '/student/discussions', icon: <MessageSquare size={16} /> },
-    { title: 'Ask AI Tutor', path: '/student/tutor', icon: <BookOpen size={16} /> },
-  ];
+  const actions =
+    user?.role === 'ADMIN'
+      ? [
+          { title: 'SaaS Control Plane', path: '/dashboard/superadmin', category: 'Admin', icon: Building },
+          { title: 'White-Label Branding', path: '/admin/branding', category: 'Settings', icon: Settings },
+          { title: 'AI Control Center (MCP)', path: '/admin/ai/control-center', category: 'AI', icon: Network },
+          { title: 'Multi-Agent Workflow Designer', path: '/admin/ai/workflow-designer', category: 'AI', icon: Network },
+          { title: 'AI Swarm Observability', path: '/admin/ai/agent-monitor', category: 'AI', icon: Activity },
+          { title: 'Integration Center', path: '/admin/integrations', category: 'System', icon: Settings },
+          { title: 'Digital Library & Research', path: '/research', category: 'Academics', icon: BookOpen },
+          { title: 'Institutional Research Analytics', path: '/admin/research', category: 'Analytics', icon: Building },
+          { title: 'AI Orchestrator Analytics', path: '/admin/ai', category: 'AI', icon: Cpu },
+          { title: 'Institution OBE Dashboard', path: '/admin/obe', category: 'Management', icon: Building },
+        ]
+      : user?.role === 'TEACHER'
+      ? [
+          { title: 'Digital Library & Research', path: '/research', category: 'Academics', icon: BookOpen },
+          { title: 'Research Supervisor Dashboard', path: '/dashboard/supervisor', category: 'Research', icon: Users },
+          { title: 'Outcome-Based Education (OBE)', path: '/teacher/obe', category: 'Academics', icon: Calculator },
+          { title: 'Create Quiz', path: '/teacher/generate-quiz', category: 'AI Toolkit', icon: FileText },
+          { title: 'Assignments Management', path: '/assignments', category: 'Academics', icon: FileText },
+          { title: 'Class Insights', path: '/teacher/insights', category: 'Academics', icon: Users },
+          { title: 'Record Attendance', path: '/teacher/attendance', category: 'Academics', icon: CheckSquare },
+          { title: 'Publish Announcement', path: '/teacher/announcements', category: 'Communication', icon: Megaphone },
+        ]
+      : [
+          { title: 'Dashboard', path: '/student', category: 'Navigation', icon: BookOpen },
+          { title: 'Tests & Exams', path: '/student/assessments', category: 'Academics', icon: FileText },
+          { title: 'Results & Analytics', path: '/student/results', category: 'Analytics', icon: Activity },
+          { title: 'Digital Library & Research', path: '/research', category: 'Academics', icon: BookOpen },
+          { title: 'Course Discussions', path: '/student/community/discussions', category: 'Community', icon: MessageSquare },
+          { title: 'Ask AI Tutor', path: '/student/tutor', category: 'AI Tools', icon: BookOpen },
+          { title: 'Settings', path: '/settings', category: 'Preferences', icon: Settings },
+        ];
 
-  const filteredActions = actions.filter(a => a.title.toLowerCase().includes(query.toLowerCase()));
+  const filteredActions = actions.filter(
+    (a) =>
+      a.title.toLowerCase().includes(query.toLowerCase()) ||
+      a.category.toLowerCase().includes(query.toLowerCase())
+  );
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev + 1) % (filteredActions.length || 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev - 1 + (filteredActions.length || 1)) % (filteredActions.length || 1));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filteredActions[selectedIndex]) {
+        handleAction(filteredActions[selectedIndex].path);
+      }
+    }
+  };
+
+  if (!isOpen) return null;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '10vh', background: 'rgba(0,0,0,0.5)' }}>
-      <div style={{ background: 'var(--surface)', width: '100%', maxWidth: 600, borderRadius: 12, boxShadow: 'var(--shadow-lg)', overflow: 'hidden' }}>
-        <div style={{ padding: '16px', display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)' }}>
-          <Search size={20} color="var(--text-muted)" style={{ marginRight: 12 }} />
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[12vh] px-4">
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-neutral-950/60 backdrop-blur-sm transition-opacity"
+        onClick={() => setIsOpen(false)}
+      />
+
+      {/* Modal */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="relative w-full max-w-xl bg-white text-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150"
+      >
+        {/* Search Input Bar */}
+        <div className="flex items-center px-4 py-3.5 border-b border-neutral-100 bg-white">
+          <Search className="w-5 h-5 text-neutral-400 shrink-0 mr-3" />
           <input
-            autoFocus
-            placeholder="What do you need to do?..."
+            ref={inputRef}
+            type="text"
+            placeholder="Search pages, tools, or actions..."
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            style={{ border: 'none', background: 'transparent', width: '100%', fontSize: 16, outline: 'none', color: 'var(--text-primary)' }}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSelectedIndex(0);
+            }}
+            onKeyDown={handleKeyDown}
+            className="flex-1 bg-transparent text-sm font-medium text-neutral-900 placeholder:text-neutral-400 outline-none"
           />
-        </div>
-        <div style={{ padding: 8, maxHeight: 300, overflowY: 'auto' }}>
-          {filteredActions.length > 0 ? filteredActions.map((action, i) => (
-            <div
-              key={i}
-              onClick={() => handleAction(action.path)}
-              style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', borderRadius: 8, color: 'var(--text-primary)' }}
-              onMouseOver={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-              onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+          {query && (
+            <button
+              onClick={() => setQuery('')}
+              className="p-1 text-neutral-400 hover:text-neutral-600 rounded-md transition-colors mr-1"
             >
-              <div style={{ color: 'var(--text-secondary)' }}>{action.icon}</div>
-              <span style={{ fontWeight: 500 }}>{action.title}</span>
+              <X className="w-4 h-4" />
+            </button>
+          )}
+          <kbd className="text-[11px] font-mono font-medium text-neutral-400 bg-neutral-100 border border-neutral-200 px-1.5 py-0.5 rounded shadow-2xs">
+            ESC
+          </kbd>
+        </div>
+
+        {/* Action Results List */}
+        <div className="p-2 max-h-[340px] overflow-y-auto scrollbar-thin divide-y divide-neutral-50 bg-white">
+          {filteredActions.length > 0 ? (
+            filteredActions.map((action, i) => {
+              const Icon = action.icon;
+              const isSelected = i === selectedIndex;
+              return (
+                <div
+                  key={action.path + action.title}
+                  onClick={() => handleAction(action.path)}
+                  onMouseEnter={() => setSelectedIndex(i)}
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl cursor-pointer transition-all ${
+                    isSelected
+                      ? 'bg-neutral-100 text-neutral-900'
+                      : 'text-neutral-700 hover:bg-neutral-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                        isSelected
+                          ? 'bg-white text-neutral-900 shadow-2xs border border-neutral-200'
+                          : 'bg-neutral-100 text-neutral-500'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs font-semibold text-neutral-900 truncate">
+                        {action.title}
+                      </span>
+                      <span className="text-[10px] text-neutral-400 truncate">
+                        {action.category}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {isSelected && (
+                      <span className="text-[11px] font-medium text-neutral-400 flex items-center gap-1">
+                        Open <ArrowRight className="w-3 h-3" />
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="py-10 text-center text-neutral-400 text-xs">
+              No results found for &ldquo;{query}&rdquo;
             </div>
-          )) : (
-            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>No matching actions found</div>
           )}
         </div>
+
+        {/* Footer shortcuts */}
+        <div className="px-4 py-2 bg-neutral-50/80 border-t border-neutral-100 flex items-center justify-between text-[11px] text-neutral-400">
+          <div className="flex items-center gap-3">
+            <span>
+              <kbd className="font-mono bg-white border border-neutral-200 px-1 py-0.5 rounded text-[10px] text-neutral-600 shadow-2xs mr-1">↑</kbd>
+              <kbd className="font-mono bg-white border border-neutral-200 px-1 py-0.5 rounded text-[10px] text-neutral-600 shadow-2xs mr-1">↓</kbd>
+              Navigate
+            </span>
+            <span>
+              <kbd className="font-mono bg-white border border-neutral-200 px-1 py-0.5 rounded text-[10px] text-neutral-600 shadow-2xs mr-1">↵</kbd>
+              Select
+            </span>
+          </div>
+          <span>VidyaAI Quick Search</span>
+        </div>
       </div>
-      <div style={{ position: 'absolute', inset: 0, zIndex: -1 }} onClick={() => setIsOpen(false)} />
     </div>
   );
 }

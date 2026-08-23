@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast';
 import { ClientOnly } from '@/components/ui/ClientOnly';
 import { useAuthStore } from '@/store/auth.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
+import { useSidebarStore } from '@/store/sidebar.store';
 import { SuperAdminSidebar } from './SuperAdminSidebar';
 import { getDashboardRoute, validateRouteAccess } from '@/utils/navigation';
 import { OrgAdminSidebar } from './OrgAdminSidebar';
@@ -124,6 +125,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading, initialize } = useAuthStore();
   const { initializeFromStorage, activeOrganizationId } = useAdminAuthStore();
   const { settings, fetchSettings, initialized } = useSystemStore();
+  const { isCollapsed } = useSidebarStore();
 
   useEffect(() => {
     initialize();
@@ -256,12 +258,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const sidebarWidth = isCollapsed ? 72 : 260;
+
   return (
     <>
       <FullScreenLoader isLoading={(isLoading || isRedirectingToLogin) && !isPublicPage} />
       <div suppressHydrationWarning style={{ display: 'flex', minHeight: '100vh', width: '100%', background: '#F8F7F4' }}>
         {SidebarComponent}
-        <div suppressHydrationWarning style={{ marginLeft: '260px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', width: 'calc(100% - 260px)' }}>
+        <div
+          suppressHydrationWarning
+          style={{
+            marginLeft: `${sidebarWidth}px`,
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '100vh',
+            width: `calc(100% - ${sidebarWidth}px)`,
+            transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        >
           {TopbarComponent}
           <main suppressHydrationWarning style={{ flex: 1, padding: '24px', maxWidth: '1600px', margin: '0 auto', width: '100%', overflowX: 'hidden' }}>
             <ClientOnly fallback={<div className="page-content-placeholder" aria-hidden="true" />}>
