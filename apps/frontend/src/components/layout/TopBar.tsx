@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Bell, ChevronDown, Menu, LogOut, User, Settings, ChevronRight, Building2, Grid2x2 } from 'lucide-react';
+import { Bell, ChevronDown, Menu, LogOut, User, Settings, ArrowLeft, Building2, Search } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
 import Notification2 from '@/components/ui/Notification2';
+import Link from 'next/link';
 
 const BREADCRUMB_MAP: Record<string, string> = {
   '/': 'Dashboard',
@@ -16,6 +17,7 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/settings': 'Settings',
   '/assignments/create': 'Create Assessment',
   '/grader': 'Grader',
+  '/student': 'Student',
   '/student/lessons': 'My Lessons',
   '/profile': 'Profile',
   '/super-admin/dashboard': 'Dashboard',
@@ -72,7 +74,7 @@ export function Topbar() {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
   const toggle = useSidebarStore((s) => s.toggle);
-  const showBackButton = pathname !== '/' && pathname !== '/dashboard';
+  const showBackButton = pathname !== '/' && pathname !== '/dashboard' && pathname !== '/student' && pathname !== '/teacher' && pathname !== '/faculty' && pathname !== '/admin' && pathname !== '/super-admin';
   const { availableOrganizations, activeOrganizationId, fetchAvailableOrganizations } = useAdminAuthStore();
 
   useEffect(() => {
@@ -108,390 +110,219 @@ export function Topbar() {
     }
   };
 
+  const handleOpenSearch = () => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true }));
+  };
+
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
-  return (
-    <header 
-      role="banner"
-      style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 30,
-        height: '72px',
-        background: '#FFFFFF',
-        borderBottom: '1px solid #E5E7EB',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 24px',
-        width: '100%'
-      }}
-    >
-      <div className="desktop-topbar-content">
-        <button className="topbar-hamburger" onClick={toggle} aria-label="Toggle navigation menu">
-          <Menu size={20} aria-hidden="true" />
-        </button>
+  const displayName = user?.firstName
+    ? `${user.firstName} ${user.lastName || ''}`.trim()
+    : user?.email?.split('@')[0] || 'User Account';
+  const userInitials = displayName
+    .split(' ')
+    .map((n: string) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
-        <div className="topbar-breadcrumb">
+  return (
+    <header className="sticky top-0 z-30 w-full px-3 sm:px-6 py-2.5 sm:py-3 bg-transparent">
+      {/* Floating Pill Topbar */}
+      <div className="mx-auto flex h-14 w-full items-center justify-between gap-3 rounded-full border border-neutral-200/90 bg-white px-3.5 sm:px-5 shadow-xs">
+        
+        {/* Left Section: Mobile Menu, Back Button & Breadcrumbs */}
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            onClick={toggle}
+            className="p-1.5 rounded-full text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100 lg:hidden transition-colors"
+            aria-label="Toggle navigation menu"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
+
           {showBackButton && (
             <button
               onClick={() => window.history.back()}
-              className="topbar-icon-btn topbar-back-btn"
+              className="p-1.5 rounded-full text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
+              title="Go back"
               aria-label="Go back"
-              style={{ width: 32, height: 32 }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12" />
-                <polyline points="12 19 5 12 12 5" />
-              </svg>
+              <ArrowLeft className="w-4 h-4" />
             </button>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+
+          <div className="flex items-center gap-1.5 min-w-0">
             {parent && (
               <>
-                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{parent}</span>
-                <ChevronRight size={14} aria-hidden="true" style={{ color: '#9CA3AF', flexShrink: 0 }} />
+                <span className="text-xs font-medium text-neutral-400 truncate max-w-[100px] sm:max-w-[140px]">
+                  {parent}
+                </span>
+                <span className="text-neutral-300 text-xs">/</span>
               </>
             )}
-            <span className="topbar-breadcrumb-current" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              {current === 'Dashboard' && <Grid2x2 size={14} color="#9CA3AF" />}
+            <h1 className="text-sm font-bold text-neutral-900 tracking-tight truncate">
               {current}
-            </span>
+            </h1>
           </div>
         </div>
 
-        <div className="topbar-actions">
-          {isSuperAdmin && (
-            <div style={{ position: 'relative' }}>
+        {/* Center Section: Quick Search Pill */}
+        <div className="hidden md:flex flex-1 justify-center max-w-xs">
+          <button
+            onClick={handleOpenSearch}
+            className="flex items-center justify-between w-full h-8 px-3 rounded-full bg-neutral-50 border border-neutral-200/80 text-xs text-neutral-400 hover:bg-neutral-100/80 hover:border-neutral-300 transition-all cursor-pointer group"
+          >
+            <div className="flex items-center gap-2 truncate">
+              <Search className="w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-600 transition-colors" />
+              <span className="truncate">Search commands & pages...</span>
+            </div>
+            <kbd className="text-[10px] font-mono bg-white text-neutral-400 border border-neutral-200 rounded-md px-1.5 py-0.2 shadow-2xs">
+              Ctrl+D
+            </kbd>
+          </button>
+        </div>
+
+        {/* Right Section: Actions & Profile Dropdown */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Super Admin Org Switcher Pill */}
+          {isSuperAdmin && availableOrganizations.length > 0 && (
+            <div className="relative">
               <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setIsOrgSwitcherOpen(!isOrgSwitcherOpen); }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '6px 16px',
-                  borderRadius: '9999px',
-                  border: '1px solid rgba(0, 0, 0, 0.08)',
-                  background: 'linear-gradient(145deg, #ffffff, #f9fafb)',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.02), inset 0 1px 0 rgba(255,255,255,0.8)',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  color: '#374151',
-                  fontFamily: 'inherit',
-                  transition: 'all 0.2s ease-in-out',
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsOrgSwitcherOpen(!isOrgSwitcherOpen);
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,1)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02), inset 0 1px 0 rgba(255,255,255,0.8)';
-                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-100 text-xs font-semibold text-neutral-700 hover:bg-neutral-200 transition-colors border border-neutral-200/60"
               >
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 24,
-                  height: 24,
-                  borderRadius: '50%',
-                  background: '#F3F4F6',
-                  color: '#4B5563'
-                }}>
-                  <Building2 size={13} />
-                </div>
-                <span style={{ 
-                  maxWidth: '120px', 
-                  whiteSpace: 'nowrap', 
-                  overflow: 'hidden', 
-                  textOverflow: 'ellipsis',
-                  letterSpacing: '-0.01em'
-                }}>
-                  {availableOrganizations.find(org => org.id === activeOrganizationId)?.code || user?.organizationCode || 'Select Org'}
+                <Building2 className="w-3.5 h-3.5 text-neutral-500" />
+                <span className="hidden sm:inline max-w-[100px] truncate">
+                  {availableOrganizations.find((o) => o.id === activeOrganizationId)?.name || 'Select Org'}
                 </span>
-                <ChevronDown size={14} color="#9CA3AF" style={{ 
-                  transition: 'transform 0.2s', 
-                  transform: isOrgSwitcherOpen ? 'rotate(180deg)' : 'rotate(0)' 
-                }} />
+                <ChevronDown className="w-3 h-3 text-neutral-400" />
               </button>
 
               {isOrgSwitcherOpen && (
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  style={{
-                    position: 'absolute',
-                    right: 0,
-                    top: '100%',
-                    marginTop: 8,
-                    minWidth: 200,
-                    background: 'white',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-lg)',
-                    boxShadow: 'var(--shadow-lg)',
-                    padding: 6,
-                    zIndex: 100,
-                  }}
+                  className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-neutral-200 p-1.5 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-150"
                 >
-                  <div style={{ padding: '6px 10px', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <div className="px-3 py-1.5 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
                     Switch Organization
                   </div>
-                  {availableOrganizations.length === 0 ? (
-                    <div style={{ padding: '8px 10px', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-                      No organizations found
-                    </div>
-                  ) : (
-                    availableOrganizations.map((org) => (
+                  <div className="space-y-0.5 max-h-48 overflow-y-auto">
+                    {availableOrganizations.map((org) => (
                       <button
                         key={org.id}
-                        type="button"
-                        disabled={isSwitching || org.id === activeOrganizationId}
                         onClick={() => handleSwitchOrg(org.id)}
-                        style={{
-                          width: '100%',
-                          textAlign: 'left',
-                          padding: '8px 10px',
-                          border: 'none',
-                          background: org.id === activeOrganizationId ? 'var(--bg-hover)' : 'transparent',
-                          borderRadius: 'var(--radius-sm)',
-                          cursor: org.id === activeOrganizationId ? 'default' : 'pointer',
-                          fontSize: 'var(--text-sm)',
-                          fontWeight: org.id === activeOrganizationId ? 600 : 500,
-                          color: 'var(--text-primary)',
-                          fontFamily: 'inherit',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                        }}
-                        onMouseEnter={(e) => { if (org.id !== activeOrganizationId) e.currentTarget.style.background = 'var(--bg-hover)'; }}
-                        onMouseLeave={(e) => { if (org.id !== activeOrganizationId) e.currentTarget.style.background = 'transparent'; }}
+                        className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-medium transition-colors flex items-center justify-between ${
+                          org.id === activeOrganizationId
+                            ? 'bg-neutral-900 text-white'
+                            : 'text-neutral-700 hover:bg-neutral-100'
+                        }`}
                       >
-                        <Building2 size={14} color="var(--text-muted)" />
-                        <span style={{ flex: 1 }}>{org.name}</span>
+                        <span className="truncate">{org.name}</span>
                         {org.id === activeOrganizationId && (
-                          <span style={{ fontSize: 10, color: '#EA580C', fontWeight: 600 }}>Active</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                         )}
                       </button>
-                    ))
-                  )}
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
           )}
 
-          <div style={{ position: 'relative' }}>
+          {/* Notifications Bell Pill Button */}
+          <div className="relative">
             <button
-              className="topbar-icon-btn"
-              aria-label="Notifications"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsNotificationOpen(!isNotificationOpen);
               }}
+              className="w-9 h-9 rounded-full bg-neutral-50 border border-neutral-200/80 flex items-center justify-center text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 transition-colors relative"
+              title="Notifications"
+              aria-label="Notifications"
             >
-              <Bell size={18} aria-hidden="true" />
-              <span style={{ position: 'absolute', top: 6, right: 6, width: 7, height: 7, background: '#EF4444', borderRadius: '50%', border: '1.5px solid white' }} aria-hidden="true" />
+              <Bell className="w-4 h-4" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white" />
             </button>
 
             {isNotificationOpen && (
               <div
                 onClick={(e) => e.stopPropagation()}
-                style={{
-                  position: 'absolute',
-                  right: 0,
-                  top: '100%',
-                  marginTop: 8,
-                  zIndex: 1000,
-                  width: '380px',
-                  maxWidth: 'calc(100vw - 32px)',
-                  background: '#FFFFFF',
-                  borderRadius: '16px',
-                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.1)',
-                  border: '1px solid #E5E7EB',
-                  overflow: 'hidden',
-                }}
+                className="absolute right-0 mt-2 w-80 sm:w-96 z-50"
               >
                 <Notification2 />
               </div>
             )}
           </div>
 
-          <div
-            className="topbar-user"
-            role="button"
-            tabIndex={0}
-            aria-label="Account menu"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsDropdownOpen(!isDropdownOpen);
-            }}
-            style={{ position: 'relative' }}
-          >
-            <div className="topbar-user-avatar" aria-hidden="true" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {user?.avatar ? (
-                <img src={user.avatar} alt="" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'U'
-              )}
-            </div>
-            <span className="topbar-user-name">
-              {user ? `${user.firstName} ${user.lastName}` : 'Guest User'}
-            </span>
-            <ChevronDown size={13} color="#6B7280" aria-hidden="true" />
+          {/* User Profile Pill & Dropdown */}
+          <div className="relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsDropdownOpen(!isDropdownOpen);
+              }}
+              className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full bg-neutral-50 border border-neutral-200/80 hover:bg-neutral-100/90 transition-all cursor-pointer group"
+            >
+              <div className="relative shrink-0">
+                <div className="w-7 h-7 rounded-full bg-neutral-900 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                  {userInitials || 'U'}
+                </div>
+                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1.5 ring-white" />
+              </div>
+              <span className="hidden sm:inline text-xs font-semibold text-neutral-800 max-w-[100px] truncate">
+                {displayName}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-600 transition-colors" />
+            </button>
 
+            {/* Profile Dropdown Menu */}
             {isDropdownOpen && (
               <div
                 onClick={(e) => e.stopPropagation()}
-                style={{
-                  position: 'absolute',
-                  right: 0,
-                  top: '100%',
-                  marginTop: 8,
-                  width: 220,
-                  background: 'white',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-lg)',
-                  boxShadow: 'var(--shadow-lg)',
-                  padding: 8,
-                  zIndex: 100,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 4,
-                }}
+                className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-neutral-200/90 p-1.5 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-150"
               >
-                <div style={{ padding: '8px 12px', textAlign: 'left' }}>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {user?.firstName} {user?.lastName}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>
-                    {user?.email}
-                  </div>
+                <div className="px-3 py-2 border-b border-neutral-100 mb-1">
+                  <p className="text-xs font-bold text-neutral-900 truncate">
+                    {displayName}
+                  </p>
+                  <p className="text-[11px] text-neutral-400 truncate">
+                    {user?.email || 'user@vidyaai.com'}
+                  </p>
                   {user?.role && (
-                    <div style={{ display: 'inline-block', fontSize: 10, fontWeight: 700, background: 'rgba(234, 88, 12, 0.1)', color: '#EA580C', padding: '2px 6px', borderRadius: 4, marginTop: 6, textTransform: 'capitalize' }}>
-                      {user.role.toLowerCase().replace('_', ' ')}
-                    </div>
+                    <span className="inline-block mt-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-700">
+                      {user.role}
+                    </span>
                   )}
                 </div>
 
-                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                <div className="space-y-0.5">
+                  <Link
+                    href="/settings"
+                    onClick={() => setIsDropdownOpen(false)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium text-neutral-700 hover:bg-neutral-100 transition-colors"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-neutral-400" />
+                    Account Settings
+                  </Link>
 
-                <button
-                  type="button"
-                  onClick={() => { setIsDropdownOpen(false); router.push('/profile'); }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    textAlign: 'left',
-                    color: 'var(--text-secondary)',
-                    fontSize: 13,
-                    fontWeight: 500,
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-sm)',
-                    cursor: 'pointer',
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    fontFamily: 'inherit',
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                >
-                  <User size={14} /> Profile
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => { setIsDropdownOpen(false); router.push('/settings'); }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    textAlign: 'left',
-                    color: 'var(--text-secondary)',
-                    fontSize: 13,
-                    fontWeight: 500,
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-sm)',
-                    cursor: 'pointer',
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    fontFamily: 'inherit',
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                >
-                  <Settings size={14} /> Settings
-                </button>
-
-                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setIsDropdownOpen(false);
-                    await logout();
-                    router.push('/login');
-                  }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    textAlign: 'left',
-                    color: '#EF4444',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-sm)',
-                    cursor: 'pointer',
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    fontFamily: 'inherit',
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                >
-                  <LogOut size={14} /> Sign Out
-                </button>
+                  <button
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      logout();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <LogOut className="w-3.5 h-3.5 text-red-500" />
+                    Sign out
+                  </button>
+                </div>
               </div>
             )}
           </div>
-        </div>
-      </div>
-
-      <div className="mobile-topbar-content">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div className="sidebar-logo-icon" style={{
-            width: 30,
-            height: 30,
-            background: 'linear-gradient(135deg, #F97316 0%, #E8531D 50%, #C2410C 100%)',
-          }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M4 4H8.5L12 15L15.5 4H20L14.5 20H9.5L4 4Z" fill="white" stroke="white" strokeWidth="0.5" strokeLinejoin="round"/>
-            </svg>
-          </div>
-          <span style={{ fontSize: 18, fontWeight: 800, color: '#111827', letterSpacing: '-0.5px' }}>VidyaAI</span>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button aria-label="Notifications" className="topbar-icon-btn" style={{ width: 32, height: 32 }}>
-            <Bell size={16} />
-            <span style={{ position: 'absolute', top: 5, right: 5, width: 6, height: 6, background: '#EF4444', borderRadius: '50%', border: '1.5px solid white' }} />
-          </button>
-
-          <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#FFEDD5', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" fill="#EA580C" /><path d="M6 20c0-3.3 2.7-6 6-6s6 2.7 6 6" fill="#EA580C" /></svg>
-          </div>
-
-          <button onClick={toggle} aria-label="Toggle navigation menu" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="4" y1="8" x2="20" y2="8" />
-              <line x1="4" y1="16" x2="20" y2="16" />
-            </svg>
-          </button>
         </div>
       </div>
     </header>
