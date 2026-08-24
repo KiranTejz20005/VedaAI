@@ -10,16 +10,23 @@ import {
   History,
   Activity,
   ChevronRight,
-  Plus
+  Plus,
+  ShieldCheck,
+  Cpu,
+  ArrowRight,
+  TrendingUp,
+  Sparkles,
+  Server,
+  Layers,
 } from 'lucide-react';
 import Link from 'next/link';
-import { LoadingState } from '@/design-system/LoadingState';
-import { ErrorState } from '@/design-system/ErrorState';
+import { motion } from 'framer-motion';
 
 interface SuperAdminStats {
   totalOrganizations: number;
   totalUsers: number;
   activeSessions: number;
+  securityAlerts?: number;
   systemUptime: number | null;
 }
 
@@ -46,237 +53,211 @@ export default function SuperAdminDashboard() {
 
   useEffect(() => {
     loadData();
-    // Poll every 10 seconds for real-time updates
-    const interval = setInterval(loadData, 5000);
+    const interval = setInterval(loadData, 10000);
     return () => clearInterval(interval);
   }, [loadData]);
-
-  if (loading && !data) return <LoadingState lines={8} />;
-  if (error && !data) return <ErrorState message={error} onRetry={() => { setLoading(true); setError(null); loadData(); }} />;
 
   const stats = data || {
     totalOrganizations: 0,
     totalUsers: 0,
     activeSessions: 0,
+    securityAlerts: 0,
     systemUptime: 99.9,
   };
 
   const uptime = stats.systemUptime ?? 99.9;
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 1200, margin: '0 auto', width: '100%' }}>
-      {/* Header */}
-      <div>
-        <h1 style={{ fontSize: 24, fontWeight: 800, color: '#111827', margin: 0, marginBottom: 4 }}>Super Admin Dashboard</h1>
-        <p style={{ fontSize: 14, color: '#6B7280', margin: 0 }}>Global System Control & Monitoring.</p>
-      </div>
-
-      {/* Top Metrics Row */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: 16,
-      }}>
-        <MetricCard
-          icon={<Building2 size={16} color="#9CA3AF" />}
-          label={'TOTAL\nORGANIZATIONS'}
-          value={stats.totalOrganizations}
-        />
-        <MetricCard
-          icon={<Users size={16} color="#9CA3AF" />}
-          label="TOTAL USERS"
-          value={stats.totalUsers}
-        />
-        <MetricCard
-          icon={<Monitor size={16} color="#9CA3AF" />}
-          label="ACTIVE SESSIONS"
-          value={stats.activeSessions}
-        />
-        <MetricCard
-          icon={<Database size={16} color="#9CA3AF" />}
-          label="SYSTEM UPTIME"
-          value={`${uptime}%`}
-        />
-      </div>
-
-      {/* Action Cards Row */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-        gap: 16,
-      }}>
-        <ActionPanel
-          icon={<History size={20} />}
-          title="Audit Logs"
-          description="View global system audit logs, track configuration changes, and monitor administrative actions across all tenants."
-          linkText="View Global Logs"
-          href="/super-admin/audit"
-        />
-        <ActionPanel
-          icon={<Building2 size={20} />}
-          title="Tenant Management"
-          description="Manage organization profiles, handle complex billing cycles, and provision new AI-powered learning environments."
-          linkText="Manage Organizations"
-          href="/super-admin/organizations"
-        />
-        <ActionPanel
-          icon={<Activity size={20} />}
-          title="System Metrics"
-          description="Real-time infrastructure health, API performance monitoring, and resource utilization analytics for the Vidya cluster."
-          linkText="Detailed Metrics"
-          href="/super-admin/analytics"
-        />
-      </div>
-
-      {/* Bottom Banner */}
-      <div style={{
-        background: '#000000',
-        borderRadius: 16,
-        overflow: 'hidden',
-        position: 'relative',
-        display: 'flex',
-        minHeight: 280,
-      }}>
-        <div style={{ padding: 48, zIndex: 10, maxWidth: '60%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start' }}>
-          <h2 style={{ fontSize: 28, fontWeight: 800, color: '#FFFFFF', margin: 0, marginBottom: 16, letterSpacing: '-0.02em' }}>
-            Intelligent Infrastructure
-          </h2>
-          <p style={{ fontSize: 14, color: '#D1D5DB', margin: 0, marginBottom: 32, lineHeight: 1.6 }}>
-            Vidya AI's core engine is distributed across multiple cloud providers to ensure 99.9% uptime and low-latency response for educators globally.
-          </p>
-          <button style={{
-            background: '#FFFFFF',
-            color: '#000000',
-            border: 'none',
-            padding: '12px 24px',
-            borderRadius: 9999,
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: 'pointer',
-            fontFamily: 'inherit'
-          }}>
-            Deploy New Cluster
-          </button>
+  if (loading && !data) {
+    return (
+      <div className="max-w-[1600px] mx-auto p-4 md:p-6 flex flex-col gap-6 text-slate-900 font-sans">
+        <div className="flex flex-col gap-2">
+          <div className="skeleton h-8 w-64 rounded-xl" />
+          <div className="skeleton h-4 w-96 rounded-lg" />
         </div>
-        
-        {/* Network Image Background */}
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          left: '40%',
-          backgroundImage: 'url(https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1200&auto=format&fit=crop)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          opacity: 0.5,
-          maskImage: 'linear-gradient(to right, transparent, black 40%)',
-          WebkitMaskImage: 'linear-gradient(to right, transparent, black 40%)'
-        }} />
-
-        {/* Floating Plus Button */}
-        <button style={{
-          position: 'absolute',
-          bottom: 24,
-          right: 24,
-          width: 48,
-          height: 48,
-          borderRadius: '50%',
-          background: '#000000',
-          color: '#FFFFFF',
-          border: '2px solid rgba(255,255,255,0.1)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          zIndex: 20,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
-        }}>
-          <Plus size={24} />
-        </button>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="skeleton h-32 rounded-2xl" />
+          ))}
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-// ── Local Components ──
-
-function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
   return (
-    <div style={{
-      background: '#FFFFFF',
-      borderRadius: 16,
-      padding: '24px',
-      border: '1px solid #F3F4F6',
-      boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 16,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.05em', whiteSpace: 'pre-line', lineHeight: 1.2 }}>
-          {label}
-        </span>
-        {icon}
-      </div>
-      <div style={{ fontSize: 42, fontWeight: 800, color: '#111827', lineHeight: 1, marginTop: 4 }}>
-        {value}
-      </div>
-    </div>
-  );
-}
+    <div className="max-w-[1600px] mx-auto text-slate-900 font-sans flex flex-col gap-6">
+      {/* Top Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-neutral-900 tracking-tight">
+            Super Admin Control Plane
+          </h1>
+          <p className="text-xs md:text-sm text-neutral-500 font-medium mt-1">
+            Global Multi-Tenant Administration, Cluster Health, and Identity Gateway
+          </p>
+        </div>
 
-function ActionPanel({ icon, title, description, linkText, href }: { icon: React.ReactNode; title: string; description: string; linkText: string; href: string }) {
-  return (
-    <div style={{
-      background: '#FFFFFF',
-      borderRadius: 16,
-      padding: '32px 24px',
-      border: '1px solid #F3F4F6',
-      boxShadow: '0 4px 6px rgba(0,0,0,0.02)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 16,
-      height: '100%',
-      boxSizing: 'border-box'
-    }}>
-      <div style={{
-        width: 40,
-        height: 40,
-        borderRadius: 8,
-        background: '#F9FAFB',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#374151',
-        border: '1px solid #E5E7EB'
-      }}>
-        {icon}
+        <div className="flex items-center gap-3">
+          <Link
+            href="/super-admin/system-health"
+            className="px-4 py-2.5 rounded-xl border border-neutral-200/90 bg-white hover:bg-neutral-50 text-neutral-800 text-xs font-bold transition-all shadow-2xs flex items-center gap-2"
+          >
+            <Activity className="w-4 h-4 text-emerald-600" />
+            <span>Telemetry Status</span>
+          </Link>
+          <Link
+            href="/super-admin/organizations"
+            className="px-4 py-2.5 rounded-xl bg-[#e05934] hover:bg-[#c94a2a] text-white text-xs font-bold transition-all shadow-xs flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Provision Organization</span>
+          </Link>
+        </div>
       </div>
-      <h3 style={{ fontSize: 16, fontWeight: 700, color: '#111827', margin: 0 }}>
-        {title}
-      </h3>
-      <p style={{ fontSize: 14, color: '#6B7280', margin: 0, lineHeight: 1.5, flex: 1 }}>
-        {description}
-      </p>
-      <Link href={href} style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '12px 16px',
-        border: '1px solid #E5E7EB',
-        borderRadius: 8,
-        color: '#111827',
-        fontSize: 13,
-        fontWeight: 600,
-        textDecoration: 'none',
-        marginTop: 8,
-        transition: 'background 0.2s',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-      }}>
-        {linkText}
-        <ChevronRight size={16} />
-      </Link>
+
+      {/* 4 Primary KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          {
+            title: 'ORGANIZATIONS',
+            value: stats.totalOrganizations,
+            sub: 'Active educational institutions',
+            icon: Building2,
+            color: 'text-blue-600',
+            bg: 'bg-blue-50',
+          },
+          {
+            title: 'TOTAL IDENTITIES',
+            value: stats.totalUsers,
+            sub: 'Across all active tenants',
+            icon: Users,
+            color: 'text-[#e05934]',
+            bg: 'bg-orange-50',
+          },
+          {
+            title: 'ACTIVE SESSIONS',
+            value: stats.activeSessions,
+            sub: 'Live connected users',
+            icon: Monitor,
+            color: 'text-emerald-600',
+            bg: 'bg-emerald-50',
+          },
+          {
+            title: 'SYSTEM UPTIME',
+            value: `${uptime}%`,
+            sub: 'Service level agreement',
+            icon: Database,
+            color: 'text-purple-600',
+            bg: 'bg-purple-50',
+          },
+        ].map((item, idx) => {
+          const Icon = item.icon;
+          return (
+            <motion.div
+              key={item.title}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.04 }}
+              className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-xs flex flex-col justify-between"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-bold tracking-wider text-neutral-400 uppercase">{item.title}</span>
+                <div className={`w-8 h-8 rounded-xl ${item.bg} ${item.color} flex items-center justify-center`}>
+                  <Icon className="w-4 h-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl md:text-3xl font-extrabold text-neutral-900 tracking-tight">{item.value}</div>
+                <div className="text-xs text-neutral-500 font-medium mt-1">{item.sub}</div>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Control Plane Action Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[
+          {
+            title: 'Multi-Tenant Management',
+            desc: 'Manage school and college organizations, provision new environments, and configure domain routing.',
+            href: '/super-admin/organizations',
+            icon: Building2,
+            color: 'text-blue-600',
+            bg: 'bg-blue-50',
+          },
+          {
+            title: 'Global Security & Audit Logs',
+            desc: 'Inspect tamper-evident system logs, track administrative operations, and monitor authentication anomalies.',
+            href: '/super-admin/audit',
+            icon: ShieldCheck,
+            color: 'text-rose-600',
+            bg: 'bg-rose-50',
+          },
+          {
+            title: 'System Telemetry & Health',
+            desc: 'Monitor real-time server latency, Redis queue workers, database connection pools, and API throughput.',
+            href: '/super-admin/system-health',
+            icon: Activity,
+            color: 'text-emerald-600',
+            bg: 'bg-emerald-50',
+          },
+          {
+            title: 'AI Model Gateway & Providers',
+            desc: 'Configure generative AI model providers (Gemini, OpenAI, Anthropic), token rate limits, and fallback pipelines.',
+            href: '/super-admin/ai',
+            icon: Cpu,
+            color: 'text-[#e05934]',
+            bg: 'bg-orange-50',
+          },
+          {
+            title: 'Enterprise Subscriptions',
+            desc: 'Manage tenant licensing tiers, active seat allocations, feature flags, and institutional renewals.',
+            href: '/super-admin/subscriptions',
+            icon: Layers,
+            color: 'text-purple-600',
+            bg: 'bg-purple-50',
+          },
+          {
+            title: 'Global User Directory',
+            desc: 'Search, audit, and manage administrator and faculty accounts across all registered organizations.',
+            href: '/super-admin/users',
+            icon: Users,
+            color: 'text-amber-600',
+            bg: 'bg-amber-50',
+          },
+        ].map((card, idx) => {
+          const Icon = card.icon;
+          return (
+            <motion.div
+              key={card.title}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 + idx * 0.03 }}
+              className="rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-xs hover:border-neutral-300 transition-all flex flex-col justify-between gap-4 group"
+            >
+              <div>
+                <div className={`w-10 h-10 rounded-xl ${card.bg} ${card.color} flex items-center justify-center mb-4`}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-bold text-neutral-900 group-hover:text-[#e05934] transition-colors">
+                  {card.title}
+                </h3>
+                <p className="text-xs text-neutral-500 font-medium leading-relaxed mt-1">{card.desc}</p>
+              </div>
+
+              <div className="pt-3 border-t border-neutral-100 flex items-center justify-between">
+                <Link
+                  href={card.href}
+                  className="text-xs font-bold text-[#e05934] hover:underline flex items-center gap-1.5"
+                >
+                  <span>Open Control Panel</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -3,11 +3,22 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/design-system/Button';
 import { api } from '@/lib/api';
-import { PageHeader } from '@/design-system/PageHeader';
-import { Card } from '@/design-system/Card';
-import { BookOpen, Target, FileText, BarChart3, Plus, Check, X, History } from 'lucide-react';
+import {
+  BookOpen,
+  Target,
+  FileText,
+  BarChart3,
+  Plus,
+  Check,
+  X,
+  History,
+  Layers,
+  Sparkles,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { COPOMatrix, COPOMatrixData } from '@/components/obe/COPOMatrix';
+import { motion } from 'framer-motion';
+import { NativeSelect } from '@/components/ui/native-select';
 
 const BLOOM_LEVELS = ['REMEMBER', 'UNDERSTAND', 'APPLY', 'ANALYZE', 'EVALUATE', 'CREATE'] as const;
 type BloomLevel = typeof BLOOM_LEVELS[number];
@@ -22,12 +33,44 @@ const BLOOM_HEX_COLORS: Record<BloomLevel, string> = {
 
 type BlueprintStatus = 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
 
-interface Course { id: string; name: string; code: string; _count?: { outcomes: number; blueprints: number } }
-interface BlueprintItem { id: string; coId: string; title: string; marks: number; bloomLevel: BloomLevel }
-interface Blueprint { id: string; title: string; totalMarks: number; status: BlueprintStatus; items: BlueprintItem[]; _count?: { items: number }; createdAt: string }
-interface AttainmentResult { coId: string; coCode: string; attainment: number; threshold: number; metThreshold: boolean; bloomLevel: BloomLevel }
-interface ValidationIssue { message: string; severity: 'error' | 'warning' }
-interface ValidationResult { valid: boolean; issues: ValidationIssue[] }
+interface Course {
+  id: string;
+  name: string;
+  code: string;
+  _count?: { outcomes: number; blueprints: number };
+}
+interface BlueprintItem {
+  id: string;
+  coId: string;
+  title: string;
+  marks: number;
+  bloomLevel: BloomLevel;
+}
+interface Blueprint {
+  id: string;
+  title: string;
+  totalMarks: number;
+  status: BlueprintStatus;
+  items: BlueprintItem[];
+  _count?: { items: number };
+  createdAt: string;
+}
+interface AttainmentResult {
+  coId: string;
+  coCode: string;
+  attainment: number;
+  threshold: number;
+  metThreshold: boolean;
+  bloomLevel: BloomLevel;
+}
+interface ValidationIssue {
+  message: string;
+  severity: 'error' | 'warning';
+}
+interface ValidationResult {
+  valid: boolean;
+  issues: ValidationIssue[];
+}
 
 export default function TeacherOBEPage() {
   const [activeTab, setActiveTab] = useState<'graph' | 'blueprints' | 'attainment' | 'audit'>('graph');
@@ -76,14 +119,18 @@ export default function TeacherOBEPage() {
     try {
       const res = await api.get(`/obe/courses/${courseId}/blueprints`, { signal });
       setBlueprints(res.data.data || []);
-    } catch { /* empty */ }
+    } catch {
+      /* empty */
+    }
   }, []);
 
   const fetchAttainment = useCallback(async (courseId: string, signal?: AbortSignal) => {
     try {
       const res = await api.get(`/obe/courses/${courseId}/attainment/co`, { signal });
       setAttainment(res.data.data?.outcomes || []);
-    } catch { /* empty */ }
+    } catch {
+      /* empty */
+    }
   }, []);
 
   useEffect(() => {
@@ -98,50 +145,60 @@ export default function TeacherOBEPage() {
     fetchGraph(selectedCourseId, controller.signal);
     if (activeTab === 'blueprints') fetchBlueprints(selectedCourseId, controller.signal);
     if (activeTab === 'attainment') fetchAttainment(selectedCourseId, controller.signal);
-    return () => controller.abort();
   }, [selectedCourseId, activeTab, fetchGraph, fetchBlueprints, fetchAttainment]);
 
   const handleAddCO = async () => {
-    if (!newCO.code || !newCO.description) { toast.error('Code and description required'); return; }
+    if (!newCO.code || !newCO.description) {
+      toast.error('Code and Description are required');
+      return;
+    }
     try {
       await api.post(`/obe/courses/${selectedCourseId}/outcomes`, newCO);
       toast.success('Course Outcome created');
       setNewCO({ code: '', description: '', bloomLevel: 'UNDERSTAND' });
       setShowAddCO(false);
       fetchGraph(selectedCourseId);
-    } catch { toast.error('Failed to create CO'); }
+    } catch {
+      toast.error('Failed to create CO');
+    }
   };
 
   const handleAddPO = async () => {
-    if (!newPO.code || !newPO.description) { toast.error('Code and description required'); return; }
+    if (!newPO.code || !newPO.description) {
+      toast.error('Code and Description are required');
+      return;
+    }
     try {
-      const programs = await api.get('/obe/programs');
-      const prog = programs.data.data?.[0];
-      if (!prog) { toast.error('No program found. Create a program first.'); return; }
+      const progRes = await api.get('/obe/programs');
+      const prog = progRes.data.data?.[0];
+      if (!prog) {
+        toast.error('No program found. Create a program first.');
+        return;
+      }
       await api.post(`/obe/programs/${prog.id}/outcomes`, newPO);
       toast.success('Program Outcome created');
       setNewPO({ code: '', description: '' });
       setShowAddPO(false);
       fetchGraph(selectedCourseId);
-    } catch { toast.error('Failed to create PO'); }
-  };
-
-  const handleMappingChange = async (coId: string, poId: string, weightage: number) => {
-    try {
-      await api.post('/obe/mappings', { coId, poId, weightage, reason: `Weightage updated to ${weightage}` });
-      fetchGraph(selectedCourseId);
-    } catch { toast.error('Failed to update mapping'); }
+    } catch {
+      toast.error('Failed to create PO');
+    }
   };
 
   const handleCreateBlueprint = async () => {
-    if (!newBlueprint.title) { toast.error('Title required'); return; }
+    if (!newBlueprint.title) {
+      toast.error('Title required');
+      return;
+    }
     try {
       await api.post(`/obe/courses/${selectedCourseId}/blueprints`, { ...newBlueprint, courseId: selectedCourseId });
       toast.success('Blueprint created');
       setNewBlueprint({ title: '', totalMarks: 100 });
       setShowAddBlueprint(false);
       fetchBlueprints(selectedCourseId);
-    } catch { toast.error('Failed to create blueprint'); }
+    } catch {
+      toast.error('Failed to create blueprint');
+    }
   };
 
   const handleValidate = async (id: string) => {
@@ -150,7 +207,9 @@ export default function TeacherOBEPage() {
       setValidationResult(res.data.data);
       if (res.data.data.valid) toast.success('Blueprint is valid');
       else toast.error('Blueprint has issues');
-    } catch { toast.error('Validation failed'); }
+    } catch {
+      toast.error('Validation failed');
+    }
   };
 
   const handleSubmitForReview = async (id: string) => {
@@ -158,7 +217,9 @@ export default function TeacherOBEPage() {
       await api.post(`/obe/blueprints/${id}/submit`);
       toast.success('Submitted for review');
       fetchBlueprints(selectedCourseId);
-    } catch { toast.error('Failed to submit'); }
+    } catch {
+      toast.error('Failed to submit');
+    }
   };
 
   const handleApprove = async (id: string) => {
@@ -166,30 +227,25 @@ export default function TeacherOBEPage() {
       await api.post(`/obe/blueprints/${id}/approve`, { comments: 'Approved via OBE dashboard' });
       toast.success('Blueprint approved');
       fetchBlueprints(selectedCourseId);
-    } catch { toast.error('Failed to approve'); }
-  };
-
-  const handleReject = async (id: string) => {
-    setRejectTarget(id);
-    setRejectReason('');
+    } catch {
+      toast.error('Failed to approve');
+    }
   };
 
   const submitReject = async () => {
-    if (!rejectTarget || !rejectReason.trim()) { toast.error('Reason required'); return; }
+    if (!rejectTarget || !rejectReason.trim()) {
+      toast.error('Reason required');
+      return;
+    }
     try {
       await api.post(`/obe/blueprints/${rejectTarget}/reject`, { reason: rejectReason });
       toast.success('Blueprint rejected');
       setRejectTarget(null);
       setRejectReason('');
       fetchBlueprints(selectedCourseId);
-    } catch { toast.error('Failed to reject'); }
-  };
-
-  const statusColor = (s: BlueprintStatus): string => {
-    if (s === 'APPROVED') return '#22c55e';
-    if (s === 'REJECTED') return '#ef4444';
-    if (s === 'PENDING_REVIEW') return '#f59e0b';
-    return '#94a3b8';
+    } catch {
+      toast.error('Failed to reject');
+    }
   };
 
   const tabs = [
@@ -209,282 +265,297 @@ export default function TeacherOBEPage() {
   };
 
   return (
-    <div style={{ padding: '0 0 48px' }}>
-      <PageHeader
-        title="OBE Management"
-        subtitle="Outcome-Based Education workflow for your department"
-      />
+    <div className="max-w-[1600px] mx-auto text-slate-900 font-sans flex flex-col gap-6">
+      {/* Top Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-neutral-900 tracking-tight">
+            Outcome-Based Education (OBE)
+          </h1>
+          <p className="text-xs md:text-sm text-neutral-500 font-medium mt-1">
+            Map course outcomes (CO) to program outcomes (PO), evaluate attainment, and generate blueprints
+          </p>
+        </div>
 
-      <div style={{ display: 'flex', gap: 16, marginBottom: 24, alignItems: 'center' }}>
-        <select
-          value={selectedCourseId}
-          onChange={(e) => setSelectedCourseId(e.target.value)}
-          style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 14, minWidth: 200 }}
-        >
-          <option value="">Select Course</option>
-          {courses.map((c) => (
-            <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
-          ))}
-        </select>
-
-        <div style={{ display: 'flex', gap: 4, marginLeft: 'auto', background: '#f1f5f9', borderRadius: 8, padding: 4 }}>
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500,
-                background: activeTab === t.id ? '#fff' : 'transparent',
-                color: activeTab === t.id ? '#1e293b' : '#64748b',
-                boxShadow: activeTab === t.id ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              }}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-neutral-200/90 shadow-2xs">
+            <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Course:</span>
+            <NativeSelect
+              value={selectedCourseId}
+              onChange={(e) => setSelectedCourseId(e.target.value)}
+              className="bg-transparent border-none text-xs font-bold text-neutral-900 focus:outline-none cursor-pointer"
             >
-              <t.icon size={14} />
-              {t.label}
-            </button>
-          ))}
+              <option value="">Select Course</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code} — {c.name}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
         </div>
       </div>
 
-      {!selectedCourseId && (
-        <Card style={{ padding: 48, textAlign: 'center' }}>
-          <Target size={48} color="#cbd5e1" style={{ marginBottom: 16 }} />
-          <h3 style={{ fontSize: 18, fontWeight: 600, color: '#475569', marginBottom: 8 }}>Select a Course</h3>
-          <p style={{ color: '#94a3b8' }}>Choose a course above to manage its OBE workflow</p>
-        </Card>
-      )}
+      {/* Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        {tabs.map((t) => {
+          const Icon = t.icon;
+          const isActive = activeTab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                isActive
+                  ? 'bg-neutral-900 text-white shadow-2xs'
+                  : 'bg-white border border-neutral-200/90 text-neutral-600 hover:bg-neutral-50'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{t.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
-      {selectedCourseId && loading && (
-        <Card style={{ padding: 48, textAlign: 'center' }}>
-          <p style={{ color: '#94a3b8' }}>Loading...</p>
-        </Card>
-      )}
-
-      {selectedCourseId && !loading && activeTab === 'graph' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontSize: 16, fontWeight: 600 }}>CO / PO Curriculum Management</h3>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Button onClick={() => setShowAddCO(!showAddCO)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Plus size={14} /> Add CO
-              </Button>
-              <Button onClick={() => setShowAddPO(!showAddPO)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Plus size={14} /> Add PO
-              </Button>
+      {!selectedCourseId ? (
+        <div className="p-12 text-center rounded-2xl bg-white border border-neutral-200/90 shadow-xs flex flex-col items-center">
+          <Target className="w-12 h-12 text-neutral-300 mb-3" />
+          <h3 className="text-base font-bold text-neutral-800">Select a Course</h3>
+          <p className="text-xs text-neutral-400 mt-1">Choose a curriculum course above to manage its OBE mapping</p>
+        </div>
+      ) : loading ? (
+        <div className="p-12 text-center rounded-2xl bg-white border border-neutral-200/90 shadow-xs">
+          <p className="text-xs text-neutral-400 font-medium">Loading OBE curriculum matrix...</p>
+        </div>
+      ) : activeTab === 'graph' ? (
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold text-neutral-900">CO / PO Alignment Matrix</h3>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowAddCO(!showAddCO)}
+                className="px-3.5 py-1.5 rounded-xl border border-neutral-200 hover:bg-neutral-50 text-neutral-800 text-xs font-bold flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add CO
+              </button>
+              <button
+                onClick={() => setShowAddPO(!showAddPO)}
+                className="px-3.5 py-1.5 rounded-xl border border-neutral-200 hover:bg-neutral-50 text-neutral-800 text-xs font-bold flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add PO
+              </button>
             </div>
           </div>
 
           {showAddCO && (
-            <Card style={{ padding: 16 }}>
-              <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>New Course Outcome</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr auto', gap: 8, alignItems: 'end' }}>
-                <div>
-                  <label style={{ fontSize: 12, color: '#64748b' }}>Code</label>
-                  <input value={newCO.code} onChange={(e) => setNewCO({ ...newCO, code: e.target.value })} placeholder="CO1" style={{ width: '100%', padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, color: '#64748b' }}>Description</label>
-                  <input value={newCO.description} onChange={(e) => setNewCO({ ...newCO, description: e.target.value })} placeholder="Apply concepts to..." style={{ width: '100%', padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, color: '#64748b' }}>Bloom Level</label>
-                  <select value={newCO.bloomLevel} onChange={(e) => setNewCO({ ...newCO, bloomLevel: e.target.value as BloomLevel })} style={{ width: '100%', padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }}>
-                    {BLOOM_LEVELS.map((b) => <option key={b} value={b}>{b}</option>)}
-                  </select>
-                </div>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <Button onClick={handleAddCO} style={{ background: '#22c55e', color: '#fff', padding: '6px 12px' }}><Check size={14} /></Button>
-                  <Button onClick={() => setShowAddCO(false)} style={{ background: '#ef4444', color: '#fff', padding: '6px 12px' }}><X size={14} /></Button>
+            <div className="p-5 rounded-2xl border border-neutral-200/90 bg-white shadow-xs space-y-3">
+              <h4 className="text-xs font-bold text-neutral-900 uppercase tracking-wider">New Course Outcome (CO)</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <input
+                  value={newCO.code}
+                  onChange={(e) => setNewCO({ ...newCO, code: e.target.value })}
+                  placeholder="Code (e.g. CO1)"
+                  className="px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs"
+                />
+                <input
+                  value={newCO.description}
+                  onChange={(e) => setNewCO({ ...newCO, description: e.target.value })}
+                  placeholder="Outcome description..."
+                  className="px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs sm:col-span-2"
+                />
+                <div className="flex items-center gap-2">
+                  <NativeSelect
+                    value={newCO.bloomLevel}
+                    onChange={(e) => setNewCO({ ...newCO, bloomLevel: e.target.value as BloomLevel })}
+                    className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold"
+                  >
+                    {BLOOM_LEVELS.map((b) => (
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                  <button
+                    onClick={handleAddCO}
+                    className="p-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setShowAddCO(false)}
+                    className="p-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
-            </Card>
-          )}
-
-          {showAddPO && (
-            <Card style={{ padding: 16 }}>
-              <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>New Program Outcome</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr auto', gap: 8, alignItems: 'end' }}>
-                <div>
-                  <label style={{ fontSize: 12, color: '#64748b' }}>Code</label>
-                  <input value={newPO.code} onChange={(e) => setNewPO({ ...newPO, code: e.target.value })} placeholder="PO1" style={{ width: '100%', padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, color: '#64748b' }}>Description</label>
-                  <input value={newPO.description} onChange={(e) => setNewPO({ ...newPO, description: e.target.value })} placeholder="Engineering knowledge..." style={{ width: '100%', padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }} />
-                </div>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <Button onClick={handleAddPO} style={{ background: '#22c55e', color: '#fff', padding: '6px 12px' }}><Check size={14} /></Button>
-                  <Button onClick={() => setShowAddPO(false)} style={{ background: '#ef4444', color: '#fff', padding: '6px 12px' }}><X size={14} /></Button>
-                </div>
-              </div>
-            </Card>
+            </div>
           )}
 
           {matrixData ? (
-            <COPOMatrix
-              data={matrixData}
-              onSaveMatrix={handleSaveMatrix}
-              onRefresh={() => fetchGraph(selectedCourseId)}
-            />
+            <div className="rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-xs overflow-hidden">
+              <COPOMatrix
+                data={matrixData}
+                onSaveMatrix={handleSaveMatrix}
+                onRefresh={() => fetchGraph(selectedCourseId)}
+              />
+            </div>
           ) : (
-            <Card style={{ padding: 48, textAlign: 'center' }}>
-              <Target size={40} color="#cbd5e1" style={{ marginBottom: 12 }} />
-              <p style={{ color: '#94a3b8' }}>No matrix data found for this course.</p>
-            </Card>
+            <div className="p-12 text-center rounded-2xl bg-white border border-neutral-200/90 shadow-xs">
+              <Target className="w-10 h-10 text-neutral-300 mx-auto mb-2" />
+              <p className="text-xs text-neutral-400">No matrix mappings recorded for this course.</p>
+            </div>
           )}
         </div>
-      )}
-
-      {selectedCourseId && !loading && activeTab === 'blueprints' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontSize: 16, fontWeight: 600 }}>Assessment Blueprints</h3>
-            <Button onClick={() => setShowAddBlueprint(true)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Plus size={14} /> New Blueprint
-            </Button>
+      ) : activeTab === 'blueprints' ? (
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold text-neutral-900">Assessment Blueprints</h3>
+            <button
+              onClick={() => setShowAddBlueprint(true)}
+              className="px-4 py-2 rounded-xl bg-[#e05934] hover:bg-[#c94a2a] text-white text-xs font-bold flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create Blueprint</span>
+            </button>
           </div>
 
-          {showAddBlueprint && (
-            <Card style={{ padding: 16 }}>
-              <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>New Blueprint</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: 8, alignItems: 'end' }}>
-                <div>
-                  <label style={{ fontSize: 12, color: '#64748b' }}>Title</label>
-                  <input value={newBlueprint.title} onChange={(e) => setNewBlueprint({ ...newBlueprint, title: e.target.value })} placeholder="Mid-Term Assessment" style={{ width: '100%', padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, color: '#64748b' }}>Total Marks</label>
-                  <input type="number" value={newBlueprint.totalMarks} onChange={(e) => setNewBlueprint({ ...newBlueprint, totalMarks: Number(e.target.value) })} style={{ width: '100%', padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }} />
-                </div>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <Button onClick={handleCreateBlueprint} style={{ background: '#22c55e', color: '#fff', padding: '6px 12px' }}>Create</Button>
-                  <Button onClick={() => setShowAddBlueprint(false)} style={{ background: '#ef4444', color: '#fff', padding: '6px 12px' }}>Cancel</Button>
-                </div>
-              </div>
-            </Card>
-          )}
-
           {blueprints.length === 0 ? (
-            <Card style={{ padding: 48, textAlign: 'center' }}>
-              <FileText size={40} color="#cbd5e1" style={{ marginBottom: 12 }} />
-              <p style={{ color: '#94a3b8' }}>No blueprints yet. Create one to plan your assessment structure.</p>
-            </Card>
+            <div className="p-12 text-center rounded-2xl bg-white border border-neutral-200/90 shadow-xs">
+              <FileText className="w-10 h-10 text-neutral-300 mx-auto mb-2" />
+              <p className="text-xs text-neutral-400 font-medium">No assessment blueprints created yet.</p>
+            </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {blueprints.map((bp) => (
-                <Card key={bp.id} style={{ padding: 20 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                <div
+                  key={bp.id}
+                  className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-xs flex flex-col justify-between gap-3"
+                >
+                  <div className="flex items-start justify-between">
                     <div>
-                      <h4 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>{bp.title}</h4>
-                      <p style={{ fontSize: 12, color: '#94a3b8' }}>{bp._count?.items ?? bp.items?.length ?? 0} items — {bp.totalMarks} marks</p>
+                      <h4 className="text-sm font-bold text-neutral-900">{bp.title}</h4>
+                      <p className="text-xs text-neutral-500 mt-0.5">
+                        {bp._count?.items ?? bp.items?.length ?? 0} items • {bp.totalMarks} Marks
+                      </p>
                     </div>
-                    <span style={{ background: statusColor(bp.status), color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
+                    <span className="text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-neutral-100 text-neutral-700">
                       {bp.status.replace('_', ' ')}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+
+                  <div className="pt-3 border-t border-neutral-100 flex items-center gap-2">
                     {bp.status === 'DRAFT' && (
                       <>
-                        <Button onClick={() => handleValidate(bp.id)} style={{ fontSize: 11, padding: '4px 8px' }}>Validate</Button>
-                        <Button onClick={() => handleSubmitForReview(bp.id)} style={{ fontSize: 11, padding: '4px 8px', background: '#f59e0b', color: '#fff' }}>Submit</Button>
+                        <button
+                          onClick={() => handleValidate(bp.id)}
+                          className="px-3 py-1.5 rounded-lg border border-neutral-200 hover:bg-neutral-50 text-xs font-bold text-neutral-700"
+                        >
+                          Validate
+                        </button>
+                        <button
+                          onClick={() => handleSubmitForReview(bp.id)}
+                          className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold"
+                        >
+                          Submit
+                        </button>
                       </>
                     )}
                     {bp.status === 'PENDING_REVIEW' && (
                       <>
-                        <Button onClick={() => handleApprove(bp.id)} style={{ fontSize: 11, padding: '4px 8px', background: '#22c55e', color: '#fff' }}>Approve</Button>
-                        <Button onClick={() => handleReject(bp.id)} style={{ fontSize: 11, padding: '4px 8px', background: '#ef4444', color: '#fff' }}>Reject</Button>
+                        <button
+                          onClick={() => handleApprove(bp.id)}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => {
+                            setRejectTarget(bp.id);
+                            setRejectReason('');
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold"
+                        >
+                          Reject
+                        </button>
                       </>
                     )}
                   </div>
-                  {validationResult && (
-                    <div style={{ marginTop: 12, padding: 8, borderRadius: 6, background: validationResult.valid ? '#f0fdf4' : '#fef2f2', fontSize: 12 }}>
-                      {validationResult.valid ? (
-                        <span style={{ color: '#22c55e' }}>✓ Blueprint is valid</span>
-                      ) : (
-                        <div>
-                          {validationResult.issues.map((issue: ValidationIssue, idx: number) => (
-                            <p key={idx} style={{ color: issue.severity === 'error' ? '#ef4444' : '#f59e0b', margin: '2px 0' }}>{issue.message}</p>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </Card>
+                </div>
               ))}
             </div>
           )}
         </div>
-      )}
-
-      {selectedCourseId && !loading && activeTab === 'attainment' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600 }}>CO Attainment</h3>
-
+      ) : activeTab === 'attainment' ? (
+        <div className="flex flex-col gap-6">
+          <h3 className="text-base font-bold text-neutral-900">Course Outcome Attainment Results</h3>
           {attainment.length === 0 ? (
-            <Card style={{ padding: 48, textAlign: 'center' }}>
-              <BarChart3 size={40} color="#cbd5e1" style={{ marginBottom: 12 }} />
-              <p style={{ color: '#94a3b8' }}>No attainment data. Complete assessments to see results.</p>
-            </Card>
+            <div className="p-12 text-center rounded-2xl bg-white border border-neutral-200/90 shadow-xs">
+              <BarChart3 className="w-10 h-10 text-neutral-300 mx-auto mb-2" />
+              <p className="text-xs text-neutral-400 font-medium">
+                No attainment data available. Complete assessments to calculate CO/PO attainment.
+              </p>
+            </div>
           ) : (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
-                {attainment.map((a) => (
-                  <Card key={a.coId} style={{ padding: 16, borderLeft: `4px solid ${a.metThreshold ? '#22c55e' : '#ef4444'}` }}>
-                    <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>{a.coCode}</div>
-                    <div style={{ fontSize: 24, fontWeight: 700, color: a.metThreshold ? '#22c55e' : '#ef4444' }}>
-                      {Math.round(a.attainment * 100)}%
-                    </div>
-                    <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
-                      Target: {Math.round(a.threshold * 100)}% — {a.metThreshold ? 'Met' : 'Below'}
-                    </div>
-                    <div style={{ marginTop: 8, height: 6, background: '#f1f5f9', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${Math.min(a.attainment * 100, 100)}%`, background: a.metThreshold ? '#22c55e' : '#ef4444', borderRadius: 3 }} />
-                    </div>
-                  </Card>
-                ))}
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
-                {BLOOM_LEVELS.map((bloom) => {
-                  const bloomCos = attainment.filter((a) => a.bloomLevel === bloom);
-                  const avg = bloomCos.length > 0 ? bloomCos.reduce((s, a) => s + a.attainment, 0) / bloomCos.length : 0;
-                  return (
-                    <div key={bloom} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0' }}>
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: BLOOM_HEX_COLORS[bloom] }} />
-                      <div style={{ fontSize: 12, color: '#64748b', minWidth: 80 }}>{bloom}</div>
-                      <div style={{ flex: 1, height: 6, background: '#f1f5f9', borderRadius: 3, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${avg * 100}%`, background: BLOOM_HEX_COLORS[bloom], borderRadius: 3 }} />
-                      </div>
-                      <div style={{ fontSize: 12, fontWeight: 600, minWidth: 40 }}>{Math.round(avg * 100)}%</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {attainment.map((a) => (
+                <div
+                  key={a.coId}
+                  className={`p-5 rounded-2xl border bg-white shadow-xs flex flex-col justify-between ${
+                    a.metThreshold ? 'border-emerald-200' : 'border-rose-200'
+                  }`}
+                >
+                  <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">{a.coCode}</span>
+                  <div
+                    className={`text-2xl font-extrabold mt-2 ${
+                      a.metThreshold ? 'text-emerald-600' : 'text-rose-600'
+                    }`}
+                  >
+                    {Math.round(a.attainment * 100)}%
+                  </div>
+                  <span className="text-[11px] font-medium text-neutral-500 mt-1">
+                    Target: {Math.round(a.threshold * 100)}% • {a.metThreshold ? 'Achieved' : 'Below Target'}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
-      )}
-
-      {selectedCourseId && !loading && activeTab === 'audit' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600 }}>Mapping Change History</h3>
-          <Card style={{ padding: 48, textAlign: 'center' }}>
-            <History size={40} color="#cbd5e1" style={{ marginBottom: 12 }} />
-            <p style={{ color: '#94a3b8' }}>Change history will appear here as mappings are updated.</p>
-          </Card>
+      ) : (
+        <div className="rounded-2xl border border-neutral-200/90 bg-white p-12 text-center shadow-xs">
+          <History className="w-10 h-10 text-neutral-300 mx-auto mb-2" />
+          <p className="text-xs text-neutral-400 font-medium">
+            Curriculum mapping change history and version logs will populate as outcomes are updated.
+          </p>
         </div>
       )}
 
+      {/* Rejection Dialog */}
       {rejectTarget && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}
-          onClick={() => setRejectTarget(null)}>
-          <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 400 }} onClick={(e) => e.stopPropagation()}>
-            <h4 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Rejection Reason</h4>
-            <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Why is this blueprint being rejected?"
-              style={{ width: '100%', padding: 8, border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, minHeight: 80, resize: 'vertical' }} />
-            <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
-              <Button onClick={() => setRejectTarget(null)} style={{ background: '#f1f5f9', color: '#475569' }}>Cancel</Button>
-              <Button onClick={submitReject} style={{ background: '#ef4444', color: '#fff' }}>Reject</Button>
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-neutral-200 p-6 max-w-md w-full shadow-xl space-y-4">
+            <h4 className="text-sm font-bold text-neutral-900">Blueprint Rejection Reason</h4>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="State the reason why this blueprint needs changes..."
+              rows={3}
+              className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs"
+            />
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => setRejectTarget(null)}
+                className="px-4 py-2 rounded-xl border border-neutral-200 text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitReject}
+                className="px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold"
+              >
+                Submit Rejection
+              </button>
             </div>
           </div>
         </div>
