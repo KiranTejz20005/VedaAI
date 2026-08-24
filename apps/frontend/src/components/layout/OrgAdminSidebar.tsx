@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { api } from '@/lib/api';
 import {
   LayoutGrid,
   Users,
@@ -13,6 +14,7 @@ import {
   Search,
   PanelLeftClose,
   PanelLeftOpen,
+  ShieldCheck,
 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
@@ -40,6 +42,7 @@ export function OrgAdminSidebar() {
   const { isOpen, close, isCollapsed, toggleCollapsed } = useSidebarStore();
   const { user } = useAuthStore();
   const { settings } = useSystemStore();
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number | null>(null);
 
   function isActive(href: string, exact = false) {
     if (exact) return pathname === href;
@@ -49,6 +52,27 @@ export function OrgAdminSidebar() {
   const handleOpenSearch = () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true }));
   };
+
+  useEffect(() => {
+    if (user) {
+      api
+        .get('/admin/approvals')
+        .then((res: any) => {
+          if (res.data?.success && Array.isArray(res.data.data)) {
+            const pending = res.data.data.filter(
+              (item: any) =>
+                item.status === 'PENDING' ||
+                item.status === 'PENDING_APPROVAL' ||
+                item.status === 'COMPLETED'
+            ).length;
+            setPendingApprovalsCount(pending);
+          } else {
+            setPendingApprovalsCount(0);
+          }
+        })
+        .catch(() => setPendingApprovalsCount(0));
+    }
+  }, [user]);
 
   const navSections: NavSectionConfig[] = [
     {
@@ -60,7 +84,10 @@ export function OrgAdminSidebar() {
           href: ROUTES.ORG_ADMIN.APPROVALS,
           label: 'Approvals',
           icon: ClipboardCheck,
-          badge: { text: '03', variant: 'amber' },
+          badge:
+            pendingApprovalsCount !== null && pendingApprovalsCount > 0
+              ? { text: String(pendingApprovalsCount).padStart(2, '0'), variant: 'amber' }
+              : undefined,
         },
       ],
     },
@@ -69,6 +96,7 @@ export function OrgAdminSidebar() {
       items: [
         { href: ROUTES.ORG_ADMIN.USERS, label: 'Faculty and Students', icon: Users },
         { href: ROUTES.ORG_ADMIN.CLASSES, label: 'Classes', icon: BookOpen },
+        { href: ROUTES.ORG_ADMIN.SESSIONS, label: 'Sessions & Logins', icon: ShieldCheck },
       ],
     },
   ];

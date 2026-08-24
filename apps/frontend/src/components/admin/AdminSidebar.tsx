@@ -48,10 +48,10 @@ const ADMIN_NAV: NavSectionConfig[] = [
     ],
   },
   {
-    title: 'REPORTS',
+    title: 'SECURITY & AUDIT',
     items: [
       { href: '/admin/analytics', label: 'Analytics', icon: PieChart },
-      { href: '/admin/audit', label: 'Audit Logs', icon: Activity },
+      { href: '/admin/sessions', label: 'Sessions & Logins', icon: Activity },
     ],
   },
 ];

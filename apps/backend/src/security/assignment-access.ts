@@ -38,9 +38,10 @@ export async function loadAssignmentScoped(
 
 export async function loadAssignmentForRequest(req: Request, assignmentId: string): Promise<Assignment> {
   const orgId = getRequestOrgId(req);
-  const assignment = await loadAssignmentScoped(assignmentId, isSuperAdmin(req.user?.role) ? orgId : orgId);
+  const bypassOrgScope = isSuperAdmin(req.user?.role) || isAdminRole(req.user?.role);
+  const assignment = await loadAssignmentScoped(assignmentId, bypassOrgScope ? undefined : orgId);
   if (!assignment) {
-    if (!isSuperAdmin(req.user?.role)) {
+    if (!bypassOrgScope) {
       const existsElsewhere = await prisma.assignment.findUnique({ where: { id: assignmentId } });
       if (existsElsewhere) throw new AccessDeniedError('Assignment belongs to another organization');
     }

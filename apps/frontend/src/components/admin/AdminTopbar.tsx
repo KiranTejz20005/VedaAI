@@ -56,15 +56,6 @@ export function AdminTopbar() {
     return () => window.removeEventListener('click', handleClose);
   }, [isDropdownOpen, isOrgSwitcherOpen]);
 
-  // Create human-readable breadcrumbs from the pathname
-  const paths = pathname.split('/').filter(Boolean);
-  const breadcrumbs = paths.map((path, index) => {
-    const href = '/' + paths.slice(0, index + 1).join('/');
-    const label = path.charAt(0).toUpperCase() + path.slice(1).replace(/-/g, ' ');
-    const isLast = index === paths.length - 1;
-    return { href, label, isLast };
-  });
-
   const displayName = user?.firstName
     ? `${user.firstName} ${user.lastName || ''}`.trim()
     : user?.email?.split('@')[0] || 'Admin Account';
@@ -99,7 +90,7 @@ export function AdminTopbar() {
       {/* Floating Pill Topbar */}
       <div className="mx-auto flex h-14 w-full items-center justify-between gap-3 rounded-full border border-neutral-200/90 bg-white px-3.5 sm:px-5 shadow-xs">
         
-        {/* Left Section: Mobile Menu & Breadcrumbs */}
+        {/* Left Section: Mobile Menu Toggle */}
         <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={toggle}
@@ -107,39 +98,6 @@ export function AdminTopbar() {
             aria-label="Toggle navigation menu"
           >
             <Menu className="w-4 h-4" />
-          </button>
-
-          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-neutral-600 min-w-0">
-            {breadcrumbs.map((crumb, idx) => (
-              <div key={crumb.href} className="flex items-center gap-1.5 min-w-0">
-                {idx > 0 && <span className="text-neutral-300">/</span>}
-                {crumb.isLast ? (
-                  <span className="font-bold text-neutral-900 tracking-tight truncate">
-                    {crumb.label}
-                  </span>
-                ) : (
-                  <Link href={crumb.href} className="hover:text-neutral-900 transition-colors truncate max-w-[100px]">
-                    {crumb.label}
-                  </Link>
-                )}
-              </div>
-            ))}
-          </nav>
-        </div>
-
-        {/* Center Section: Quick Search Pill */}
-        <div className="hidden md:flex flex-1 justify-center max-w-xs">
-          <button
-            onClick={handleOpenSearch}
-            className="flex items-center justify-between w-full h-8 px-3 rounded-full bg-neutral-50 border border-neutral-200/80 text-xs text-neutral-400 hover:bg-neutral-100/80 hover:border-neutral-300 transition-all cursor-pointer group"
-          >
-            <div className="flex items-center gap-2 truncate">
-              <Search className="w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-600 transition-colors" />
-              <span className="truncate">Search commands & pages...</span>
-            </div>
-            <kbd className="text-[10px] font-mono bg-white text-neutral-400 border border-neutral-200 rounded-md px-1.5 py-0.2 shadow-2xs">
-              Ctrl+D
-            </kbd>
           </button>
         </div>
 

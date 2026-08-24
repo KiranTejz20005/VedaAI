@@ -251,6 +251,11 @@ export class AnalyticsService {
   }
 
   static async getAdminAnalytics(organizationId?: string) {
+    if (!organizationId) {
+      const firstOrg = await prisma.organization.findFirst();
+      if (firstOrg) organizationId = firstOrg.id;
+    }
+
     const totalUsers = await prisma.user.count({
       where: organizationId ? { organizationId } : {},
     });

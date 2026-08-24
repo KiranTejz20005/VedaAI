@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { api } from '@/lib/api';
 import {
   LayoutGrid,
   BookOpen,
@@ -45,6 +46,7 @@ export function StudentSidebar() {
   const pathname = usePathname();
   const { isOpen, close, isCollapsed, toggleCollapsed } = useSidebarStore();
   const { user } = useAuthStore();
+  const [assessmentCount, setAssessmentCount] = useState<number | null>(null);
   const [communityExpanded, setCommunityExpanded] = useState(() => pathname.startsWith('/student/community'));
 
   function isActive(href: string, exact = false) {
@@ -56,6 +58,21 @@ export function StudentSidebar() {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true }));
   };
 
+  useEffect(() => {
+    if (user) {
+      api
+        .get('/student/assessments')
+        .then((res: any) => {
+          if (res.data?.success && Array.isArray(res.data.data)) {
+            setAssessmentCount(res.data.data.length);
+          } else {
+            setAssessmentCount(0);
+          }
+        })
+        .catch(() => setAssessmentCount(0));
+    }
+  }, [user]);
+
   const navSections: NavSectionConfig[] = [
     {
       title: 'GENERAL',
@@ -65,7 +82,10 @@ export function StudentSidebar() {
           href: '/student/assessments',
           label: 'Tests & Exams',
           icon: ClipboardCheck,
-          badge: { text: '05', variant: 'amber' },
+          badge:
+            assessmentCount !== null && assessmentCount > 0
+              ? { text: String(assessmentCount).padStart(2, '0'), variant: 'amber' }
+              : undefined,
         },
         { href: '/student/results', label: 'Results & Analytics', icon: TrendingUp },
       ],

@@ -81,27 +81,27 @@ export function Pagination({
   };
 
   return (
-    <div className="flex w-full justify-center">
-      <div className="flex items-center gap-2 rounded-full border border-[#f0eff6dd] bg-[#F0EFF6] px-1 py-1 sm:gap-3 dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="flex w-full justify-end">
+      <div className="flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-100 px-1 py-0.5">
         <motion.button
           whileTap={{ scale: 0.9 }}
           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
           onClick={() => paginate(-1)}
           disabled={currentPage <= 1}
-          className={`flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#030303] shadow transition-colors duration-200 hover:bg-zinc-800 hover:text-zinc-100 sm:h-12 sm:w-12 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-800 hover:dark:text-zinc-100 ${currentPage <= 1
-            ? 'cursor-not-allowed opacity-50'
+          className={`flex h-6 w-6 items-center justify-center rounded-full bg-white text-neutral-700 shadow-xs transition-colors duration-200 hover:bg-neutral-800 hover:text-white ${currentPage <= 1
+            ? 'cursor-not-allowed opacity-40'
             : 'cursor-pointer'
             }`}
         >
-          <HiOutlineArrowLeft className="h-5 w-5 sm:h-6 sm:w-6" />
+          <HiOutlineArrowLeft className="h-3 w-3" />
         </motion.button>
 
-        <div className="mr-1 flex items-center pr-1 text-base font-bold text-[#59585F] select-none sm:text-lg dark:text-zinc-400">
-          <div className="flex h-7 items-center justify-center sm:h-8">
+        <div className="flex items-center px-1 text-xs font-semibold text-neutral-600 select-none">
+          <div className="flex h-5 items-center justify-center">
             {digits.map((digit, index) => (
               <div
                 key={`${index}-${len}`}
-                className="relative h-7 overflow-hidden w-[1ch]"
+                className="relative h-5 overflow-hidden w-[1ch]"
               >
                 <AnimatePresence
                   mode="popLayout"
@@ -121,7 +121,7 @@ export function Pagination({
                       damping: 16,
                       mass: 1.2,
                     }}
-                    className="absolute inset-0 flex items-center justify-center text-zinc-600 tabular-nums dark:text-zinc-200"
+                    className="absolute inset-0 flex items-center justify-center text-neutral-700 tabular-nums"
                   >
                     {digit}
                   </motion.span>
@@ -130,7 +130,7 @@ export function Pagination({
             ))}
           </div>
 
-          <span className="ml-1 flex h-7 items-center sm:h-8 dark:text-zinc-300">
+          <span className="ml-1 text-neutral-500">
             of {totalPages}
           </span>
         </div>
@@ -140,12 +140,12 @@ export function Pagination({
           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
           onClick={() => paginate(1)}
           disabled={currentPage >= totalPages}
-          className={`flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#030303] shadow transition-colors duration-200 hover:bg-zinc-800 hover:text-zinc-100 sm:h-12 sm:w-12 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-800 hover:dark:text-zinc-100 ${currentPage >= totalPages
-            ? 'cursor-not-allowed opacity-50'
+          className={`flex h-6 w-6 items-center justify-center rounded-full bg-white text-neutral-700 shadow-xs transition-colors duration-200 hover:bg-neutral-800 hover:text-white ${currentPage >= totalPages
+            ? 'cursor-not-allowed opacity-40'
             : 'cursor-pointer'
             }`}
         >
-          <HiOutlineArrowRight className="h-5 w-5 sm:h-6 sm:w-6" />
+          <HiOutlineArrowRight className="h-3 w-3" />
         </motion.button>
       </div>
     </div>

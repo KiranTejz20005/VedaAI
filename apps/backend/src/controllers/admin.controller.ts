@@ -1000,7 +1000,14 @@ export class AdminController {
   // ── 10. Analytics Dashboard ──
   static async getAnalytics(req: Request, res: Response) {
     try {
-      const orgId = getAdminOrgIdOptional(req);
+      let orgId = getAdminOrgIdOptional(req);
+      if (!orgId && req.user?.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: req.user.id },
+          select: { organizationId: true, activeOrganizationId: true },
+        });
+        orgId = dbUser?.activeOrganizationId || dbUser?.organizationId || undefined;
+      }
       const data = await AnalyticsService.getAdminAnalytics(orgId);
       res.json({ success: true, data });
     } catch (err: any) {
@@ -1768,15 +1775,39 @@ export class AdminController {
   // ── 18. Approvals Management ──
   static async getPendingApprovals(req: Request, res: Response) {
     try {
-      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
+      let orgId = req.user?.activeOrganizationId || req.user?.organizationId;
+      if (!orgId && req.user?.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: req.user.id },
+          select: { organizationId: true, activeOrganizationId: true },
+        });
+        orgId = dbUser?.activeOrganizationId || dbUser?.organizationId || undefined;
+      }
+      if (!orgId) {
+        const firstOrg = await prisma.organization.findFirst();
+        orgId = firstOrg?.id;
+      }
       logger.debug({ userId: req.user?.id, role: req.user?.role, orgId }, '[Admin:getPendingApprovals] fetching');
       if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
       const pending = await prisma.assignment.findMany({
-        where: { organizationId: orgId, status: { in: ['PENDING_APPROVAL', 'PUBLISHED', 'REJECTED'] } },
+        where: { organizationId: orgId, status: { in: ['PENDING_APPROVAL', 'PUBLISHED', 'REJECTED', 'COMPLETED'] } },
         orderBy: { createdAt: 'desc' },
         include: {
           _count: { select: { generatedPapers: true } },
-          createdBy: { select: { firstName: true, lastName: true, email: true } }
+          createdBy: { select: { firstName: true, lastName: true, email: true } },
+          generatedPapers: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: {
+              id: true,
+              title: true,
+              totalMarks: true,
+              duration: true,
+              pdfUrl: true,
+              sections: true,
+              createdAt: true,
+            },
+          },
         },
       });
       logger.debug({ orgId, count: pending.length }, '[Admin:getPendingApprovals] found approvals');
@@ -1884,28 +1915,86 @@ export class AdminController {
   // ── 19. Organization Analytics Dashboard ──
   static async getOrgAnalyticsDashboard(req: Request, res: Response) {
     try {
-      const orgId = req.user?.activeOrganizationId || req.user?.organizationId;
-      if (!orgId) { res.status(403).json({ success: false, error: 'No organization scope' }); return; }
+      let orgId = req.user?.activeOrganizationId || req.user?.organizationId;
+      if (!orgId && req.user?.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: req.user.id },
+          select: { organizationId: true, activeOrganizationId: true },
+        });
+        orgId = dbUser?.activeOrganizationId || dbUser?.organizationId || undefined;
+      }
+      if (!orgId) {
+        const firstOrg = await prisma.organization.findFirst();
+        orgId = firstOrg?.id;
+      }
 
-      const [totalFaculty, totalStudents, totalClasses, assignments, totalLessons, totalSubmissions, rawRecentActivity] = await Promise.all([
-        prisma.user.count({ where: { organizationId: orgId, role: 'TEACHER', status: { not: 'DELETED' } } }),
-        prisma.user.count({ where: { organizationId: orgId, role: 'STUDENT', status: { not: 'DELETED' } } }),
-        prisma.class.count({ where: { organizationId: orgId } }),
-        prisma.assignment.findMany({ where: { organizationId: orgId }, select: { status: true } }),
-        prisma.lessonPlan.count({ where: { organizationId: orgId } }),
-        prisma.studentSubmission.count({ where: { organizationId: orgId } }),
-        prisma.auditLog.findMany({ 
-          where: req.user?.role === 'SUPER_ADMIN' ? undefined : { organizationId: orgId }, 
-          orderBy: { createdAt: 'desc' }, 
+      const [
+        totalFaculty,
+        totalStudents,
+        totalClasses,
+        assignments,
+        totalLessons,
+        totalSubmissions,
+        recentSubmissions,
+        recentAssignments,
+        recentPapers,
+        departments,
+        facultyList
+      ] = await Promise.all([
+        prisma.user.count({ where: orgId ? { organizationId: orgId, role: 'TEACHER', status: { not: 'DELETED' } } : { role: 'TEACHER', status: { not: 'DELETED' } } }),
+        prisma.user.count({ where: orgId ? { organizationId: orgId, role: 'STUDENT', status: { not: 'DELETED' } } : { role: 'STUDENT', status: { not: 'DELETED' } } }),
+        prisma.class.count({ where: orgId ? { organizationId: orgId } : undefined }),
+        prisma.assignment.findMany({ where: orgId ? { organizationId: orgId } : undefined, select: { status: true, title: true, createdAt: true, updatedAt: true } }),
+        prisma.lessonPlan.count({ where: orgId ? { organizationId: orgId } : undefined }),
+        prisma.studentSubmission.count({ where: orgId ? { organizationId: orgId } : undefined }),
+        prisma.studentSubmission.findMany({
+          where: orgId ? { organizationId: orgId } : undefined,
+          orderBy: { createdAt: 'desc' },
           take: 10,
           include: {
-            user: {
-              include: {
-                organization: true
-              }
-            },
-            organization: true
+            assignment: {
+              select: { title: true, subject: true }
+            }
           }
+        }),
+        prisma.assignment.findMany({
+          where: orgId ? { organizationId: orgId } : undefined,
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+          include: {
+            createdBy: {
+              select: { firstName: true, lastName: true, email: true }
+            },
+            class: {
+              select: { grade: true, section: true }
+            }
+          }
+        }),
+        prisma.generatedPaper.findMany({
+          where: orgId ? { organizationId: orgId } : undefined,
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+          include: {
+            assignment: {
+              select: {
+                title: true,
+                subject: true,
+                createdBy: {
+                  select: { firstName: true, lastName: true, email: true }
+                }
+              }
+            }
+          }
+        }),
+        prisma.department.findMany({
+          where: orgId ? { organizationId: orgId } : undefined,
+          select: { id: true, name: true, code: true, _count: { select: { users: true, courses: true } } },
+          take: 10,
+        }),
+        prisma.user.findMany({
+          where: orgId ? { organizationId: orgId, role: 'TEACHER', status: { not: 'DELETED' } } : { role: 'TEACHER', status: { not: 'DELETED' } },
+          take: 10,
+          select: { id: true, firstName: true, lastName: true, email: true, department: { select: { name: true } }, createdAt: true },
         }),
       ]);
 
@@ -1914,23 +2003,58 @@ export class AdminController {
         return acc;
       }, {} as Record<string, number>);
 
-      const recentActivity = rawRecentActivity.map((ev: any) => {
-        let name = 'System';
-        if (ev.user) {
-          name = `${ev.user.firstName} ${ev.user.lastName}`;
-          const orgName = ev.organization?.name || ev.user.organization?.name;
-          if (orgName && ev.user.role !== 'SUPER_ADMIN') {
-            name += ` (${orgName})`;
-          }
-        }
-        return {
-          id: ev.id,
-          action: ev.action,
-          createdAt: ev.createdAt,
-          entity: ev.entity,
-          userName: name,
-        };
+      const totalPendingApprovals = (assessmentsByStatus['PENDING_APPROVAL'] || 0) +
+                                    (assessmentsByStatus['COMPLETED'] || 0) +
+                                    (assessmentsByStatus['PENDING'] || 0);
+
+      const combinedActivity: any[] = [];
+
+      recentSubmissions.forEach((sub: any) => {
+        combinedActivity.push({
+          id: `sub-${sub.id}`,
+          action: 'Student Submission',
+          createdAt: sub.submittedAt || sub.createdAt,
+          target: sub.assignment?.title || sub.assignment?.subject || 'Assignment',
+          userName: 'Enrolled Student',
+          status: sub.status === 'GRADED' ? 'COMPLETED' : 'SUBMITTED',
+          type: 'SUBMISSION',
+        });
       });
+
+      recentAssignments.forEach((a: any) => {
+        const creatorName = a.createdBy
+          ? `${a.createdBy.firstName} ${a.createdBy.lastName || ''}`.trim()
+          : 'Faculty Member';
+        const targetDesc = a.class ? `Grade ${a.class.grade}-${a.class.section}` : a.subject || 'Academic';
+        combinedActivity.push({
+          id: `asg-${a.id}`,
+          action: a.status === 'PUBLISHED' ? 'Published Assessment' : a.status === 'PENDING_APPROVAL' ? 'Submitted for Approval' : 'Created Assessment',
+          createdAt: a.createdAt,
+          target: a.title || targetDesc,
+          userName: creatorName,
+          status: a.status === 'PUBLISHED' ? 'COMPLETED' : a.status === 'PENDING_APPROVAL' ? 'PENDING' : 'DRAFT',
+          type: 'ASSESSMENT',
+        });
+      });
+
+      recentPapers.forEach((p: any) => {
+        const creator = p.assignment?.createdBy;
+        const teacherName = creator
+          ? `${creator.firstName} ${creator.lastName || ''}`.trim()
+          : 'Faculty Member';
+        combinedActivity.push({
+          id: `paper-${p.id}`,
+          action: 'Generated Question Paper',
+          createdAt: p.createdAt,
+          target: p.title || p.assignment?.title || 'Question Paper',
+          userName: teacherName,
+          status: 'COMPLETED',
+          type: 'PAPER',
+        });
+      });
+
+      combinedActivity.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const recentActivity = combinedActivity.slice(0, 10);
 
       res.json({
         success: true,
@@ -1939,10 +2063,16 @@ export class AdminController {
           totalStudents,
           totalClasses,
           totalAssessments: assignments.length,
-          assessmentsByStatus,
+          assessmentsByStatus: {
+            ...assessmentsByStatus,
+            PENDING: totalPendingApprovals,
+          },
+          pendingApprovals: totalPendingApprovals,
           totalLessons,
           totalSubmissions,
           recentActivity,
+          departments,
+          facultyList,
         },
       });
     } catch (err: any) {

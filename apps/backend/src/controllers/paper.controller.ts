@@ -118,25 +118,56 @@ export async function downloadPdfByAssignmentIdHandler(req: Request, res: Respon
   const { assignmentId } = req.params;
   try {
     await assertCanViewPaper(req, assignmentId);
-    const paper = await prisma.generatedPaper.findFirst({ where: { assignmentId } });
-    if (!paper || !paper.pdfUrl) {
-      sendError(res, 'PDF not yet available. Generate the paper first.', 404);
+    const paper = await prisma.generatedPaper.findFirst({
+      where: { assignmentId },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!paper) {
+      sendError(res, 'Paper not found for this assignment', 404);
       return;
     }
 
-    const filename = path.basename(paper.pdfUrl);
     const storage = getPdfStorage();
-    const data = await storage.get(filename);
+    let data: Buffer | null = null;
+    let filename = paper.pdfUrl ? path.basename(paper.pdfUrl) : `paper-${paper.assignmentId}.pdf`;
+
+    if (paper.pdfUrl) {
+      try {
+        data = await storage.get(filename);
+      } catch {
+        data = null;
+      }
+    }
+
     if (!data) {
-      sendError(res, 'PDF file not found in storage', 404);
+      // PDF file doesn't exist on disk or pdfUrl was null -> generate on-the-fly!
+      logger.info(`[downloadPdfByAssignmentIdHandler] Generating PDF on demand for assignment ${assignmentId}...`);
+      try {
+        const { generatePdf } = await import('../services/pdf.service');
+        const genResult = await generatePdf(paper as any);
+        filename = path.basename(genResult.pdfUrl);
+        data = await storage.get(filename);
+
+        await prisma.generatedPaper.update({
+          where: { id: paper.id },
+          data: { pdfUrl: genResult.pdfUrl, pdfPath: genResult.pdfPath },
+        }).catch((e) => logger.warn(`Failed to update generatedPaper pdfUrl: ${e}`));
+      } catch (genErr) {
+        logger.error(`[downloadPdfByAssignmentIdHandler] On-demand PDF generation failed: ${genErr}`);
+      }
+    }
+
+    if (!data) {
+      sendError(res, 'PDF file could not be generated', 500);
       return;
     }
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     res.send(data);
   } catch (err) {
     if (handleAccessError(res, err)) return;
+    logger.error(`[downloadPdfByAssignmentIdHandler] error: ${err}`);
     sendError(res, 'Failed to download PDF', 500);
   }
 }

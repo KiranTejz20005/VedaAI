@@ -25,6 +25,7 @@ export const ROUTES = {
     CLASSES: '/admin/classes',
     APPROVALS: '/admin/approvals',
     ANALYTICS: '/admin/analytics',
+    SESSIONS: '/admin/sessions',
     SETTINGS: '/admin/settings'
   },
   FACULTY: {
