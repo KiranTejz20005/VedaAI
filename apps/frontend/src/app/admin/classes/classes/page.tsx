@@ -15,10 +15,8 @@ import {
   Calendar,
   GraduationCap,
   TrendingUp,
-  CheckCircle2,
   AlertCircle,
   Eye,
-  Building2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAdminAuthStore } from '@/store/admin-auth.store';

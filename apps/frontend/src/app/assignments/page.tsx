@@ -3,23 +3,15 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import {
   FileText,
   Search,
   Clock,
   ChevronRight,
-  Loader2,
-  Sparkles,
-  BookOpen,
-  Filter,
   Plus,
-  ArrowRight,
   Star,
-  CheckCircle2,
   AlertCircle,
-  Eye,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';

@@ -1,6 +1,6 @@
 'use client';
 
-import { Users, AlertTriangle, TrendingUp, BookOpen, CheckCircle2, Award, Calendar } from 'lucide-react';
+import { Users, AlertTriangle, TrendingUp, BookOpen, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useClassInsights } from '@/hooks/useClassInsights';
 import {

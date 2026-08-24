@@ -5,20 +5,14 @@ import {
   Network,
   Banknote,
   Gauge,
-  Settings,
-  MoreVertical,
   RefreshCw,
   Plus,
-  ArrowUpRight,
   Sparkles,
-  Zap,
-  CheckCircle2,
   X,
   Sliders,
 } from 'lucide-react';
 import { adminService } from '@/services/admin.service';
 import toast from 'react-hot-toast';
-import { motion } from 'framer-motion';
 
 interface ProviderKPIs {
   activeModels: number;

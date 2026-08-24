@@ -5,15 +5,10 @@ import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 import {
-  CheckCircle2,
-  XCircle,
   Clock,
   FileText,
-  User,
   Check,
   X,
-  AlertCircle,
-  Calendar,
 } from 'lucide-react';
 
 interface LeaveApplication {

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Button } from '@/design-system/Button';
 import { api } from '@/lib/api';
 import {
   BookOpen,
@@ -12,12 +11,9 @@ import {
   Check,
   X,
   History,
-  Layers,
-  Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { COPOMatrix, COPOMatrixData } from '@/components/obe/COPOMatrix';
-import { motion } from 'framer-motion';
 import { NativeSelect } from '@/components/ui/native-select';
 
 const BLOOM_LEVELS = ['REMEMBER', 'UNDERSTAND', 'APPLY', 'ANALYZE', 'EVALUATE', 'CREATE'] as const;

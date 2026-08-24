@@ -8,9 +8,6 @@ import {
   Download,
   ZoomIn,
   ZoomOut,
-  ChevronLeft,
-  ChevronRight,
-  Maximize2,
   ExternalLink,
   Printer,
 } from 'lucide-react';

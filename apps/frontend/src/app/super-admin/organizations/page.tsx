@@ -9,17 +9,8 @@ import {
   Trash2,
   Power,
   Search,
-  Mail,
-  Phone,
-  MapPin,
   Users,
   X,
-  Loader2,
-  GraduationCap,
-  BookOpen,
-  ShieldCheck,
-  ExternalLink,
-  ChevronRight,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';

@@ -5,15 +5,11 @@ import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
 import {
   Megaphone,
-  Users,
   Clock,
   Send,
   Edit2,
   Trash2,
-  Plus,
   Radio,
-  CheckCircle2,
-  Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { NativeSelect } from '@/components/ui/native-select';

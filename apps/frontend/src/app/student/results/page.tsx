@@ -14,8 +14,6 @@ import {
   CheckCircle2,
   Trophy,
   Award,
-  BarChart3,
-  Calendar,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useRouter } from 'next/navigation';

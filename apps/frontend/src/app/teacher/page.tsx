@@ -8,20 +8,14 @@ import { useAuthStore } from '@/store/auth.store';
 import {
   Users,
   UserCheck,
-  UserX,
   FileText,
   UploadCloud,
   Percent,
   ClipboardList,
   Sparkles,
   ArrowRight,
-  TrendingUp,
   Plus,
   BookOpen,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Layers,
 } from 'lucide-react';
 import Link from 'next/link';
 

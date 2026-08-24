@@ -2,24 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Cloud,
-  Zap,
   Sparkles,
-  Activity,
-  ArrowUpRight,
-  Play,
   Database,
   Server,
   HardDrive,
   Cpu,
-  ShieldCheck,
-  AlertCircle,
-  Clock,
   RefreshCw,
 } from 'lucide-react';
 import { adminService } from '@/services/admin.service';
 import { format } from 'date-fns';
-import { motion } from 'framer-motion';
 
 interface SystemHealthData {
   uptime: number;

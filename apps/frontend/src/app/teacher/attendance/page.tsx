@@ -3,20 +3,12 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Check,
-  X,
   Calendar as CalendarIcon,
   Users,
-  Clock,
-  HelpCircle,
   Lock,
-  CheckCircle2,
-  AlertCircle,
   Save,
-  ArrowRight,
 } from 'lucide-react';
 import { useAttendance, AttendanceStatus } from '@/hooks/useAttendance';
-import { NativeSelect } from '@/components/ui/native-select';
 
 export default function AttendancePage() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);

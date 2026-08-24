@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, createContext, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ExternalLink, BookOpen, Globe, FileText, Check, Copy } from 'lucide-react';
+import { ExternalLink, BookOpen, FileText, Check, Copy } from 'lucide-react';
 
 export interface CitationSource {
   title: string;

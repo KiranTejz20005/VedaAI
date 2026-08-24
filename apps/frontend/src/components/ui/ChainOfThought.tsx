@@ -8,13 +8,7 @@ import {
   ChevronDown,
   Loader2,
   Sparkles,
-  BookOpen,
-  Layers,
-  Gauge,
   Clock,
-  Target,
-  FileCheck,
-  Search,
   Cpu,
 } from 'lucide-react';
 

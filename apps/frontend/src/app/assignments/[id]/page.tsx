@@ -10,12 +10,9 @@ import toast from 'react-hot-toast';
 import {
   Brain,
   CheckCircle2,
-  XCircle,
-  AlertCircle,
   Clock,
   FileText,
   Zap,
-  RefreshCw,
   Star,
   Edit3,
   Eye,
@@ -29,7 +26,6 @@ import {
 import {
   fetchAssignment,
   generateAssignment,
-  fetchJobStatus,
   fetchAssignmentHistory,
 } from '@/services/assignment.service';
 import { fetchPaper } from '@/services/paper.service';

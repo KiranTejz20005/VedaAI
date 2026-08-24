@@ -7,11 +7,7 @@ import {
   Users,
   FileText,
   School,
-  TrendingUp,
-  Award,
-  Sparkles,
   BarChart3,
-  Layers,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';

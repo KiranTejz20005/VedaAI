@@ -1,12 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
 import { api } from '@/lib/api';
 import {
   TrendingUp,
   Loader2,
-  Calendar,
   Download,
   ClipboardCheck,
   Users,
@@ -16,9 +14,7 @@ import {
   ArrowUpRight,
   GraduationCap,
   BookOpen,
-  Award,
   Sparkles,
-  ShieldCheck,
   ChevronDown,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
@@ -32,7 +28,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/base-ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/base-ui/avatar';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';

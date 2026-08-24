@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import type { FC } from 'react';
 import { api } from '@/lib/api';
 import {
   Eye,
@@ -13,11 +12,9 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  ChevronDown,
   Sparkles,
   TrendingUp,
   Search,
-  Filter,
   Check,
   X,
   BookOpen,
@@ -31,7 +28,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
 import { Pagination } from '@/components/ui/Pagination';
 import { format } from 'date-fns';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/base-ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/base-ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,

@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Calendar,
   CheckCircle2,
   Clock,
   ArrowRight,

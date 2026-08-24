@@ -10,32 +10,24 @@ import {
   Plus,
   FileDown,
   FileUp,
-  SlidersHorizontal,
   CheckCircle2,
   X,
   Pencil,
   MessageCircle,
   ArrowUpRight,
   TrendingUp,
-  Database,
-  Cpu,
   Layers,
-  Wifi,
   ChevronDown,
   Calendar,
-  Sparkles,
 } from 'lucide-react';
 import {
   Bar,
   BarChart,
   CartesianGrid,
   ResponsiveContainer,
-  ReferenceLine,
   Tooltip,
   XAxis,
   YAxis,
-  Area,
-  AreaChart,
 } from 'recharts';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';

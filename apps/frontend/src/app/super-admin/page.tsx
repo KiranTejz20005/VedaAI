@@ -7,16 +7,11 @@ import {
   Users,
   Monitor,
   Database,
-  History,
   Activity,
-  ChevronRight,
   Plus,
   ShieldCheck,
   Cpu,
   ArrowRight,
-  TrendingUp,
-  Sparkles,
-  Server,
   Layers,
 } from 'lucide-react';
 import Link from 'next/link';

@@ -1,15 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
-  BookOpen,
-  UploadCloud,
   Search,
-  Filter,
-  Layers,
-  FolderOpen,
-  FileText,
-  Video,
   Plus,
 } from 'lucide-react';
 import { ResourceTable } from '@/components/library/ResourceTable';
@@ -17,7 +10,6 @@ import { UploadModal } from '@/components/library/UploadModal';
 import { LibraryResource, LibraryService } from '@/services/library.service';
 import toast from 'react-hot-toast';
 import { NativeSelect } from '@/components/ui/native-select';
-import { motion } from 'framer-motion';
 
 const SUBJECTS = ['All', 'Math', 'Science', 'English', 'History', 'Computer Science', 'Art', 'General'];
 const RESOURCE_TYPES = ['All', 'Document', 'PDF', 'Video', 'Presentation', 'Image', 'Archive', 'Assignment', 'Other'];

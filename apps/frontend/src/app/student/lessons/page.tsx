@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   Clock,
   ArrowRight,
-  TrendingUp,
   Sparkles,
   Search,
   GraduationCap,

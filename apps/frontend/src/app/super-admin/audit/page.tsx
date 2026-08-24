@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Search, Terminal, X, Calendar, Shield, Filter, Globe, Eye } from 'lucide-react';
+import { Search, Terminal, X, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Pagination } from '@/components/ui/Pagination';
 import { NativeSelect } from '@/components/ui/native-select';

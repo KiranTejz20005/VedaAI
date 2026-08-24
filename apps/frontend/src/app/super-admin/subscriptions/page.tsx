@@ -4,14 +4,9 @@ import { useEffect, useState, useMemo } from 'react';
 import { api } from '@/lib/api';
 import {
   Building2,
-  Filter,
   ChevronRight,
   Layers,
-  Sparkles,
   CreditCard,
-  CheckCircle2,
-  Clock,
-  Shield,
   Search,
 } from 'lucide-react';
 import Link from 'next/link';

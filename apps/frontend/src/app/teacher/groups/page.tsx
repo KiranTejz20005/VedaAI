@@ -7,12 +7,7 @@ import {
   Users,
   Plus,
   Search,
-  Settings,
   Trash2,
-  BookOpen,
-  GraduationCap,
-  Sparkles,
-  ArrowRight,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
