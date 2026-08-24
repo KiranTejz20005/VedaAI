@@ -1,5 +1,3 @@
-import { redirect } from 'next/navigation';
+'use client';
 
-export default function ClassesRedirectPage() {
-  redirect('/admin/classes');
-}
+export { default } from './classes/page';

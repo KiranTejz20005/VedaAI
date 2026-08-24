@@ -7,8 +7,6 @@ import {
   Filter,
   Download,
   FileText,
-  ChevronLeft,
-  ChevronRight,
   Zap,
   History,
   Loader2,
@@ -17,6 +15,7 @@ import {
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/store/auth.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
+import { Pagination } from '@/components/ui/Pagination';
 import { format } from 'date-fns';
 import { EmptyState } from '@/design-system/EmptyState';
 
@@ -238,31 +237,16 @@ export default function ApprovalsOverview() {
             
             {/* Pagination */}
             {pendingApprovals.length > 0 && (
-              <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+              <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between flex-wrap gap-3">
                 <div className="text-sm text-gray-500">
                   Showing {Math.min(itemsPerPage, pendingApprovals.length - (currentPage - 1) * itemsPerPage)} of {pendingApprovals.length} pending requests
                 </div>
-                <div className="flex items-center gap-1">
-                  <button 
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-                    <ChevronLeft size={16} />
-                  </button>
-                  {Array.from({ length: totalPages }).map((_, idx) => (
-                    <button 
-                      key={idx}
-                      onClick={() => setCurrentPage(idx + 1)}
-                      className={`w-8 h-8 rounded-lg text-sm font-semibold flex items-center justify-center ${currentPage === idx + 1 ? 'bg-black text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
-                      {idx + 1}
-                    </button>
-                  ))}
-                  <button 
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-                    <ChevronRight size={16} />
-                  </button>
+                <div className="max-w-[280px]">
+                  <Pagination
+                    totalPages={totalPages || 1}
+                    value={currentPage}
+                    onChange={setCurrentPage}
+                  />
                 </div>
               </div>
             )}

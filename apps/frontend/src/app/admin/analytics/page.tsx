@@ -1,5 +1,3 @@
-import { redirect } from 'next/navigation';
+'use client';
 
-export default function AnalyticsRedirectPage() {
-  redirect('/admin/analytics');
-}
+export { default } from './analytics/page';

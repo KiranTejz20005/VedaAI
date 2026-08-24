@@ -4,7 +4,7 @@ import { NativeSelect } from '@/components/ui/native-select';
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Search, Terminal, X, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Terminal, X, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
@@ -12,6 +12,7 @@ import { Badge } from '@/design-system/Badge';
 import { LoadingState } from '@/design-system/LoadingState';
 import { EmptyState } from '@/design-system/EmptyState';
 import { Button } from '@/design-system/Button';
+import { Pagination } from '@/components/ui/Pagination';
 
 interface AuditEntry {
   id: string;
@@ -180,15 +181,14 @@ export default function SuperAdminAudit() {
                 </table>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, flexWrap: 'wrap', gap: 12 }}>
                 <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Page {page} of {totalPages}</span>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <Button variant="secondary" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>
-                    <ChevronLeft size={14} />
-                  </Button>
-                  <Button variant="secondary" size="sm" onClick={() => setPage(p => p + 1)} disabled={page >= totalPages}>
-                    <ChevronRight size={14} />
-                  </Button>
+                <div style={{ maxWidth: 280 }}>
+                  <Pagination
+                    totalPages={totalPages || 1}
+                    value={page}
+                    onChange={setPage}
+                  />
                 </div>
               </div>
             </>

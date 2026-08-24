@@ -1,5 +1,3 @@
-import { redirect } from 'next/navigation';
+'use client';
 
-export default function UsersRedirectPage() {
-  redirect('/admin/users');
-}
+export { default } from './users/page';

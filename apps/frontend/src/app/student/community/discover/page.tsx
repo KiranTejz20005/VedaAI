@@ -1,13 +1,14 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Loader2, Search } from 'lucide-react';
 import { useDiscoverMembers } from './hooks/useDiscoverMembers';
 import { MemberCard } from './components/MemberCard';
 import { FeaturedMemberCard } from './components/FeaturedMemberCard';
-import { toast } from 'react-hot-toast';
+import { InviteMembersDialog } from '@/components/ui/InviteMembersDialog';
 
 export default function DiscoverPage() {
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
   const {
     members,
     loading,
@@ -56,11 +57,13 @@ export default function DiscoverPage() {
               <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Find people or groups..."
                 style={{ height: 38, borderRadius: 10, border: '1.5px solid #e2e8f0', paddingLeft: 34, paddingRight: 14, fontSize: 13, fontWeight: 500, color: '#0f172a', outline: 'none', background: '#fff', width: 220 }} />
             </label>
-            <button onClick={() => toast.success('Invite link copied!')} style={{ display: 'flex', alignItems: 'center', gap: 8, height: 38, borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', padding: '0 18px', boxShadow: '0 2px 8px rgba(37,99,235,0.3)', whiteSpace: 'nowrap' as const }}>
+            <button onClick={() => setIsInviteOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 8, height: 38, borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', padding: '0 18px', boxShadow: '0 2px 8px rgba(37,99,235,0.3)', whiteSpace: 'nowrap' as const }}>
               + Invite Peer
             </button>
           </div>
         </div>
+
+        <InviteMembersDialog isOpen={isInviteOpen} onClose={() => setIsInviteOpen(false)} />
 
         {/* Content */}
         {loading ? (

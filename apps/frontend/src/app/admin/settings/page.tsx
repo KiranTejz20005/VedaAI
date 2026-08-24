@@ -1,5 +1,3 @@
-import { redirect } from 'next/navigation';
+'use client';
 
-export default function SettingsRedirectPage() {
-  redirect('/admin/settings');
-}
+export { default } from './settings/page';

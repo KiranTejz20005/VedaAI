@@ -20,6 +20,7 @@ import { ErrorState } from '@/design-system/ErrorState';
 import { api } from '@/lib/api';
 import { formatDistanceToNow } from 'date-fns';
 import { useUserFilters } from '@/hooks/useUserFilters';
+import { Pagination } from '@/components/ui/Pagination';
 
 interface UnifiedUser {
   id: string;
@@ -457,31 +458,18 @@ export default function GlobalUsersDirectory() {
         </table>
 
         {/* Pagination Footer */}
-        <div style={{ padding: '16px 24px', borderTop: '1px solid #F3F4F6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F9FAFB' }}>
+        <div style={{ padding: '16px 24px', borderTop: '1px solid #F3F4F6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F9FAFB', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 13, color: '#6B7280', fontWeight: 500 }}>
             {filteredUsers.length > 0 
               ? `Showing ${(currentPage - 1) * itemsPerPage + 1} to ${Math.min(currentPage * itemsPerPage, filteredUsers.length)} of ${filteredUsers.length.toLocaleString()} users`
               : 'Showing 0 users'}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button 
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(p => p - 1)}
-              style={{ padding: '6px 10px', background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 8, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
-            >
-              {'<'}
-            </button>
-            <button style={{ padding: '6px 12px', background: '#000000', color: '#FFFFFF', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>1</button>
-            <button style={{ padding: '6px 12px', background: 'transparent', color: '#4B5563', border: 'none', fontSize: 13, fontWeight: 600 }}>2</button>
-            <button style={{ padding: '6px 12px', background: 'transparent', color: '#4B5563', border: 'none', fontSize: 13, fontWeight: 600 }}>3</button>
-            <span style={{ color: '#9CA3AF' }}>...</span>
-            <button 
-              disabled={currentPage >= totalPages || totalPages === 0}
-              onClick={() => setCurrentPage(p => p + 1)}
-              style={{ padding: '6px 10px', background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 8, cursor: (currentPage >= totalPages || totalPages === 0) ? 'not-allowed' : 'pointer' }}
-            >
-              {'>'}
-            </button>
+          <div style={{ maxWidth: 300 }}>
+            <Pagination
+              totalPages={totalPages || 1}
+              value={currentPage}
+              onChange={setCurrentPage}
+            />
           </div>
         </div>
       </Card>
