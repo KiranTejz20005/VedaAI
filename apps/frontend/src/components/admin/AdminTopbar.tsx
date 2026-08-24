@@ -56,6 +56,39 @@ export function AdminTopbar() {
     return () => window.removeEventListener('click', handleClose);
   }, [isDropdownOpen, isOrgSwitcherOpen]);
 
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    let lastY = window.scrollY;
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentY = window.scrollY;
+          // When near the top, always show navbar
+          if (currentY <= 20) {
+            setIsVisible(true);
+          } else if (currentY > lastY + 8 && currentY > 60) {
+            // Scrolling down -> hide navbar smoothly
+            setIsVisible(false);
+            setIsDropdownOpen(false);
+            setIsOrgSwitcherOpen(false);
+          } else if (currentY < lastY - 8) {
+            // Scrolling up -> show navbar smoothly
+            setIsVisible(true);
+          }
+          lastY = currentY;
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const displayName = user?.firstName
     ? `${user.firstName} ${user.lastName || ''}`.trim()
     : user?.email?.split('@')[0] || 'Admin Account';
@@ -67,7 +100,11 @@ export function AdminTopbar() {
     .toUpperCase();
 
   return (
-    <header className="sticky top-0 z-30 w-full px-3 sm:px-6 py-2.5 sm:py-3 bg-transparent">
+    <header
+      className={`sticky top-0 z-30 w-full px-3 sm:px-6 py-2.5 sm:py-3 bg-transparent transition-all duration-300 ease-in-out transform ${
+        isVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'
+      }`}
+    >
       {/* Impersonation Banner Alert */}
       {isImpersonating && (
         <div className="w-full bg-amber-500 text-white px-4 py-2 text-xs font-semibold flex items-center justify-between gap-2 rounded-full mb-2 shadow-sm animate-pulse">
@@ -151,17 +188,19 @@ export function AdminTopbar() {
             </div>
           )}
 
-          {/* User Profile Pill & Dropdown */}
+          {/* User Profile Icon Button & Dropdown */}
           <div className="relative">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setIsDropdownOpen(!isDropdownOpen);
               }}
-              className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full bg-neutral-50 border border-neutral-200/80 hover:bg-neutral-100/90 transition-all cursor-pointer group"
+              className="relative p-0.5 rounded-full border border-neutral-200/80 hover:border-neutral-300 hover:ring-2 hover:ring-neutral-200/60 transition-all cursor-pointer group"
+              aria-label="User Profile Menu"
+              title={displayName}
             >
               <div className="relative shrink-0">
-                <div className="w-7 h-7 rounded-full bg-neutral-900 text-white font-bold text-xs flex items-center justify-center shadow-xs overflow-hidden">
+                <div className="w-8 h-8 rounded-full bg-neutral-900 text-white font-bold text-xs flex items-center justify-center shadow-xs overflow-hidden">
                   {user?.avatar || (user as any)?.avatarUrl ? (
                     <img
                       src={user?.avatar || (user as any)?.avatarUrl}
@@ -173,12 +212,8 @@ export function AdminTopbar() {
                     userInitials || 'AD'
                   )}
                 </div>
-                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1.5 ring-white" />
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
               </div>
-              <span className="hidden sm:inline text-xs font-semibold text-neutral-800 max-w-[100px] truncate">
-                {displayName}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-600 transition-colors" />
             </button>
 
             {/* Profile Dropdown Menu */}
