@@ -9,6 +9,7 @@ export interface User {
   lastName: string;
   role: string;
   avatar?: string | null;
+  avatarUrl?: string | null;
   organizationId: string | null;
   activeOrganizationId?: string | null;
   organizationName: string | null;

@@ -359,8 +359,17 @@ export function StudentSidebar() {
           >
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
               <div className="relative shrink-0">
-                <div className="w-8 h-8 rounded-full bg-neutral-900 text-white font-bold text-xs flex items-center justify-center shadow-xs">
-                  {initials || 'ST'}
+                <div className="w-8 h-8 rounded-full bg-neutral-900 text-white font-bold text-xs flex items-center justify-center shadow-xs overflow-hidden">
+                  {user?.avatar || (user as any)?.avatarUrl ? (
+                    <img
+                      src={user?.avatar || (user as any)?.avatarUrl}
+                      alt={displayName}
+                      className="w-full h-full object-cover rounded-full"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    initials || 'ST'
+                  )}
                 </div>
                 <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
               </div>

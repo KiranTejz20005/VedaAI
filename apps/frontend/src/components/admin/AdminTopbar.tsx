@@ -161,8 +161,17 @@ export function AdminTopbar() {
               className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full bg-neutral-50 border border-neutral-200/80 hover:bg-neutral-100/90 transition-all cursor-pointer group"
             >
               <div className="relative shrink-0">
-                <div className="w-7 h-7 rounded-full bg-neutral-900 text-white font-bold text-xs flex items-center justify-center shadow-xs">
-                  {userInitials || 'AD'}
+                <div className="w-7 h-7 rounded-full bg-neutral-900 text-white font-bold text-xs flex items-center justify-center shadow-xs overflow-hidden">
+                  {user?.avatar || (user as any)?.avatarUrl ? (
+                    <img
+                      src={user?.avatar || (user as any)?.avatarUrl}
+                      alt={displayName}
+                      className="w-full h-full object-cover rounded-full"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    userInitials || 'AD'
+                  )}
                 </div>
                 <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1.5 ring-white" />
               </div>
