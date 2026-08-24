@@ -1,5 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { WaitlistButton } from "@/components/ui/WaitlistButton";
 
 interface FooterProps {
   onContactClick: () => void;
@@ -48,7 +49,7 @@ export default function Footer({ onContactClick, onNavigate }: FooterProps) {
           <div className="relative z-10 max-w-2xl mx-auto">
             {/* Logo crown badge */}
             <div className="w-16 h-16 bg-white border border-[#f3ede4] rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-xs relative group hover:scale-105 transition-transform duration-300">
-              <span className="font-display font-black text-3xl italic text-[#1e1e1a]">V</span>
+              <img src="/logo.png" alt="VidyaAI Logo" className="w-11 h-11 object-contain" />
               <div className="absolute -top-1.5 -right-1.5 p-1 bg-amber-400 rounded-lg text-white shadow-xs">
                 <span className="text-[9px] block">👑</span>
               </div>
@@ -63,12 +64,11 @@ export default function Footer({ onContactClick, onNavigate }: FooterProps) {
             </p>
 
             <div className="mt-8">
-              <button
+              <WaitlistButton
+                label="Join Waitlist & Request Access"
+                tooltipTitle="2,400+ institutions joined"
                 onClick={onContactClick}
-                className="px-8 py-3.5 bg-[#e05934] text-white rounded-full hover:bg-[#c94a2a] transition-all font-semibold text-xs sm:text-sm tracking-wide shadow-md hover:shadow-lg active:scale-95 duration-200"
-              >
-                Contact Us Today
-              </button>
+              />
             </div>
           </div>
         </div>

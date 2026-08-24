@@ -254,7 +254,10 @@ export default function ForgotPasswordPage() {
         {/* Left Form Column */}
         <div className="form-panel">
           <div className="header-row">
-            <Link href="/" className="logo-text">Vidya AI</Link>
+            <Link href="/" className="logo-text" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <img src="/logo.png" alt="VidyaAI Logo" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+              Vidya AI
+            </Link>
             <Link href="/login" className="top-action-btn">Log in</Link>
           </div>
 

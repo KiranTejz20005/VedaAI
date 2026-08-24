@@ -1,4 +1,6 @@
 import { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import prisma from '../config/prisma';
 import { logger } from '../utils/logger';
 import { requireRequestOrgId, getRequestUserId } from '../security/request-context';
@@ -9,7 +11,7 @@ import {
   AccessDeniedError,
 } from '../security/assignment-access';
 
-const PUBLISHED_STATUSES = ['PUBLISHED', 'ACTIVE'] as const;
+const PUBLISHED_STATUSES = ['PUBLISHED', 'ACTIVE', 'APPROVED', 'COMPLETED'] as const;
 
 function getOrgId(req: Request): string {
   return requireRequestOrgId(req);
@@ -397,18 +399,30 @@ export const submitAssessment = async (req: Request, res: Response): Promise<voi
     const assignment = await loadAssignmentForRequest(req, req.params.id);
     await assertStudentCanViewAssignment(req, assignment);
 
-    const files = req.files as Express.Multer.File[];
-    if (!files || files.length === 0) {
-      res.status(400).json({ success: false, error: 'No files uploaded' });
-      return;
-    }
-
     const userId = getUserId(req);
     const orgId = getOrgId(req);
-    const file = files[0];
 
-    if (new Date() > new Date(assignment.dueDate)) {
-      res.status(409).json({ success: false, error: 'Due date has passed for this assignment' });
+    const files = req.files as Express.Multer.File[] | undefined;
+    let fileUrl = '';
+    let fileType = 'ONLINE_SUBMISSION';
+
+    if (files && files.length > 0) {
+      fileUrl = files[0].path;
+      fileType = files[0].mimetype === 'application/pdf' ? 'PDF' : files[0].mimetype?.includes('word') ? 'DOCX' : 'TXT';
+    } else if (req.body.answers || req.body.text || req.body.content || req.body.answersJson) {
+      const answersData = req.body.answers || req.body.text || req.body.content || req.body.answersJson;
+      const submissionsDir = path.join(process.cwd(), 'uploads', 'submissions');
+      if (!fs.existsSync(submissionsDir)) {
+        fs.mkdirSync(submissionsDir, { recursive: true });
+      }
+      const filename = `sub_${assignment.id}_${userId}_${Date.now()}.json`;
+      const filePath = path.join(submissionsDir, filename);
+      const contentToWrite = typeof answersData === 'string' ? answersData : JSON.stringify(answersData, null, 2);
+      fs.writeFileSync(filePath, contentToWrite, 'utf-8');
+      fileUrl = filePath;
+      fileType = 'ONLINE_SUBMISSION';
+    } else {
+      res.status(400).json({ success: false, error: 'Please write your answers or upload a solution file' });
       return;
     }
 
@@ -418,13 +432,14 @@ export const submitAssessment = async (req: Request, res: Response): Promise<voi
         assignmentId: assignment.id,
         studentId: userId,
         organizationId: orgId,
-        fileUrl: file.path,
-        fileType: file.mimetype === 'application/pdf' ? 'PDF' : 'TXT',
+        fileUrl: fileUrl,
+        fileType: fileType,
         status: 'SUBMITTED',
+        submittedAt: new Date(),
       },
       update: {
-        fileUrl: file.path,
-        fileType: file.mimetype === 'application/pdf' ? 'PDF' : 'TXT',
+        fileUrl: fileUrl,
+        fileType: fileType,
         status: 'SUBMITTED',
         submittedAt: new Date(),
       },

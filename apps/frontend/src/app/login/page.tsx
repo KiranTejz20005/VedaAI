@@ -539,8 +539,13 @@ export default function LoginPage() {
         <div className="flex items-center w-full">
           <Link
             href="/"
-            className="text-base sm:text-lg font-bold tracking-tight text-neutral-950 hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 text-base sm:text-lg font-bold tracking-tight text-neutral-950 hover:opacity-80 transition-opacity"
           >
+            <img
+              src="/logo.png"
+              alt="VidyaAI Logo"
+              className="w-7 h-7 object-contain"
+            />
             VIDYA AI
           </Link>
         </div>

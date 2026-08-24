@@ -101,7 +101,7 @@ export const updateLessonPlan = async (req: Request, res: Response): Promise<voi
     return;
   }
 
-  const { title, subject, grade, duration, objectives, content } = req.body;
+  const { title, subject, grade, duration, objectives, content, activities, assessments } = req.body;
 
   const updated = await prisma.lessonPlan.update({
     where: { id },
@@ -111,6 +111,8 @@ export const updateLessonPlan = async (req: Request, res: Response): Promise<voi
       grade: grade ?? undefined,
       duration: duration ?? undefined,
       objectives: objectives ?? undefined,
+      activities: activities ?? undefined,
+      assessments: assessments ?? undefined,
       content: content ?? undefined
     }
   });

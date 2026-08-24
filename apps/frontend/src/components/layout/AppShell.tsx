@@ -258,27 +258,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const sidebarWidth = isCollapsed ? 72 : 260;
-
   return (
     <>
       <FullScreenLoader isLoading={(isLoading || isRedirectingToLogin) && !isPublicPage} />
-      <div suppressHydrationWarning style={{ display: 'flex', minHeight: '100vh', width: '100%', background: '#F8F7F4' }}>
+      <div suppressHydrationWarning className="flex min-h-screen w-full bg-[#F8F7F4] relative overflow-x-hidden">
         {SidebarComponent}
         <div
           suppressHydrationWarning
-          style={{
-            marginLeft: `${sidebarWidth}px`,
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: '100vh',
-            width: `calc(100% - ${sidebarWidth}px)`,
-            transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          }}
+          className={`flex-1 flex flex-col min-h-screen w-full transition-[margin,width] duration-300 ease-in-out ${
+            isCollapsed
+              ? 'ml-0 lg:ml-[72px] lg:w-[calc(100%-72px)]'
+              : 'ml-0 lg:ml-[260px] lg:w-[calc(100%-260px)]'
+          }`}
         >
           {TopbarComponent}
-          <main suppressHydrationWarning style={{ flex: 1, padding: '24px', maxWidth: '1600px', margin: '0 auto', width: '100%', overflowX: 'hidden' }}>
+          <main suppressHydrationWarning className="flex-1 p-4 sm:p-6 max-w-[1600px] mx-auto w-full overflow-x-hidden">
             <ClientOnly fallback={<div className="page-content-placeholder" aria-hidden="true" />}>
               <div key={user?.activeOrganizationId || 'default'}>
                 {children}

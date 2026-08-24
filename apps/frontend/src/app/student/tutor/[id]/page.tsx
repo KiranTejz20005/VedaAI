@@ -4,7 +4,16 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { Send, ArrowLeft, Sparkles, AlertCircle, BrainCircuit, Lightbulb, RotateCcw, BookOpen } from 'lucide-react';
+import {
+  Send,
+  ArrowLeft,
+  Sparkles,
+  AlertCircle,
+  BrainCircuit,
+  Lightbulb,
+  RotateCcw,
+  BookOpen,
+} from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { useTutorStore } from '@/store/tutor.store';
 import { useTutorSocket } from '@/hooks/useTutorSocket';
@@ -15,35 +24,25 @@ import { ErrorState } from '@/design-system/ErrorState';
 import type { TutorSessionDetail, TutorMessage, RagSourceCitation } from '@/types/tutor.types';
 import { getSession, sendChatMessage, closeSession, generateFlashcards } from '@/services/tutor.service';
 import { FlashcardModal } from '@/components/ui/FlashcardModal';
-
-function RagSourceCards({ sources }: { sources: RagSourceCitation[] }) {
-  if (sources.length === 0) return null;
-
-  return (
-    <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {sources.map((source) => (
-        <div
-          key={source.chunkId}
-          style={{
-            padding: '8px 10px',
-            borderRadius: 8,
-            border: '1px solid var(--border-subtle)',
-            background: '#F8FAFC',
-            fontSize: 11,
-            color: 'var(--text-secondary)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, fontWeight: 600 }}>
-            <BookOpen size={12} />
-            <span>{source.filename}</span>
-            {source.topic ? <span style={{ color: 'var(--text-muted)' }}>· {source.topic}</span> : null}
-          </div>
-          <p style={{ margin: 0, lineHeight: 1.4 }}>{source.excerpt}{source.excerpt.length >= 180 ? '…' : ''}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
+import {
+  Message,
+  MessageAvatar,
+  MessageStack,
+  MessageContent,
+  MessageMarkdown,
+  MessageActions,
+  MessageActionGroup,
+  MessageAction,
+} from '@/components/ui/Message';
+import {
+  Citation,
+  CitationTrigger,
+  CitationContent,
+  CitationItem,
+  CitationSource,
+} from '@/components/ui/Citation';
+import { FeedbackBar } from '@/components/ui/FeedbackBar';
+import { TextShimmer } from '@/components/ui/TextShimmer';
 
 export default function TutorChatPage() {
   const { id } = useParams() as { id: string };
@@ -103,99 +102,86 @@ export default function TutorChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, activeStream?.content]);
 
-  const sendViaHttp = async (userMessageContent: string, optimisticUserMsg: TutorMessage) => {
-    const response = await sendChatMessage(id, userMessageContent, mode);
-    const assistantMsg: TutorMessage = {
-      id: response.messageId || (Date.now() + 1).toString(),
-      sessionId: id,
-      role: 'ASSISTANT',
-      content: response.message,
-      createdAt: new Date().toISOString(),
-      confidence: (response as any).confidenceScore,
-    };
-    setMessages((prev) => [...prev, assistantMsg]);
-  };
-
   const handleSend = async (e?: React.FormEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+    e?.preventDefault();
+    const query = inputValue.trim();
+    if (!query || isSending) return;
 
-    if (!inputValue.trim() || isSending || session?.status === 'CLOSED') return;
+    const reqId = `req-${Date.now()}`;
+    const optimisticId = `msg-${Date.now()}`;
 
-    const userMessageContent = inputValue.trim();
     setInputValue('');
     setIsSending(true);
 
-    const optimisticUserMsg: TutorMessage = {
-      id: Date.now().toString(),
+    const userMessage: TutorMessage = {
+      id: `temp-${Date.now()}`,
       sessionId: id,
       role: 'USER',
-      content: userMessageContent,
+      content: query,
       createdAt: new Date().toISOString(),
     };
-
-    const requestId = `tutor-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const streamingMessageId = `stream-${requestId}`;
-
-    setMessages((prev) => [...prev, optimisticUserMsg]);
-    startStream(requestId, streamingMessageId);
+    setMessages((prev) => [...prev, userMessage]);
 
     try {
-      const transport = await streamQuery(userMessageContent, mode, requestId);
+      startStream(reqId, optimisticId);
+      const transport = await streamQuery(query, mode, reqId);
       if (transport === 'http') {
-        resetStream();
-        await sendViaHttp(userMessageContent, optimisticUserMsg);
-      }
-    } catch (err: any) {
-      try {
-        resetStream();
-        await sendViaHttp(userMessageContent, optimisticUserMsg);
-      } catch (fallbackErr: any) {
-        toast.error(fallbackErr.message || 'Failed to send message');
-        setMessages((prev) => prev.filter((m) => m.id !== optimisticUserMsg.id));
-        setInputValue((prev) => (prev === '' ? userMessageContent : prev));
-      }
-    } finally {
-      if (useTutorStore.getState().activeStream === null) {
+        const res = await sendChatMessage(id, query, mode);
+        const assistantMsg: TutorMessage = {
+          id: res.messageId || `msg-${Date.now()}`,
+          sessionId: id,
+          role: 'ASSISTANT',
+          content: res.message,
+          createdAt: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, assistantMsg]);
         setIsSending(false);
       }
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 0);
+    } catch {
+      try {
+        const res = await sendChatMessage(id, query, mode);
+        const assistantMsg: TutorMessage = {
+          id: res.messageId || `msg-${Date.now()}`,
+          sessionId: id,
+          role: 'ASSISTANT',
+          content: res.message,
+          createdAt: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, assistantMsg]);
+      } catch {
+        toast.error('Failed to send message');
+      } finally {
+        setIsSending(false);
+      }
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      e.stopPropagation();
-      if (!isSending && inputValue.trim()) {
-        handleSend();
-      }
+      handleSend();
     }
   };
 
   const handleCloseSession = async () => {
-    if (!confirm('Are you sure you want to close this session?')) return;
+    if (!confirm('Are you sure you want to end this tutor session?')) return;
     try {
       await closeSession(id);
-      toast.success('Session closed');
-      router.push('/student/tutor');
+      toast.success('Session ended');
+      fetchSession();
     } catch {
-      toast.error('Failed to close session');
+      toast.error('Failed to end session');
     }
   };
 
   const streamingMessage: TutorMessage | null = activeStream
     ? {
-        id: activeStream.messageId,
+        id: 'streaming-assistant',
         sessionId: id,
         role: 'ASSISTANT',
         content: activeStream.content,
-        createdAt: new Date().toISOString(),
         isStreaming: true,
+        createdAt: new Date().toISOString(),
         sources: activeStream.sources,
         ragReferences: activeStream.ragReferences,
       }
@@ -207,171 +193,223 @@ export default function TutorChatPage() {
   if (error || !session) return <ErrorState message={error || 'Session not found'} onRetry={fetchSession} />;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <Link href="/student/tutor" style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: 8, borderRadius: '50%', background: 'var(--bg-hover)' }}>
-            <ArrowLeft size={20} />
+    <div className="flex flex-col h-[calc(100vh-100px)] space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between pb-2 border-b border-neutral-200">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/student/tutor"
+            className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition-colors"
+          >
+            <ArrowLeft size={18} />
           </Link>
           <div>
-            <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>{session.subject}</h1>
-            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', margin: 0 }}>AI Tutor &middot; {session.tutorMode} Mode</p>
+            <h1 className="text-base sm:text-lg font-bold text-neutral-900 leading-none">{session.subject}</h1>
+            <p className="text-xs text-neutral-500 mt-1">AI Tutor &middot; {session.tutorMode} Mode</p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <Button variant="outline" size="sm" onClick={() => setIsFlashcardModalOpen(true)} style={{ color: '#F97316', borderColor: '#F97316' }}>
-            <Lightbulb size={14} style={{ marginRight: 6 }} /> Flashcards
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsFlashcardModalOpen(true)}
+            className="text-orange-600 border-orange-200 hover:bg-orange-50 text-xs"
+          >
+            <Lightbulb size={13} className="mr-1.5" /> Flashcards
           </Button>
+
           {session.status === 'ACTIVE' ? (
-            <Button variant="outline" size="sm" onClick={handleCloseSession} style={{ color: 'var(--error)', borderColor: 'var(--error)' }}>
+            <Button variant="outline" size="sm" onClick={handleCloseSession} className="text-red-600 border-red-200 text-xs">
               End Session
             </Button>
           ) : (
-            <Button variant="outline" size="sm" onClick={async () => {
-              try {
-                const { restartSession } = await import('@/services/tutor.service');
-                await restartSession(id);
-                toast.success('Session restarted');
-                fetchSession();
-              } catch {
-                toast.error('Failed to restart session');
-              }
-            }}>
-              <RotateCcw size={14} style={{ marginRight: 6 }} /> Restart Session
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  const { restartSession } = await import('@/services/tutor.service');
+                  await restartSession(id);
+                  toast.success('Session restarted');
+                  fetchSession();
+                } catch {
+                  toast.error('Failed to restart session');
+                }
+              }}
+              className="text-xs"
+            >
+              <RotateCcw size={13} className="mr-1.5" /> Restart
             </Button>
           )}
         </div>
       </div>
 
-      <Card style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: 24, background: '#FAFAFA' }}>
+      {/* Chat Messages Container */}
+      <Card className="flex-1 flex flex-col overflow-hidden p-0 border border-neutral-200 shadow-xs">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 bg-neutral-50/50">
           {displayMessages.length === 0 ? (
-            <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <Sparkles size={40} style={{ margin: '0 auto 16px', opacity: 0.5, color: 'var(--brand)' }} />
-              <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>Ready to learn?</h3>
-              <p>Ask a question about {session.subject} to get started.</p>
+            <div className="m-auto text-center text-neutral-500 py-16">
+              <div className="w-14 h-14 bg-orange-100 text-[#e05934] rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Sparkles size={28} />
+              </div>
+              <h3 className="text-base font-bold text-neutral-900 mb-1">Ready to learn?</h3>
+              <p className="text-xs text-neutral-500 max-w-sm mx-auto">
+                Ask a question about {session.subject} to get started. You can toggle Hint or Socratic mode below.
+              </p>
             </div>
           ) : (
-            displayMessages.map((msg) => {
+            displayMessages.map((msg, idx) => {
               const isUser = msg.role === 'USER';
               const sources = msg.sources ?? [];
+
               return (
-                <div key={msg.id} style={{
-                  display: 'flex',
-                  justifyContent: isUser ? 'flex-end' : 'flex-start',
-                  width: '100%',
-                }}>
-                  {!isUser && (
-                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', marginRight: 12, flexShrink: 0 }}>
-                      <Sparkles size={16} />
-                    </div>
+                <Message key={msg.id || idx} from={isUser ? 'user' : 'assistant'}>
+                  {!isUser && <MessageAvatar isAssistant={true} />}
+
+                  <MessageStack>
+                    <MessageContent from={isUser ? 'user' : 'assistant'}>
+                      <MessageMarkdown>{msg.content}</MessageMarkdown>
+
+                      {msg.isStreaming && !msg.content && (
+                        <TextShimmer className="text-xs italic">Tutor is thinking...</TextShimmer>
+                      )}
+
+                      {/* RAG Grounded Sources Citations */}
+                      {!isUser && sources.length > 0 && (
+                        <div className="mt-3 pt-2.5 border-t border-neutral-200/60 flex flex-wrap items-center gap-1.5">
+                          <span className="text-[11px] font-semibold text-neutral-500">Sources:</span>
+                          {sources.map((s, sIdx) => {
+                            const citation: CitationSource = {
+                              title: s.filename,
+                              description: s.excerpt,
+                              chapter: s.topic,
+                            };
+                            return (
+                              <Citation key={s.chunkId || sIdx} citations={[citation]} index={sIdx + 1}>
+                                <CitationTrigger>
+                                  <BookOpen className="w-2.5 h-2.5" />
+                                  <span>{s.filename.slice(0, 14)}...</span>
+                                </CitationTrigger>
+                                <CitationContent>
+                                  <CitationItem />
+                                </CitationContent>
+                              </Citation>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {!isUser && !sources.length && !!msg.ragReferences && (
+                        <div className="mt-2 pt-2 border-t border-neutral-100 text-[10px] text-neutral-400 flex items-center gap-1">
+                          <AlertCircle size={11} /> Sourced from institution curriculum
+                        </div>
+                      )}
+                    </MessageContent>
+
+                    {/* Actions & Feedback */}
+                    {!isUser && !msg.isStreaming && msg.content && (
+                      <MessageActions>
+                        <MessageActionGroup>
+                          <MessageAction icon="copy" tooltip="Copy answer" />
+                          <MessageAction icon="regenerate" tooltip="Regenerate explanation" onClick={() => handleSend()} />
+                        </MessageActionGroup>
+                        <FeedbackBar
+                          targetId={msg.id}
+                          targetType="tutor_message"
+                          showCommentOption={false}
+                          className="ml-auto"
+                        />
+                      </MessageActions>
+                    )}
+                  </MessageStack>
+
+                  {isUser && (
+                    <MessageAvatar
+                      src={user?.avatar || user?.avatarUrl || undefined}
+                      fallback={user?.firstName?.[0]?.toUpperCase() || 'S'}
+                    />
                   )}
-                  <div style={{
-                    maxWidth: '75%',
-                    background: isUser ? 'var(--brand)' : 'white',
-                    color: isUser ? 'white' : 'var(--text-primary)',
-                    padding: '12px 16px',
-                    borderRadius: 'var(--radius-lg)',
-                    borderBottomRightRadius: isUser ? 4 : 'var(--radius-lg)',
-                    borderBottomLeftRadius: !isUser ? 4 : 'var(--radius-lg)',
-                    boxShadow: isUser ? 'none' : 'var(--shadow-sm)',
-                    border: isUser ? 'none' : '1px solid var(--border-subtle)',
-                    fontSize: 'var(--text-base)',
-                    lineHeight: 1.5,
-                    whiteSpace: 'pre-wrap',
-                  }}>
-                    {msg.content}
-                    {msg.isStreaming && !msg.content && (
-                      <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Thinking…</span>
-                    )}
-                    {!isUser && sources.length > 0 && <RagSourceCards sources={sources} />}
-                    {!isUser && !sources.length && !!msg.ragReferences && (
-                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-subtle)', fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <AlertCircle size={12} /> Sourced from institution knowledge
-                      </div>
-                    )}
-                  </div>
-                </div>
+                </Message>
               );
             })
           )}
+
           {isSending && !activeStream && (
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: '50%', background: 'var(--primary-light)',
-                color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <BrainCircuit size={16} />
+            <div className="flex items-center gap-2.5 text-xs text-neutral-500 py-2">
+              <div className="w-7 h-7 rounded-xl bg-orange-100 text-[#e05934] flex items-center justify-center">
+                <BrainCircuit size={14} className="animate-pulse" />
               </div>
-              <div style={{
-                background: 'var(--bg-card)', border: '1px solid var(--border)',
-                padding: '12px 16px', borderRadius: 'var(--radius-lg)',
-                borderTopLeftRadius: 4, display: 'flex', alignItems: 'center', minWidth: 80,
-              }}>
-                <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>Connecting…</span>
-              </div>
+              <TextShimmer>Connecting to AI Tutor neural stream...</TextShimmer>
             </div>
           )}
+
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Input Form & Mode Selector */}
         {session.status === 'ACTIVE' ? (
-          <div style={{ padding: 16, borderTop: '1px solid var(--border-subtle)', background: 'white' }}>
-            <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+          <div className="p-3 sm:p-4 border-t border-neutral-200 bg-white">
+            {/* Mode Pills */}
+            <div className="flex items-center gap-2 mb-2.5 overflow-x-auto">
               <button
+                type="button"
                 onClick={() => setMode('standard')}
-                style={{ padding: '6px 12px', borderRadius: 16, fontSize: 12, fontWeight: 600, border: mode === 'standard' ? 'none' : '1px solid var(--border-subtle)', background: mode === 'standard' ? 'var(--brand)' : 'transparent', color: mode === 'standard' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                  mode === 'standard'
+                    ? 'bg-[#e05934] text-white shadow-2xs'
+                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                }`}
               >
                 Standard
               </button>
               <button
+                type="button"
                 onClick={() => setMode('hint')}
-                style={{ padding: '6px 12px', borderRadius: 16, fontSize: 12, fontWeight: 600, border: mode === 'hint' ? 'none' : '1px solid var(--border-subtle)', background: mode === 'hint' ? '#F59E0B' : 'transparent', color: mode === 'hint' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  mode === 'hint'
+                    ? 'bg-amber-500 text-white shadow-2xs'
+                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                }`}
               >
-                <Lightbulb size={14} /> Hint Mode
+                <Lightbulb size={12} /> Hint Mode
               </button>
               <button
+                type="button"
                 onClick={() => setMode('socratic')}
-                style={{ padding: '6px 12px', borderRadius: 16, fontSize: 12, fontWeight: 600, border: mode === 'socratic' ? 'none' : '1px solid var(--border-subtle)', background: mode === 'socratic' ? '#8B5CF6' : 'transparent', color: mode === 'socratic' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  mode === 'socratic'
+                    ? 'bg-purple-600 text-white shadow-2xs'
+                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                }`}
               >
-                <BrainCircuit size={14} /> Socratic Mode
+                <BrainCircuit size={12} /> Socratic Mode
               </button>
             </div>
-            <form onSubmit={handleSend} style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+
+            <form onSubmit={handleSend} className="flex items-end gap-2">
               <textarea
                 ref={inputRef}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Type your message here... (Press Enter to send)"
+                placeholder={`Ask a question in ${mode} mode... (Press Enter to send)`}
                 disabled={isSending}
                 rows={1}
-                style={{
-                  flex: 1,
-                  resize: 'none',
-                  padding: '12px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-base)',
-                  fontSize: 'var(--text-base)',
-                  fontFamily: 'inherit',
-                  maxHeight: 120,
-                  minHeight: 48,
-                  outline: 'none',
-                  transition: 'border-color 0.2s',
-                }}
-                onInput={(e) => {
-                  const target = e.target as HTMLTextAreaElement;
-                  target.style.height = 'auto';
-                  target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
-                }}
+                className="flex-1 resize-none rounded-xl border border-neutral-200 px-3.5 py-2.5 text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 focus:outline-none max-h-32 min-h-[44px]"
               />
-              <Button type="submit" variant="primary" disabled={!inputValue.trim() || isSending} style={{ height: 48, padding: '0 24px' }}>
-                <Send size={18} />
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={!inputValue.trim() || isSending}
+                className="h-11 px-4 bg-[#e05934] hover:bg-[#c94a2a] text-white rounded-xl"
+              >
+                <Send size={15} />
               </Button>
             </form>
           </div>
         ) : (
-          <div style={{ padding: 16, borderTop: '1px solid var(--border-subtle)', background: '#F9FAFB', textAlign: 'center', color: 'var(--text-muted)' }}>
+          <div className="p-3 text-center text-xs text-neutral-400 bg-neutral-50 border-t border-neutral-200">
             This session has been closed.
           </div>
         )}

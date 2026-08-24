@@ -80,7 +80,7 @@ interface AuthStore {
     organizationId: string;
   }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
-  updateProfile: (data: { firstName?: string; lastName?: string; email?: string }) => Promise<{ success: boolean; error?: string }>;
+  updateProfile: (data: { firstName?: string; lastName?: string; email?: string; avatar?: string }) => Promise<{ success: boolean; error?: string }>;
   updateOrganization: (data: { organizationName: string; department: string; academicYear?: string }) => Promise<{ success: boolean; error?: string }>;
   completeOnboarding: (data: {
     firstName: string;
@@ -126,12 +126,32 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           const u = session.user;
+          setApiToken(session.access_token);
+
+          // Fetch full backend profile to retrieve persistent avatar & preferences from DB
+          try {
+            const meRes = await api.get('/auth/me');
+            if (meRes.data?.data) {
+              set({
+                user: meRes.data.data,
+                accessToken: session.access_token,
+                isAuthenticated: true,
+                isLoading: false,
+              });
+              return true;
+            }
+          } catch {
+            // If backend /auth/me fails, fallback to session metadata
+          }
+
           const userObj: User = {
             id: u.id,
             email: u.email || '',
             firstName: u.user_metadata?.first_name || u.user_metadata?.full_name?.split(' ')[0] || 'User',
             lastName: u.user_metadata?.last_name || u.user_metadata?.full_name?.split(' ')[1] || 'Account',
             role: (u.user_metadata?.role as string) || 'STUDENT',
+            avatar: u.user_metadata?.avatar_url || u.user_metadata?.picture || null,
+            avatarUrl: u.user_metadata?.avatar_url || u.user_metadata?.picture || null,
             organizationId: null,
             organizationName: null,
             departmentId: null,
@@ -139,7 +159,6 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             preferences: {},
             hasCompletedOnboarding: false,
           };
-          setApiToken(session.access_token);
           set({
             user: userObj,
             accessToken: session.access_token,
