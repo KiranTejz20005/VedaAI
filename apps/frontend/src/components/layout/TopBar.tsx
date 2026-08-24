@@ -2,71 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Bell, ChevronDown, Menu, LogOut, User, Settings, ArrowLeft, Building2, Search } from 'lucide-react';
+import { Bell, ChevronDown, Menu, LogOut, Settings, ArrowLeft, Building2 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
 import Notification2 from '@/components/ui/Notification2';
 import Link from 'next/link';
 
-const BREADCRUMB_MAP: Record<string, string> = {
-  '/': 'Dashboard',
-  '/dashboard': 'Dashboard',
-  '/papers': 'Paper Mgmt',
-  '/generate': 'Quick Generate',
-  '/settings': 'Settings',
-  '/assignments/create': 'Create Assessment',
-  '/grader': 'Grader',
-  '/student': 'Student',
-  '/student/lessons': 'My Lessons',
-  '/profile': 'Profile',
-  '/super-admin/dashboard': 'Dashboard',
-  '/super-admin/organizations': 'Organizations',
-  '/super-admin/audit': 'Audit Logs',
-  '/super-admin/settings': 'Settings',
-  '/admin': 'Dashboard',
-  '/admin/classes': 'Classes',
-  '/admin/subjects': 'Subjects',
-  '/admin/approvals': 'Approvals',
-  '/admin/analytics': 'Analytics',
-  '/admin/settings': 'Settings',
-};
-
-function getBreadcrumb(pathname: string): { parent?: string; current: string } {
-  if (BREADCRUMB_MAP[pathname]) {
-    return { current: BREADCRUMB_MAP[pathname] };
-  }
-
-  const parts = pathname.split('/').filter(Boolean);
-  if (parts.length > 0) {
-    if (parts[0] === 'assignments' && parts.length > 2) {
-      if (parts[2] === 'paper') return { parent: 'Paper', current: 'View Exam Paper' };
-      return { parent: 'Assignments', current: 'Details' };
-    }
-
-    const currentSegment = parts[parts.length - 1];
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentSegment);
-    const currentLabel = isUuid ? 'Details' : currentSegment
-      .replace(/-/g, ' ')
-      .replace(/\b\w/g, (char) => char.toUpperCase());
-
-    if (parts.length > 1) {
-      const parentSegment = parts[parts.length - 2];
-      const isParentUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parentSegment);
-      const parentLabel = isParentUuid ? 'Assignment' : parentSegment
-        .replace(/-/g, ' ')
-        .replace(/\b\w/g, (char) => char.toUpperCase());
-      return { parent: parentLabel, current: currentLabel };
-    }
-    return { current: currentLabel };
-  }
-
-  return { current: 'Dashboard' };
-}
-
 export function Topbar() {
   const pathname = usePathname();
-  const { parent, current } = getBreadcrumb(pathname);
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -110,10 +54,6 @@ export function Topbar() {
     }
   };
 
-  const handleOpenSearch = () => {
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true }));
-  };
-
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   const displayName = user?.firstName
@@ -131,7 +71,7 @@ export function Topbar() {
       {/* Floating Pill Topbar */}
       <div className="mx-auto flex h-14 w-full items-center justify-between gap-3 rounded-full border border-neutral-200/90 bg-white px-3.5 sm:px-5 shadow-xs">
         
-        {/* Left Section: Mobile Menu, Back Button & Breadcrumbs */}
+        {/* Left Section: Mobile Menu & Back Button */}
         <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={toggle}
@@ -151,36 +91,6 @@ export function Topbar() {
               <ArrowLeft className="w-4 h-4" />
             </button>
           )}
-
-          <div className="flex items-center gap-1.5 min-w-0">
-            {parent && (
-              <>
-                <span className="text-xs font-medium text-neutral-400 truncate max-w-[100px] sm:max-w-[140px]">
-                  {parent}
-                </span>
-                <span className="text-neutral-300 text-xs">/</span>
-              </>
-            )}
-            <h1 className="text-sm font-bold text-neutral-900 tracking-tight truncate">
-              {current}
-            </h1>
-          </div>
-        </div>
-
-        {/* Center Section: Quick Search Pill */}
-        <div className="hidden md:flex flex-1 justify-center max-w-xs">
-          <button
-            onClick={handleOpenSearch}
-            className="flex items-center justify-between w-full h-8 px-3 rounded-full bg-neutral-50 border border-neutral-200/80 text-xs text-neutral-400 hover:bg-neutral-100/80 hover:border-neutral-300 transition-all cursor-pointer group"
-          >
-            <div className="flex items-center gap-2 truncate">
-              <Search className="w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-600 transition-colors" />
-              <span className="truncate">Search commands & pages...</span>
-            </div>
-            <kbd className="text-[10px] font-mono bg-white text-neutral-400 border border-neutral-200 rounded-md px-1.5 py-0.2 shadow-2xs">
-              Ctrl+D
-            </kbd>
-          </button>
         </div>
 
         {/* Right Section: Actions & Profile Dropdown */}
@@ -328,3 +238,4 @@ export function Topbar() {
     </header>
   );
 }
+

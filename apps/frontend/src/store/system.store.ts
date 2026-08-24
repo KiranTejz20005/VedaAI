@@ -57,9 +57,14 @@ export const useSystemStore = create<SystemStore>((set, get) => ({
           return;
         }
       } catch (e: any) {
-        // Suppress the error if it's an expected forbidden response
-        if (e.message?.includes('Forbidden') || e.message?.includes('403') || e.message?.includes('401')) {
-          console.warn('Unauthorized to fetch settings for this role');
+        // Suppress expected authorization or missing scope errors
+        if (
+          e.message?.includes('Forbidden') ||
+          e.message?.includes('403') ||
+          e.message?.includes('401') ||
+          e.message?.includes('Organization not found') ||
+          e.message?.includes('404')
+        ) {
           res = null;
         } else {
           throw e;

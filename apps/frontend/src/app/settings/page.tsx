@@ -539,10 +539,15 @@ function DataPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
+import { EditProfile, ProfileData } from '@/components/ui/EditProfile';
+import { getDefaultAvatarByGender } from '@/config/avatars.config';
+import { useAuthStore } from '@/store/auth.store';
+
 export default function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<SectionId | null>(null);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -589,6 +594,64 @@ export default function SettingsPage() {
     }
   };
 
+  const formattedRole = profile?.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1).toLowerCase().replace('_', ' ') : 'Student';
+  const userGender = ((profile?.preferences as any)?.gender as 'male' | 'female' | 'other') || 'male';
+
+  const initialProfileData: ProfileData = {
+    fullName: profile ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() : 'User',
+    email: profile?.email || '',
+    gender: userGender,
+    timezone: (profile?.preferences as any)?.timezone || 'GMT-8',
+    role: formattedRole,
+    avatarUrl: profile?.avatar || getDefaultAvatarByGender(userGender),
+    lastUpdated: (profile?.preferences as any)?.lastUpdated || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+  };
+
+  const handleSaveProfile = async (updated: ProfileData) => {
+    try {
+      const parts = updated.fullName.trim().split(/\s+/);
+      const firstName = parts[0] || 'User';
+      const lastName = parts.slice(1).join(' ') || '';
+
+      const updatedPrefs = {
+        ...(profile?.preferences || {}),
+        gender: updated.gender,
+        timezone: updated.timezone,
+        lastUpdated: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      };
+
+      await apiClient.put('/auth/me/profile', {
+        firstName,
+        lastName,
+        email: updated.email,
+        avatar: updated.avatarUrl,
+      });
+
+      await apiClient.put('/auth/me/preferences', {
+        preferences: updatedPrefs,
+      });
+
+      useAuthStore.setState((state) => ({
+        user: state.user
+          ? {
+              ...state.user,
+              firstName,
+              lastName,
+              email: updated.email,
+              avatar: updated.avatarUrl,
+              preferences: updatedPrefs,
+            }
+          : null,
+      }));
+
+      toast.success('Profile updated successfully!');
+      setIsEditProfileOpen(false);
+      void loadProfile();
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update profile');
+    }
+  };
+
   if (loading) {
     return (
       <div className="dashboard-view">
@@ -632,7 +695,7 @@ export default function SettingsPage() {
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{profile?.organizationName}</span>
             </div>
           </div>
-          <button className="btn btn-secondary btn-sm" onClick={() => setActiveSection('account')}>Edit Profile</button>
+          <button className="btn btn-secondary btn-sm cursor-pointer" onClick={() => setIsEditProfileOpen(true)}>Edit Profile</button>
         </motion.div>
       </div>
 
@@ -685,6 +748,13 @@ export default function SettingsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <EditProfile
+        isOpen={isEditProfileOpen}
+        onClose={() => setIsEditProfileOpen(false)}
+        initialData={initialProfileData}
+        onSave={handleSaveProfile}
+      />
     </div>
   );
-}
+}
