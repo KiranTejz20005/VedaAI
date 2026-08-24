@@ -2,10 +2,21 @@ import prisma from '../config/prisma';
 
 
 export class CommunityService {
+  private static async getValidOrgId(orgId?: string): Promise<string | undefined> {
+    if (!orgId || typeof orgId !== 'string' || !orgId.trim()) return undefined;
+    try {
+      const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { id: true } });
+      return org ? org.id : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   /**
    * List community groups visible to the current user.
    */
   static async getGroups(organizationId: string | undefined, userId: string) {
+    const validOrgId = await CommunityService.getValidOrgId(organizationId);
     const user = await prisma.user.findUnique({ where: { id: userId } });
     const userEmail = user?.email || '';
 
@@ -20,7 +31,7 @@ export class CommunityService {
           // Public and invite-only groups in the organization
           {
             type: { in: ['PUBLIC', 'INVITE_ONLY'] },
-            ...(organizationId ? { organizationId } : {}),
+            ...(validOrgId ? { organizationId: validOrgId } : {}),
           },
           // Private groups the user is already a member of
           {
@@ -72,6 +83,7 @@ export class CommunityService {
     title?: string,
     tags?: string[]
   ) {
+    const validOrgId = await CommunityService.getValidOrgId(organizationId);
     return prisma.communityPost.create({
       data: {
         authorId,
@@ -81,7 +93,7 @@ export class CommunityService {
         visibility,
         attachments,
         tags: tags ?? [],
-        organizationId,
+        organizationId: validOrgId,
       },
       include: {
         author: { select: { id: true, firstName: true, lastName: true, role: true } },
@@ -93,11 +105,12 @@ export class CommunityService {
    * Fetch a feed of posts
    */
   static async getFeed(organizationId?: string, limit: number = 20, cursor?: string) {
+    const validOrgId = await CommunityService.getValidOrgId(organizationId);
     const whereClause: any = {};
-    if (organizationId) {
+    if (validOrgId) {
       whereClause.OR = [
         { visibility: 'PUBLIC' },
-        { organizationId, visibility: 'ORG_ONLY' },
+        { organizationId: validOrgId, visibility: 'ORG_ONLY' },
       ];
     } else {
       whereClause.visibility = 'PUBLIC';
@@ -124,13 +137,14 @@ export class CommunityService {
     type: string,
     organizationId?: string
   ) {
+    const validOrgId = await CommunityService.getValidOrgId(organizationId);
     return prisma.communityGroup.create({
       data: {
         name,
         description,
         type,
         ownerId,
-        organizationId,
+        organizationId: validOrgId,
         members: {
           create: [{ userId: ownerId, role: 'OWNER' }],
         },
@@ -457,8 +471,9 @@ export class CommunityService {
   // --- Top Contributors ---
 
   static async getTopContributors(organizationId?: string, limit = 5) {
+    const validOrgId = await CommunityService.getValidOrgId(organizationId);
     const users = await prisma.user.findMany({
-      where: organizationId ? { organizationId } : {},
+      where: validOrgId ? { organizationId: validOrgId } : {},
       include: {
         _count: {
           select: { communityPosts: true, communityComments: true }

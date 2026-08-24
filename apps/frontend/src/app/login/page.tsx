@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { motion, type Variants } from 'framer-motion';
 import { useAuthStore } from '@/store/auth.store';
 import toast from 'react-hot-toast';
-import { Mail, ArrowRight, RefreshCw, KeyRound, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Mail, ArrowRight, RefreshCw, KeyRound, AlertCircle } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
 
 // Simple Google SVG Icon
@@ -40,7 +40,7 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [selectedRole, setSelectedRole] = useState<'STUDENT' | 'TEACHER'>('STUDENT');
+  const [selectedRole, setSelectedRole] = useState<'STUDENT' | 'TEACHER' | 'ADMIN'>('STUDENT');
 
   const otpInputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -385,11 +385,13 @@ export default function LoginPage() {
           const isOnboarded =
             user?.hasCompletedOnboarding === true ||
             !!(user?.organizationId && user?.departmentId);
-          let dashboardPath = '/dashboard/student';
+          let dashboardPath = '/student';
           if (user?.role === 'TEACHER' || user?.role === 'FACULTY')
-            dashboardPath = '/dashboard/faculty';
-          if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN')
-            dashboardPath = '/dashboard/admin';
+            dashboardPath = '/faculty';
+          if (user?.role === 'ADMIN')
+            dashboardPath = '/admin';
+          if (user?.role === 'SUPER_ADMIN')
+            dashboardPath = '/super-admin';
           router.replace(isOnboarded ? dashboardPath : '/onboarding');
         } else {
           toast.error(result.error || 'Authentication failed.');
@@ -488,7 +490,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    const result = await verifyOtp(email.trim().toLowerCase(), code);
+    const result = await verifyOtp(email.trim().toLowerCase(), code, selectedRole);
     setIsSubmitting(false);
 
     if (result.success) {
@@ -497,11 +499,13 @@ export default function LoginPage() {
       const isOnboarded =
         user?.hasCompletedOnboarding === true ||
         !!(user?.organizationId && user?.departmentId);
-      let dashboardPath = '/dashboard/student';
+      let dashboardPath = '/student';
       if (user?.role === 'TEACHER' || user?.role === 'FACULTY')
-        dashboardPath = '/dashboard/faculty';
-      if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN')
-        dashboardPath = '/dashboard/admin';
+        dashboardPath = '/faculty';
+      if (user?.role === 'ADMIN')
+        dashboardPath = '/admin';
+      if (user?.role === 'SUPER_ADMIN')
+        dashboardPath = '/super-admin';
       router.replace(isOnboarded ? dashboardPath : '/onboarding');
     } else {
       setErrorMessage(result.error || 'Invalid or expired verification code. Please try again.');
@@ -565,7 +569,7 @@ export default function LoginPage() {
             {step === 'EMAIL' && (
               <motion.div variants={itemVariants} className="mb-3.5 sm:mb-4">
                 <div className="flex rounded-full bg-neutral-100 p-1 border border-neutral-200/70">
-                  {(['STUDENT', 'TEACHER'] as const).map((r) => (
+                  {(['STUDENT', 'TEACHER', 'ADMIN'] as const).map((r) => (
                     <button
                       key={r}
                       type="button"
@@ -576,7 +580,7 @@ export default function LoginPage() {
                           : 'text-neutral-500 hover:text-neutral-900'
                       }`}
                     >
-                      {r === 'TEACHER' ? 'Faculty' : 'Student'}
+                      {r === 'TEACHER' ? 'Faculty' : r === 'ADMIN' ? 'Admin' : 'Student'}
                     </button>
                   ))}
                 </div>

@@ -55,7 +55,7 @@ interface AuthStore {
   initialize: () => Promise<boolean>;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signInWithOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
-  verifyOtp: (email: string, token: string) => Promise<{ success: boolean; error?: string }>;
+  verifyOtp: (email: string, token: string, role?: 'STUDENT' | 'TEACHER' | 'ADMIN' | 'SUPER_ADMIN') => Promise<{ success: boolean; error?: string }>;
   ssoLogin: (data: {
     email: string;
     firstName?: string;
@@ -208,7 +208,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     }
   },
 
-  verifyOtp: async (email: string, token: string) => {
+  verifyOtp: async (email: string, token: string, role?: 'STUDENT' | 'TEACHER' | 'ADMIN' | 'SUPER_ADMIN') => {
     try {
       set({ isLoading: true });
       const supabase = createClient();
@@ -231,6 +231,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             lastName: data.user.user_metadata?.last_name || 'Account',
             provider: 'supabase_otp',
             token: data.session.access_token,
+            role: role || 'STUDENT',
           });
         } catch {
           const userObj: User = {
@@ -238,7 +239,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             email: data.user.email || email,
             firstName: data.user.user_metadata?.first_name || 'User',
             lastName: data.user.user_metadata?.last_name || 'Account',
-            role: 'STUDENT',
+            role: role || 'STUDENT',
             organizationId: null,
             organizationName: null,
             departmentId: null,

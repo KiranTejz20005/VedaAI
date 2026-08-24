@@ -425,16 +425,7 @@ export const googleSignin = async (req: Request, res: Response): Promise<void> =
     });
 
     if (user) {
-      // User exists. Check if they are trying to sign into the wrong profile
-      if (user.role !== role) {
-        res.status(403).json({ 
-          success: false, 
-          error: `This Google account is already linked to a ${user.role} profile. You cannot sign in to the ${role} portal.` 
-        });
-        return;
-      }
-
-      // If they signed up with local or have a new Google picture, update authProvider and avatar
+      // User exists. Update authProvider and avatar if needed
       const updateData: any = {};
       if (user.authProvider === 'LOCAL') {
         updateData.authProvider = 'GOOGLE';
@@ -1080,11 +1071,8 @@ export const ssoLogin = async (req: Request, res: Response): Promise<void> => {
     let user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     
     if (user) {
-      if (user.role !== role) {
-        res.status(403).json({ 
-          success: false, 
-          error: `This account is already linked to a ${user.role} profile. You cannot sign in to the ${role} portal.` 
-        });
+      if (user.status !== 'ACTIVE') {
+        res.status(403).json({ success: false, error: 'Account disabled' });
         return;
       }
     } else {
