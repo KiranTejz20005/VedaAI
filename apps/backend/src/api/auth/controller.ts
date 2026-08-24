@@ -647,7 +647,7 @@ export const googleSignin = async (req: Request, res: Response): Promise<void> =
       if (user.authProvider === 'LOCAL') {
         updateData.authProvider = 'GOOGLE';
       }
-      if (picture && user.avatar !== picture) {
+      if (picture && !user.avatar) {
         updateData.avatar = picture;
       }
 

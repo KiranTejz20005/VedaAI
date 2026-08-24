@@ -6,6 +6,8 @@ import { Award, Check, CheckCircle, Clock, Loader2, X, ChevronLeft } from 'lucid
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/services/api.client';
+import { DotMatrixLoading } from '@/components/ui/DotMatrixLoading';
+import { TextShimmer } from '@/components/ui/TextShimmer';
 
 // Interface matching the Quiz in practice/page.tsx
 interface Quiz {
@@ -185,8 +187,11 @@ function AttemptPageContent() {
 
   if (loading) {
     return (
-      <div className="dashboard-view" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-        <Loader2 size={32} className="animate-spin" color="var(--brand)" />
+      <div className="dashboard-view flex flex-col items-center justify-center min-h-screen gap-3 bg-neutral-50">
+        <DotMatrixLoading size={44} gridSize={5} />
+        <TextShimmer className="text-sm font-semibold text-neutral-600">
+          Loading adaptive practice questions...
+        </TextShimmer>
       </div>
     );
   }

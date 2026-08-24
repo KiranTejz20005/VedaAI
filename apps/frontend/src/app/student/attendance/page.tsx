@@ -1,13 +1,23 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { 
-  CheckCircle2, Users, CalendarDays, 
-  ChevronLeft, ChevronRight, X, Info
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  Calendar as CalendarIcon,
+  TrendingUp,
+  FileText,
 } from 'lucide-react';
+import { LoadingState } from '@/design-system/LoadingState';
+import { Button } from '@/components/ui/button';
 
 interface AttendanceRecord {
   id: string;
@@ -38,10 +48,32 @@ interface LeaveApplication {
   body?: string;
 }
 
+// ── SVG Micro Bar Chart ──
+function MetricBars({ values, color = '#e05934' }: { values: number[]; color?: string }) {
+  const max = Math.max(...values, 1);
+  return (
+    <div className="flex h-8 w-12 shrink-0 items-end justify-between gap-1">
+      {values.map((v, i) => {
+        const height = max > 0 && v > 0 ? Math.max(15, Math.round((v / max) * 100)) : 10;
+        return (
+          <span
+            key={i}
+            style={{ height: `${height}%`, backgroundColor: color }}
+            className="w-1.5 rounded-t-xs transition-all duration-300 opacity-80 hover:opacity-100"
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 export default function AttendanceDashboardPage() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
-  const [stats, setStats] = useState<AttendanceStats>({ 
-    totalClasses: 0, presentClasses: 0, percentage: 0, subjectAttendance: [] 
+  const [stats, setStats] = useState<AttendanceStats>({
+    totalClasses: 0,
+    presentClasses: 0,
+    percentage: 0,
+    subjectAttendance: [],
   });
   const [leaves, setLeaves] = useState<LeaveApplication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,7 +81,10 @@ export default function AttendanceDashboardPage() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [leaveForm, setLeaveForm] = useState({
-    title: '', subject: '', body: '', duration: ''
+    title: '',
+    subject: '',
+    body: '',
+    duration: '',
   });
   const [submittingLeave, setSubmittingLeave] = useState(false);
 
@@ -60,33 +95,27 @@ export default function AttendanceDashboardPage() {
     try {
       const month = currentMonth.getMonth();
       const year = currentMonth.getFullYear();
-      const res = await api.get<{ success: boolean; data: { records: AttendanceRecord[], stats: AttendanceStats } }>(`/attendance/student?month=${month}&year=${year}`);
-      setRecords(res.data.data.records);
-      setStats(res.data.data.stats);
+      const res = await api.get<{
+        success: boolean;
+        data: { records: AttendanceRecord[]; stats: AttendanceStats };
+      }>(`/attendance/student?month=${month}&year=${year}`);
+      setRecords(res.data.data.records || []);
+      setStats(res.data.data.stats || { totalClasses: 0, presentClasses: 0, percentage: 0, subjectAttendance: [] });
 
-      const leaveRes = await api.get<{ success: boolean; data: LeaveApplication[] }>('/attendance/student/leave');
-      setLeaves(leaveRes.data.data);
+      const leaveRes = await api.get<{ success: boolean; data: LeaveApplication[] }>(
+        '/attendance/student/leave'
+      );
+      setLeaves(leaveRes.data.data || []);
     } catch (err: any) {
       toast.error(err.message || 'Failed to load attendance');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentMonth]);
 
   useEffect(() => {
     fetchAttendance();
-  }, [fetchAttendance, currentMonth]);
-
-  useEffect(() => {
-    if (isModalOpen) {
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = 'auto';
-      };
-    } else {
-      document.body.style.overflow = 'auto';
-    }
-  }, [isModalOpen]);
+  }, [fetchAttendance]);
 
   const handleSubmitLeave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,7 +125,7 @@ export default function AttendanceDashboardPage() {
       toast.success('Leave application submitted successfully');
       setIsModalOpen(false);
       setLeaveForm({ title: '', subject: '', body: '', duration: '' });
-      fetchAttendance(); // Refresh recent notes
+      fetchAttendance();
     } catch (err: any) {
       toast.error(err.message || 'Failed to submit leave');
     } finally {
@@ -107,18 +136,11 @@ export default function AttendanceDashboardPage() {
   // Calendar Helpers
   const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
-  // Adjust so Monday is 0
   const startOffset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
-
   const prevMonthDays = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 0).getDate();
 
   const getDayStatus = (day: number) => {
-    // Generate dates based on the currently viewed month
-    // Use local time to avoid timezone offset issues making it the previous day
     const dateObj = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-    
-    // Check if it's Today
     const today = new Date();
     if (
       dateObj.getDate() === today.getDate() &&
@@ -127,459 +149,414 @@ export default function AttendanceDashboardPage() {
     ) {
       return 'TODAY';
     }
-    
-    // Check if it's a weekend (Sat/Sun)
+
     if (dateObj.getDay() === 0 || dateObj.getDay() === 6) return 'WEEKEND';
 
-    // Default real record check
-    const record = records.find(r => {
+    const record = records.find((r) => {
       const rDate = new Date(r.date);
-      return rDate.getDate() === dateObj.getDate() &&
-             rDate.getMonth() === dateObj.getMonth() &&
-             rDate.getFullYear() === dateObj.getFullYear();
+      return (
+        rDate.getDate() === dateObj.getDate() &&
+        rDate.getMonth() === dateObj.getMonth() &&
+        rDate.getFullYear() === dateObj.getFullYear()
+      );
     });
-    
-    if (record) return record.status;
 
+    if (record) return record.status;
     return 'NONE';
   };
 
   const renderCalendarCell = (day: number, isCurrentMonth: boolean) => {
     const status = isCurrentMonth ? getDayStatus(day) : 'NONE';
-    
-    let bgColor = 'transparent';
-    let textColor = '#94A3B8';
-    let dotColor = 'transparent';
 
-    if (isCurrentMonth) {
-      textColor = '#1E293B';
-      if (status === 'PRESENT') {
-        bgColor = '#F0FDF4'; // Light green
-        dotColor = '#22C55E';
-      } else if (status === 'ABSENT') {
-        bgColor = '#FEF2F2'; // Light red
-        dotColor = '#EF4444';
-      } else if (status === 'LATE') {
-        bgColor = '#FEF3C7'; // Light amber/yellow
-        dotColor = '#F59E0B';
-      } else if (status === 'EXCUSED') {
-        bgColor = '#EFF6FF'; // Light blue
-        dotColor = '#3B82F6';
-      } else if (status === 'WEEKEND') {
-        bgColor = '#F1F5F9'; // Light grey
-        textColor = '#64748B';
-      } else if (status === 'TODAY') {
-        bgColor = '#0F172A'; // Black
-        textColor = '#FFFFFF';
-        dotColor = '#F59E0B'; // Orange dot on top right
-      }
+    let cellClasses = 'bg-white border-neutral-100 text-neutral-800 hover:border-neutral-300';
+    let badge = null;
+
+    if (!isCurrentMonth) {
+      cellClasses = 'bg-neutral-50/50 border-transparent text-neutral-300 pointer-events-none';
+    } else if (status === 'PRESENT') {
+      cellClasses = 'bg-emerald-50/70 border-emerald-200 text-emerald-950 font-bold';
+      badge = <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />;
+    } else if (status === 'ABSENT') {
+      cellClasses = 'bg-rose-50/70 border-rose-200 text-rose-950 font-bold';
+      badge = <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />;
+    } else if (status === 'LATE') {
+      cellClasses = 'bg-amber-50/70 border-amber-200 text-amber-950 font-bold';
+      badge = <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />;
+    } else if (status === 'EXCUSED') {
+      cellClasses = 'bg-blue-50/70 border-blue-200 text-blue-950 font-bold';
+      badge = <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />;
+    } else if (status === 'TODAY') {
+      cellClasses = 'bg-neutral-900 border-neutral-900 text-white font-extrabold shadow-sm';
+      badge = <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />;
+    } else if (status === 'WEEKEND') {
+      cellClasses = 'bg-neutral-50 border-neutral-100 text-neutral-400 font-medium';
     }
 
     return (
-      <div 
+      <div
         key={`${isCurrentMonth ? 'curr' : 'prev'}-${day}`}
-        style={{
-          aspectRatio: '1',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: bgColor,
-          borderRadius: 12,
-          color: textColor,
-          fontWeight: status === 'TODAY' ? 700 : 600,
-          fontSize: 14,
-          position: 'relative',
-          border: status === 'NONE' && isCurrentMonth ? '1px solid #E2E8F0' : 'none',
-          boxShadow: status === 'TODAY' ? '0 10px 15px -3px rgba(15, 23, 42, 0.3)' : 'none',
-        }}
+        className={`h-12 sm:h-14 p-1.5 rounded-xl border flex flex-col justify-between items-center transition-all ${cellClasses}`}
       >
-        {day}
-        {status === 'TODAY' && (
-          <div style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: '50%', background: dotColor }} />
-        )}
-        {(status === 'PRESENT' || status === 'ABSENT') && (
-          <div style={{ width: 4, height: 4, borderRadius: '50%', background: dotColor, marginTop: 4 }} />
-        )}
+        <span className="text-xs">{day}</span>
+        {badge}
       </div>
     );
   };
 
+  if (loading) return <LoadingState lines={8} />;
+
+  const presentPercentage = stats.percentage ?? 0;
+  const daysPresent = stats.presentClasses ?? 0;
+  const totalClasses = stats.totalClasses ?? 0;
+  const absences = Math.max(0, totalClasses - daysPresent);
+
   return (
-    <div style={{ padding: 'var(--page-pad)', background: '#F8FAFC', minHeight: '100vh' }}>
-      
-      {/* Top Stats Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16, marginBottom: 16 }}>
-        
-        {/* Monthly Attendance */}
-        <div style={{ background: '#fff', borderRadius: 24, padding: 20, display: 'flex', alignItems: 'center', gap: 20, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-          <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <CheckCircle2 size={28} color="#22C55E" />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Monthly Attendance
-            </div>
-            <div style={{ fontSize: 32, fontWeight: 800, color: '#1E293B', marginTop: 2, marginBottom: 8 }}>
-              {stats.percentage ?? 0}%
-            </div>
-            <div style={{ width: '100%', height: 4, background: '#F1F5F9', borderRadius: 2 }}>
-              <div style={{ width: `${stats.percentage ?? 0}%`, height: '100%', background: '#22C55E', borderRadius: 2 }} />
-            </div>
+    <div className="flex flex-col gap-6 p-4 md:p-8 max-w-[1600px] mx-auto text-slate-900 font-sans">
+      {/* ── 1. Header Section ── */}
+      <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-1.5">
+          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-neutral-900">
+            Attendance & Leave Log
+          </h1>
+          <div className="flex items-center gap-2 text-sm text-neutral-500 font-medium">
+            <span>Track daily class attendance, view subject-wise trends, and submit institutional leaves</span>
           </div>
         </div>
 
-        {/* Total Classes */}
-        <div style={{ background: '#fff', borderRadius: 24, padding: 20, display: 'flex', alignItems: 'center', gap: 20, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-          <div style={{ width: 56, height: 56, borderRadius: 20, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Users size={28} color="#3B82F6" />
-          </div>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Total Classes
-            </div>
-            <div style={{ fontSize: 32, fontWeight: 800, color: '#1E293B', marginTop: 2, marginBottom: 4 }}>
-              {stats.totalClasses ?? 0}
-            </div>
-            {stats.diffFromLastMonth !== undefined && (
-              <div style={{ fontSize: 12, fontWeight: 600, color: stats.diffFromLastMonth >= 0 ? '#059669' : '#DC2626', display: 'flex', alignItems: 'center', gap: 4 }}>
-                {stats.diffFromLastMonth >= 0 ? (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
-                ) : (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"></polyline><polyline points="16 17 22 17 22 11"></polyline></svg>
-                )}
-                {stats.diffFromLastMonth > 0 ? '+' : ''}{stats.diffFromLastMonth} from last month
-              </div>
-            )}
-          </div>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            className="h-9.5 rounded-xl px-4 text-xs font-semibold bg-[#e05934] hover:bg-[#c94a2a] text-white shadow-xs"
+          >
+            <FileText className="size-4 mr-1" />
+            Apply for Leave
+          </Button>
         </div>
+      </section>
 
-        {/* Days Present */}
-        <div style={{ background: '#fff', borderRadius: 24, padding: 20, display: 'flex', alignItems: 'center', gap: 20, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-          <div style={{ width: 56, height: 56, borderRadius: 20, background: '#FFF7ED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <CalendarDays size={28} color="#F97316" />
-          </div>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Days Present
-            </div>
-            <div style={{ fontSize: 32, fontWeight: 800, color: '#1E293B', marginTop: 2, marginBottom: 4 }}>
-              {stats.presentClasses ?? 0}
-            </div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#DC2626' }}>
-              {(stats.totalClasses ?? 0) - (stats.presentClasses ?? 0)} Absences recorded
+      {/* ── 2. Top Stats Grid (Exact Admin Layout) ── */}
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Card 1: Attendance Rate */}
+        <article className="flex h-34 flex-col justify-between rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-xs transition-all hover:shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+              Attendance Rate
+            </h2>
+            <div className="flex size-7 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+              <CalendarIcon className="size-4" />
             </div>
           </div>
-        </div>
-
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24 }}>
-        
-        {/* Main Calendar Card */}
-        <div style={{ background: '#fff', borderRadius: 24, padding: 24, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div className="flex items-end justify-between gap-2">
             <div>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0F172A' }}>Attendance Overview</h2>
-              <div style={{ fontSize: 14, color: '#64748B', fontWeight: 500, marginTop: 4 }}>
-                {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
-              </div>
+              <p className="text-2xl font-bold tracking-tight text-neutral-900">
+                {presentPercentage}%
+              </p>
+              <p className="mt-1 text-xs font-medium text-neutral-500 flex items-center gap-1">
+                {presentPercentage >= 75 ? (
+                  <>
+                    <TrendingUp className="size-3.5 text-emerald-600" />
+                    <span className="text-emerald-600">Min 75% Requirement Met</span>
+                  </>
+                ) : (
+                  <span>Need 75% minimum</span>
+                )}
+              </p>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button 
-                onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
-                style={{ width: 36, height: 36, borderRadius: 12, background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', color: '#475569' }}
+            <MetricBars values={presentPercentage > 0 ? [Math.max(10, presentPercentage - 15), presentPercentage, presentPercentage, presentPercentage] : [0, 0, 0, 0]} color="#10b981" />
+          </div>
+        </article>
+
+        {/* Card 2: Classes Attended */}
+        <article className="flex h-34 flex-col justify-between rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-xs transition-all hover:shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+              Classes Attended
+            </h2>
+            <div className="flex size-7 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+              <CheckCircle2 className="size-4" />
+            </div>
+          </div>
+          <div className="flex items-end justify-between gap-2">
+            <div>
+              <p className="text-2xl font-bold tracking-tight text-neutral-900">
+                {daysPresent} Sessions
+              </p>
+              <p className="mt-1 text-xs font-medium text-neutral-500">
+                Out of {totalClasses} scheduled classes
+              </p>
+            </div>
+            <MetricBars values={daysPresent > 0 ? [Math.max(1, daysPresent - 3), daysPresent, daysPresent, daysPresent] : [0, 0, 0, 0]} color="#3b82f6" />
+          </div>
+        </article>
+
+        {/* Card 3: Total Absences */}
+        <article className="flex h-34 flex-col justify-between rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-xs transition-all hover:shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+              Recorded Absences
+            </h2>
+            <div className="flex size-7 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+              <AlertCircle className="size-4" />
+            </div>
+          </div>
+          <div className="flex items-end justify-between gap-2">
+            <div>
+              <p className="text-2xl font-bold tracking-tight text-neutral-900">
+                {absences} Days
+              </p>
+              <p className="mt-1 text-xs font-medium text-neutral-500">
+                {leaves.length} approved leave applications
+              </p>
+            </div>
+            <MetricBars values={absences > 0 ? [Math.max(1, absences - 1), absences, absences, absences] : [0, 0, 0, 0]} color="#f43f5e" />
+          </div>
+        </article>
+
+        {/* Card 4: Leave Balance */}
+        <article className="flex h-34 flex-col justify-between rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-xs transition-all hover:shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+              Leave Requests
+            </h2>
+            <div className="flex size-7 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+              <Clock className="size-4" />
+            </div>
+          </div>
+          <div className="flex items-end justify-between gap-2">
+            <div>
+              <p className="text-2xl font-bold tracking-tight text-neutral-900">
+                {leaves.length}
+              </p>
+              <p className="mt-1 text-xs font-medium text-neutral-500">
+                {leaves.filter(l => l.status === 'APPROVED').length} approved requests
+              </p>
+            </div>
+            <MetricBars values={leaves.length > 0 ? [leaves.length, leaves.length, leaves.length, leaves.length] : [0, 0, 0, 0]} color="#f59e0b" />
+          </div>
+        </article>
+      </section>
+
+      {/* ── 3. Main Body: Calendar & Subject Stats ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Calendar Section (Span 2) */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-neutral-200/90 p-6 shadow-xs">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-base font-semibold text-neutral-900">Monthly Attendance View</h2>
+              <p className="text-xs text-neutral-500 font-medium">
+                {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() =>
+                  setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))
+                }
+                className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center text-neutral-700 transition-colors"
               >
-                <ChevronLeft size={18} />
+                <ChevronLeft className="w-4 h-4" />
               </button>
-              <button 
-                onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
-                style={{ width: 36, height: 36, borderRadius: 12, background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', color: '#475569' }}
+              <button
+                onClick={() =>
+                  setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))
+                }
+                className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center text-neutral-700 transition-colors"
               >
-                <ChevronRight size={18} />
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(48px, 64px))', gap: 12, marginBottom: 8, justifyContent: 'center' }}>
-            {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map(day => (
-              <div key={day} style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#475569', paddingBottom: 8 }}>
+          <div className="grid grid-cols-7 gap-2 mb-4 text-center">
+            {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((day) => (
+              <span key={day} className="text-[11px] font-bold text-neutral-400 pb-1">
                 {day}
-              </div>
+              </span>
             ))}
-
-            {/* Previous Month Empty Slots */}
-            {Array.from({ length: startOffset }).map((_, i) => 
+            {Array.from({ length: startOffset }).map((_, i) =>
               renderCalendarCell(prevMonthDays - startOffset + i + 1, false)
             )}
-
-            {/* Current Month Days */}
-            {Array.from({ length: daysInMonth }).map((_, i) => 
-              renderCalendarCell(i + 1, true)
-            )}
+            {Array.from({ length: daysInMonth }).map((_, i) => renderCalendarCell(i + 1, true))}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginTop: 40, borderTop: '1px solid #F1F5F9', paddingTop: 24, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#64748B' }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#22C55E' }} /> Present
+          {/* Legend */}
+          <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-neutral-100 text-xs font-semibold text-neutral-600">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Present
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#EF4444' }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#EF4444' }} /> Absent
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Absent
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#F59E0B' }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#F59E0B' }} /> Late
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Late
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#3B82F6' }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#3B82F6' }} /> Excused
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Excused Leave
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#64748B' }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#E2E8F0' }} /> Weekend / Holiday
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#64748B' }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#0F172A' }} /> Today
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-neutral-900" /> Today
             </div>
           </div>
         </div>
 
-        {/* Right Sidebar */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          
-          {/* Subject Attendance Card */}
-          <div style={{ background: '#fff', borderRadius: 24, padding: 24, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-            <h3 style={{ fontSize: 14, fontWeight: 700, color: '#475569', marginBottom: 20 }}>Subject Attendance</h3>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {stats.subjectAttendance.length > 0 ? stats.subjectAttendance.map((sub, i) => (
-                <div key={i}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1E293B' }}>{sub.subject}</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>{sub.percentage}%</div>
+        {/* Right Column: Subject Attendance & Notes */}
+        <div className="space-y-6">
+          {/* Subject Attendance */}
+          <div className="bg-white rounded-2xl border border-neutral-200/90 p-6 shadow-xs">
+            <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-wider mb-4">
+              Subject Attendance
+            </h3>
+            <div className="space-y-4">
+              {stats.subjectAttendance && stats.subjectAttendance.length > 0 ? (
+                stats.subjectAttendance.map((sub, i) => (
+                  <div key={i}>
+                    <div className="flex justify-between items-center text-xs font-semibold text-neutral-800 mb-1.5">
+                      <span>{sub.subject}</span>
+                      <span className="font-bold text-neutral-900">{sub.percentage}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-neutral-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-neutral-900 rounded-full transition-all"
+                        style={{ width: `${sub.percentage}%` }}
+                      />
+                    </div>
                   </div>
-                  <div style={{ width: '100%', height: 6, background: '#F1F5F9', borderRadius: 3, overflow: 'hidden' }}>
-                    <div style={{ width: `${sub.percentage}%`, height: '100%', background: '#0F172A', borderRadius: 3 }} />
-                  </div>
-                </div>
-              )) : (
-                <div style={{ fontSize: 13, color: '#94A3B8', textAlign: 'center', padding: '20px 0' }}>
-                  No classes attended this month.
+                ))
+              ) : (
+                <div className="text-center py-6 text-xs text-neutral-400">
+                  No subject records found for this month.
                 </div>
               )}
             </div>
           </div>
 
-          {/* Recent Notes Card */}
-          <div style={{ background: '#fff', borderRadius: 24, padding: 24, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-            <h3 style={{ fontSize: 14, fontWeight: 700, color: '#475569', marginBottom: 16 }}>Recent Notes</h3>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              
-              {leaves.length > 0 ? leaves.map((leave, i) => (
-                <div key={i} style={{ background: '#F8FAFC', borderRadius: 16, padding: 16, display: 'flex', gap: 12 }}>
-                  <Info size={20} color="#3B82F6" style={{ flexShrink: 0, marginTop: 2 }} />
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#1E293B' }}>{leave.title}</div>
-                    <div style={{ fontSize: 12, color: '#475569', marginTop: 2, marginBottom: 8 }}>
-                      Subject: {leave.subject}<br/>{leave.body}
+          {/* Leave Applications Card */}
+          <div className="bg-white rounded-2xl border border-neutral-200/90 p-6 shadow-xs flex flex-col justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-wider mb-3">
+                Recent Leave Requests
+              </h3>
+              <div className="space-y-3 mb-4">
+                {leaves && leaves.length > 0 ? (
+                  leaves.slice(0, 3).map((l, i) => (
+                    <div key={i} className="p-3 rounded-xl bg-neutral-50 border border-neutral-100">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-neutral-900">{l.title}</span>
+                        <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-neutral-200 text-neutral-700">
+                          {l.status}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500">{l.subject} • {l.body}</p>
                     </div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Status: {leave.status}
-                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-xs text-neutral-400">
+                    No active leave applications.
                   </div>
-                </div>
-              )) : (
-                <div style={{ fontSize: 13, color: '#94A3B8', textAlign: 'center', padding: '20px 0' }}>
-                  No recent notes or leave applications.
-                </div>
-              )}
-
-              <button 
-                onClick={() => setIsModalOpen(true)}
-                style={{
-                  width: '100%',
-                  marginTop: 8,
-                  padding: '14px',
-                  borderRadius: 16,
-                  border: '2px dashed #CBD5E1',
-                  background: 'transparent',
-                  color: '#475569',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                }}
-                onMouseOver={(e) => { e.currentTarget.style.borderColor = '#94A3B8'; e.currentTarget.style.color = '#1E293B'; }}
-                onMouseOut={(e) => { e.currentTarget.style.borderColor = '#CBD5E1'; e.currentTarget.style.color = '#475569'; }}
-              >
-                Submit Leave Application
-              </button>
-
+                )}
+              </div>
             </div>
-          </div>
 
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="w-full py-2.5 rounded-xl border border-dashed border-neutral-300 hover:border-neutral-400 text-neutral-700 text-xs font-bold text-center transition-colors"
+            >
+              + Submit New Leave Application
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Leave Application Modal with Background Blocking */}
+      {/* ── 4. Leave Application Modal ── */}
       <AnimatePresence>
         {isModalOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              style={{
-                position: 'fixed',
-                top: 0, left: 0, width: '100vw', height: '100vh',
-                background: 'rgba(15, 23, 42, 0.6)',
-                backdropFilter: 'blur(8px)',
-                zIndex: 9999,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              onClick={() => setIsModalOpen(false)} // Optional: close on backdrop click, but we can disable if strict
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-neutral-200 relative"
             >
-              {/* Modal Content */}
-              <motion.div 
-                initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
-                style={{
-                  background: '#ffffff',
-                  width: '100%',
-                  maxWidth: 500,
-                  borderRadius: 24,
-                  padding: 32,
-                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                  position: 'relative',
-                  pointerEvents: 'auto'
-                }}
-              >
-                <button 
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-neutral-900">Submit Leave Application</h3>
+                <button
                   onClick={() => setIsModalOpen(false)}
-                  style={{
-                    position: 'absolute', top: 24, right: 24,
-                    width: 32, height: 32, borderRadius: 16,
-                    background: '#F1F5F9', border: 'none',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', color: '#475569'
-                  }}
+                  className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center text-neutral-500"
                 >
-                  <X size={16} />
+                  <X className="w-4 h-4" />
                 </button>
+              </div>
 
-                <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0F172A', marginBottom: 8 }}>
-                  Submit Leave Application
-                </h2>
-                <p style={{ fontSize: 14, color: '#64748B', marginBottom: 24 }}>
-                  Fill in the details below to request a leave of absence.
-                </p>
+              <form onSubmit={handleSubmitLeave} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 mb-1">Reason / Title</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g., Medical Leave, Family Event"
+                    value={leaveForm.title}
+                    onChange={(e) => setLeaveForm({ ...leaveForm, title: e.target.value })}
+                    className="w-full p-2.5 text-xs border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#e05934] focus:outline-none"
+                  />
+                </div>
 
-                <form onSubmit={handleSubmitLeave} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  
-                  <div>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 8 }}>
-                      Application Title
-                    </label>
-                    <input 
-                      type="text"
-                      required
-                      value={leaveForm.title}
-                      onChange={e => setLeaveForm({...leaveForm, title: e.target.value})}
-                      placeholder="e.g., Medical Leave"
-                      style={{
-                        width: '100%', padding: '12px 16px', borderRadius: 12,
-                        border: '1px solid #E2E8F0', fontSize: 14, outline: 'none'
-                      }}
-                      autoFocus
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 mb-1">Subject / Department</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g., All Classes or Specific Course"
+                    value={leaveForm.subject}
+                    onChange={(e) => setLeaveForm({ ...leaveForm, subject: e.target.value })}
+                    className="w-full p-2.5 text-xs border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#e05934] focus:outline-none"
+                  />
+                </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 8 }}>
-                        Subject / Category
-                      </label>
-                      <input 
-                        type="text"
-                        required
-                        value={leaveForm.subject}
-                        onChange={e => setLeaveForm({...leaveForm, subject: e.target.value})}
-                        placeholder="e.g., General Absence"
-                        style={{
-                          width: '100%', padding: '12px 16px', borderRadius: 12,
-                          border: '1px solid #E2E8F0', fontSize: 14, outline: 'none'
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 8 }}>
-                        Duration
-                      </label>
-                      <input 
-                        type="text"
-                        required
-                        value={leaveForm.duration}
-                        onChange={e => setLeaveForm({...leaveForm, duration: e.target.value})}
-                        placeholder="e.g., 2 Days (Oct 14-15)"
-                        style={{
-                          width: '100%', padding: '12px 16px', borderRadius: 12,
-                          border: '1px solid #E2E8F0', fontSize: 14, outline: 'none'
-                        }}
-                      />
-                    </div>
-                  </div>
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 mb-1">Duration</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g., 2 Days (Feb 25 - Feb 26)"
+                    value={leaveForm.duration}
+                    onChange={(e) => setLeaveForm({ ...leaveForm, duration: e.target.value })}
+                    className="w-full p-2.5 text-xs border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#e05934] focus:outline-none"
+                  />
+                </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 8 }}>
-                      Reason for Leave
-                    </label>
-                    <textarea 
-                      required
-                      value={leaveForm.body}
-                      onChange={e => setLeaveForm({...leaveForm, body: e.target.value})}
-                      placeholder="Please explain the reason for your leave application in detail..."
-                      style={{
-                        width: '100%', padding: '12px 16px', borderRadius: 12,
-                        border: '1px solid #E2E8F0', fontSize: 14, outline: 'none',
-                        minHeight: 100, resize: 'vertical'
-                      }}
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 mb-1">Details & Remarks</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Provide additional details for the department head..."
+                    value={leaveForm.body}
+                    onChange={(e) => setLeaveForm({ ...leaveForm, body: e.target.value })}
+                    className="w-full p-2.5 text-xs border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#e05934] focus:outline-none resize-none"
+                  />
+                </div>
 
-                  <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-                    <button 
-                      type="button"
-                      onClick={() => setIsModalOpen(false)}
-                      style={{
-                        flex: 1, padding: '12px', borderRadius: 12, border: '1px solid #E2E8F0',
-                        background: '#ffffff', color: '#475569', fontWeight: 600, cursor: 'pointer'
-                      }}
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      type="submit"
-                      disabled={submittingLeave}
-                      style={{
-                        flex: 2, padding: '12px', borderRadius: 12, border: 'none',
-                        background: '#0F172A', color: '#ffffff', fontWeight: 600, cursor: 'pointer',
-                        opacity: submittingLeave ? 0.7 : 1
-                      }}
-                    >
-                      {submittingLeave ? 'Submitting...' : 'Submit Application'}
-                    </button>
-                  </div>
-                </form>
-
-              </motion.div>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="submit"
+                    disabled={submittingLeave}
+                    className="flex-1 py-2.5 rounded-xl bg-[#e05934] hover:bg-[#c94a2a] text-white text-xs font-bold transition-colors"
+                  >
+                    {submittingLeave ? 'Submitting...' : 'Send Application'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2.5 rounded-xl border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-xs font-semibold"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </motion.div>
-          </>
+          </div>
         )}
       </AnimatePresence>
-
     </div>
   );
 }

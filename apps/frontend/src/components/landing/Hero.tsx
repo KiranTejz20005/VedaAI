@@ -2,6 +2,7 @@ import React from "react";
 import { Calendar, ArrowUpRight } from "lucide-react";
 import { motion } from "framer-motion";
 import DashboardMockup from "./DashboardMockup";
+import { WaitlistButton } from "@/components/ui/WaitlistButton";
 
 interface HeroProps {
   onBookMeeting: () => void;
@@ -57,13 +58,11 @@ export default function Hero({ onBookMeeting }: HeroProps) {
           transition={{ duration: 0.5, delay: 0.3 }}
           className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
         >
-          <button
+          <WaitlistButton
+            label="Join Waitlist"
+            tooltipTitle="15k+ educators & schools enrolled"
             onClick={onBookMeeting}
-            className="w-full sm:w-auto px-7 py-3 rounded-full bg-[#e05934] text-white hover:bg-[#c94a2a] font-semibold text-xs sm:text-sm tracking-wide shadow-md hover:shadow-xl hover:-translate-y-0.5 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2"
-          >
-            <Calendar className="w-4 h-4" />
-            Book a meeting
-          </button>
+          />
           
           <a
             href="#teachers"

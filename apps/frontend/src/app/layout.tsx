@@ -10,10 +10,16 @@ export const metadata: Metadata = {
   description:
     'Generate professional exam papers in seconds with AI. Vidya AI helps educators create structured, high-quality assessments effortlessly.',
   keywords: ['AI assessment', 'exam generator', 'question paper', 'teacher tools', 'education AI'],
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
   openGraph: {
     title: 'Vidya AI — AI-Powered Assessment Creator',
     description: 'Generate professional exam papers in seconds with AI.',
     type: 'website',
+    images: ['/logo.png'],
   },
 };
 
