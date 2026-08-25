@@ -59,6 +59,7 @@ interface ExamPaperBlueprintModalProps {
   courseName: string;
   academicYear?: string;
   department?: string;
+  onRegenerateQuestions?: (bpId: string) => void;
 }
 
 export const ExamPaperBlueprintModal: React.FC<ExamPaperBlueprintModalProps> = ({
@@ -68,7 +69,8 @@ export const ExamPaperBlueprintModal: React.FC<ExamPaperBlueprintModalProps> = (
   courseCode,
   courseName,
   academicYear = '2025-2026',
-  department = 'Computer Science & Engineering'
+  department = 'Computer Science & Engineering',
+  onRegenerateQuestions
 }) => {
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -104,7 +106,7 @@ export const ExamPaperBlueprintModal: React.FC<ExamPaperBlueprintModalProps> = (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl border border-neutral-200 max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col my-8 max-h-[90vh]">
         {/* Modal Header */}
-        <div className="px-6 py-4 bg-neutral-900 text-white flex items-center justify-between">
+        <div className="px-6 py-4 bg-neutral-900 text-white flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-orange-500 text-white">
               <FileText className="size-5" />
@@ -120,11 +122,19 @@ export const ExamPaperBlueprintModal: React.FC<ExamPaperBlueprintModalProps> = (
           </div>
 
           <div className="flex items-center gap-2">
+            {onRegenerateQuestions && (
+              <button
+                onClick={() => onRegenerateQuestions(blueprint.id)}
+                className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Sparkles className="size-3.5" /> ⚡ AI Regenerate Questions
+              </button>
+            )}
             <button
               onClick={handleExportCSV}
               className="px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-xs font-bold text-white flex items-center gap-1.5 border border-neutral-700 cursor-pointer"
             >
-              <Download className="size-3.5" /> Export CSV / Excel
+              <Download className="size-3.5" /> Export CSV
             </button>
             <button
               onClick={handlePrint}

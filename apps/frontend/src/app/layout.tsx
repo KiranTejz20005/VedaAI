@@ -11,9 +11,12 @@ export const metadata: Metadata = {
     'Generate professional exam papers in seconds with AI. Vidya AI helps educators create structured, high-quality assessments effortlessly.',
   keywords: ['AI assessment', 'exam generator', 'question paper', 'teacher tools', 'education AI'],
   icons: {
-    icon: '/logo.png',
-    shortcut: '/logo.png',
-    apple: '/logo.png',
+    icon: [
+      { url: '/logo-icon.png', type: 'image/png' },
+      { url: '/logo.png', type: 'image/png' },
+    ],
+    shortcut: '/logo-icon.png',
+    apple: '/logo-icon.png',
   },
   openGraph: {
     title: 'Vidya AI — AI-Powered Assessment Creator',
@@ -31,6 +34,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link rel="icon" type="image/png" href="/logo-icon.png" sizes="any" />
+        <link rel="shortcut icon" type="image/png" href="/logo-icon.png" />
+        <link rel="apple-touch-icon" href="/logo-icon.png" />
         {/*
           Inline synchronous script — runs BEFORE React hydration.
           This uses a MutationObserver to catch and remove `bis_skin_checked` and similar attrs
