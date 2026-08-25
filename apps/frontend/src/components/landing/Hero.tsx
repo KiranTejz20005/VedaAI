@@ -1,5 +1,5 @@
 import React from "react";
-import { Calendar, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { motion } from "framer-motion";
 import DashboardMockup from "./DashboardMockup";
 import { WaitlistButton } from "@/components/ui/WaitlistButton";

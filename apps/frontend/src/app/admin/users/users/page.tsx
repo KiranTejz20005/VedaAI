@@ -19,17 +19,13 @@ import {
   TrendingUp,
   Calendar,
   Eye,
-  ShieldCheck,
-  Phone,
   AlertCircle,
   FileSpreadsheet,
-  Download,
-  BookOpen,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatDate } from '@/utils/format';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/base-ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/base-ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Pagination } from '@/components/ui/Pagination';
 import {

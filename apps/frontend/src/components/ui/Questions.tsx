@@ -10,7 +10,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Send,
-  HelpCircle,
   X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';

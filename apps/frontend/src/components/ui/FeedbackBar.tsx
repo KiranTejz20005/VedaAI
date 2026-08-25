@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ThumbsUp, ThumbsDown, X, Check, MessageSquare, Send } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, X, Check, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export interface FeedbackBarProps {

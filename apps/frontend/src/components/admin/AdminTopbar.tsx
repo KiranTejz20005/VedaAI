@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Menu, ShieldAlert, ArrowLeft, ChevronDown, LogOut, Settings, Building2, Search, Bell } from 'lucide-react';
+import { Menu, ShieldAlert, ArrowLeft, ChevronDown, LogOut, Settings, Building2 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { useAuthStore } from '@/store/auth.store';
 import { useAdminAuthStore } from '@/store/admin-auth.store';
@@ -27,9 +27,9 @@ export function AdminTopbar() {
     if (success) {
       const state = useAuthStore.getState();
       if (state.user?.role === 'SUPER_ADMIN') {
-        window.location.href = '/super-admin';
+        window.location.assign('/super-admin');
       } else {
-        window.location.href = '/dashboard';
+        window.location.assign('/dashboard');
       }
     }
   };

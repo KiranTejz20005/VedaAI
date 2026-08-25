@@ -10,11 +10,7 @@ import {
   FileText,
   Bookmark,
   Sparkles,
-  Download,
   Quote,
-  CheckCircle2,
-  ExternalLink,
-  Layers,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {

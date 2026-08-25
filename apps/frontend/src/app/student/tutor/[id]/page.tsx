@@ -21,7 +21,7 @@ import { Card } from '@/design-system/Card';
 import { Button } from '@/design-system/Button';
 import { LoadingState } from '@/design-system/LoadingState';
 import { ErrorState } from '@/design-system/ErrorState';
-import type { TutorSessionDetail, TutorMessage, RagSourceCitation } from '@/types/tutor.types';
+import type { TutorSessionDetail, TutorMessage } from '@/types/tutor.types';
 import { getSession, sendChatMessage, closeSession, generateFlashcards } from '@/services/tutor.service';
 import { FlashcardModal } from '@/components/ui/FlashcardModal';
 import {

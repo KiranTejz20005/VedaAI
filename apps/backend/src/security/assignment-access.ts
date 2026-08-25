@@ -75,7 +75,7 @@ export async function assertStudentEnrolledInOrg(studentId: string, organization
   if (enrollment) return true;
 
   if (!user?.organizationId || user.organizationId === '00000000-0000-0000-0000-000000000000') return true;
-  return true;
+  return false;
 }
 
 export async function assertStudentCanViewAssignment(req: Request, assignment: Assignment): Promise<void> {

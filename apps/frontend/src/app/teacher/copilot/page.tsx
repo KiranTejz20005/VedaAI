@@ -17,9 +17,6 @@ import {
   FileSignature,
   Paperclip,
   Target,
-  Gauge,
-  Clock,
-  Cpu,
 } from 'lucide-react';
 import { PageHeader } from '@/design-system/PageHeader';
 import { Card } from '@/design-system/Card';
@@ -40,7 +37,6 @@ import {
   ChainOfThoughtStep,
   ChainOfThoughtStepTitle,
   ChainOfThoughtStepContent,
-  ChainOfThoughtComplete,
 } from '@/components/ui/ChainOfThought';
 import {
   Reasoning,
