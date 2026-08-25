@@ -42,10 +42,17 @@ export default function AssignmentsPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await api.get<{ data: { assignments: Assignment[] } }>('/assignments');
-      setAssignments(res.data?.data?.assignments || []);
+      const res = await api.get('/assignments?limit=100');
+      const list: Assignment[] = Array.isArray(res.data?.data)
+        ? res.data.data
+        : Array.isArray((res.data as any)?.data?.assignments)
+        ? (res.data as any).data.assignments
+        : Array.isArray(res.data)
+        ? (res.data as any)
+        : [];
+      setAssignments(list);
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Failed to load assignments');
+      setError(err?.response?.data?.error || err?.message || 'Failed to load assignments');
     } finally {
       setLoading(false);
     }

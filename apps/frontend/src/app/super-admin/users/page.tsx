@@ -161,6 +161,47 @@ export default function GlobalUsersDirectory() {
     }
   };
 
+  const handleToggleSuspendUser = async (u: UnifiedUser) => {
+    setActiveActionMenu(null);
+    const isSuspended = u.status === 'SUSPENDED';
+    if (!confirm(`Are you sure you want to ${isSuspended ? 'activate' : 'suspend'} ${u.firstName} ${u.lastName} (${u.email})?`)) return;
+    try {
+      await api.put(`/admin/users/${u.id}/suspend`, { suspend: !isSuspended });
+      toast.success(`User ${isSuspended ? 'activated' : 'suspended'} successfully.`);
+      fetchDirectoryData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to update user status');
+    }
+  };
+
+  const handleResetPassword = async (u: UnifiedUser) => {
+    setActiveActionMenu(null);
+    if (!confirm(`Generate a temporary password reset for ${u.firstName} ${u.lastName}?`)) return;
+    try {
+      const res = await api.post(`/admin/users/${u.id}/reset-password`);
+      const tempPass = res.data?.data?.tempPassword || res.data?.tempPassword;
+      if (tempPass) {
+        toast.success(`Temporary password: ${tempPass}`, { duration: 10000 });
+      } else {
+        toast.success('Password reset initiated successfully.');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || err.message || 'Password reset failed');
+    }
+  };
+
+  const handleDeleteUser = async (u: UnifiedUser) => {
+    setActiveActionMenu(null);
+    if (!confirm(`Permanently remove ${u.firstName} ${u.lastName} (${u.email})? This action cannot be undone.`)) return;
+    try {
+      await api.delete(`/admin/users/${u.id}`);
+      toast.success('User removed successfully.');
+      fetchDirectoryData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || err.message || 'Delete user failed');
+    }
+  };
+
   useEffect(() => {
     if (isEmailManuallyEdited) return;
     if (!newUserForm.firstName && !newUserForm.lastName) {
@@ -460,33 +501,26 @@ export default function GlobalUsersDirectory() {
                             <MoreVertical className="w-4 h-4" />
                           </button>
                           {activeActionMenu === u.id && (
-                            <div className="absolute right-0 mt-1 w-36 rounded-xl bg-white border border-neutral-200 shadow-lg py-1 z-20 text-xs text-left">
+                            <div className="absolute right-0 mt-1 w-40 rounded-xl bg-white border border-neutral-200 shadow-lg py-1 z-20 text-xs text-left">
                               <button
-                                onClick={() => {
-                                  setActiveActionMenu(null);
-                                  toast.success(`Profile viewed for ${u.firstName}`);
-                                }}
-                                className="w-full px-3 py-2 text-neutral-700 hover:bg-neutral-50 text-left font-medium"
+                                onClick={() => handleResetPassword(u)}
+                                className="w-full px-3 py-2 text-neutral-700 hover:bg-neutral-50 text-left font-medium flex items-center justify-between"
                               >
-                                View Profile
+                                <span>Reset Password</span>
                               </button>
                               <button
-                                onClick={() => {
-                                  setActiveActionMenu(null);
-                                  toast.success('Password reset link generated');
-                                }}
-                                className="w-full px-3 py-2 text-neutral-700 hover:bg-neutral-50 text-left font-medium"
+                                onClick={() => handleToggleSuspendUser(u)}
+                                className={`w-full px-3 py-2 text-left font-medium ${
+                                  u.status === 'SUSPENDED' ? 'text-emerald-600 hover:bg-emerald-50' : 'text-amber-600 hover:bg-amber-50'
+                                }`}
                               >
-                                Reset Password
+                                {u.status === 'SUSPENDED' ? 'Activate Account' : 'Suspend Account'}
                               </button>
                               <button
-                                onClick={() => {
-                                  setActiveActionMenu(null);
-                                  toast.error(`User suspended: ${u.email}`);
-                                }}
-                                className="w-full px-3 py-2 text-rose-600 hover:bg-rose-50 text-left font-medium"
+                                onClick={() => handleDeleteUser(u)}
+                                className="w-full px-3 py-2 text-rose-600 hover:bg-rose-50 text-left font-medium border-t border-neutral-100"
                               >
-                                Suspend Account
+                                Delete User
                               </button>
                             </div>
                           )}
